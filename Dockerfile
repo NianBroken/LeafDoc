@@ -1,23 +1,25 @@
 # Step 1: Frontend
 FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS frontend-build
-WORKDIR /app
+WORKDIR /app/ui/leafwiki-ui
 ARG APP_VERSION
 COPY ./ui/leafwiki-ui/package*.json ./
 RUN npm ci --ignore-scripts
 COPY ./ui/leafwiki-ui/ ./
+COPY ./scripts/sync-error-catalogs.mjs /app/scripts/sync-error-catalogs.mjs
+RUN mkdir -p /app/internal/core/localization
 RUN VITE_API_URL=/ APP_VERSION=${APP_VERSION} npm run build
 
 # Step 2: Backend + Build binary
 FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS backend-build
 WORKDIR /app
 ARG APP_VERSION
-ARG DISABLE_REFRESH_TOKEN_RATE_LIMIT=false
+ARG RATE_LIMIT_BYPASS=false
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=frontend-build /app/dist ./internal/http/dist
+COPY --from=frontend-build /app/ui/leafwiki-ui/dist ./internal/http/dist
 RUN CGO_ENABLED=0 go build \
-	-ldflags="-s -w -X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production -X main.Version=${APP_VERSION} -X github.com/perber/wiki/internal/wiki/auth.DisableRefreshTokenRateLimit=${DISABLE_REFRESH_TOKEN_RATE_LIMIT}" \
+	-ldflags="-s -w -X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production -X main.Version=${APP_VERSION} -X github.com/perber/wiki/internal/wiki/auth.DisableRefreshTokenRateLimit=${RATE_LIMIT_BYPASS}" \
 	-o /out/leafwiki ./cmd/leafwiki
 
 # Step 3: Final image (small)

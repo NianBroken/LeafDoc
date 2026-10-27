@@ -37,7 +37,7 @@ changelog() {
 
 expect_line() {
     local name="$1" output="$2" line="$3"
-    if grep -qxF -- "$line" <<< "$output"; then
+    if while IFS= read -r actual; do [[ "$actual" == "$line" ]] && exit 0; done <<< "$output"; then
         echo "PASS $name: has '$line'"
     else
         echo "FAIL $name: missing '$line'"

@@ -231,9 +231,9 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 
 	w, err := wiki.NewWiki(&wiki.WikiOptions{
 		StorageDir:             cfg.server.dataDir,
-		AdminUsername:          "NianBroken",
+		AdminUsername:          cfg.auth.adminUsername,
 		AdminEmail:             cfg.auth.adminEmail,
-		AdminPassword:          "Nian123456",
+		AdminPassword:          cfg.auth.adminPassword,
 		JWTSecret:              cfg.auth.jwtSecret,
 		AccessTokenTimeout:     cfg.auth.accessTokenTimeout,
 		RefreshTokenTimeout:    cfg.auth.refreshTokenTimeout,

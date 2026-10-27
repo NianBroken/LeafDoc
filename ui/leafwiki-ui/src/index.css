@@ -877,7 +877,7 @@
   }
 
   .login__forgot-password {
-    @apply text-muted-foreground hover:text-interface-text block w-fit mx-auto text-center text-sm underline-offset-2 transition-colors hover:underline;
+    @apply text-muted-foreground hover:text-interface-text mx-auto block w-fit text-center text-sm underline-offset-2 transition-colors hover:underline;
   }
 
   .editor-title-bar {

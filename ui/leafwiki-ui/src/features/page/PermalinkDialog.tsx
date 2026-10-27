@@ -102,7 +102,11 @@ export function PermalinkDialog({ page }: PermalinkDialogProps) {
           ) : (
             <Lock className="mt-0.5 h-4 w-4 shrink-0" />
           )}
-          <span>{t(`permalinkDialog.accessNote.${publicAccess ? 'public' : 'private'}`)}</span>
+          <span>
+            {t(
+              `permalinkDialog.accessNote.${publicAccess ? 'public' : 'private'}`,
+            )}
+          </span>
         </div>
       </div>
     </BaseDialog>

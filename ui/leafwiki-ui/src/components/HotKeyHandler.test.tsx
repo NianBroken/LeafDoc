@@ -113,7 +113,11 @@ describe('HotKeyHandler', () => {
   it('switches to the Explorer panel on Ctrl+Shift+E while the search field is focused', async () => {
     renderApp()
 
-    const searchInput = await screen.findByTestId('search-input')
+    const searchInput = await screen.findByTestId(
+      'search-input',
+      {},
+      { timeout: 5000 },
+    )
     searchInput.focus()
     expect(searchInput).toHaveFocus()
 

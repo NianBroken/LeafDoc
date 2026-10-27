@@ -25,6 +25,8 @@ with tempfile.TemporaryDirectory(prefix='leafwiki-acceptance-') as data:
         s.bind(('127.0.0.1',0)); port=s.getsockname()[1]
     env=os.environ.copy(); env['LEAFWIKI_JWT_SECRET']=secrets.token_urlsafe(64)
     output=(Path(data)/'acceptance-server.log').open('wb')
+    env['LEAFWIKI_ADMIN_USERNAME']='NianBroken'
+    env['LEAFWIKI_ADMIN_PASSWORD']='Nian123456'
     process=subprocess.Popen([str(BINARY),'--host','127.0.0.1','--port',str(port),'--data-dir',data,'--allow-insecure','--enable-revision'],env=env,stdout=output,stderr=output)
     base=f'http://127.0.0.1:{port}'
     jars=[http.cookiejar.CookieJar() for _ in range(3)]

@@ -73,7 +73,8 @@ export default function SnapshotSettings() {
   const [isSelfRestarting, setIsSelfRestarting] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [isRestoringUpload, setIsRestoringUpload] = useState(false)
-  const [settingsDraft, setSettingsDraft] = useState<SnapshotSettingsValue | null>(null)
+  const [settingsDraft, setSettingsDraft] =
+    useState<SnapshotSettingsValue | null>(null)
   const [retentionInput, setRetentionInput] = useState('')
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsError, setSettingsError] = useState('')
@@ -108,7 +109,7 @@ export default function SnapshotSettings() {
       retentionCount: count,
       runOnStartup:
         settingsDraft.enabled && settingsDraft.mode === 'interval'
-          ? settings?.runOnStartup ?? false
+          ? (settings?.runOnStartup ?? false)
           : false,
     }
     setSettingsSaving(true)
@@ -363,7 +364,10 @@ export default function SnapshotSettings() {
       </div>
 
       {!isLoading && enabled && settingsDraft && (
-        <div className="settings__section" data-testid="snapshot-schedule-settings">
+        <div
+          className="settings__section"
+          data-testid="snapshot-schedule-settings"
+        >
           <h2 className="settings__section-title">{t('settings.title')}</h2>
           <p className="settings__section-description">
             {t('settings.description')}
@@ -380,7 +384,7 @@ export default function SnapshotSettings() {
                     runOnStartup: false,
                   })
                 }
-                className="mt-1 accent-brand"
+                className="accent-brand mt-1"
                 data-testid="snapshot-schedule-enabled"
               />
               <span>

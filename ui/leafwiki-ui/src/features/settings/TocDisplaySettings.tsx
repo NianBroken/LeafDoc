@@ -45,7 +45,7 @@ export default function TocDisplaySettings() {
                 value={value}
                 checked={mode === value}
                 onChange={() => void apply(value)}
-                className="mt-1 accent-brand"
+                className="accent-brand mt-1"
               />
               <span className="flex flex-col gap-1">
                 <span className="text-interface-text text-sm font-medium">

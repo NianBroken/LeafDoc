@@ -1,7 +1,7 @@
 # Stage 1: Frontend build
 FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS frontend
 
-WORKDIR /ui
+WORKDIR /app/ui/leafwiki-ui
 ARG APP_VERSION
 
 COPY ./ui/leafwiki-ui/package.json ./package.json
@@ -9,6 +9,8 @@ COPY ./ui/leafwiki-ui/package-lock.json ./package-lock.json
 RUN npm ci --ignore-scripts
 
 COPY ./ui/leafwiki-ui/ ./
+COPY ./scripts/sync-error-catalogs.mjs /app/scripts/sync-error-catalogs.mjs
+RUN mkdir -p /app/internal/core/localization
 RUN VITE_API_URL=/ APP_VERSION=${APP_VERSION} npm run build
 
 # Stage 2: Go backend build
@@ -32,7 +34,7 @@ RUN go mod download
 COPY . .
 
 # Copy built frontend
-COPY --from=frontend /ui/dist ./internal/http/dist
+COPY --from=frontend /app/ui/leafwiki-ui/dist ./internal/http/dist
 
 RUN go build \
   -ldflags="-s -w -X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production -X main.Version=${APP_VERSION}" \

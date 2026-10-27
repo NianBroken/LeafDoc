@@ -59,7 +59,7 @@ build_frontend_for_local_e2e() {
 start_docker() {
   echo "🟢 Starting Docker container..."
   docker build \
-    --build-arg DISABLE_REFRESH_TOKEN_RATE_LIMIT=true \
+    --build-arg RATE_LIMIT_BYPASS=true \
     -t wiki-e2e-tests \
     "$repo_root"
 

@@ -71,7 +71,7 @@ func (s *UserService) InitDefaultAdmin(username, email, newPassword string) erro
 	} else if !errors.Is(err, ErrUserNotFound) {
 		return err
 	}
-	// Explicit credentials are used by isolated library consumers; the server supplies the fixed bootstrap pair.
+	// Initial credentials come from the caller; empty values use the service defaults.
 	username = defaultIfEmpty(username, defaultAdminUsername)
 	newPassword = defaultIfEmpty(newPassword, defaultAdminPassword)
 	if len(newPassword) < MinPasswordLength {
