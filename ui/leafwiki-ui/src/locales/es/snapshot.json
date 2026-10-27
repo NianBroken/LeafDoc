@@ -41,7 +41,7 @@
   "createNow": "Crear copia de seguridad ahora",
   "creating": "Creando…",
   "listSectionTitle": "Copias de seguridad disponibles",
-  "listSectionDescription": "Descarga una copia de seguridad para restaurarla manualmente: detén el servidor, extrae el ZIP en el directorio de datos y reinícialo. Consulta el README para ver el procedimiento completo de restauración.",
+  "listSectionDescription": "Descarga una copia de seguridad para restaurarla manualmente: detén el servidor, extrae el ZIP en el directorio de datos y reinícialo.",
   "listEmpty": "Todavía no hay copias de seguridad.",
   "columnDate": "Creada",
   "columnSize": "Tamaño",

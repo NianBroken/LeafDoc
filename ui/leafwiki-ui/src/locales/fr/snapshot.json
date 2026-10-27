@@ -41,7 +41,7 @@
   "createNow": "Créer une sauvegarde maintenant",
   "creating": "Création…",
   "listSectionTitle": "Sauvegardes disponibles",
-  "listSectionDescription": "Téléchargez une sauvegarde pour la restaurer manuellement : arrêtez le serveur, extrayez le ZIP dans votre répertoire de données, puis redémarrez. Consultez le README pour la procédure de restauration complète.",
+  "listSectionDescription": "Téléchargez une sauvegarde pour la restaurer manuellement : arrêtez le serveur, extrayez le ZIP dans votre répertoire de données, puis redémarrez.",
   "listEmpty": "Aucune sauvegarde pour le moment.",
   "columnDate": "Créée le",
   "columnSize": "Taille",

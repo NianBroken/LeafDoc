@@ -2,7 +2,7 @@ import { DIALOG_DELETE_PAGE_CONFIRMATION } from '@/lib/registries'
 import type { PageNode } from '@/lib/api/pages'
 import { useDialogsStore } from '@/stores/dialogs'
 import { useTreeStore } from '@/stores/tree'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import type React from 'react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -112,7 +112,9 @@ describe('TreeNode delete-target highlight', () => {
       'true',
     )
 
-    useDialogsStore.setState({ dialogType: null, dialogProps: null })
+    act(() => {
+      useDialogsStore.setState({ dialogType: null, dialogProps: null })
+    })
     rerender(
       <MemoryRouter>
         <TreeNode node={node} />

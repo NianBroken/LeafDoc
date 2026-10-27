@@ -2,14 +2,13 @@ import { toast } from 'sonner'
 import i18next from '@/lib/i18n'
 import { useSessionStore } from '@/stores/session'
 import { useUserStore } from '@/stores/users'
-// EventSource reconnects automatically; every reconnect fetches authoritative shared state.
 import { API_BASE_URL } from '@/lib/config'
 import { useConfigStore } from '@/stores/config'
 import { useBrandingStore } from '@/stores/branding'
 export function startSettingsSync() {
-  const source = new EventSource(`${API_BASE_URL}/api/settings/events`, {
-    withCredentials: true,
-  })
+  const retryDelayMs = 3000
+  let cursor = ''
+  let retryTimer: ReturnType<typeof setTimeout> | undefined
   let running = false,
     again = false,
     stopped = false
@@ -39,16 +38,55 @@ export function startSettingsSync() {
       running = false
     }
   }
-  source.onmessage = () => {
-    void refresh()
+  // Complete bounded requests even when the view is unloaded. No streaming body
+  // remains half-read at the proxy, and at most one request is active per view.
+  const poll = async () => {
+    try {
+      const query = new URLSearchParams({ poll: 'true', cursor })
+      const response = await fetch(
+        `${API_BASE_URL}/api/settings/events?${query}`,
+        {
+          credentials: 'include',
+          keepalive: true,
+        },
+      )
+      if (!response.ok)
+        throw new Error(`Settings sync: HTTP ${response.status}`)
+      const next: unknown = await response.json()
+      if (
+        typeof next !== 'object' ||
+        next === null ||
+        !('cursor' in next) ||
+        typeof next.cursor !== 'string' ||
+        !next.cursor
+      )
+        throw new Error('Settings sync: invalid response')
+      if (stopped) return
+      if (next.cursor !== cursor) {
+        cursor = next.cursor
+        await refresh()
+      }
+      if (!stopped) void poll()
+    } catch (error) {
+      if (stopped) return
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : i18next.t('configLoad.errorFallback', { ns: 'common' }),
+      )
+      retryTimer = setTimeout(() => {
+        void poll()
+      }, retryDelayMs)
+    }
   }
+  void poll()
   const visible = () => {
     if (document.visibilityState === 'visible') void refresh()
   }
   document.addEventListener('visibilitychange', visible)
   return () => {
     stopped = true
-    source.close()
+    clearTimeout(retryTimer)
     document.removeEventListener('visibilitychange', visible)
   }
 }

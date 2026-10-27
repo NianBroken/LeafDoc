@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -71,7 +71,9 @@ describe('PermalinkDialog', () => {
 
   it('updates the note when public access changes', () => {
     const { rerender } = render(<PermalinkDialog page={page} />)
-    useConfigStore.setState({ publicAccess: true })
+    act(() => {
+      useConfigStore.setState({ publicAccess: true })
+    })
     rerender(<PermalinkDialog page={page} />)
 
     expect(

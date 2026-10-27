@@ -41,7 +41,7 @@
   "createNow": "Jetzt Sicherung erstellen",
   "creating": "Wird erstellt…",
   "listSectionTitle": "Verfügbare Sicherungen",
-  "listSectionDescription": "Laden Sie eine Sicherung herunter, um sie manuell wiederherzustellen: Server stoppen, ZIP über Ihr Datenverzeichnis entpacken, dann neu starten. Das vollständige Wiederherstellungsverfahren finden Sie in der README.",
+  "listSectionDescription": "Laden Sie eine Sicherung herunter, um sie manuell wiederherzustellen: Server stoppen, ZIP über Ihr Datenverzeichnis entpacken, dann neu starten.",
   "listEmpty": "Noch keine Sicherungen vorhanden.",
   "columnDate": "Erstellt",
   "columnSize": "Größe",

@@ -37,7 +37,8 @@ export function MarkdownImage({
 
   return (
     <img
-      src={versionedSrc}
+      // Sanitized or missing URLs have no source and cannot open a preview.
+      src={versionedSrc || undefined}
       alt={alt}
       style={{
         // Tailwind's preflight resets images to `display: block`, which forces
@@ -55,7 +56,7 @@ export function MarkdownImage({
         marginTop: 0,
         marginBottom: 0,
         ...style,
-        cursor: 'zoom-in',
+        cursor: versionedSrc ? 'zoom-in' : undefined,
         ...(width
           ? {
               width,
@@ -67,6 +68,8 @@ export function MarkdownImage({
       {...rest}
       onClick={(e) => {
         rest.onClick?.(e)
+
+        if (!versionedSrc) return
 
         // Images wrapped in a link (Markdown `[![alt](img)](url)` or raw
         // `<a><img></a>`) should follow the link instead of opening the

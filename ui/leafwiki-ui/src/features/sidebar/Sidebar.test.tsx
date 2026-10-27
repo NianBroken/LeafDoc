@@ -31,14 +31,17 @@ vi.hoisted(() => {
   })
 })
 
-function renderSidebar() {
-  render(
-    <MemoryRouter initialEntries={['/docs/getting-started']}>
-      <TooltipProvider>
-        <Sidebar />
-      </TooltipProvider>
-    </MemoryRouter>,
-  )
+async function renderSidebar() {
+  // 等待目录组件的异步初始化完成后再触发快捷键。
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={['/docs/getting-started']}>
+        <TooltipProvider>
+          <Sidebar />
+        </TooltipProvider>
+      </MemoryRouter>,
+    )
+  })
 }
 
 function invokeHotkey(combo: string) {
@@ -69,8 +72,8 @@ describe('Sidebar', () => {
     useHotKeysStore.setState({ registeredHotkeys: {} })
   })
 
-  it('opens the collapsed sidebar when the explorer hotkey is invoked', () => {
-    renderSidebar()
+  it('opens the collapsed sidebar when the explorer hotkey is invoked', async () => {
+    await renderSidebar()
 
     invokeHotkey('Mod+Shift+KeyE')
 
@@ -78,10 +81,10 @@ describe('Sidebar', () => {
     expect(useSidebarStore.getState().sidebarMode).toBe('tree')
   })
 
-  it('opens the collapsed sidebar when the search hotkey is invoked', () => {
+  it('opens the collapsed sidebar when the search hotkey is invoked', async () => {
     useSidebarStore.setState({ sidebarVisible: false, sidebarMode: 'tree' })
 
-    renderSidebar()
+    await renderSidebar()
 
     invokeHotkey('Mod+Shift+KeyF')
 
@@ -89,10 +92,10 @@ describe('Sidebar', () => {
     expect(useSidebarStore.getState().sidebarMode).toBe('search')
   })
 
-  it('keeps the sidebar open when switching panels by hotkey', () => {
+  it('keeps the sidebar open when switching panels by hotkey', async () => {
     useSidebarStore.setState({ sidebarVisible: true, sidebarMode: 'tree' })
 
-    renderSidebar()
+    await renderSidebar()
 
     invokeHotkey('Mod+Shift+KeyF')
 
@@ -100,10 +103,10 @@ describe('Sidebar', () => {
     expect(useSidebarStore.getState().sidebarMode).toBe('search')
   })
 
-  it('requests search focus when the search hotkey is invoked while already active', () => {
+  it('requests search focus when the search hotkey is invoked while already active', async () => {
     useSidebarStore.setState({ sidebarVisible: true, sidebarMode: 'search' })
 
-    renderSidebar()
+    await renderSidebar()
 
     const before = useSidebarStore.getState().searchFocusRequestId
     invokeHotkey('Mod+Shift+KeyF')
@@ -111,10 +114,10 @@ describe('Sidebar', () => {
     expect(useSidebarStore.getState().searchFocusRequestId).toBe(before + 1)
   })
 
-  it('does not request search focus when the search panel was not yet active', () => {
+  it('does not request search focus when the search panel was not yet active', async () => {
     useSidebarStore.setState({ sidebarVisible: false, sidebarMode: 'tree' })
 
-    renderSidebar()
+    await renderSidebar()
 
     const before = useSidebarStore.getState().searchFocusRequestId
     invokeHotkey('Mod+Shift+KeyF')

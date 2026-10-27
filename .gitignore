@@ -103,3 +103,11 @@ __pycache__/
 *.swp
 *.swo
 *~
+
+# Playwright reports and generated load-test credentials and results
+playwright-report/
+blob-report/
+/loadtest/results/
+/loadtest/seed/.session-pool.json
+/loadtest/seed/.admin-session.json
+/loadtest/seed/.writer-accounts.json

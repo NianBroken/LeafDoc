@@ -62,12 +62,12 @@ func assertStatus(t *testing.T, resp *http.Response, want int) {
 
 // loginAdmin obtains an access-token cookie by logging in as admin directly
 // via the default proxy (the login endpoint is public and unaffected by proxy auth).
-func loginAdmin(t *testing.T) string {
+func loginAdmin(t *testing.T) *http.Cookie {
 	t.Helper()
 	return loginAdminAt(t, proxyURL)
 }
 
-func loginAdminAt(t *testing.T, baseURL string) string {
+func loginAdminAt(t *testing.T, baseURL string) *http.Cookie {
 	t.Helper()
 	payload := `{"identifier":"admin","password":"adminproxypassword"}`
 	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/auth/login", strings.NewReader(payload))
@@ -86,12 +86,13 @@ func loginAdminAt(t *testing.T, baseURL string) string {
 		t.Fatalf("login failed %d: %s", resp.StatusCode, b)
 	}
 	for _, c := range resp.Cookies() {
-		if c.Name == "leafwiki_at" {
-			return c.Value
+		// Preserve the server's secure cookie name for HTTPS deployments.
+		if strings.TrimPrefix(c.Name, "__Host-") == "leafwiki_at" {
+			return c
 		}
 	}
-	t.Fatal("no leafwiki_at cookie in login response")
-	return ""
+	t.Fatal("no access-token cookie in login response")
+	return nil
 }
 
 // TestProxyAuth_ValidUser_Admin verifies that a request with X-Test-User: admin
@@ -171,12 +172,12 @@ type adminAPIUser struct {
 func findUserViaAdminAPI(t *testing.T, baseURL, username string) adminAPIUser {
 	t.Helper()
 
-	token := loginAdminAt(t, baseURL)
+	cookie := loginAdminAt(t, baseURL)
 	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/users", nil)
 	if err != nil {
 		t.Fatalf("build request: %v", err)
 	}
-	req.AddCookie(&http.Cookie{Name: "leafwiki_at", Value: token})
+	req.AddCookie(cookie)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -244,7 +245,7 @@ func TestProxyAuth_ConfigResponse_Roundtrip(t *testing.T) {
 // works when no Remote-User header is forwarded (proxy auth is additive, not
 // a replacement for JWT).
 func TestProxyAuth_FallbackToJWT(t *testing.T) {
-	token := loginAdmin(t)
+	cookie := loginAdmin(t)
 
 	req, err := http.NewRequest(http.MethodGet, proxyURL+"/api/users", nil)
 	if err != nil {
@@ -252,7 +253,7 @@ func TestProxyAuth_FallbackToJWT(t *testing.T) {
 	}
 	// No X-Test-User — no Remote-User forwarded by nginx.
 	// But we carry the JWT access-token cookie.
-	req.AddCookie(&http.Cookie{Name: "leafwiki_at", Value: token})
+	req.AddCookie(cookie)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -1,3 +1,4 @@
+import { expectDiagnostics } from '@/test-utils/expectedDiagnostics'
 import '@/lib/i18n'
 import { DIALOG_API_KEY_FORM } from '@/lib/registries'
 import { useApiKeyStore } from '@/stores/apikeys'
@@ -178,6 +179,21 @@ describe('ApiKeyFormDialog', () => {
 
   it('surfaces field validation errors from the API without closing the dialog', async () => {
     const user = userEvent.setup()
+    expectDiagnostics('warn', [
+      [
+        {
+          error: 'validation_error',
+          fields: [{ field: 'name', message: 'Name must not be empty' }],
+        },
+      ],
+      [
+        'Error:',
+        {
+          error: 'validation_error',
+          fields: [{ field: 'name', message: 'Name must not be empty' }],
+        },
+      ],
+    ])
     ;(apiKeyAPI.createApiKey as ReturnType<typeof vi.fn>).mockRejectedValue({
       error: 'validation_error',
       fields: [{ field: 'name', message: 'Name must not be empty' }],

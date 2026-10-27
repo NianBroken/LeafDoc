@@ -5,8 +5,7 @@ RELEASE_DIR := releases
 DOCKER_BUILDER := Dockerfile.builder
 UI_DIR := ui/leafwiki-ui
 HTTP_DIST := internal/http/dist
-# Single source for the golangci-lint version; the lint-go job in
-# .github/workflows/backend.yml reads the same file.
+# The lint target reads its tool version from one shared file.
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
 EMBED_LDFLAGS := -X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production
 LDFLAGS := -X main.Version=$(VERSION) $(EMBED_LDFLAGS)
@@ -78,8 +77,7 @@ test:
 lint:
 	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run
 
-# Frontend checks, in two halves so CI can run them as parallel jobs
-# (.github/workflows/frontend.yml); ui-check runs both.
+# Frontend checks run separately or together through ui-check.
 ui-deps:
 	cd $(UI_DIR) && npm ci --ignore-scripts
 
@@ -92,14 +90,7 @@ ui-test: ui-deps
 
 ui-check: ui-lint ui-test
 
-# The local subset of the pull-request checks. Not included: the linux/386
-# tests, govulncheck, Trivy (the dependency scans, and the image scan, which
-# `make scan-image` runs locally with Docker and trivy installed), the
-# install-script test, the e2e lint, the E2E suites and the Dev Container
-# build (.github/workflows/devcontainer.yml).
-# CI jobs that keep their own command: test-go (go test with coverage for the
-# report artifact), lint-go (golangci-lint-action, for PR annotations and its
-# cache) and the e2e lint (npm in e2e/, which has no Make target).
+# Run repository validation, Go checks, cross compilation and frontend checks.
 ci: verify lint test cross ui-check
 
 bench:
@@ -115,16 +106,13 @@ cross:
 	  CGO_ENABLED=0 GOOS=$$goos GOARCH=$$goarch go vet ./... || exit 1; \
 	done
 
-# Small repository checks that need neither Go nor Node; CI runs the same
-# target (.github/workflows/verify.yml).
+# Validate repository references and toolchain configuration.
 verify:
 	./scripts/check-private-references.sh
 	./scripts/check-toolchain-versions.sh
 	./scripts/check-toolchain-versions.test.sh
-	./scripts/changelog.test.sh
 
-# Conventional Commit subjects for BASE..HEAD; CI runs the same script
-# (.github/workflows/commit-messages.yml).
+# Validate Conventional Commit subjects for BASE..HEAD.
 BASE ?= origin/main
 verify-commits:
 	./scripts/check-commit-messages.sh "$(BASE)..HEAD"
@@ -155,63 +143,6 @@ $(PLATFORMS):
 	 zip -j $(RELEASE_DIR)/$$OUTPUT.zip $(RELEASE_DIR)/$$OUTPUT ; \
 	 tar -czf $(RELEASE_DIR)/$$OUTPUT.tar.gz -C $(RELEASE_DIR) $$OUTPUT ; \
 	 echo "📦 Compressed: zip and tar.gz"
-
-# Build inputs of the production image that don't depend on the platform.
-# docker-build-publish and scan-image share them, so the release scan checks
-# the image that gets pushed and the push reuses the scan's BuildKit cache.
-IMAGE_BUILD_FLAGS = --file Dockerfile --target final --build-arg APP_VERSION=$(VERSION)
-
-# Trivy settings shared by the image scans: fail only on HIGH/CRITICAL
-# findings that have a fix; .trivyignore holds the accepted false positives.
-TRIVY_IMAGE_FLAGS = --severity HIGH,CRITICAL --ignore-unfixed --ignorefile .trivyignore
-
-require-trivy:
-	@command -v trivy >/dev/null 2>&1 || { echo "trivy is not installed: https://trivy.dev/latest/getting-started/installation/"; exit 1; }
-
-# Build the final image for one platform, load it into Docker and scan it.
-# CI runs it on PRs that touch the image inputs
-# (.github/workflows/image-scan.yml) and in the release workflow before the
-# push, once per platform.
-SCAN_PLATFORM ?= linux/amd64
-SCAN_TAG ?= leafwiki:scan
-scan-image: require-trivy
-	docker buildx build $(IMAGE_BUILD_FLAGS) --platform $(SCAN_PLATFORM) --load --tag $(SCAN_TAG) .
-	trivy image --image-src docker --platform $(SCAN_PLATFORM) $(TRIVY_IMAGE_FLAGS) \
-		--exit-code 1 $(SCAN_TAG)
-
-# Scan the published image straight from the registry (--image-src remote, so
-# a stale local copy with another platform isn't scanned instead). The weekly
-# CI run (.github/workflows/image-scan.yml) calls it twice: once with
-# TRIVY_EXIT_CODE=0 and SARIF output for code scanning, once as the gate.
-SCAN_IMAGE ?= ghcr.io/perber/leafwiki:latest
-TRIVY_EXIT_CODE ?= 1
-TRIVY_EXTRA_FLAGS ?=
-scan-published-image: require-trivy
-	trivy image --image-src remote --platform $(SCAN_PLATFORM) $(TRIVY_IMAGE_FLAGS) \
-		--exit-code $(TRIVY_EXIT_CODE) $(TRIVY_EXTRA_FLAGS) $(SCAN_IMAGE)
-
-# Final production Docker image
-docker-build-publish:
-ifndef REPO_OWNER
-	$(error REPO_OWNER is not set. Usage: make docker-build-publish VERSION=vX.Y.Z REPO_OWNER=your_github_username)
-endif
-	docker buildx build $(IMAGE_BUILD_FLAGS) \
-		--platform linux/amd64,linux/arm64 \
-		--tag ghcr.io/$(REPO_OWNER)/leafwiki:$(VERSION) \
-		--tag ghcr.io/$(REPO_OWNER)/leafwiki:latest \
-		--annotation "index:org.opencontainers.image.title=LeafWiki" \
-		--annotation "index:org.opencontainers.image.description=LeafWiki – A fast wiki for people who think in folders, not feeds" \
-		--sbom=true \
-		--provenance=mode=max \
-		--push .
-
-# Generate markdown changelog between two tags
-changelog:
-	@if [ -z "$(PREVIOUS)" ] || [ -z "$(CURRENT)" ]; then \
-		echo "Usage: make changelog PREVIOUS=v0.1.0 CURRENT=v0.2.0"; \
-		exit 1; \
-	fi
-	@./scripts/changelog.sh $(PREVIOUS) $(CURRENT)
 
 run-e2e:
 	@echo "🚀 Starting end-to-end tests..."
@@ -260,11 +191,5 @@ help:
 	@echo "  make run-e2e-local-fast   – Run E2E tests locally, skip UI build (use when dist/ is current)"
 	@echo "                              Optional: GREP=<pattern> to filter tests"
 	@echo "  make run                  – Run development server (API only; use Vite for UI)"
-	@echo "  make docker-build-publish – Build and push multi-arch Docker image"
-	@echo "  make scan-image           – Build the Docker image for one platform and scan it with Trivy"
-	@echo "                              Optional: SCAN_PLATFORM=linux/arm64 SCAN_TAG=<tag>"
-	@echo "  make scan-published-image – Scan the published image (SCAN_IMAGE, default ghcr.io/perber/leafwiki:latest) with Trivy"
-	@echo "                              Optional: SCAN_PLATFORM, TRIVY_EXIT_CODE, TRIVY_EXTRA_FLAGS"
-	@echo "  make changelog            – Generate changelog"
 
-.PHONY: all build build-api ui setup setup-e2e doctor dev run clean test lint ui-deps ui-lint ui-test ui-check ci bench cross verify verify-commits help docker-build-publish require-trivy scan-image scan-published-image changelog run-e2e run-e2e-local run-e2e-local-fast run-proxy-e2e
+.PHONY: all build build-api ui setup setup-e2e doctor dev run clean test lint ui-deps ui-lint ui-test ui-check ci bench cross verify verify-commits help run-e2e run-e2e-local run-e2e-local-fast run-proxy-e2e

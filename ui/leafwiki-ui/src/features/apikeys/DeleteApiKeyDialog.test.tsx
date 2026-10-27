@@ -1,3 +1,4 @@
+import { expectDiagnostics } from '@/test-utils/expectedDiagnostics'
 import '@/lib/i18n'
 import { DIALOG_DELETE_API_KEY_CONFIRMATION } from '@/lib/registries'
 import { useApiKeyStore } from '@/stores/apikeys'
@@ -49,6 +50,9 @@ describe('DeleteApiKeyDialog', () => {
 
   it('keeps the dialog open and surfaces an error when revocation fails', async () => {
     const user = userEvent.setup()
+    expectDiagnostics('error', [
+      ['Error revoking API key:', new Error('network error')],
+    ])
     ;(apiKeyAPI.deleteApiKey as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error('network error'),
     )

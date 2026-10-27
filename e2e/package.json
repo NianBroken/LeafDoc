@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "End-to-end tests for LeafWiki",
   "scripts": {
+    "test": "node --use-system-ca ./node_modules/@playwright/test/cli.js test",
     "lint": "eslint \"{tests,pages}/**/*.ts\" --max-warnings=0",
     "lint:fix": "eslint \"{tests,pages}/**/*.ts\" --fix",
     "format": "prettier \"{tests,pages}/**/*.{ts,tsx,js,jsx}\" --write",

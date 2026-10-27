@@ -1,3 +1,4 @@
+import { expectDiagnostics } from '@/test-utils/expectedDiagnostics'
 import * as configApi from '@/lib/api/config'
 import i18next from '@/lib/i18n'
 import {
@@ -70,6 +71,12 @@ describe('loadConfig retry', () => {
     useConfigStore.setState({ settingsInstance: '', settingsVersion: 0 })
   })
   it('retries and succeeds after a transient /api/config failure', async () => {
+    expectDiagnostics('warn', [
+      [
+        'Error loading configuration (attempt 1/3, retrying):',
+        new Error('network blip'),
+      ],
+    ])
     ;(configApi.getConfig as Mock)
       .mockRejectedValueOnce(new Error('network blip'))
       .mockResolvedValueOnce(baseConfig)
@@ -85,6 +92,20 @@ describe('loadConfig retry', () => {
   })
 
   it('gives up with configLoadSucceeded false after repeated failures', async () => {
+    expectDiagnostics('warn', [
+      [
+        'Error loading configuration (attempt 1/3, retrying):',
+        new Error('down'),
+      ],
+      [
+        'Error loading configuration (attempt 2/3, retrying):',
+        new Error('down'),
+      ],
+      [
+        'Error loading configuration (attempt 3/3, giving up):',
+        new Error('down'),
+      ],
+    ])
     ;(configApi.getConfig as Mock).mockRejectedValue(new Error('down'))
 
     const loadPromise = useConfigStore.getState().loadConfig()
@@ -133,6 +154,11 @@ describe('loadConfig defaultLanguage', () => {
   })
 
   it('ignores an unrecognized defaultLanguage', async () => {
+    expectDiagnostics('warn', [
+      [
+        'Configured default language "xx" is not shipped with the frontend, ignoring',
+      ],
+    ])
     ;(configApi.getConfig as Mock).mockResolvedValueOnce({
       ...baseConfig,
       defaultLanguage: 'xx',

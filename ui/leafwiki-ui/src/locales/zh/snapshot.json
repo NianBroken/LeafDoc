@@ -41,7 +41,7 @@
   "createNow": "立即创建备份",
   "creating": "创建中…",
   "listSectionTitle": "可用备份",
-  "listSectionDescription": "下载备份以手动恢复：停止服务器，将 ZIP 解压覆盖到数据目录，然后重启。完整恢复流程见 README。",
+  "listSectionDescription": "下载备份以手动恢复：停止服务器，将 ZIP 解压覆盖到数据目录，然后重启。",
   "listEmpty": "暂无备份。",
   "columnDate": "创建时间",
   "columnSize": "大小",

@@ -41,7 +41,7 @@
   "createNow": "Create backup now",
   "creating": "Creating…",
   "listSectionTitle": "Available Backups",
-  "listSectionDescription": "Download a backup to restore it manually: stop the server, extract the ZIP over your data directory, then restart. See the README for the full restore procedure.",
+  "listSectionDescription": "Download a backup to restore it manually: stop the server, extract the ZIP over your data directory, then restart.",
   "listEmpty": "No backups yet.",
   "columnDate": "Created",
   "columnSize": "Size",

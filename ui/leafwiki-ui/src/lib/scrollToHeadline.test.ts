@@ -1,3 +1,4 @@
+import { expectDiagnostics } from '@/test-utils/expectedDiagnostics'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { scrollToHeadlineHash } from './scrollToHeadline'
 
@@ -34,6 +35,7 @@ describe('scrollToHeadlineHash — hash update', () => {
   })
 
   it('does not call replaceState when heading is not found', () => {
+    expectDiagnostics('warn', [['Headline with id "nonexistent" not found.']])
     scrollToHeadlineHash('#nonexistent', { waitForStableLayout: false })
     expect(replaceStateSpy).not.toHaveBeenCalled()
   })

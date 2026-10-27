@@ -17,6 +17,24 @@ describe('MarkdownImage', () => {
     expect(src).toMatch(/\?v=\d+$/)
   })
 
+  it.each([undefined, ''])(
+    'does not load or preview a missing source %j',
+    (src) => {
+      const openWindow = vi.spyOn(window, 'open')
+      try {
+        render(<MarkdownImage src={src} alt="missing" />)
+        const image = screen.getByAltText('missing')
+        expect(image).not.toHaveAttribute('src')
+        fireEvent.click(image)
+        fireEvent.click(image, { ctrlKey: true })
+        expect(useDialogsStore.getState().dialogType).toBeNull()
+        expect(openWindow).not.toHaveBeenCalled()
+      } finally {
+        openWindow.mockRestore()
+      }
+    },
+  )
+
   it('opens the image preview dialog when not wrapped in a link', () => {
     render(<MarkdownImage src="/assets/foo.png" alt="foo" />)
 

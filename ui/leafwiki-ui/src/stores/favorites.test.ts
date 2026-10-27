@@ -1,3 +1,4 @@
+import { expectDiagnostics } from '@/test-utils/expectedDiagnostics'
 import type { Page } from '@/lib/api/pages'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -45,6 +46,9 @@ describe('useFavoritesStore', () => {
   })
 
   it('loadFavorites swallows API errors and leaves state as-is', async () => {
+    expectDiagnostics('warn', [
+      ['Failed to load favorites:', new Error('network error')],
+    ])
     vi.mocked(favoritesAPI.getFavorites).mockRejectedValue(
       new Error('network error'),
     )

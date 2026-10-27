@@ -1,3 +1,4 @@
+import { expectDiagnostics } from '@/test-utils/expectedDiagnostics'
 import '@/lib/i18n'
 import { useSessionStore } from '@/stores/session'
 import { useUserStore } from '@/stores/users'
@@ -112,6 +113,10 @@ describe('ChangeOwnPasswordPanel', () => {
   })
 
   it('clears the passwords on a failed save', async () => {
+    expectDiagnostics('warn', [
+      [new Error('wrong password')],
+      ['Error:', new Error('wrong password')],
+    ])
     const user = userEvent.setup({ delay: null })
     const changeOwnPassword = vi
       .fn()

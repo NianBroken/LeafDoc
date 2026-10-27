@@ -182,7 +182,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 	engine.Use(gin.RecoveryWithWriter(gin.DefaultErrorWriter))
 	base := engine.Group(opts.BasePath)
 	events := newSettingsEvents()
-	opts.SettingsInstance = time.Now().UTC().Format(time.RFC3339Nano)
+	opts.SettingsInstance = events.instance
 	opts.SettingsVersion = events.current
 	if opts.Preferences != nil {
 		base.Use(localizeJSON())
