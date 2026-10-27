@@ -1,0 +1,306 @@
+import {
+  fetchTree,
+  NODE_KIND_PAGE,
+  NODE_KIND_SECTION,
+  PageNode,
+} from '@/lib/api/pages'
+import i18next from '@/lib/i18n'
+import { FlatPageSearchItem, buildFlatPageSearchItems } from '@/lib/pageSearch'
+import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
+
+function buildIndexes(root: PageNode) {
+  const byPath: Record<string, PageNode> = {}
+  const byId: Record<string, PageNode> = {}
+
+  const walk = (n: PageNode) => {
+    byId[n.id] = n
+    byPath[n.path] = n
+    for (const ch of n.children || []) walk(ch)
+  }
+
+  walk(root)
+  return { byPath, byId }
+}
+
+function collectExpandableNodeIds(root: PageNode | null): string[] {
+  if (!root) return []
+  const out: string[] = []
+
+  const walk = (n: PageNode) => {
+    const children = n.children || []
+    if (children.length > 0) out.push(n.id)
+    for (const ch of children) walk(ch)
+  }
+
+  for (const ch of root.children || []) {
+    walk(ch)
+  }
+  return out
+}
+
+function assignParentIds(node: PageNode, parentId: string | null = null) {
+  node.parentId = parentId
+  for (const child of node.children || []) {
+    assignParentIds(child, node.id)
+  }
+}
+
+function toSetRecord(ids: string[]): Record<string, true> {
+  const rec: Record<string, true> = {}
+  for (const id of ids) rec[id] = true
+  return rec
+}
+
+type TreeStore = {
+  tree: PageNode | null
+  loading: boolean
+  error: string | null
+  activeNodeId: string | null
+  pinnedPages: PageNode[]
+  expandAll: () => void
+  collapseAll: () => void
+  reloadTree: (options?: { silent?: boolean }) => Promise<void>
+  patchNodeVersion: (id: string, version: string) => void
+  moveNodeLocally: (
+    nodeId: string,
+    targetParentId: string,
+    index: number,
+  ) => void
+  setPinnedLocally: (id: string, pinned: boolean, version: string) => void
+  toggleNode: (id: string) => void
+  openNode: (id: string) => void
+  closeNode: (id: string) => void
+  setActiveNodeId: (id: string | null) => void
+  isNodeOpen: (id: string) => boolean
+  getPageById: (id: string) => PageNode | null
+  getPageByPath: (path: string) => PageNode | null
+  getPagesByTitle: (title: string) => PageNode[]
+  getPathById: (id: string) => string | null
+  getAncestors: (id: string) => string[]
+  openAncestorsForPath: (path: string) => void
+  openNodeIds: string[]
+  openNodeIdSet: Record<string, true>
+  byPath: Record<string, PageNode>
+  byId: Record<string, PageNode>
+  flatPages: FlatPageSearchItem[]
+}
+export const useTreeStore = create<TreeStore>()(
+  persist(
+    (set, get) => ({
+      tree: null,
+      loading: false,
+      error: null,
+      activeNodeId: null,
+      pinnedPages: [],
+      openNodeIds: [],
+      openNodeIdSet: {},
+      byPath: {},
+      byId: {},
+      flatPages: [],
+      expandAll: () => {
+        const tree = get().tree
+        const ids = collectExpandableNodeIds(tree)
+        set({ openNodeIds: ids, openNodeIdSet: toSetRecord(ids) })
+      },
+
+      collapseAll: () => {
+        set({ openNodeIds: [], openNodeIdSet: {} })
+      },
+      toggleNode: (id: string) => {
+        const current = new Set(get().openNodeIds)
+
+        if (current.has(id)) current.delete(id)
+        else current.add(id)
+
+        const ids = Array.from(current)
+        set({ openNodeIds: ids, openNodeIdSet: toSetRecord(ids) })
+      },
+
+      openNode: (id: string) => {
+        if (get().openNodeIdSet?.[id]) {
+          return
+        }
+        const current = new Set(get().openNodeIds)
+        current.add(id)
+        const ids = Array.from(current)
+        set({ openNodeIds: ids, openNodeIdSet: toSetRecord(ids) })
+      },
+
+      closeNode: (id: string) => {
+        if (!get().openNodeIdSet?.[id]) {
+          return
+        }
+        const current = new Set(get().openNodeIds)
+        current.delete(id)
+        const ids = Array.from(current)
+        set({ openNodeIds: ids, openNodeIdSet: toSetRecord(ids) })
+      },
+
+      setActiveNodeId: (id: string | null) => {
+        if (get().activeNodeId === id) {
+          return
+        }
+        set({ activeNodeId: id })
+      },
+
+      isNodeOpen: (id: string) => !!get().openNodeIdSet?.[id],
+
+      getPageByPath: (path: string) => get().byPath?.[path] ?? null,
+      getPageById: (id: string) => get().byId?.[id] ?? null,
+      getPagesByTitle: (title: string) => {
+        const lower = title.toLowerCase()
+        return Object.values(get().byId ?? {}).filter(
+          (n) => n.title.toLowerCase() === lower,
+        )
+      },
+      getPathById: (id: string) => get().byId?.[id]?.path ?? null,
+
+      getAncestors: (id: string) => {
+        const byId = get().byId
+        const out: string[] = []
+        let cur = byId?.[id]
+        while (cur?.parentId) {
+          out.unshift(cur.parentId)
+          cur = byId[cur.parentId]
+        }
+        return out
+      },
+
+      openAncestorsForPath: (path: string) => {
+        const node = get().getPageByPath(path)
+        if (!node) return
+
+        const ancestors = get().getAncestors(node.id)
+        if (ancestors.length === 0) return
+
+        const merged = new Set(get().openNodeIds)
+        let changed = false
+        for (const id of ancestors) merged.add(id)
+        for (const id of ancestors) {
+          if (!get().openNodeIdSet?.[id]) {
+            changed = true
+          }
+        }
+
+        if (!changed) {
+          return
+        }
+
+        const ids = Array.from(merged)
+        set({ openNodeIds: ids, openNodeIdSet: toSetRecord(ids) })
+      },
+
+      patchNodeVersion: (id: string, version: string) => {
+        const byId = get().byId
+        const byPath = get().byPath
+        const node = byId?.[id]
+        if (!node) return
+        const updatedNode = { ...node, version }
+        set({
+          byId: { ...byId, [id]: updatedNode },
+          byPath: node.path ? { ...byPath, [node.path]: updatedNode } : byPath,
+        })
+      },
+
+      moveNodeLocally: (
+        nodeId: string,
+        targetParentId: string,
+        index: number,
+      ) => {
+        const current = get().tree
+        if (!current) return
+
+        const tree = structuredClone(current)
+        const { byId: clonedById } = buildIndexes(tree)
+
+        const node = clonedById[nodeId]
+        const target = clonedById[targetParentId]
+        const oldParent = node?.parentId ? clonedById[node.parentId] : null
+        if (!node || !target || !oldParent?.children) return
+
+        const oldIndex = oldParent.children.findIndex((c) => c.id === nodeId)
+        if (oldIndex === -1) return
+        oldParent.children.splice(oldIndex, 1)
+
+        const children = target.children ?? []
+        target.children = children
+        const insertAt = Math.max(0, Math.min(index, children.length))
+        children.splice(insertAt, 0, node)
+        if (target.kind === NODE_KIND_PAGE) {
+          // Moving a node under a page converts that page into a section
+          // server-side; mirror it locally so the row updates instantly.
+          target.kind = NODE_KIND_SECTION
+        }
+
+        assignParentIds(tree)
+        const { byPath, byId } = buildIndexes(tree)
+        const flatPages = buildFlatPageSearchItems(tree)
+        const pinnedPages = Object.values(byId)
+          .filter((n) => n.pinned === true)
+          .sort((a, b) => a.title.localeCompare(b.title))
+        set({ tree, byPath, byId, flatPages, pinnedPages })
+      },
+
+      setPinnedLocally: (id: string, pinned: boolean, version: string) => {
+        const byId = get().byId
+        const byPath = get().byPath
+        const node = byId?.[id]
+        if (!node) return
+        const updatedNode = { ...node, pinned, version }
+        const updatedById = { ...byId, [id]: updatedNode }
+        const pinnedPages = Object.values(updatedById)
+          .filter((n) => n.pinned === true)
+          .sort((a, b) => a.title.localeCompare(b.title))
+        set({
+          byId: updatedById,
+          byPath: node.path ? { ...byPath, [node.path]: updatedNode } : byPath,
+          pinnedPages,
+        })
+      },
+
+      reloadTree: async (options?: { silent?: boolean }) => {
+        const silent = options?.silent === true
+        if (silent) set({ error: null })
+        else set({ loading: true, error: null })
+
+        try {
+          const tree = await fetchTree()
+          assignParentIds(tree)
+          const { byPath, byId } = buildIndexes(tree)
+          const flatPages = buildFlatPageSearchItems(tree)
+          const persistedOpen = get().openNodeIds
+          const pinnedPages = Object.values(byId)
+            .filter((n) => n.pinned === true)
+            .sort((a, b) => a.title.localeCompare(b.title))
+          set({
+            tree,
+            byPath,
+            byId,
+            flatPages,
+            pinnedPages,
+            openNodeIdSet: toSetRecord(persistedOpen),
+          })
+          // FIXME: a better error handling is required here
+        } catch (err: unknown) {
+          if (err instanceof Error) {
+            set({ error: err.message })
+          } else {
+            set({
+              error: i18next.t('common.unknownError', { ns: 'page' }),
+            })
+          }
+        } finally {
+          if (!silent) set({ loading: false })
+        }
+      },
+    }),
+    {
+      name: 'leafwiki-tree-open-node-ids',
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        openNodeIds: state.openNodeIds,
+      }),
+    },
+  ),
+)

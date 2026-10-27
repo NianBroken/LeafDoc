@@ -1,0 +1,63 @@
+// stores/sidebar.ts
+// This store manages sidebar state: visibility and active mode (tree/search).
+// The state is persisted across sessions using localStorage.
+
+import { SIDEBAR_TREE_PANEL_ID } from '@/lib/registries'
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+export const DEFAULT_SIDEBAR_WIDTH = 345
+export const MIN_SIDEBAR_WIDTH = 220
+export const MAX_SIDEBAR_WIDTH = 800
+
+type SidebarStore = {
+  sidebarMode: string
+  setSidebarMode: (mode: string) => void
+
+  sidebarVisible: boolean
+  setSidebarVisible: (visible: boolean) => void
+
+  sidebarWidth: number
+  setSidebarWidth: (width: number) => void
+
+  // Bumped whenever the search shortcut is triggered while the search panel
+  // is already open, so Search.tsx can refocus its input even though
+  // sidebarVisible/sidebarMode don't change value (no re-render otherwise).
+  searchFocusRequestId: number
+  requestSearchFocus: () => void
+}
+
+export const useSidebarStore = create<SidebarStore>()(
+  persist(
+    (set) => ({
+      sidebarMode: SIDEBAR_TREE_PANEL_ID,
+      setSidebarMode: (mode) => set({ sidebarMode: mode }),
+
+      sidebarVisible: true,
+      setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
+
+      sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
+      setSidebarWidth: (width) => {
+        const clamped = Math.min(
+          MAX_SIDEBAR_WIDTH,
+          Math.max(MIN_SIDEBAR_WIDTH, width),
+        )
+        set({ sidebarWidth: clamped })
+      },
+
+      searchFocusRequestId: 0,
+      requestSearchFocus: () =>
+        set((state) => ({
+          searchFocusRequestId: state.searchFocusRequestId + 1,
+        })),
+    }),
+    {
+      name: 'leafwiki-sidebar', // localStorage key
+      partialize: (state) => ({
+        sidebarVisible: state.sidebarVisible,
+        sidebarMode: state.sidebarMode,
+        sidebarWidth: state.sidebarWidth,
+      }),
+    },
+  ),
+)

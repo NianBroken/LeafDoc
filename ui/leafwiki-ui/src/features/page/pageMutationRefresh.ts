@@ -1,0 +1,99 @@
+import { PageRefactorPreview } from '@/lib/api/pages'
+import { createNavigationVisitState } from '@/lib/navigationVisit'
+import { buildEditUrl, buildHistoryUrl, buildViewUrl } from '@/lib/routePath'
+import { normalizeWikiRoutePath } from '@/lib/wikiPath'
+import { useTreeStore } from '@/stores/tree'
+import { NavigateFunction } from 'react-router'
+import { useLinkStatusStore } from '../links/linkStatusStore'
+import { useViewerStore } from '../viewer/viewer'
+
+type RefreshAfterPageRefactorOptions = {
+  preview: PageRefactorPreview
+  currentPath: string
+  navigate: NavigateFunction
+  // Tree reload variant to use (see useTreeStore.reloadTree). Callers that
+  // already show their own optimistic/loading state (e.g. tree drag-and-drop)
+  // pass true to avoid a second, non-silent tree reload flashing a spinner.
+  silentReload?: boolean
+}
+
+function normalizeRoutePath(path: string) {
+  if (!path) {
+    return '/'
+  }
+  return path.startsWith('/') ? path : `/${path}`
+}
+
+function toPageLookupPath(path: string) {
+  return normalizeRoutePath(path).replace(/^\/+/, '')
+}
+
+function buildRefactorRoutePath(currentPath: string, nextWikiPath: string) {
+  const normalizedCurrentPath = normalizeRoutePath(currentPath)
+
+  if (
+    normalizedCurrentPath === '/history' ||
+    normalizedCurrentPath === '/history/'
+  ) {
+    return buildHistoryUrl(nextWikiPath)
+  }
+  if (normalizedCurrentPath.startsWith('/history/')) {
+    return buildHistoryUrl(nextWikiPath)
+  }
+  if (normalizedCurrentPath.startsWith('/e/')) {
+    return buildEditUrl(nextWikiPath)
+  }
+
+  return buildViewUrl(nextWikiPath)
+}
+
+export async function refreshAfterPageRefactor({
+  preview,
+  currentPath,
+  navigate,
+  silentReload = false,
+}: RefreshAfterPageRefactorOptions) {
+  await useTreeStore.getState().reloadTree({ silent: silentReload })
+
+  const currentViewerPage = useViewerStore.getState().page
+  const normalizedViewerPath = normalizeWikiRoutePath(
+    currentViewerPage?.path || '',
+  )
+  const normalizedRoutePath = normalizeWikiRoutePath(buildViewUrl(currentPath))
+  const normalizedOldPath = normalizeWikiRoutePath(preview.oldPath)
+  const normalizedNewPath = normalizeWikiRoutePath(preview.newPath)
+  const isViewingMovedPage =
+    normalizedViewerPath === normalizedOldPath ||
+    normalizedViewerPath === normalizedNewPath ||
+    normalizedRoutePath === normalizedOldPath ||
+    normalizedRoutePath === normalizedNewPath
+
+  let nextPath: string | null = null
+
+  if (isViewingMovedPage) {
+    nextPath = preview.newPath
+    const nextRoutePath = buildRefactorRoutePath(currentPath, preview.newPath)
+    if (normalizeRoutePath(currentPath) !== nextRoutePath) {
+      navigate(nextRoutePath, {
+        replace: true,
+        state: createNavigationVisitState(),
+      })
+    }
+  } else if (currentViewerPage) {
+    nextPath = normalizedViewerPath
+  }
+
+  if (!nextPath) {
+    return
+  }
+
+  await useViewerStore.getState().loadPageData(toPageLookupPath(nextPath))
+
+  const viewerPageID = useViewerStore.getState().page?.id
+  if (!viewerPageID) {
+    useLinkStatusStore.getState().clear()
+    return
+  }
+
+  await useLinkStatusStore.getState().fetchLinkStatusForPage(viewerPageID)
+}

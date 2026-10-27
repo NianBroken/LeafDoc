@@ -1,0 +1,91 @@
+{
+  "pageTitle": "Gestión de Usuarios",
+  "loading": "Cargando usuarios...",
+  "loadErrorFallback": "Error al cargar los usuarios",
+  "noUsersFound": "No se encontraron usuarios.",
+  "columns": {
+    "username": "Nombre de usuario",
+    "email": "Correo electrónico",
+    "role": "Rol",
+    "actions": "Acciones"
+  },
+  "actions": {
+    "edit": "Editar",
+    "new": "Nuevo usuario",
+    "changePassword": "Cambiar contraseña",
+    "delete": "Eliminar"
+  },
+  "invite": {
+    "pendingPill": "Invitación pendiente",
+    "resendAction": "Reenviar invitación",
+    "resending": "Reenviando...",
+    "resendSuccessToast": "Correo de invitación reenviado",
+    "resendErrorFallback": "Error al reenviar la invitación",
+    "emailNotSentWarning": "Usuario creado, pero no se pudo enviar el correo de invitación. Usa \"Reenviar invitación\" para intentarlo de nuevo."
+  },
+  "validation": {
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+    "passwordsDoNotMatch": "Las contraseñas no coinciden"
+  },
+  "changePasswordDialog": {
+    "title": "Cambiar contraseña de {{username}}",
+    "description": "Establece una nueva contraseña para el usuario.",
+    "cancel": "Cancelar",
+    "update": "Actualizar Contraseña",
+    "updating": "Actualizando...",
+    "newPasswordLabel": "Nueva Contraseña",
+    "confirmPasswordLabel": "Confirmar Contraseña",
+    "successToast": "Contraseña cambiada correctamente",
+    "errorFallback": "Error al actualizar la contraseña"
+  },
+  "userForm": {
+    "editTitle": "Editar Usuario",
+    "newTitle": "Nuevo Usuario",
+    "editDescription": "Editar los datos del usuario",
+    "newDescription": "Crear un nuevo usuario",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "successToast": "Usuario guardado correctamente",
+    "errorFallback": "Error al guardar el usuario",
+    "usernameLabel": "nombre de usuario",
+    "usernamePlaceholder": "nombre de usuario",
+    "emailLabel": "correo electrónico",
+    "emailPlaceholder": "correo electrónico",
+    "passwordLabel": "contraseña",
+    "passwordPlaceholder": "contraseña",
+    "rolePlaceholder": "Selecciona un rol",
+    "roleViewer": "Lector",
+    "roleEditor": "Editor",
+    "roleAdmin": "Administrador",
+    "modeSetPassword": "Establecer la contraseña ahora",
+    "modeInvite": "Enviar correo de invitación",
+    "inviteSuccessToast": "Invitación enviada correctamente"
+  },
+  "deleteUser": {
+    "title": "¿Eliminar usuario?",
+    "description": "¿Seguro que quieres eliminar este usuario? Esta acción no se puede deshacer.",
+    "cancel": "Cancelar",
+    "deleting": "Eliminando...",
+    "delete": "Eliminar",
+    "successToast": "Usuario eliminado correctamente",
+    "errorFallback": "No se pudo eliminar el usuario. Inténtalo de nuevo.",
+    "body": "El usuario <strong>{{username}}</strong> se eliminará permanentemente del sistema."
+  },
+  "changeOwnPassword": {
+    "title": "Cambiar tu contraseña",
+    "description": "Cambia tu contraseña. ¡Asegúrate de recordarla!",
+    "cancel": "Cancelar",
+    "saving": "Guardando...",
+    "save": "Guardar",
+    "successToast": "Contraseña cambiada correctamente",
+    "errorFallback": "Error al actualizar la contraseña",
+    "oldPasswordLabel": "Contraseña Anterior",
+    "newPasswordLabel": "Nueva Contraseña",
+    "confirmPasswordLabel": "Confirmar Contraseña"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "editor": "Editor",
+    "viewer": "Lector"
+  }
+}

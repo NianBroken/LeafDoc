@@ -1,0 +1,664 @@
+package auth
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	coreauth "github.com/perber/wiki/internal/core/auth"
+	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	"github.com/perber/wiki/internal/favorites"
+	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+)
+
+func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	metrics.HTTPHandler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected metrics endpoint to return 200, got %d", rec.Code)
+	}
+	return rec.Body.String()
+}
+
+// setupAuthUseCases builds a real AuthService (backed by temp-dir SQLite
+// stores, matching internal/core/auth's own test fixtures) together with a
+// fresh metrics registry, for exercising the wiki-layer use cases end to end.
+
+func setupUpdateUserUseCase(t *testing.T) (*UpdateUserUseCase, *coreauth.UserService) {
+	t.Helper()
+	store, err := coreauth.NewUserStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewUserStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	})
+
+	userSvc := coreauth.NewUserService(store)
+	userSvcFn := func() *coreauth.UserService { return userSvc }
+	resolver, err := coreauth.NewUserResolver(userSvcFn)
+	if err != nil {
+		t.Fatalf("NewUserResolver: %v", err)
+	}
+	return NewUpdateUserUseCase(userSvcFn, resolver, nil, slog.Default()), userSvc
+}
+
+// TestUpdateUser_AdminCanChangeRole verifies that an admin requester can promote
+// or demote another user's role.
+func TestUpdateUser_AdminCanChangeRole(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	viewer, err := svc.CreateUser("viewer", "viewer@example.com", "pass", coreauth.RoleViewer)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	out, err := uc.Execute(context.Background(), UpdateUserInput{
+		ID:               viewer.ID,
+		Username:         viewer.Username,
+		Email:            viewer.Email,
+		Role:             coreauth.RoleAdmin,
+		RequesterIsAdmin: true,
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if out.User.Role != coreauth.RoleAdmin {
+		t.Errorf("expected role %q, got %q", coreauth.RoleAdmin, out.User.Role)
+	}
+}
+
+// TestUpdateUser_AdminCanUpdateProfileWithoutRole verifies that an admin can
+// update username/email without sending a role and the existing role is kept.
+func TestUpdateUser_AdminCanUpdateProfileWithoutRole(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	editor, err := svc.CreateUser("ed", "ed@example.com", "pass", coreauth.RoleEditor)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	out, err := uc.Execute(context.Background(), UpdateUserInput{
+		ID:               editor.ID,
+		Username:         "ed-admin-updated",
+		Email:            "ed-admin-updated@example.com",
+		Role:             "",
+		RequesterIsAdmin: true,
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if out.User.Username != "ed-admin-updated" {
+		t.Errorf("expected username %q, got %q", "ed-admin-updated", out.User.Username)
+	}
+	if out.User.Email != "ed-admin-updated@example.com" {
+		t.Errorf("expected email %q, got %q", "ed-admin-updated@example.com", out.User.Email)
+	}
+	if out.User.Role != coreauth.RoleEditor {
+		t.Errorf("expected role %q, got %q", coreauth.RoleEditor, out.User.Role)
+	}
+}
+
+// TestUpdateUser_NonAdminCannotEscalateRole is the regression test for
+// GHSA-jj4r-587p-r5h5: a viewer calling PUT /api/users/:id on their own account
+// must not be able to promote themselves to admin.
+func TestUpdateUser_NonAdminCannotEscalateRole(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	viewer, err := svc.CreateUser("viewer", "viewer@example.com", "pass", coreauth.RoleViewer)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	out, err := uc.Execute(context.Background(), UpdateUserInput{
+		ID:               viewer.ID,
+		Username:         viewer.Username,
+		Email:            viewer.Email,
+		Role:             coreauth.RoleAdmin, // attacker sends "admin"
+		RequesterIsAdmin: false,
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if out.User.Role != coreauth.RoleViewer {
+		t.Errorf("role escalation succeeded: expected %q, got %q", coreauth.RoleViewer, out.User.Role)
+	}
+}
+
+// TestUpdateUser_NonAdminCanUpdateOwnProfile verifies that non-admin users can
+// still change their username and email while their role stays unchanged.
+func TestUpdateUser_NonAdminCanUpdateOwnProfile(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	editor, err := svc.CreateUser("ed", "ed@example.com", "pass", coreauth.RoleEditor)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	out, err := uc.Execute(context.Background(), UpdateUserInput{
+		ID:               editor.ID,
+		Username:         "ed-updated",
+		Email:            "ed-updated@example.com",
+		Role:             coreauth.RoleAdmin, // should be silently ignored
+		RequesterIsAdmin: false,
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if out.User.Username != "ed-updated" {
+		t.Errorf("expected username %q, got %q", "ed-updated", out.User.Username)
+	}
+	if out.User.Email != "ed-updated@example.com" {
+		t.Errorf("expected email %q, got %q", "ed-updated@example.com", out.User.Email)
+	}
+	if out.User.Role != coreauth.RoleEditor {
+		t.Errorf("role must not change: expected %q, got %q", coreauth.RoleEditor, out.User.Role)
+	}
+}
+
+// TestUpdateUser_LastAdminCannotSelfDemote verifies that the last admin cannot
+// demote themselves, which would leave the system with no admins.
+func TestUpdateUser_LastAdminCannotSelfDemote(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	admin, err := svc.CreateUser("admin", "admin@example.com", "pass", coreauth.RoleAdmin)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	_, err = uc.Execute(context.Background(), UpdateUserInput{
+		ID:               admin.ID,
+		Username:         admin.Username,
+		Email:            admin.Email,
+		Role:             coreauth.RoleViewer,
+		RequesterIsAdmin: true,
+	})
+	if !errors.Is(err, coreauth.ErrLastAdminCannotBeDemoted) {
+		t.Errorf("expected ErrLastAdminCannotBeDemoted, got: %v", err)
+	}
+}
+
+// TestUpdateUser_AdminCanBeDemotedWhenAnotherExists verifies that an admin can
+// lose their role as long as at least one other admin remains.
+func TestUpdateUser_AdminCanBeDemotedWhenAnotherExists(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	admin1, _ := svc.CreateUser("admin1", "admin1@example.com", "pass", coreauth.RoleAdmin)
+	_, _ = svc.CreateUser("admin2", "admin2@example.com", "pass", coreauth.RoleAdmin)
+
+	out, err := uc.Execute(context.Background(), UpdateUserInput{
+		ID:               admin1.ID,
+		Username:         admin1.Username,
+		Email:            admin1.Email,
+		Role:             coreauth.RoleViewer,
+		RequesterIsAdmin: true,
+	})
+	if err != nil {
+		t.Fatalf("expected demotion to succeed, got: %v", err)
+	}
+	if out.User.Role != coreauth.RoleViewer {
+		t.Errorf("expected role %q, got %q", coreauth.RoleViewer, out.User.Role)
+	}
+}
+
+// TestUpdateUser_AdminInvalidRole checks that an admin supplying an unknown role
+// gets a validation error rather than storing garbage.
+func TestUpdateUser_AdminInvalidRole(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	user, err := svc.CreateUser("alice", "alice@example.com", "pass", coreauth.RoleViewer)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	_, err = uc.Execute(context.Background(), UpdateUserInput{
+		ID:               user.ID,
+		Username:         user.Username,
+		Email:            user.Email,
+		Role:             "superuser", // not a valid role
+		RequesterIsAdmin: true,
+	})
+	if err == nil {
+		t.Fatal("expected validation error for invalid role, got nil")
+	}
+}
+
+func TestLoginUseCase_EmitsSuccessMetric(t *testing.T) {
+	authSvc, userSvc, metrics := setupAuthUseCases(t, false)
+	if _, err := userSvc.CreateUser("alice", "alice@example.com", "securepass", coreauth.RoleViewer); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	uc := NewLoginUseCase(authSvc, metrics)
+	if _, err := uc.Execute(context.Background(), LoginInput{Identifier: "alice", Password: "securepass"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	body := metricsBody(t, metrics)
+	if !strings.Contains(body, `leafwiki_auth_login_attempts_total{outcome="success"} 1`) {
+		t.Fatalf("expected login success metric, got: %s", body)
+	}
+	if !strings.Contains(body, `leafwiki_auth_sessions_total{event="issued"} 1`) {
+		t.Fatalf("expected session issued metric, got: %s", body)
+	}
+}
+
+// TestLoginUseCase_EmitsLockedMetric verifies that once the per-user failure
+// threshold trips, a subsequent attempt is recorded under outcome="locked"
+// (distinct from the "invalid_credentials" outcome of the failures that
+// triggered the lock itself — see loginAttemptTracker.recordAttempt).
+func TestLoginUseCase_EmitsLockedMetric(t *testing.T) {
+	authSvc, userSvc, metrics := setupAuthUseCases(t, false)
+	if _, err := userSvc.CreateUser("alice", "alice@example.com", "securepass", coreauth.RoleViewer); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	uc := NewLoginUseCase(authSvc, metrics)
+	const maxFailures = 5
+	for i := 0; i < maxFailures; i++ {
+		if _, err := uc.Execute(context.Background(), LoginInput{Identifier: "alice", Password: "wrong"}); err == nil {
+			t.Fatalf("attempt %d: expected an error for wrong password", i)
+		}
+	}
+
+	_, err := uc.Execute(context.Background(), LoginInput{Identifier: "alice", Password: "wrong"})
+	if !errors.Is(err, coreauth.ErrUserAccountLocked) {
+		t.Fatalf("expected ErrUserAccountLocked once locked, got: %v", err)
+	}
+
+	body := metricsBody(t, metrics)
+	if !strings.Contains(body, `leafwiki_auth_login_attempts_total{outcome="locked"} 1`) {
+		t.Fatalf("expected locked outcome metric, got: %s", body)
+	}
+	if !strings.Contains(body, `leafwiki_auth_login_attempts_total{outcome="invalid_credentials"} 5`) {
+		t.Fatalf("expected 5 invalid_credentials attempts before the lock, got: %s", body)
+	}
+}
+
+// TestLogoutUseCase_EmitsSessionRevokedMetric verifies a normal logout after a
+// successful login records the session as revoked.
+func TestLogoutUseCase_EmitsSessionRevokedMetric(t *testing.T) {
+	authSvc, userSvc, metrics := setupAuthUseCases(t, false)
+	if _, err := userSvc.CreateUser("alice", "alice@example.com", "securepass", coreauth.RoleViewer); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	loginUC := NewLoginUseCase(authSvc, metrics)
+	out, err := loginUC.Execute(context.Background(), LoginInput{Identifier: "alice", Password: "securepass"})
+	if err != nil {
+		t.Fatalf("Login Execute: %v", err)
+	}
+
+	logoutUC := NewLogoutUseCase(authSvc, metrics)
+	if err := logoutUC.Execute(context.Background(), LogoutInput{RefreshToken: out.Token.RefreshToken}); err != nil {
+		t.Fatalf("Logout Execute: %v", err)
+	}
+
+	body := metricsBody(t, metrics)
+	if !strings.Contains(body, `leafwiki_auth_sessions_total{event="revoked"} 1`) {
+		t.Fatalf("expected session revoked metric, got: %s", body)
+	}
+}
+
+func TestDeleteUser_RemovesFavoritesForUser(t *testing.T) {
+	store, err := coreauth.NewUserStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewUserStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("Close user store: %v", err)
+		}
+	})
+	userSvc := coreauth.NewUserService(store)
+	userSvcFn := func() *coreauth.UserService { return userSvc }
+	resolver, err := coreauth.NewUserResolver(userSvcFn)
+	if err != nil {
+		t.Fatalf("NewUserResolver: %v", err)
+	}
+
+	favoritesStore, err := favorites.NewFavoritesStore(t.TempDir(), nil)
+	if err != nil {
+		t.Fatalf("NewFavoritesStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := favoritesStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := favoritesStore.Close(); err != nil {
+			t.Errorf("Close favorites store: %v", err)
+		}
+	})
+
+	sessionStore, err := coreauth.NewSessionStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewSessionStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := sessionStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := sessionStore.Close(); err != nil {
+			t.Errorf("Close session store: %v", err)
+		}
+	})
+	sessions := coreauth.NewSessionManager(sessionStore, "test-secret-key-for-unit-tests-1", time.Hour, 24*time.Hour)
+	authSvc := coreauth.NewAuthService(userSvc, sessions)
+
+	apiKeyStore, err := coreauth.NewAPIKeyStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewAPIKeyStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := apiKeyStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := apiKeyStore.Close(); err != nil {
+			t.Errorf("Close api key store: %v", err)
+		}
+	})
+	apiKeySvc := coreauth.NewAPIKeyService(apiKeyStore, authSvc)
+
+	user, err := userSvc.CreateUser("bob", "bob@example.com", "pass", coreauth.RoleViewer)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if err := favoritesStore.Add(user.ID, "page-1"); err != nil {
+		t.Fatalf("failed to seed favorite: %v", err)
+	}
+	if _, _, err := apiKeySvc.CreateAPIKey(coreauth.CreateAPIKeyParams{Name: "bob's key", UserID: user.ID, CreatedBy: "admin"}); err != nil {
+		t.Fatalf("failed to seed api key: %v", err)
+	}
+
+	uc := NewDeleteUserUseCase(userSvcFn, resolver, favoritesStore, apiKeySvc, slog.Default())
+	if err := uc.Execute(context.Background(), DeleteUserInput{ID: user.ID}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	ids, err := favoritesStore.ListPageIDsForUser(user.ID)
+	if err != nil {
+		t.Fatalf("ListPageIDsForUser: %v", err)
+	}
+	if len(ids) != 0 {
+		t.Errorf("expected favorites for deleted user to be cleaned up, got %v", ids)
+	}
+
+	keys, err := apiKeySvc.ListAPIKeys()
+	if err != nil {
+		t.Fatalf("ListAPIKeys: %v", err)
+	}
+	for _, k := range keys {
+		if k.UserID == user.ID {
+			t.Errorf("expected api keys for deleted user to be cleaned up, found key %s still owned by %s", k.ID, k.UserID)
+		}
+	}
+}
+
+// TestDeleteUser_APIKeysDisabled_SkipsCleanupWithoutError verifies the
+// nil-guard around API key cleanup: when API key management is disabled
+// (apiKeys is nil, the default), deleting a user must not panic or error.
+func TestDeleteUser_APIKeysDisabled_SkipsCleanupWithoutError(t *testing.T) {
+	store, err := coreauth.NewUserStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewUserStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("Close user store: %v", err)
+		}
+	})
+	userSvc := coreauth.NewUserService(store)
+	userSvcFn := func() *coreauth.UserService { return userSvc }
+	resolver, err := coreauth.NewUserResolver(userSvcFn)
+	if err != nil {
+		t.Fatalf("NewUserResolver: %v", err)
+	}
+
+	favoritesStore, err := favorites.NewFavoritesStore(t.TempDir(), nil)
+	if err != nil {
+		t.Fatalf("NewFavoritesStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := favoritesStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := favoritesStore.Close(); err != nil {
+			t.Errorf("Close favorites store: %v", err)
+		}
+	})
+
+	user, err := userSvc.CreateUser("carol", "carol@example.com", "pass", coreauth.RoleViewer)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	uc := NewDeleteUserUseCase(userSvcFn, resolver, favoritesStore, nil, slog.Default())
+	if err := uc.Execute(context.Background(), DeleteUserInput{ID: user.ID}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+// TestGetUsersUseCase_ReflectsLiveRestore is the regression test for
+// "User-Management Routes Go Stale After Live Restore": wiki.go wires this use
+// case straight from w.user (the UserService captured once at boot), bypassing
+// AuthService entirely. A live restore's AuthService.ReplaceUserStore swaps
+// AuthService's own internal pointer and closes the old UserService's store —
+// but never touches whatever a caller captured directly, so a use case built
+// that way is left holding a closed store forever after a restore.
+func TestGetUsersUseCase_ReflectsLiveRestore(t *testing.T) {
+	preDir := t.TempDir()
+	preStore, err := coreauth.NewUserStore(preDir)
+	if err != nil {
+		t.Fatalf("NewUserStore(pre): %v", err)
+	}
+	t.Cleanup(func() {
+		if err := preStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	preSvc := coreauth.NewUserService(preStore)
+
+	sessionStore, err := coreauth.NewSessionStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewSessionStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := sessionStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := sessionStore.Close(); err != nil {
+			t.Errorf("Close session store: %v", err)
+		}
+	})
+	sessions := coreauth.NewSessionManager(sessionStore, "test-secret-key-for-unit-tests-1", time.Hour, 24*time.Hour)
+	authSvc := coreauth.NewAuthService(preSvc, sessions)
+	t.Cleanup(func() { _ = authSvc.Close() })
+
+	uc := NewGetUsersUseCase(authSvc.UserService)
+
+	postDir := t.TempDir()
+	postStore, err := coreauth.NewUserStore(postDir)
+	if err != nil {
+		t.Fatalf("NewUserStore(post): %v", err)
+	}
+	t.Cleanup(func() {
+		if err := postStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	postSvc := coreauth.NewUserService(postStore)
+	postUser, err := postSvc.CreateUser("post-restore-admin", "post-restore-admin@example.com", "password123", coreauth.RoleAdmin)
+	if err != nil {
+		t.Fatalf("CreateUser(post): %v", err)
+	}
+	if err := postStore.Close(); err != nil {
+		t.Fatalf("Close(postStore): %v", err)
+	}
+
+	// Simulates what a live restore does to AuthService.
+	if err := authSvc.ReplaceUserStore(postDir); err != nil {
+		t.Fatalf("ReplaceUserStore: %v", err)
+	}
+
+	out, err := uc.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("GetUsersUseCase.Execute failed after a live restore swapped the user store: %v", err)
+	}
+	found := false
+	for _, u := range out.Users {
+		if u.ID == postUser.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("GetUsersUseCase did not see the post-restore user set — it's still bound to the pre-restore UserService captured at construction time")
+	}
+}
+
+// TestUpdateUser_ShortPassword_ReturnsValidationError verifies that a password
+// set through the user-management update enforces the same minimum length as
+// create, change-own-password and reset.
+func TestUpdateUser_ShortPassword_ReturnsValidationError(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	editor, err := svc.CreateUser("ed", "ed@example.com", "secretpassword", coreauth.RoleEditor)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	_, err = uc.Execute(context.Background(), UpdateUserInput{
+		ID:               editor.ID,
+		Username:         editor.Username,
+		Email:            editor.Email,
+		Password:         "short",
+		RequesterID:      "some-admin-id",
+		RequesterIsAdmin: true,
+	})
+	var ve *sharederrors.ValidationErrors
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if _, err := svc.DoesIDAndPasswordMatch(editor.ID, "secretpassword"); err != nil {
+		t.Errorf("password must be unchanged after rejected update: %v", err)
+	}
+}
+
+// TestUpdateUser_OwnPassword_ReturnsValidationError verifies that the
+// user-management update cannot change the requester's own password — that
+// goes through ChangeOwnPassword, which verifies the current password.
+func TestUpdateUser_OwnPassword_ReturnsValidationError(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	admin, err := svc.CreateUser("boss", "boss@example.com", "secretpassword", coreauth.RoleAdmin)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	_, err = uc.Execute(context.Background(), UpdateUserInput{
+		ID:               admin.ID,
+		Username:         admin.Username,
+		Email:            admin.Email,
+		Password:         "anotherpassword",
+		RequesterID:      admin.ID,
+		RequesterIsAdmin: true,
+	})
+	var ve *sharederrors.ValidationErrors
+	if !errors.As(err, &ve) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if _, err := svc.DoesIDAndPasswordMatch(admin.ID, "secretpassword"); err != nil {
+		t.Errorf("password must be unchanged after rejected update: %v", err)
+	}
+}
+
+// TestUpdateUser_OwnProfileWithoutPassword_Succeeds verifies that editing the
+// requester's own username/email (no password) keeps working.
+func TestUpdateUser_OwnProfileWithoutPassword_Succeeds(t *testing.T) {
+	uc, svc := setupUpdateUserUseCase(t)
+
+	admin, err := svc.CreateUser("boss", "boss@example.com", "secretpassword", coreauth.RoleAdmin)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	out, err := uc.Execute(context.Background(), UpdateUserInput{
+		ID:               admin.ID,
+		Username:         "boss-renamed",
+		Email:            admin.Email,
+		RequesterID:      admin.ID,
+		RequesterIsAdmin: true,
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if out.User.Username != "boss-renamed" {
+		t.Errorf("expected username %q, got %q", "boss-renamed", out.User.Username)
+	}
+}
+
+func setupAuthUseCases(t *testing.T, _ bool) (*coreauth.AuthService, *coreauth.UserService, *httpmetrics.HTTPMetrics) {
+	t.Helper()
+	store, err := coreauth.NewUserStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	users := coreauth.NewUserService(store)
+	sessionStore, err := coreauth.NewSessionStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sessionStore.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	metrics := httpmetrics.NewHTTPMetrics("test")
+	sessions := coreauth.NewSessionManager(sessionStore, "test-secret-key-for-unit-tests-1", time.Hour, 24*time.Hour)
+	service := coreauth.NewAuthService(users, sessions)
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	return service, users, metrics
+}

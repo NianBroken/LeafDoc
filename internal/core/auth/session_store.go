@@ -1,0 +1,226 @@
+package auth
+
+import (
+	"context"
+	"database/sql"
+	"log/slog"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/perber/wiki/internal/core/shared/sqliteutil"
+	_ "modernc.org/sqlite"
+)
+
+type SessionStore struct {
+	mu         sync.Mutex
+	storageDir string
+	filename   string
+	db         *sql.DB
+	cancel     context.CancelFunc
+	done       chan struct{}
+	log        *slog.Logger
+}
+
+func sessionDatabasePath(storageDir string, filename string) string {
+	normalizedStorageDir := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
+	return filepath.Join(normalizedStorageDir, filename)
+}
+
+func NewSessionStore(storageDir string) (*SessionStore, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s := &SessionStore{
+		storageDir: storageDir,
+		filename:   "sessions.db",
+		cancel:     cancel,
+		done:       make(chan struct{}),
+		log:        slog.Default().With("component", "SessionStore"),
+	}
+
+	err := sqliteutil.OpenWithPolicy(sessionDatabasePath(s.storageDir, s.filename), sqliteutil.QuarantineOnCorruption, func() error {
+		if err := s.ensureSchema(); err != nil {
+			if s.db != nil {
+				_ = s.db.Close()
+				s.db = nil
+			}
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	// Cleanup expired sessions periodically
+	go func() {
+		defer close(s.done)
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := s.CleanupExpiredSessions(); err != nil {
+					s.log.Warn("failed to cleanup expired sessions", "error", err)
+				}
+			}
+		}
+	}()
+
+	return s, nil
+
+}
+
+func (s *SessionStore) withDB(fn func(db *sql.DB) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.db == nil {
+		db, err := sql.Open("sqlite", sessionDatabasePath(s.storageDir, s.filename)+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+		if err != nil {
+			return err
+		}
+		s.db = db
+	}
+
+	return fn(s.db)
+}
+
+func (s *SessionStore) ensureSchema() error {
+	return s.withDB(func(db *sql.DB) error {
+		_, err := db.Exec(`
+			CREATE TABLE IF NOT EXISTS sessions (
+				id TEXT PRIMARY KEY,          -- jti
+				user_id TEXT NOT NULL,
+				token_type TEXT NOT NULL,     -- "refresh"
+				created_at INTEGER NOT NULL,  -- unix sec
+				expires_at INTEGER NOT NULL,  -- unix sec
+				revoked_at INTEGER            -- unix sec, NULL = active
+			);
+
+			CREATE INDEX IF NOT EXISTS sessions_user_id_idx
+				ON sessions(user_id);
+			CREATE INDEX IF NOT EXISTS sessions_user_id_token_type_idx
+				ON sessions(user_id, token_type);
+		`)
+		return err
+	})
+}
+
+func (s *SessionStore) Close() error {
+	// Signal the cleanup goroutine to stop
+	s.cancel()
+	// Wait for the cleanup goroutine to finish
+	<-s.done
+	// Close the database connection
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.db != nil {
+		if err := s.db.Close(); err != nil {
+			return err
+		}
+		s.db = nil
+	}
+	return nil
+}
+
+func (s *SessionStore) CreateSession(id, userID, tokenType string, expiresAt time.Time) error {
+	return s.withDB(func(db *sql.DB) error {
+		_, err := db.Exec(`
+			INSERT INTO sessions (id, user_id, token_type, created_at, expires_at, revoked_at)
+			VALUES (?, ?, ?, ?, ?, NULL);
+		`, id, userID, tokenType, time.Now().Unix(), expiresAt.Unix())
+		return err
+	})
+}
+
+func (s *SessionStore) IsActive(id, userID, tokenType string, now time.Time) (bool, error) {
+	var expiresAt int64
+	var revokedAt sql.NullInt64
+
+	err := s.withDB(func(db *sql.DB) error {
+		return db.QueryRow(`
+			SELECT expires_at, revoked_at
+			FROM sessions
+			WHERE id = ? AND user_id = ? AND token_type = ?;
+		`, id, userID, tokenType).Scan(&expiresAt, &revokedAt)
+	})
+
+	if err == sql.ErrNoRows {
+		// no such session
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	if revokedAt.Valid {
+		return false, nil
+	}
+	if now.Unix() > expiresAt {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *SessionStore) RevokeSession(id string) error {
+	return s.withDB(func(db *sql.DB) error {
+		_, err := db.Exec(`
+			UPDATE sessions
+			SET revoked_at = ?
+			WHERE id = ? AND revoked_at IS NULL;
+		`, time.Now().Unix(), id)
+		return err
+	})
+}
+
+func (s *SessionStore) RevokeAllSessionsForUser(userID string) error {
+	return s.withDB(func(db *sql.DB) error {
+		_, err := db.Exec(`
+			UPDATE sessions
+			SET revoked_at = ?
+			WHERE user_id = ? AND revoked_at IS NULL;
+		`, time.Now().Unix(), userID)
+		return err
+	})
+}
+
+// RevokeAllSessionsForUserExcept revokes every active session for userID
+// except the one identified by exceptID. If exceptID is empty, every session
+// is revoked (same as RevokeAllSessionsForUser) — the safe fallback when the
+// caller could not identify which session to preserve.
+func (s *SessionStore) RevokeAllSessionsForUserExcept(userID, exceptID string) error {
+	return s.withDB(func(db *sql.DB) error {
+		_, err := db.Exec(`
+			UPDATE sessions
+			SET revoked_at = ?
+			WHERE user_id = ? AND revoked_at IS NULL AND id != ?;
+		`, time.Now().Unix(), userID, exceptID)
+		return err
+	})
+}
+
+// DeleteAllSessions removes every session row regardless of state (active,
+// expired, or already revoked) — used after a restore, where the previous
+// sessions.db content is no longer meaningful against a swapped-in users.db.
+func (s *SessionStore) DeleteAllSessions() error {
+	return s.withDB(func(db *sql.DB) error {
+		_, err := db.Exec(`DELETE FROM sessions;`)
+		return err
+	})
+}
+
+func (s *SessionStore) CleanupExpiredSessions() error {
+	now := time.Now()
+	return s.withDB(func(db *sql.DB) error {
+		_, err := db.Exec(`
+			DELETE FROM sessions
+			WHERE expires_at <= ?;
+		`, now.Unix())
+		return err
+	})
+}

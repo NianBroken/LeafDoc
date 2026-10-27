@@ -1,0 +1,266 @@
+{
+  "layout": {
+    "toggleSidebar": "Toggle sidebar",
+    "resizeSidebar": "Resize sidebar",
+    "closeSidebar": "Close sidebar"
+  },
+  "breadcrumbs": {
+    "navAriaLabel": "Breadcrumb"
+  },
+  "section": {
+    "overviewTitle": "Overview of '{{title}}'",
+    "overviewDescriptionBase": "This page is the default overview of the section and lists its pages and sections.",
+    "overviewDescriptionEditorHint": "When editing this page, you can define a custom start page for the section.",
+    "overviewDescriptionReadOnly": "This page is an auto-generated overview of the section.",
+    "emptyTitle": "This section is empty.",
+    "emptyDescriptionEditor": "The section {{title}} does not contain any pages or sections yet. Start by adding a new page or create a new section.",
+    "emptyDescriptionReadOnly": "The section {{title}} does not contain any pages or sections yet.",
+    "addPage": "Add Page",
+    "addSection": "Add Section",
+    "subpagesAriaLabel": "Subpages of {{title}}",
+    "sectionSuffix": "(Section)",
+    "updatedByLabel": "Updated by {{editor}} · {{time}}",
+    "updatedLabel": "Updated {{time}}"
+  },
+  "markdownPreview": {
+    "renderError": "This page contains Markdown that could not be rendered safely.",
+    "brokenLinkTooltip": "This page doesn't exist yet."
+  },
+  "mermaid": {
+    "renderError": "Unable to render Mermaid diagram.",
+    "chunkLoadError": "This diagram couldn't load because a newer version of LeafWiki is available. Reload the page to fix this.",
+    "noSvgOutput": "No SVG element in Mermaid output"
+  },
+  "headline": {
+    "linkToSection": "Link to section"
+  },
+  "backlinks": {
+    "errorPrefix": "Error: {{error}}",
+    "pageIdRequired": "Page ID is required",
+    "fetchFailedFallback": "Failed to fetch link status",
+    "referencedBy": "Referenced by",
+    "loading": "Loading…",
+    "noReferences": "No pages reference this page.",
+    "brokenLinks": "Broken links",
+    "noBrokenLinks": "No broken links.",
+    "brokenOutgoingsTitle": "This page links to missing targets",
+    "brokenIncomingTitle": "Pages linking to an old path"
+  },
+  "pinned": {
+    "sectionTitle": "Pinned",
+    "pagesSectionTitle": "Pages",
+    "pinPage": "Pin",
+    "unpinPage": "Unpin",
+    "pinSuccess": "Page pinned",
+    "unpinSuccess": "Page unpinned",
+    "pinError": "Failed to update pin status",
+    "togglePinnedSection": "Toggle pinned pages section",
+    "togglePagesSection": "Toggle pages section",
+    "unpinPageAriaLabel": "Unpin page"
+  },
+  "favorites": {
+    "sectionTitle": "Favorites",
+    "addFavorite": "Add to favorites",
+    "removeFavorite": "Remove from favorites",
+    "addSuccess": "Added to favorites",
+    "removeSuccess": "Removed from favorites",
+    "favoriteError": "Failed to update favorites",
+    "toggleFavoritesSection": "Toggle favorites section"
+  },
+  "toc": {
+    "title": "Table of contents",
+    "onThisPage": "On this page",
+    "downloads": "Attached Media",
+    "collapse": "Collapse table of contents",
+    "expand": "Expand table of contents"
+  },
+  "toolbar": {
+    "moreActions": "More actions",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "sortPages": "Sort pages",
+    "refresh": "Refresh explorer",
+    "refreshSuccess": "Explorer refreshed",
+    "refreshError": "Refresh failed",
+    "refreshAlreadyRunning": "Refresh already in progress",
+    "refreshPullFailed": "Pulling remote changes failed",
+    "syncJobLostFallback": "Sync job lost — server may have restarted"
+  },
+  "pageToolbar": {
+    "itemPage": "Page",
+    "itemSection": "Section",
+    "editButton": "Edit {{item}}",
+    "shareButton": "Share {{item}}",
+    "printButton": "Print {{item}}",
+    "copyButton": "Copy {{item}}",
+    "deleteButton": "Delete {{item}}",
+    "historyButton": "{{item}} History"
+  },
+  "treeActions": {
+    "loading": "Loading...",
+    "loadErrorPrefix": "Error: {{error}}",
+    "createNewPageTooltip": "Create new page",
+    "createNewSectionTooltip": "Create new section",
+    "untitledPage": "Untitled Page",
+    "convertedToast": "Page converted successfully",
+    "conflictRetryMessage": "This page was modified by another user. Please try again.",
+    "convertErrorFallback": "Failed to convert page",
+    "renameEditingWarning": "This {{item}} is currently being edited. Please use the editor title bar to rename it.",
+    "renamedToast": "{{item}} renamed successfully",
+    "renameErrorFallback": "Failed to rename page",
+    "deleteEditingWarning": "This {{item}} is currently being edited. Please close the editor before deleting it.",
+    "menuAddPage": "Add Page",
+    "menuAddSection": "Add Section",
+    "menuEdit": "Edit {{item}}",
+    "menuRename": "Rename {{item}}",
+    "menuCopyPage": "Copy Page",
+    "menuSortChildren": "Sort {{item}} Children",
+    "menuMove": "Move {{item}}",
+    "menuConvertToPage": "Convert to Page",
+    "menuDelete": "Delete {{item}}",
+    "emptySectionToast": "\"{{title}}\" is now an empty section",
+    "convertBackAction": "Convert back to page",
+    "convertedBackToast": "\"{{title}}\" is a page again",
+    "convertBackErrorFallback": "Failed to convert section back to page",
+    "reorderErrorFallback": "Failed to reorder pages",
+    "moveErrorFallback": "Failed to move page"
+  },
+  "codeBlock": {
+    "copyErrorToast": "Could not copy code",
+    "copiedToast": "Code copied",
+    "copyTooltip": "Copy code",
+    "copiedTooltip": "Copied",
+    "copyAriaLabel": "Copy code",
+    "copiedAriaLabel": "Code copied"
+  },
+  "designToggle": {
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode"
+  },
+  "imagePreview": {
+    "openInNewTab": "Open in new tab"
+  },
+  "pdfEmbed": {
+    "defaultTitle": "PDF"
+  },
+  "pageSwitcher": {
+    "trigger": "Go to page",
+    "triggerWithHotkey": "Go to page ({{hotkey}})",
+    "dialogTitle": "Go to page",
+    "dialogDescription": "Search existing pages by title, path, or breadcrumb.",
+    "searchPlaceholder": "Type a page title…",
+    "searchAriaLabel": "Search pages",
+    "noMatch": "No matching page found.",
+    "matchingPagesAriaLabel": "Matching pages"
+  },
+  "metadata": {
+    "propertiesToggle": "Properties ({{count}})"
+  },
+  "shortcutsHelp": {
+    "menuItem": "Keyboard Shortcuts",
+    "title": "Available keyboard shortcuts",
+    "description": "A quick overview of shortcuts for the current page mode.",
+    "currentMode": "Current page mode: {{mode}}",
+    "dialogHint": "Dialog shortcuts are also included while this dialog is open.",
+    "closeButton": "Close",
+    "categories": {
+      "navigation": "Navigation",
+      "editing": "Editing",
+      "viewing": "Viewing",
+      "dialogs": "Dialogs"
+    },
+    "modes": {
+      "view": "view",
+      "edit": "edit",
+      "history": "history",
+      "settings": "settings",
+      "dialog": "dialog"
+    },
+    "items": {
+      "goToPage": {
+        "action": "Go to page"
+      },
+      "openShortcutsHelp": {
+        "action": "Open keyboard shortcuts"
+      },
+      "editPage": {
+        "action": "Edit page"
+      },
+      "sharePage": {
+        "action": "Share page"
+      },
+      "printPage": {
+        "action": "Print page"
+      },
+      "copyPage": {
+        "action": "Copy page"
+      },
+      "deletePage": {
+        "action": "Delete page"
+      },
+      "pageHistory": {
+        "action": "Page history"
+      },
+      "toggleToc": {
+        "action": "Toggle table of contents"
+      },
+      "openExplorer": {
+        "action": "Open explorer"
+      },
+      "openSearch": {
+        "action": "Open search"
+      },
+      "savePage": {
+        "action": "Save page"
+      },
+      "closeEditor": {
+        "action": "Close editor"
+      },
+      "formatBold": {
+        "action": "Format bold"
+      },
+      "formatItalic": {
+        "action": "Format italic"
+      },
+      "insertHeadingOne": {
+        "action": "Insert heading 1"
+      },
+      "insertHeadingTwo": {
+        "action": "Insert heading 2"
+      },
+      "insertHeadingThree": {
+        "action": "Insert heading 3"
+      },
+      "formatInlineCode": {
+        "action": "Format inline code"
+      },
+      "insertLink": {
+        "action": "Insert link"
+      },
+      "backToPage": {
+        "action": "Back to page"
+      },
+      "exitSettings": {
+        "action": "Exit settings"
+      },
+      "closeDialog": {
+        "action": "Close dialog"
+      },
+      "confirmDialog": {
+        "action": "Dialog default action"
+      },
+      "confirmRename": {
+        "action": "Confirm rename"
+      },
+      "cancelRename": {
+        "action": "Cancel rename"
+      }
+    }
+  },
+  "semanticAlerts": {
+    "info": "Info",
+    "success": "Success",
+    "warning": "Warning",
+    "error": "Error"
+  }
+}

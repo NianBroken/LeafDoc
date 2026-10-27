@@ -1,0 +1,79 @@
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Main binary
+/leafwiki
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+node_modules/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+
+releases/*
+!releases/.gitkeep
+
+
+dist/*
+!dist/.gitkeep
+
+# data dir
+data/
+
+# test database files
+*.db
+
+__debug*
+
+**/test-results/*
+
+
+local
+
+ui.zip
+
+# Local editor configuration and generated files
+.vscode/
+.idea/
+.fleet/
+.history/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.local
+*.log
+*.tmp
+*.temp
+*.bak
+.cache/
+coverage/
+
+# local embedded frontend output for fast E2E runs
+internal/http/dist/*
+!internal/http/dist/.gitkeep
+
+# AI agent config: AGENTS.md, CLAUDE.md and the public parts of .claude/ are versioned.
+# Maintainer-local overlays and personal state stay out (see AGENTS.md "Local overlay").
+/AGENTS.local.md
+/CLAUDE.local.md
+/.claude/settings.local.json
+/.claude/worktrees/
+# Maintainer-only skills and data are excluded via .git/info/exclude, not listed here.

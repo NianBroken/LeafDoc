@@ -1,0 +1,613 @@
+package auth
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"regexp"
+	"strings"
+
+	coreauth "github.com/perber/wiki/internal/core/auth"
+	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	"github.com/perber/wiki/internal/favorites"
+	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+)
+
+// ErrAuthDisabled is returned when an auth operation is called while auth is disabled.
+var ErrAuthDisabled = errors.New("authentication is disabled")
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+$`)
+
+// ─── LoginUseCase ────────────────────────────────────────────────────────────
+
+type LoginInput struct {
+	Identifier string
+	Password   string
+}
+
+type LoginOutput struct {
+	Token *coreauth.AuthToken
+}
+
+type LoginUseCase struct {
+	auth    *coreauth.AuthService
+	metrics *httpmetrics.HTTPMetrics
+}
+
+func NewLoginUseCase(a *coreauth.AuthService, metrics *httpmetrics.HTTPMetrics) *LoginUseCase {
+	return &LoginUseCase{auth: a, metrics: metrics}
+}
+
+func (uc *LoginUseCase) Execute(_ context.Context, in LoginInput) (*LoginOutput, error) {
+	if uc.auth == nil {
+		return nil, ErrAuthDisabled
+	}
+	token, err := uc.auth.Login(in.Identifier, in.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, coreauth.ErrUserAccountLocked):
+			uc.metrics.IncAuthLoginAttempt("locked")
+		case errors.Is(err, coreauth.ErrUserInvalidCredentials):
+			uc.metrics.IncAuthLoginAttempt("invalid_credentials")
+		default:
+			uc.metrics.IncAuthLoginAttempt("error")
+		}
+		return nil, err
+	}
+	uc.metrics.IncAuthLoginAttempt("success")
+	uc.metrics.IncAuthSession("issued")
+	return &LoginOutput{Token: token}, nil
+}
+
+// ─── LogoutUseCase ───────────────────────────────────────────────────────────
+
+type LogoutInput struct{ RefreshToken string }
+
+type LogoutUseCase struct {
+	auth    *coreauth.AuthService
+	metrics *httpmetrics.HTTPMetrics
+}
+
+func NewLogoutUseCase(a *coreauth.AuthService, metrics *httpmetrics.HTTPMetrics) *LogoutUseCase {
+	return &LogoutUseCase{auth: a, metrics: metrics}
+}
+
+func (uc *LogoutUseCase) Execute(_ context.Context, in LogoutInput) error {
+	if uc.auth == nil {
+		return ErrAuthDisabled
+	}
+	if err := uc.auth.RevokeRefreshToken(in.RefreshToken); err != nil {
+		return err
+	}
+	uc.metrics.IncAuthSession("revoked")
+	return nil
+}
+
+// ─── RefreshTokenUseCase ─────────────────────────────────────────────────────
+
+type RefreshTokenInput struct{ RefreshToken string }
+
+type RefreshTokenOutput struct {
+	Token *coreauth.AuthToken
+}
+
+type RefreshTokenUseCase struct {
+	auth    *coreauth.AuthService
+	metrics *httpmetrics.HTTPMetrics
+}
+
+func NewRefreshTokenUseCase(a *coreauth.AuthService, metrics *httpmetrics.HTTPMetrics) *RefreshTokenUseCase {
+	return &RefreshTokenUseCase{auth: a, metrics: metrics}
+}
+
+func (uc *RefreshTokenUseCase) Execute(_ context.Context, in RefreshTokenInput) (*RefreshTokenOutput, error) {
+	if uc.auth == nil {
+		return nil, ErrAuthDisabled
+	}
+	token, err := uc.auth.RefreshToken(in.RefreshToken)
+	if err != nil {
+		return nil, err
+	}
+	uc.metrics.IncAuthSession("refreshed")
+	return &RefreshTokenOutput{Token: token}, nil
+}
+
+// ─── CreateUserUseCase ───────────────────────────────────────────────────────
+
+type CreateUserInput struct {
+	Username string
+	Email    string
+	Password string
+	Role     string
+}
+
+type CreateUserOutput struct {
+	User *coreauth.PublicUser
+}
+
+type CreateUserUseCase struct {
+	// user is resolved on every call rather than cached at construction, so
+	// this use case automatically tracks a live restore's
+	// AuthService.ReplaceUserStore swap instead of going stale — see
+	// Wiki.UserService().
+	user     func() *coreauth.UserService
+	resolver *coreauth.UserResolver
+	log      *slog.Logger
+}
+
+func NewCreateUserUseCase(u func() *coreauth.UserService, r *coreauth.UserResolver, log *slog.Logger) *CreateUserUseCase {
+	return &CreateUserUseCase{user: u, resolver: r, log: log}
+}
+
+func (uc *CreateUserUseCase) Execute(_ context.Context, in CreateUserInput) (*CreateUserOutput, error) {
+	ve := sharederrors.NewValidationErrors()
+	if in.Username == "" {
+		ve.Add("username", "Username must not be empty")
+	}
+	if in.Email == "" {
+		ve.Add("email", "Email must not be empty")
+	} else if !emailRegex.MatchString(in.Email) {
+		ve.Add("email", "Email is not valid")
+	}
+	if in.Password == "" {
+		ve.Add("password", "Password must not be empty")
+	} else if len(in.Password) < coreauth.MinPasswordLength {
+		ve.Add("password", fmt.Sprintf("Password must be at least %d characters long", coreauth.MinPasswordLength))
+	}
+	if !coreauth.IsValidRole(in.Role) {
+		ve.Add("role", "Invalid role")
+	}
+	if ve.HasErrors() {
+		return nil, ve
+	}
+
+	user, err := uc.user().CreateUser(in.Username, in.Email, in.Password, in.Role)
+	if err != nil {
+		return nil, err
+	}
+	if err := uc.resolver.Reload(); err != nil {
+		uc.log.Warn("failed to reload user resolver cache", "error", err)
+	}
+	return &CreateUserOutput{User: user.ToPublicUser()}, nil
+}
+
+// ─── UpdateUserUseCase ───────────────────────────────────────────────────────
+
+type UpdateUserInput struct {
+	ID               string
+	Username         string
+	Email            string
+	Password         string
+	Role             string
+	RequesterID      string
+	RequesterIsAdmin bool
+}
+
+type UpdateUserOutput struct {
+	User *coreauth.PublicUser
+}
+
+type UpdateUserUseCase struct {
+	user     func() *coreauth.UserService
+	resolver *coreauth.UserResolver
+	auth     *coreauth.AuthService // nil when auth is disabled
+	log      *slog.Logger
+}
+
+func NewUpdateUserUseCase(u func() *coreauth.UserService, r *coreauth.UserResolver, a *coreauth.AuthService, log *slog.Logger) *UpdateUserUseCase {
+	return &UpdateUserUseCase{user: u, resolver: r, auth: a, log: log}
+}
+
+func (uc *UpdateUserUseCase) Execute(_ context.Context, in UpdateUserInput) (*UpdateUserOutput, error) {
+	ve := sharederrors.NewValidationErrors()
+	if in.Username == "" {
+		ve.Add("username", "Username must not be empty")
+	}
+	if in.Email == "" {
+		ve.Add("email", "Email must not be empty")
+	} else if !emailRegex.MatchString(in.Email) {
+		ve.Add("email", "Email is not valid")
+	}
+	if in.Password != "" {
+		// A user's own password goes through ChangeOwnPasswordUseCase, which
+		// verifies the current one; this path is for setting someone else's.
+		if in.ID == in.RequesterID {
+			ve.Add("password", "Use the account settings to change your own password")
+		} else if len(in.Password) < coreauth.MinPasswordLength {
+			ve.Add("password", fmt.Sprintf("Password must be at least %d characters long", coreauth.MinPasswordLength))
+		}
+	}
+	role := in.Role
+	roleProvided := strings.TrimSpace(in.Role) != ""
+	if in.RequesterIsAdmin && roleProvided && !coreauth.IsValidRole(in.Role) {
+		ve.Add("role", "Invalid role")
+	}
+	if ve.HasErrors() {
+		return nil, ve
+	}
+
+	if !in.RequesterIsAdmin || !roleProvided {
+		existing, err := uc.user().GetUserByID(in.ID)
+		if err != nil {
+			return nil, err
+		}
+		role = existing.Role
+	}
+
+	user, err := uc.user().UpdateUser(in.ID, in.Username, in.Email, in.Password, role)
+	if err != nil {
+		return nil, err
+	}
+	if err := uc.resolver.Reload(); err != nil {
+		uc.log.Warn("failed to reload user resolver cache", "error", err)
+	}
+	// A password set by an admin replaces the old credential, so sessions
+	// opened with it must not outlive it (same as a password reset).
+	if in.Password != "" && uc.auth != nil {
+		if err := uc.auth.RevokeAllUserSessions(in.ID); err != nil {
+			uc.log.Warn("failed to revoke sessions after admin password change", "userID", in.ID, "error", err)
+		}
+	}
+	return &UpdateUserOutput{User: user.ToPublicUser()}, nil
+}
+
+// ─── ChangeOwnPasswordUseCase ────────────────────────────────────────────────
+
+type ChangeOwnPasswordInput struct {
+	UserID              string
+	OldPassword         string
+	NewPassword         string
+	CurrentRefreshToken string
+}
+
+type ChangeOwnPasswordUseCase struct {
+	user func() *coreauth.UserService
+	auth *coreauth.AuthService // nil when auth is disabled
+	log  *slog.Logger
+}
+
+func NewChangeOwnPasswordUseCase(u func() *coreauth.UserService, a *coreauth.AuthService, log *slog.Logger) *ChangeOwnPasswordUseCase {
+	return &ChangeOwnPasswordUseCase{user: u, auth: a, log: log}
+}
+
+func (uc *ChangeOwnPasswordUseCase) Execute(_ context.Context, in ChangeOwnPasswordInput) error {
+	ve := sharederrors.NewValidationErrors()
+	if in.NewPassword == "" {
+		ve.Add("newPassword", "New password must not be empty")
+	} else if len(in.NewPassword) < coreauth.MinPasswordLength {
+		ve.Add("newPassword", fmt.Sprintf("New password must be at least %d characters long", coreauth.MinPasswordLength))
+	}
+	if _, err := uc.user().DoesIDAndPasswordMatch(in.UserID, in.OldPassword); err != nil {
+		ve.Add("oldPassword", "Old password is incorrect")
+	}
+	if ve.HasErrors() {
+		return ve
+	}
+	if err := uc.user().ChangeOwnPassword(in.UserID, in.OldPassword, in.NewPassword); err != nil {
+		return err
+	}
+	// Every other session was opened with the old password; the caller's own
+	// session (identified by its refresh token) stays signed in.
+	if uc.auth != nil {
+		if err := uc.auth.RevokeAllUserSessionsExceptCurrent(in.UserID, in.CurrentRefreshToken); err != nil {
+			uc.log.Warn("failed to revoke other sessions after password change", "userID", in.UserID, "error", err)
+		}
+	}
+	return nil
+}
+
+// ─── DeleteUserUseCase ───────────────────────────────────────────────────────
+
+type DeleteUserInput struct{ ID string }
+
+type DeleteUserUseCase struct {
+	user      func() *coreauth.UserService
+	resolver  *coreauth.UserResolver
+	favorites *favorites.FavoritesStore
+	apiKeys   *coreauth.APIKeyService // nil when API key management is disabled (see wiki.go initAuth)
+	log       *slog.Logger
+}
+
+func NewDeleteUserUseCase(u func() *coreauth.UserService, r *coreauth.UserResolver, f *favorites.FavoritesStore, ak *coreauth.APIKeyService, log *slog.Logger) *DeleteUserUseCase {
+	return &DeleteUserUseCase{user: u, resolver: r, favorites: f, apiKeys: ak, log: log}
+}
+
+func (uc *DeleteUserUseCase) Execute(_ context.Context, in DeleteUserInput) error {
+	if err := uc.user().DeleteUser(in.ID); err != nil {
+		return err
+	}
+	if err := uc.resolver.Reload(); err != nil {
+		uc.log.Warn("failed to reload user resolver cache", "error", err)
+	}
+	if err := uc.favorites.DeleteAllForUser(in.ID); err != nil {
+		uc.log.Warn("failed to delete favorites for deleted user", "userID", in.ID, "error", err)
+	}
+	if uc.apiKeys != nil {
+		if err := uc.apiKeys.DeleteAllForUser(in.ID); err != nil {
+			uc.log.Warn("failed to delete api keys for deleted user", "userID", in.ID, "error", err)
+		}
+	}
+	return nil
+}
+
+// ─── GetUsersUseCase ─────────────────────────────────────────────────────────
+
+type GetUsersOutput struct {
+	Users []*coreauth.PublicUser
+}
+
+type GetUsersUseCase struct {
+	user func() *coreauth.UserService
+}
+
+func NewGetUsersUseCase(u func() *coreauth.UserService) *GetUsersUseCase {
+	return &GetUsersUseCase{user: u}
+}
+
+func (uc *GetUsersUseCase) Execute(_ context.Context) (*GetUsersOutput, error) {
+	users, err := uc.user().GetUsers()
+	if err != nil {
+		return nil, err
+	}
+	pub := make([]*coreauth.PublicUser, len(users))
+	for i, u := range users {
+		pub[i] = u.ToPublicUser()
+	}
+	return &GetUsersOutput{Users: pub}, nil
+}
+
+// ─── GetUserByIDUseCase ──────────────────────────────────────────────────────
+
+type GetUserByIDInput struct{ ID string }
+
+type GetUserByIDOutput struct {
+	User *coreauth.PublicUser
+}
+
+type GetUserByIDUseCase struct {
+	user func() *coreauth.UserService
+}
+
+func NewGetUserByIDUseCase(u func() *coreauth.UserService) *GetUserByIDUseCase {
+	return &GetUserByIDUseCase{user: u}
+}
+
+func (uc *GetUserByIDUseCase) Execute(_ context.Context, in GetUserByIDInput) (*GetUserByIDOutput, error) {
+	user, err := uc.user().GetUserByID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &GetUserByIDOutput{User: user.ToPublicUser()}, nil
+}
+
+// ─── RequestPasswordResetUseCase ─────────────────────────────────────────────
+
+type RequestPasswordResetInput struct {
+	Identifier string
+}
+
+type RequestPasswordResetUseCase struct {
+	// emailTokens is resolved on every call (like user/resolver elsewhere in
+	// this file) rather than cached at construction. It returns nil when
+	// SMTP is unconfigured or auth is disabled — see wiki.initEmail.
+	emailTokens func() *coreauth.EmailTokenService
+}
+
+func NewRequestPasswordResetUseCase(e func() *coreauth.EmailTokenService) *RequestPasswordResetUseCase {
+	return &RequestPasswordResetUseCase{emailTokens: e}
+}
+
+// Execute always succeeds except when email isn't configured at all. It must
+// never distinguish "identifier resolved to a user" from "it didn't" — that
+// is the whole point of the enumeration-protection design here (see
+// coreauth.EmailTokenService.RequestPasswordReset's doc comment) — so the
+// actual send happens via RequestPasswordResetAsync, a background goroutine
+// whose outcome this call does not wait for or report.
+func (uc *RequestPasswordResetUseCase) Execute(_ context.Context, in RequestPasswordResetInput) error {
+	tokens := uc.emailTokens()
+	if tokens == nil {
+		return coreauth.ErrEmailDisabled
+	}
+	tokens.RequestPasswordResetAsync(in.Identifier)
+	return nil
+}
+
+// ─── ConfirmPasswordResetUseCase ─────────────────────────────────────────────
+
+type ConfirmPasswordResetInput struct {
+	Token       string
+	NewPassword string
+}
+
+type ConfirmPasswordResetOutput struct {
+	User *coreauth.PublicUser
+}
+
+type ConfirmPasswordResetUseCase struct {
+	emailTokens func() *coreauth.EmailTokenService
+}
+
+func NewConfirmPasswordResetUseCase(e func() *coreauth.EmailTokenService) *ConfirmPasswordResetUseCase {
+	return &ConfirmPasswordResetUseCase{emailTokens: e}
+}
+
+// Execute does not issue a session on success — unlike ConfirmInviteUseCase.
+// A reset just revoked every existing session for this user (see
+// EmailTokenService.ConfirmPasswordReset); auto-logging back in immediately
+// after would undercut that. The frontend sends the user to the login page
+// instead.
+func (uc *ConfirmPasswordResetUseCase) Execute(_ context.Context, in ConfirmPasswordResetInput) (*ConfirmPasswordResetOutput, error) {
+	tokens := uc.emailTokens()
+	if tokens == nil {
+		return nil, coreauth.ErrEmailDisabled
+	}
+
+	ve := sharederrors.NewValidationErrors()
+	if in.NewPassword == "" {
+		ve.Add("newPassword", "New password must not be empty")
+	} else if len(in.NewPassword) < coreauth.MinPasswordLength {
+		ve.Add("newPassword", fmt.Sprintf("New password must be at least %d characters long", coreauth.MinPasswordLength))
+	}
+	if ve.HasErrors() {
+		return nil, ve
+	}
+
+	user, err := tokens.ConfirmPasswordReset(in.Token, in.NewPassword)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfirmPasswordResetOutput{User: user.ToPublicUser()}, nil
+}
+
+// ─── InviteUserUseCase ────────────────────────────────────────────────────────
+
+type InviteUserInput struct {
+	Username string
+	Email    string
+	Role     string
+}
+
+type InviteUserOutput struct {
+	User      *coreauth.PublicUser
+	EmailSent bool
+}
+
+type InviteUserUseCase struct {
+	user        func() *coreauth.UserService
+	emailTokens func() *coreauth.EmailTokenService
+	resolver    *coreauth.UserResolver
+	log         *slog.Logger
+}
+
+func NewInviteUserUseCase(u func() *coreauth.UserService, e func() *coreauth.EmailTokenService, r *coreauth.UserResolver, log *slog.Logger) *InviteUserUseCase {
+	return &InviteUserUseCase{user: u, emailTokens: e, resolver: r, log: log}
+}
+
+// Execute mirrors CreateUserUseCase's validation (minus a password field —
+// InviteUser generates one internally, see coreauth.UserService.InviteUser).
+// A send failure does not fail the request or roll back user creation: the
+// admin already has a real user account to work with, and EmailSent=false
+// tells the frontend to offer a resend (see ResendInviteUseCase).
+func (uc *InviteUserUseCase) Execute(ctx context.Context, in InviteUserInput) (*InviteUserOutput, error) {
+	tokens := uc.emailTokens()
+	if tokens == nil {
+		return nil, coreauth.ErrEmailDisabled
+	}
+
+	ve := sharederrors.NewValidationErrors()
+	if in.Username == "" {
+		ve.Add("username", "Username must not be empty")
+	}
+	if in.Email == "" {
+		ve.Add("email", "Email must not be empty")
+	} else if !emailRegex.MatchString(in.Email) {
+		ve.Add("email", "Email is not valid")
+	}
+	if !coreauth.IsValidRole(in.Role) {
+		ve.Add("role", "Invalid role")
+	}
+	if ve.HasErrors() {
+		return nil, ve
+	}
+
+	user, err := uc.user().InviteUser(in.Username, in.Email, in.Role)
+	if err != nil {
+		return nil, err
+	}
+	if err := uc.resolver.Reload(); err != nil {
+		uc.log.Warn("failed to reload user resolver cache", "error", err)
+	}
+
+	emailSent := true
+	if err := tokens.IssueInvite(ctx, user); err != nil {
+		uc.log.Warn("failed to send invite email", "userID", user.ID, "error", err)
+		emailSent = false
+	}
+
+	return &InviteUserOutput{User: user.ToPublicUser(), EmailSent: emailSent}, nil
+}
+
+// ─── ResendInviteUseCase ──────────────────────────────────────────────────────
+
+type ResendInviteInput struct {
+	UserID string
+}
+
+type ResendInviteUseCase struct {
+	user        func() *coreauth.UserService
+	emailTokens func() *coreauth.EmailTokenService
+}
+
+func NewResendInviteUseCase(u func() *coreauth.UserService, e func() *coreauth.EmailTokenService) *ResendInviteUseCase {
+	return &ResendInviteUseCase{user: u, emailTokens: e}
+}
+
+func (uc *ResendInviteUseCase) Execute(ctx context.Context, in ResendInviteInput) error {
+	tokens := uc.emailTokens()
+	if tokens == nil {
+		return coreauth.ErrEmailDisabled
+	}
+
+	user, err := uc.user().GetUserByID(in.UserID)
+	if err != nil {
+		return err
+	}
+	if !user.MustSetPassword {
+		return coreauth.ErrInviteAlreadyAccepted
+	}
+
+	return tokens.IssueInvite(ctx, user)
+}
+
+// ─── ConfirmInviteUseCase ─────────────────────────────────────────────────────
+
+type ConfirmInviteInput struct {
+	Token       string
+	NewPassword string
+}
+
+type ConfirmInviteOutput struct {
+	Token *coreauth.AuthToken
+}
+
+type ConfirmInviteUseCase struct {
+	emailTokens func() *coreauth.EmailTokenService
+	auth        *coreauth.AuthService
+}
+
+func NewConfirmInviteUseCase(e func() *coreauth.EmailTokenService, a *coreauth.AuthService) *ConfirmInviteUseCase {
+	return &ConfirmInviteUseCase{emailTokens: e, auth: a}
+}
+
+// Execute consumes the invite token, sets the user's password, and — unlike
+// ConfirmPasswordResetUseCase — issues a fresh session immediately: a freshly
+// invited user has no prior sessions to worry about, so there's no reason to
+// make them log in a second time right after setting their first password.
+func (uc *ConfirmInviteUseCase) Execute(_ context.Context, in ConfirmInviteInput) (*ConfirmInviteOutput, error) {
+	tokens := uc.emailTokens()
+	if tokens == nil {
+		return nil, coreauth.ErrEmailDisabled
+	}
+
+	ve := sharederrors.NewValidationErrors()
+	if in.NewPassword == "" {
+		ve.Add("newPassword", "New password must not be empty")
+	} else if len(in.NewPassword) < coreauth.MinPasswordLength {
+		ve.Add("newPassword", fmt.Sprintf("New password must be at least %d characters long", coreauth.MinPasswordLength))
+	}
+	if ve.HasErrors() {
+		return nil, ve
+	}
+
+	user, err := tokens.ConfirmInvite(in.Token, in.NewPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := uc.auth.IssueSessionForUser(user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfirmInviteOutput{Token: token}, nil
+}

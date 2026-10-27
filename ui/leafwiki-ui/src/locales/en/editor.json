@@ -1,0 +1,136 @@
+{
+  "wikiLinkDisambiguation": {
+    "title": "Multiple pages found",
+    "descriptionPrefix": "Several pages match",
+    "descriptionSuffix": ". Choose which one you meant."
+  },
+  "slugInput": {
+    "label": "Slug",
+    "placeholder": "Page slug",
+    "generateErrorFallback": "Error generating slug"
+  },
+  "addPageDialog": {
+    "dateTitleTooltip": "Set title to today's date"
+  },
+  "editPageMetadataDialog": {
+    "dialogTitle": "Edit {{item}} metadata",
+    "dialogDescription": "Change metadata of the {{item}}",
+    "titleLabel": "Title",
+    "titlePlaceholder": "{{item}} title",
+    "pathPrefix": "Path:",
+    "cancelButton": "Cancel",
+    "saveButton": "Change",
+    "dateTitleTooltip": "Set title to today's date"
+  },
+  "toolbar": {
+    "closeEditorButton": "Close Editor",
+    "savePageButton": "Save Page",
+    "boldTooltip": "Bold (Ctrl+B)",
+    "italicTooltip": "Italic (Ctrl+I)",
+    "strikethroughTooltip": "Strikethrough",
+    "highlightTooltip": "Highlight",
+    "linkTooltip": "Link (Ctrl+K)",
+    "heading1Tooltip": "Heading 1 (Ctrl+Alt+1)",
+    "heading2Tooltip": "Heading 2 (Ctrl+Alt+2)",
+    "heading3Tooltip": "Heading 3 (Ctrl+Alt+3)",
+    "tableTooltip": "Table",
+    "tableSizeSelect": "Select size",
+    "tableSizeLabel": "{{col}} × {{row}}",
+    "tableInsertAriaLabel": "Insert table {{col}} x {{row}}",
+    "codeBlockTooltip": "Code Block",
+    "inlineCodeTooltip": "Inline Code (Ctrl+`)",
+    "imageTooltip": "Asset Manager",
+    "attachmentsButton": "Attachments",
+    "undoTooltip": "Undo",
+    "redoTooltip": "Redo",
+    "lineWrapEnableTooltip": "Enable line wrap",
+    "lineWrapDisableTooltip": "Disable line wrap",
+    "moreOptionsAriaLabel": "More formatting options",
+    "previewSplitTooltip": "Use side-by-side preview layout",
+    "previewStackedTooltip": "Use stacked preview layout",
+    "showPreviewTooltip": "Show preview",
+    "hidePreviewTooltip": "Hide preview",
+    "pasteRichTooltip": "Paste with formatting (Ctrl+Shift+V)",
+    "pastePlainTooltip": "Paste without formatting (Ctrl+V)",
+    "pasteRich": "Paste with formatting",
+    "pastePlain": "Paste without formatting",
+    "pasteClipboardError": "Could not read clipboard contents",
+    "strikethrough": "Strikethrough",
+    "highlight": "Highlight",
+    "heading1": "Heading 1",
+    "heading2": "Heading 2",
+    "heading3": "Heading 3",
+    "insertTable": "Insert Table (3×3)",
+    "lineWrap": "Line wrap",
+    "autoSave": "Auto-save",
+    "autoSavePaused": "paused"
+  },
+  "pageEditor": {
+    "savedToast": "Page saved successfully",
+    "saveErrorFallback": "Error saving page",
+    "saveAnyway": "Save anyway",
+    "conflictAgainMessage": "The page was modified again while saving. Please reload the page and re-apply your changes.",
+    "errorPrefix": "Error: {{error}}",
+    "metadataErrorsBeforeSave": "Please fix metadata errors before saving.",
+    "contentNullFallback": "Updated page content is null or undefined",
+    "unknownErrorFallback": "An unknown error occurred"
+  },
+  "linkInsertDialog": {
+    "dialogTitle": "Insert Link",
+    "displayTextLabel": "Display Text",
+    "urlLabel": "URL",
+    "textPlaceholder": "Link text",
+    "urlPlaceholder": "https:// or search pages…",
+    "cancelButton": "Cancel",
+    "insertButton": "Insert"
+  },
+  "frontmatterPanel": {
+    "metadataTitle": "Metadata",
+    "tagsHeading": "Tags",
+    "propertiesHeading": "Properties",
+    "removeFieldAriaLabel": "Remove frontmatter field {{field}}",
+    "addTagPlaceholder": "Add tag",
+    "keyPlaceholder": "Key",
+    "valuePlaceholder": "Value",
+    "internalFieldsToggle": "Internal fields",
+    "addPropertyButton": "Add property",
+    "flatHint": "Keep fields flat for now. If you need nested metadata later, use dot keys like <code>seo.title</code>.",
+    "unsupportedNotice": "Existing advanced frontmatter is preserved in the background but not editable in this compact view yet.",
+    "tagCount_one": "{{count}} tag",
+    "tagCount_other": "{{count}} tags",
+    "propertyCount_one": "{{count}} property",
+    "propertyCount_other": "{{count}} properties"
+  },
+  "tagInput": {
+    "loading": "Loading…",
+    "noMatchingTags": "No matching tags found.",
+    "removeTagAriaLabel": "Remove tag {{tag}}"
+  },
+  "markdownEditor": {
+    "editorTab": "Editor",
+    "previewTab": "Preview",
+    "resizeAriaLabel": "Resize editor and preview panes",
+    "fileTooLarge": "File too large. Max {{maxSize}} allowed.",
+    "uploadedToast": "Uploaded {{filename}}",
+    "uploadErrorFallback": "Failed to upload {{filename}}"
+  },
+  "autoSave": {
+    "savedToast": "Saved",
+    "versionConflictToast": "Auto-save paused — page was changed by another user. Save manually to continue.",
+    "errorFallback": "Auto-save failed"
+  },
+  "frontmatterValidation": {
+    "tagsWhitespace": "Tags must not contain leading or trailing whitespace.",
+    "tagsEmpty": "Tags must not be empty.",
+    "tagsUnique": "Tags must be unique.",
+    "keyEmpty": "Property key must not be empty.",
+    "keyWhitespace": "Property key must not contain leading or trailing whitespace.",
+    "keyReservedPrefix": "Property key uses a reserved prefix.",
+    "keyReserved": "Property key is reserved.",
+    "keyUnique": "Property key must be unique.",
+    "valueType": "Property value must be a string, number, boolean, or flat list."
+  },
+  "titleBar": {
+    "dirtyIndicator": "(Changes)"
+  }
+}

@@ -1,0 +1,70 @@
+import * as authAPI from '@/lib/api/auth'
+import * as userAPI from '@/lib/api/users'
+import { create } from 'zustand'
+import { useSessionStore } from './session'
+
+type UserStore = {
+  users: userAPI.User[]
+  reset: () => void
+  loadUsers: () => Promise<void>
+  createUser: (data: Parameters<typeof userAPI.createUser>[0]) => Promise<void>
+  updateUser: (data: Parameters<typeof userAPI.updateUser>[0]) => Promise<void>
+  deleteUser: (id: string) => Promise<void>
+  changeOwnPassword: (oldPassword: string, newPassword: string) => Promise<void>
+  inviteUser: (
+    data: Parameters<typeof userAPI.inviteUser>[0],
+  ) => Promise<userAPI.InviteUserResponse>
+  resendInvite: (id: string) => Promise<void>
+}
+
+export const useUserStore = create<UserStore>((set, get) => ({
+  users: [],
+
+  reset: () => set({ users: [] }),
+
+  loadUsers: async () => {
+    const users = await userAPI.getUsers()
+    set({ users })
+  },
+
+  createUser: async (data) => {
+    await userAPI.createUser(data)
+    await get().loadUsers()
+  },
+
+  updateUser: async (data) => {
+    await userAPI.updateUser(data)
+    await get().loadUsers()
+  },
+
+  deleteUser: async (id) => {
+    await userAPI.deleteUser(id)
+    await get().loadUsers()
+  },
+
+  inviteUser: async (data) => {
+    const result = await userAPI.inviteUser(data)
+    await get().loadUsers()
+    return result
+  },
+
+  resendInvite: async (id) => {
+    await userAPI.resendInvite(id)
+  },
+
+  changeOwnPassword: async (oldPassword, newPassword) => {
+    await userAPI.changeOwnPassword(oldPassword, newPassword)
+
+    const { user, logout } = useSessionStore.getState()
+    if (user?.username) {
+      try {
+        await authAPI.login(user.username, newPassword)
+      } catch (err) {
+        console.warn(err)
+        logout()
+      }
+    } else {
+      logout()
+    }
+  },
+}))

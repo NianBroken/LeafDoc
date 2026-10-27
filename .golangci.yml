@@ -1,0 +1,25 @@
+version: "2"
+linters:
+  enable:
+    - govet
+    - unused
+    - gocritic
+    - staticcheck
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - node_modules
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - node_modules

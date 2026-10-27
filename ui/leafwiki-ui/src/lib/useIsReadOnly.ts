@@ -1,0 +1,24 @@
+import { useConfigStore } from '@/stores/config'
+import { useSessionStore } from '@/stores/session'
+
+export function useIsReadOnly() {
+  const user = useSessionStore((s) => s.user)
+  const publicAccess = useConfigStore((s) => s.publicAccess)
+  const authDisabled = useConfigStore((s) => s.authDisabled)
+
+  // if auth is disabled, everyone has read and write access
+  if (authDisabled) return false
+
+  // Not logged in, check public access setting
+  if (!user) {
+    return publicAccess
+  }
+
+  // viewer role -> only read
+  if (user.role === 'viewer') {
+    return true
+  }
+
+  // admin and editor roles -> read and write
+  return false
+}

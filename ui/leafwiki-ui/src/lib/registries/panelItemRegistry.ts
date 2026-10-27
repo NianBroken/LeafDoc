@@ -1,0 +1,38 @@
+// PanelItemRegistry
+// This file is used to register panel items for the sidebar or other panels.
+
+import type { AppMode } from '@/lib/useAppMode'
+import { JSX } from 'react'
+
+export interface PanelItem {
+  id: string
+  // A function rather than a resolved string: this registry is populated at
+  // module-load time, before the app-wide default language (set via server
+  // config) has been applied, so the label must be re-evaluated at render
+  // time to reflect the active language.
+  label: () => string
+  hotkey?: string
+  modes?: AppMode[]
+  isEnabled?: () => boolean
+  icon: () => JSX.Element
+  render: (props: unknown) => JSX.Element
+}
+
+export class PanelItemRegistry {
+  private items: Map<string, PanelItem> = new Map()
+
+  register(item: PanelItem) {
+    if (this.items.has(item.id)) {
+      throw new Error(`Panel item with id ${item.id} is already registered.`)
+    }
+    this.items.set(item.id, item)
+  }
+
+  getItem(id: string): PanelItem | undefined {
+    return this.items.get(id)
+  }
+
+  getAllItems(): PanelItem[] {
+    return Array.from(this.items.values())
+  }
+}

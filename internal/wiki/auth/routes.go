@@ -1,0 +1,572 @@
+package auth
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	coreavatar "github.com/perber/wiki/internal/avatar"
+	coreauth "github.com/perber/wiki/internal/core/auth"
+	httpinternal "github.com/perber/wiki/internal/http"
+	authmw "github.com/perber/wiki/internal/http/middleware/auth"
+	"github.com/perber/wiki/internal/http/middleware/security"
+	"github.com/perber/wiki/internal/http/middleware/utils"
+	"github.com/perber/wiki/internal/preferences"
+)
+
+const (
+	httpsRequiredLogMsg        = "https required for auth cookies use allow insecure"
+	httpsRequiredUserMsg       = "HTTPS is required for auth cookies. Use HTTPS or start LeafWiki with --allow-insecure for trusted plain HTTP setups."
+	errInvalidRequestUserMsg   = "Invalid request"
+	errInvalidRequestLogMsg    = "invalid request"
+	errFailedToIssueCSRFCookie = "Failed to issue CSRF cookie"
+)
+
+// DisableRefreshTokenRateLimit can be set via ldflags for E2E/debug builds.
+var DisableRefreshTokenRateLimit = "false"
+
+// Routes is the RouteRegistrar for the auth domain.
+type Routes struct {
+	login             *LoginUseCase
+	logout            *LogoutUseCase
+	refreshToken      *RefreshTokenUseCase
+	createUser        *CreateUserUseCase
+	updateUser        *UpdateUserUseCase
+	changeOwnPassword *ChangeOwnPasswordUseCase
+	deleteUser        *DeleteUserUseCase
+	getUsers          *GetUsersUseCase
+	getUserByID       *GetUserByIDUseCase
+	authService       *coreauth.AuthService
+
+	requestPasswordReset *RequestPasswordResetUseCase
+	confirmPasswordReset *ConfirmPasswordResetUseCase
+	inviteUser           *InviteUserUseCase
+	resendInvite         *ResendInviteUseCase
+	confirmInvite        *ConfirmInviteUseCase
+}
+
+// RoutesConfig holds the dependencies to build an auth Routes instance.
+type RoutesConfig struct {
+	Login             *LoginUseCase
+	Logout            *LogoutUseCase
+	RefreshToken      *RefreshTokenUseCase
+	CreateUser        *CreateUserUseCase
+	UpdateUser        *UpdateUserUseCase
+	ChangeOwnPassword *ChangeOwnPasswordUseCase
+	DeleteUser        *DeleteUserUseCase
+	GetUsers          *GetUsersUseCase
+	GetUserByID       *GetUserByIDUseCase
+	AuthService       *coreauth.AuthService
+
+	RequestPasswordReset *RequestPasswordResetUseCase
+	ConfirmPasswordReset *ConfirmPasswordResetUseCase
+	InviteUser           *InviteUserUseCase
+	ResendInvite         *ResendInviteUseCase
+	ConfirmInvite        *ConfirmInviteUseCase
+}
+
+// NewRoutes constructs the auth RouteRegistrar.
+func NewRoutes(cfg RoutesConfig) *Routes {
+	return &Routes{
+		login:             cfg.Login,
+		logout:            cfg.Logout,
+		refreshToken:      cfg.RefreshToken,
+		createUser:        cfg.CreateUser,
+		updateUser:        cfg.UpdateUser,
+		changeOwnPassword: cfg.ChangeOwnPassword,
+		deleteUser:        cfg.DeleteUser,
+		getUsers:          cfg.GetUsers,
+		getUserByID:       cfg.GetUserByID,
+		authService:       cfg.AuthService,
+
+		requestPasswordReset: cfg.RequestPasswordReset,
+		confirmPasswordReset: cfg.ConfirmPasswordReset,
+		inviteUser:           cfg.InviteUser,
+		resendInvite:         cfg.ResendInvite,
+		confirmInvite:        cfg.ConfirmInvite,
+	}
+}
+
+// RegisterRoutes implements RouteRegistrar.
+func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
+	opts := ctx.Opts
+
+	loginRateLimiter := security.NewRateLimiter(10, 5*time.Minute, true)
+
+	nonAuth := ctx.Base.Group("/api")
+	nonAuth.POST("/auth/login", loginRateLimiter, r.handleLogin(ctx))
+	// Shares loginRateLimiter's per-IP budget with /auth/login: both steps of the
+	// same handshake draw from one bucket, since both are exposed to credential/code
+	// guessing before a session exists.
+	if DisableRefreshTokenRateLimit == "true" {
+		nonAuth.POST("/auth/refresh-token", r.handleRefreshToken(ctx))
+	} else {
+		refreshRateLimiter := security.NewRateLimiter(30, time.Minute, false)
+		nonAuth.POST("/auth/refresh-token", refreshRateLimiter, r.handleRefreshToken(ctx))
+	}
+
+	// Config endpoint also lives here as it issues the CSRF cookie.
+	nonAuth.GET("/config", r.handleConfig(ctx))
+
+	// /auth/me uses optional auth so that unauthenticated callers get 200+null
+	// instead of 401, which would cause browsers behind a Basic Auth reverse
+	// proxy to discard their cached credentials.
+	meGroup := ctx.Base.Group("/api")
+	meGroup.Use(
+		authmw.InjectPublicEditor(opts.AuthDisabled),
+		authmw.OptionalAuth(r.authService, ctx.AuthCookies),
+	)
+	meGroup.GET("/auth/me", r.handleMe)
+
+	authGroup := ctx.APIAuthGroup(r.authService)
+
+	// Routes that manage credentials, sessions or users stay browser-session
+	// only: an API key skips CSRF, so without this a key could create accounts
+	// or change credentials and turn itself into a permanent login.
+	sessionOnly := authmw.RequireCookieSession()
+
+	authGroup.POST("/auth/logout", sessionOnly, r.handleLogout(ctx))
+
+	authGroup.POST("/users", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleCreateUser)
+	authGroup.GET("/users", authmw.RequireAdmin(opts.AuthDisabled), r.handleGetUsers)
+	authGroup.PUT("/users/:id", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleUpdateUser)
+	authGroup.DELETE("/users/:id", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleDeleteUser)
+	// Invite is only ever meaningful with SMTP configured — the underlying
+	// use cases already short-circuit on ErrEmailDisabled when emailTokens()
+	// is nil (SMTP off or auth disabled), so registering these unconditionally
+	// (mirroring POST /users above) just means that case surfaces as a clean
+	// 403 instead of a 404.
+	authGroup.POST("/users/invite", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleInviteUser)
+	authGroup.POST("/users/:id/invite/resend", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleResendInvite)
+
+	if !opts.AuthDisabled {
+		authGroup.PUT("/users/me/password", sessionOnly, r.handleChangeOwnPassword(ctx))
+		emailRateLimiter := security.NewRateLimiter(10, 5*time.Minute, true)
+		// Separate, tighter per-identifier budget on top of the per-IP one
+		// above: the threat forgot-password uniquely has is mail-bombing one
+		// victim from many IPs, which a per-IP limiter alone doesn't stop.
+		passwordResetIdentifierLimiter := security.NewKeyedLimiter(3, time.Hour, false)
+		nonAuth.POST("/auth/password/forgot", emailRateLimiter, r.handleRequestPasswordReset(passwordResetIdentifierLimiter))
+		nonAuth.POST("/auth/password/reset", emailRateLimiter, r.handleConfirmPasswordReset)
+		nonAuth.POST("/auth/invite/accept", emailRateLimiter, r.handleConfirmInvite(ctx))
+	}
+}
+
+// ─── Handlers ───────────────────────────────────────────────────────────────
+
+func writeAuthCookieError(c *gin.Context, err error, httpsMsg, internalMsg, logMsg string) {
+	if errors.Is(err, utils.ErrHTTPSRequired) {
+		respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCookieFailed, httpsMsg, httpsRequiredLogMsg)
+		return
+	}
+	slog.Default().Error(logMsg, "error", err)
+	respondWithAuthStatusError(c, http.StatusInternalServerError, ErrCodeAuthInternalError, internalMsg, "failed to issue auth cookie")
+}
+
+func (r *Routes) handleConfig(ctx httpinternal.RouterContext) gin.HandlerFunc {
+	opts := ctx.Opts
+	return func(c *gin.Context) {
+		if _, err := ctx.CSRFCookie.Issue(c); err != nil {
+			writeAuthCookieError(c, err,
+				httpsRequiredUserMsg,
+				errFailedToIssueCSRFCookie,
+				"failed to issue config CSRF cookie",
+			)
+			return
+		}
+		config := gin.H{
+			"publicAccess":            opts.PublicAccess.Enabled(),
+			"publicAccessEnvManaged":  opts.PublicAccess.EnvManaged(),
+			"alwaysShowToc":           opts.AlwaysShowToc.AlwaysShow(),
+			"editorLimit":             opts.EditorLimit,
+			"hideLinkMetadataSection": opts.HideLinkMetadataSection,
+			"authDisabled":            opts.AuthDisabled,
+			"basePath":                opts.BasePath,
+			"maxAssetUploadSizeBytes": opts.MaxAssetUploadSizeBytes,
+			// Avatar constraints are fixed feature constants (internal/avatar),
+			// not a configurable RouterOptions field like MaxAssetUploadSizeBytes
+			// above — read straight from the package rather than plumbed through
+			// Opts, since there's no flag/env var that could ever override them.
+			"maxAvatarUploadSizeBytes": coreavatar.MaxUploadSize,
+			"avatarAllowedExts":        coreavatar.AllowedExts(),
+			"enableRevision":           opts.EnableRevision,
+			"enableLinkRefactor":       opts.EnableLinkRefactor,
+			"enableApiKeyManagement":   opts.EnableAPIKeyManagement,
+			"snapshotEnabled":          opts.SnapshotEnabled,
+			"smtpEnabled":              opts.SMTPEnabled,
+			"httpRemoteUserEnabled":    opts.HTTPRemoteUser.Enabled,
+			"loginUrl":                 opts.LoginURL,
+			"logoutUrl":                opts.LogoutURL,
+			"userManagementUrl":        opts.UserManagementURL,
+			"defaultLanguage":          opts.DefaultLanguage,
+		}
+		prefs := preferences.Defaults()
+		if opts.Preferences != nil {
+			prefs = opts.Preferences.Get()
+		}
+		config["preferences"] = prefs
+		if opts.SettingsVersion != nil {
+			config["settingsVersion"] = opts.SettingsVersion()
+			config["settingsInstance"] = opts.SettingsInstance
+		}
+		config["defaultLanguage"] = prefs.Language
+		config["tocMode"] = opts.AlwaysShowToc.Mode()
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusOK, config)
+	}
+}
+
+// handleMe returns the currently authenticated user or null.
+// Uses TryGetUser (not MustGetUser) so unauthenticated callers receive 200+null
+// instead of 401, avoiding the Basic Auth credential-reset issue (RFC 9110 §15.5.2).
+// Cache headers prevent reverse proxies from caching the identity response.
+func (r *Routes) handleMe(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", time.Unix(0, 0).UTC().Format(http.TimeFormat))
+
+	user := authmw.TryGetUser(c)
+	if user == nil {
+		c.JSON(http.StatusOK, nil)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"mustChangePassword": user.MustChangePassword,
+		"id":                 user.ID,
+		"username":           user.Username,
+		"email":              user.Email,
+		"role":               user.Role,
+	})
+}
+
+func (r *Routes) handleLogin(rctx httpinternal.RouterContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Identifier string `json:"identifier" binding:"required"`
+			Password   string `json:"password" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidPayload, "Invalid login payload", "invalid login payload")
+			return
+		}
+		out, err := r.login.Execute(c.Request.Context(), LoginInput{
+			Identifier: req.Identifier, Password: req.Password,
+		})
+		if err != nil {
+			respondWithAuthError(c, err)
+			return
+		}
+		if _, err := rctx.CSRFCookie.Issue(c); err != nil {
+			writeAuthCookieError(c, err,
+				"HTTPS is required for login cookies. Use HTTPS or start LeafWiki with --allow-insecure for trusted plain HTTP setups.",
+				errFailedToIssueCSRFCookie,
+				"failed to issue login CSRF cookie",
+			)
+			return
+		}
+		if err := rctx.AuthCookies.Set(c, out.Token.Token, out.Token.RefreshToken); err != nil {
+			if errors.Is(err, utils.ErrHTTPSRequired) {
+				respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCookieFailed,
+					httpsRequiredUserMsg,
+					httpsRequiredLogMsg)
+				return
+			}
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCookieFailed, "Failed to set authentication cookies", "failed to set authentication cookies")
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":              "Login successful",
+			"user":                 out.Token.User,
+			"accessTokenExpiresAt": out.Token.AccessTokenExpiresAt,
+		})
+	}
+}
+
+func (r *Routes) handleLogout(rctx httpinternal.RouterContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		refreshToken, err := rctx.AuthCookies.ReadRefresh(c)
+		if err != nil {
+			slog.Default().Warn("could not read refresh token during logout; refresh token will not be revoked", "error", err)
+		}
+		if refreshToken != "" {
+			if err := r.logout.Execute(c.Request.Context(), LogoutInput{RefreshToken: refreshToken}); err != nil {
+				slog.Default().Warn("failed to revoke refresh token during logout", "error", err)
+			}
+		}
+		if err := rctx.AuthCookies.Clear(c); err != nil {
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCookieFailed, "Failed to clear authentication cookies", "failed to clear authentication cookies")
+			return
+		}
+		if err := rctx.CSRFCookie.Clear(c); err != nil {
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCsrfFailed, "Failed to clear CSRF cookie", "failed to clear csrf cookie")
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+	}
+}
+
+func (r *Routes) handleRefreshToken(rctx httpinternal.RouterContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rt, err := rctx.AuthCookies.ReadRefresh(c)
+		if err != nil || rt == "" {
+			respondWithAuthStatusError(c, http.StatusUnprocessableEntity, ErrCodeAuthInvalidRefreshToken, "Missing or invalid refresh token", "missing or invalid refresh token")
+			return
+		}
+		out, err := r.refreshToken.Execute(c.Request.Context(), RefreshTokenInput{RefreshToken: rt})
+		if err != nil {
+			respondWithAuthError(c, err)
+			return
+		}
+		if _, err := rctx.CSRFCookie.Issue(c); err != nil {
+			writeAuthCookieError(c, err,
+				httpsRequiredUserMsg,
+				errFailedToIssueCSRFCookie,
+				"failed to issue refresh CSRF cookie",
+			)
+			return
+		}
+		if err := rctx.AuthCookies.Set(c, out.Token.Token, out.Token.RefreshToken); err != nil {
+			if errors.Is(err, utils.ErrHTTPSRequired) {
+				respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCookieFailed,
+					httpsRequiredUserMsg,
+					httpsRequiredLogMsg)
+				return
+			}
+			respondWithAuthStatusError(c, http.StatusInternalServerError, ErrCodeAuthCookieFailed, "Failed to set authentication cookies", "failed to set authentication cookies")
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":              "Token refreshed",
+			"user":                 out.Token.User,
+			"accessTokenExpiresAt": out.Token.AccessTokenExpiresAt,
+		})
+	}
+}
+
+func (r *Routes) handleCreateUser(c *gin.Context) {
+	var req struct {
+		Username string `json:"username" binding:"required"`
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+		Role     string `json:"role" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidRequest, errInvalidRequestUserMsg, errInvalidRequestLogMsg)
+		return
+	}
+	out, err := r.createUser.Execute(c.Request.Context(), CreateUserInput{
+		Username: req.Username, Email: req.Email, Password: req.Password, Role: req.Role,
+	})
+	if err != nil {
+		respondWithAuthError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, out.User)
+}
+
+func (r *Routes) handleGetUsers(c *gin.Context) {
+	out, err := r.getUsers.Execute(c.Request.Context())
+	if err != nil {
+		respondWithAuthError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, out.Users)
+}
+
+func (r *Routes) handleUpdateUser(c *gin.Context) {
+	id := c.Param("id")
+	requester := authmw.MustGetUser(c)
+	if requester == nil {
+		return
+	}
+	var req struct {
+		Username string `json:"username" binding:"required"`
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidRequest, errInvalidRequestUserMsg, errInvalidRequestLogMsg)
+		return
+	}
+	out, err := r.updateUser.Execute(c.Request.Context(), UpdateUserInput{
+		ID: id, Username: req.Username, Email: req.Email, Password: req.Password, Role: req.Role,
+		RequesterID: requester.ID, RequesterIsAdmin: requester.HasRole(coreauth.RoleAdmin),
+	})
+	if err != nil {
+		respondWithAuthError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, out.User)
+}
+
+func (r *Routes) handleDeleteUser(c *gin.Context) {
+	id := c.Param("id")
+	if err := r.deleteUser.Execute(c.Request.Context(), DeleteUserInput{ID: id}); err != nil {
+		respondWithAuthError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// handleChangeOwnPassword changes the current user's password after verifying
+// the old one. Every other session for the user is revoked; the session making
+// this request is identified via its own refresh cookie and left intact.
+func (r *Routes) handleChangeOwnPassword(rctx httpinternal.RouterContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := authmw.MustGetUser(c)
+		if user == nil {
+			return
+		}
+		var req struct {
+			OldPassword string `json:"oldPassword" binding:"required"`
+			NewPassword string `json:"newPassword" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidRequest, errInvalidRequestUserMsg, errInvalidRequestLogMsg)
+			return
+		}
+		refreshToken, err := rctx.AuthCookies.ReadRefresh(c)
+		if err != nil {
+			// Falls back to revoking every session for this user, including
+			// the one making this request (see
+			// AuthService.RevokeAllUserSessionsExceptCurrent) — log it so an
+			// unexpected logout right after a password change is diagnosable.
+			slog.Default().Warn("could not read refresh token while changing password; will revoke all sessions", "userID", user.ID, "error", err)
+		}
+		if err := r.changeOwnPassword.Execute(c.Request.Context(), ChangeOwnPasswordInput{
+			UserID: user.ID, OldPassword: req.OldPassword, NewPassword: req.NewPassword, CurrentRefreshToken: refreshToken,
+		}); err != nil {
+			respondWithAuthError(c, err)
+			return
+		}
+		c.Status(http.StatusNoContent)
+	}
+}
+func (r *Routes) handleRequestPasswordReset(identifierLimiter *security.KeyedLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Identifier string `json:"identifier" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidRequest, errInvalidRequestUserMsg, errInvalidRequestLogMsg)
+			return
+		}
+
+		// Silently skip dispatch once this identifier's budget is exhausted —
+		// still returning the generic success response below. Reporting 429
+		// here would itself confirm the identifier is being actively
+		// targeted/tracked, undermining the very protection the generic
+		// response exists for.
+		if identifierLimiter.Allow(req.Identifier) {
+			if err := r.requestPasswordReset.Execute(c.Request.Context(), RequestPasswordResetInput{Identifier: req.Identifier}); err != nil {
+				respondWithAuthError(c, err)
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "If an account exists for that identifier, a password reset email has been sent.",
+		})
+	}
+}
+
+func (r *Routes) handleConfirmPasswordReset(c *gin.Context) {
+	var req struct {
+		Token       string `json:"token" binding:"required"`
+		NewPassword string `json:"newPassword" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidRequest, errInvalidRequestUserMsg, errInvalidRequestLogMsg)
+		return
+	}
+	out, err := r.confirmPasswordReset.Execute(c.Request.Context(), ConfirmPasswordResetInput{
+		Token: req.Token, NewPassword: req.NewPassword,
+	})
+	if err != nil {
+		respondWithAuthError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": out.User})
+}
+
+func (r *Routes) handleInviteUser(c *gin.Context) {
+	var req struct {
+		Username string `json:"username" binding:"required"`
+		Email    string `json:"email" binding:"required"`
+		Role     string `json:"role" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidRequest, errInvalidRequestUserMsg, errInvalidRequestLogMsg)
+		return
+	}
+	out, err := r.inviteUser.Execute(c.Request.Context(), InviteUserInput{
+		Username: req.Username, Email: req.Email, Role: req.Role,
+	})
+	if err != nil {
+		respondWithAuthError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"user":      out.User,
+		"emailSent": out.EmailSent,
+	})
+}
+
+func (r *Routes) handleResendInvite(c *gin.Context) {
+	id := c.Param("id")
+	if err := r.resendInvite.Execute(c.Request.Context(), ResendInviteInput{UserID: id}); err != nil {
+		respondWithAuthError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// handleConfirmInvite consumes the invite token and, on success, issues auth
+// cookies directly (unlike handleConfirmPasswordReset) — see
+// ConfirmInviteUseCase's doc comment for why a freshly invited user is
+// auto-logged-in instead of sent to the login page.
+func (r *Routes) handleConfirmInvite(rctx httpinternal.RouterContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Token       string `json:"token" binding:"required"`
+			NewPassword string `json:"newPassword" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthInvalidRequest, errInvalidRequestUserMsg, errInvalidRequestLogMsg)
+			return
+		}
+		out, err := r.confirmInvite.Execute(c.Request.Context(), ConfirmInviteInput{
+			Token: req.Token, NewPassword: req.NewPassword,
+		})
+		if err != nil {
+			respondWithAuthError(c, err)
+			return
+		}
+		if _, err := rctx.CSRFCookie.Issue(c); err != nil {
+			writeAuthCookieError(c, err,
+				"HTTPS is required for login cookies. Use HTTPS or start LeafWiki with --allow-insecure for trusted plain HTTP setups.",
+				errFailedToIssueCSRFCookie,
+				"failed to issue invite-accept CSRF cookie",
+			)
+			return
+		}
+		if err := rctx.AuthCookies.Set(c, out.Token.Token, out.Token.RefreshToken); err != nil {
+			if errors.Is(err, utils.ErrHTTPSRequired) {
+				respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCookieFailed,
+					httpsRequiredUserMsg,
+					httpsRequiredLogMsg)
+				return
+			}
+			respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthCookieFailed, "Failed to set authentication cookies", "failed to set authentication cookies")
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":              "Invite accepted",
+			"user":                 out.Token.User,
+			"accessTokenExpiresAt": out.Token.AccessTokenExpiresAt,
+		})
+	}
+}

@@ -1,0 +1,211 @@
+package security
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+func TestRateLimiter_NewKey(t *testing.T) {
+	// This test ensures that the rate limiter doesn't panic when encountering a new key
+	gin.SetMode(gin.TestMode)
+
+	limiter := NewRateLimiter(3, time.Minute, false)
+
+	// Create a test router with the rate limiter
+	router := gin.New()
+	router.Use(limiter)
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	// Make a request with a new IP (this would panic with the old code)
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.1:1234"
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+func TestRateLimiter_ExceedsLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	limiter := NewRateLimiter(3, time.Minute, false)
+
+	router := gin.New()
+	router.Use(limiter)
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	// Make requests up to the limit
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.RemoteAddr = "192.168.1.2:1234"
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Request %d: Expected status 200, got %d", i+1, w.Code)
+		}
+	}
+
+	// The next request should be rate limited
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.2:1234"
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("Expected status 429, got %d", w.Code)
+	}
+}
+
+func TestRateLimiter_ReleasesLockAfterLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	limiter := NewRateLimiter(1, time.Minute, false)
+
+	router := gin.New()
+	router.Use(limiter)
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.4:1234"
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	req = httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.4:1234"
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("Expected status 429, got %d", w.Code)
+	}
+
+	done := make(chan int, 1)
+
+	go func() {
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.RemoteAddr = "192.168.1.5:1234"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		done <- w.Code
+	}()
+
+	timeout := 2 * time.Second
+	if deadline, ok := t.Deadline(); ok {
+		if remaining := time.Until(deadline) / 2; remaining > 0 && remaining < timeout {
+			timeout = remaining
+		}
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case code := <-done:
+		if code != http.StatusOK {
+			t.Fatalf("Expected status 200 for different key after limit hit, got %d", code)
+		}
+	case <-timer.C:
+		t.Fatal("Request blocked after limit hit; mutex was not released")
+	}
+}
+
+func TestKeyedLimiter_AllowAndDeny(t *testing.T) {
+	kl := NewKeyedLimiter(2, time.Minute, false)
+
+	if !kl.Allow("k1") {
+		t.Fatalf("expected first hit to be allowed")
+	}
+	if !kl.Allow("k1") {
+		t.Fatalf("expected second hit to be allowed")
+	}
+	if kl.Allow("k1") {
+		t.Fatalf("expected third hit within the limit window to be denied")
+	}
+	if !kl.Allow("k2") {
+		t.Fatalf("expected a different key to be unaffected by k1's count")
+	}
+}
+
+func TestKeyedLimiter_NotifyResultResetsOnSuccess(t *testing.T) {
+	kl := NewKeyedLimiter(1, time.Minute, true)
+
+	if !kl.Allow("k1") {
+		t.Fatalf("expected first hit to be allowed")
+	}
+	kl.NotifyResult("k1", true)
+
+	if !kl.Allow("k1") {
+		t.Fatalf("expected hit to be allowed again after a successful result reset the count")
+	}
+}
+
+func TestKeyedLimiter_NotifyResultDoesNotResetOnFailure(t *testing.T) {
+	kl := NewKeyedLimiter(1, time.Minute, true)
+
+	if !kl.Allow("k1") {
+		t.Fatalf("expected first hit to be allowed")
+	}
+	kl.NotifyResult("k1", false)
+
+	if kl.Allow("k1") {
+		t.Fatalf("expected the count to remain after a failed result")
+	}
+}
+
+func TestRateLimiter_WindowExpires(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Use a very short window for testing
+	limiter := NewRateLimiter(2, 100*time.Millisecond, false)
+
+	router := gin.New()
+	router.Use(limiter)
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	// Make requests up to the limit
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.RemoteAddr = "192.168.1.3:1234"
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Request %d: Expected status 200, got %d", i+1, w.Code)
+		}
+	}
+
+	// Wait for the window to expire
+	time.Sleep(150 * time.Millisecond)
+
+	// Should be able to make another request
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.3:1234"
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 after window expired, got %d", w.Code)
+	}
+}
