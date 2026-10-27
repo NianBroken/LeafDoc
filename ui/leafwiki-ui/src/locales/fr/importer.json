@@ -73,7 +73,6 @@
   "package": {
     "title": "Choisir le paquet d'import",
     "description": "Sélectionnez une archive ZIP contenant des fichiers Markdown. Ensuite, nous créons un plan d'aperçu pour que vous puissiez inspecter les chemins, actions et notes avant l'exécution de l'import.",
-    "issueHint": "Si vous rencontrez des problèmes, des résultats inattendus ou des cas non pris en charge, veuillez créer une issue sur notre <link>dépôt GitHub</link>.",
     "currentZip": "ZIP actuel :",
     "noZipSelected": "Aucun fichier ZIP sélectionné",
     "selectZipFile": "Sélectionner un fichier ZIP",

@@ -11,5 +11,10 @@
     "auto": "Automatique",
     "always": "Toujours afficher le sommaire",
     "never": "Toujours masquer le sommaire"
+  },
+  "modeDescriptions": {
+    "auto": "Affiche le sommaire au-delà de trois titres et le masque sur les pages plus courtes.",
+    "always": "Affiche le sommaire sur chaque page, quel que soit le nombre de titres.",
+    "never": "Masque le sommaire sans modifier le contenu de la page."
   }
 }

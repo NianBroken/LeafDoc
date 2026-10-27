@@ -6,8 +6,9 @@ import { DIALOG_PAGE_PERMALINK } from '@/lib/registries'
 import { buildPermalinkPath, withBasePath } from '@/lib/routePath'
 import copy from 'copy-to-clipboard'
 import { Copy, ExternalLink, Lock } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConfigStore } from '@/stores/config'
 import { toast } from 'sonner'
 
 type PermalinkDialogProps = {
@@ -16,6 +17,11 @@ type PermalinkDialogProps = {
 
 export function PermalinkDialog({ page }: PermalinkDialogProps) {
   const { t } = useTranslation('page')
+  const publicAccess = useConfigStore((state) => state.publicAccess)
+  const loadConfig = useConfigStore((state) => state.loadConfig)
+  useEffect(() => {
+    void loadConfig()
+  }, [loadConfig])
   const permalink = useMemo(() => {
     const path = withBasePath(buildPermalinkPath(page.id, page.slug))
     if (typeof window === 'undefined') {
@@ -91,8 +97,12 @@ export function PermalinkDialog({ page }: PermalinkDialogProps) {
           className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
           data-testid="permalink-dialog-access-note"
         >
-          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{t('permalinkDialog.accessNote')}</span>
+          {publicAccess ? (
+            <ExternalLink className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : (
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          )}
+          <span>{t(`permalinkDialog.accessNote.${publicAccess ? 'public' : 'private'}`)}</span>
         </div>
       </div>
     </BaseDialog>

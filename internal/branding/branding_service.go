@@ -5,6 +5,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -56,7 +57,32 @@ func (s *BrandingService) Reload() error {
 func (s *BrandingService) GetBranding() (*BrandingConfigResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.store.Load().ToResponse(), nil
+	cfg := s.store.Load()
+	cfg.LogoFile = s.availableAsset(cfg.LogoFile, "logo", cfg.BrandingConstraints.LogoExts)
+	cfg.FaviconFile = s.availableAsset(cfg.FaviconFile, "favicon", cfg.BrandingConstraints.FaviconExts)
+	return cfg.ToResponse(), nil
+}
+
+func (s *BrandingService) availableAsset(configured, prefix string, allowed map[string]bool) string {
+	assetsDir := s.store.brandingAssetsDir()
+	if configured != "" && !containsPathTraversal(configured) && allowed[strings.ToLower(filepath.Ext(configured))] {
+		if info, err := os.Stat(filepath.Join(assetsDir, configured)); err == nil && info.Mode().IsRegular() && info.Size() > 0 {
+			return configured
+		}
+	}
+	matches, err := filepath.Glob(filepath.Join(assetsDir, prefix+".*"))
+	if err != nil {
+		return ""
+	}
+	sort.Strings(matches)
+	for _, path := range matches {
+		ext := strings.ToLower(filepath.Ext(path))
+		info, statErr := os.Stat(path)
+		if statErr == nil && info.Mode().IsRegular() && info.Size() > 0 && allowed[ext] {
+			return filepath.Base(path)
+		}
+	}
+	return ""
 }
 
 // UpdateBranding updates the branding configuration

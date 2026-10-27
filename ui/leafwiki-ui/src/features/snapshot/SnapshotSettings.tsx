@@ -10,6 +10,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { formatBytes } from '@/lib/config'
 import { snapshotDownloadUrl } from '@/lib/api/snapshot'
 import { ApiLocalizedError, mapApiError } from '@/lib/api/errors'
@@ -20,6 +22,7 @@ import {
   HardDriveDownload,
   History,
   Loader2,
+  SaveIcon,
   Trash2,
 } from 'lucide-react'
 import { useDateTimeFormat } from '@/lib/useDateTimeFormat'
@@ -27,6 +30,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useSnapshotStore } from '@/stores/snapshot'
+import type { SnapshotSettings as SnapshotSettingsValue } from '@/lib/api/snapshot'
 import { useRestoreStore } from '@/stores/restore'
 import { useSetTitle } from '../viewer/setTitle'
 
@@ -37,6 +41,7 @@ export default function SnapshotSettings() {
   const {
     enabled,
     retentionCount,
+    settings,
     isRunning,
     lastSnapshotAt,
     lastError,
@@ -48,6 +53,7 @@ export default function SnapshotSettings() {
     loadStatus,
     loadList,
     triggerNow,
+    saveSettings,
     remove,
   } = useSnapshotStore()
   const {
@@ -67,6 +73,10 @@ export default function SnapshotSettings() {
   const [isSelfRestarting, setIsSelfRestarting] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [isRestoringUpload, setIsRestoringUpload] = useState(false)
+  const [settingsDraft, setSettingsDraft] = useState<SnapshotSettingsValue | null>(null)
+  const [retentionInput, setRetentionInput] = useState('')
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsError, setSettingsError] = useState('')
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
   useSetTitle({ title: t('pageTitle') })
@@ -75,6 +85,45 @@ export default function SnapshotSettings() {
     loadStatus()
     loadList()
   }, [loadStatus, loadList])
+
+  useEffect(() => {
+    if (settings) {
+      setSettingsDraft(settings)
+      setRetentionInput(String(settings.retentionCount))
+    }
+  }, [settings])
+
+  const handleSettingsSave = async () => {
+    if (!settingsDraft || !/^(0|[1-9]\d*)$/.test(retentionInput)) {
+      setSettingsError(t('settings.invalidRetention'))
+      return
+    }
+    const count = Number(retentionInput)
+    if (!Number.isSafeInteger(count) || count > 100000) {
+      setSettingsError(t('settings.invalidRetention'))
+      return
+    }
+    const value = {
+      ...settingsDraft,
+      retentionCount: count,
+      runOnStartup:
+        settingsDraft.enabled && settingsDraft.mode === 'interval'
+          ? settings?.runOnStartup ?? false
+          : false,
+    }
+    setSettingsSaving(true)
+    setSettingsError('')
+    try {
+      await saveSettings(value)
+      toast.success(t('settings.savedToast'))
+    } catch (error) {
+      setSettingsError(
+        error instanceof Error ? error.message : t('settings.saveError'),
+      )
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
 
   const handleTrigger = async () => {
     setIsTriggering(true)
@@ -170,7 +219,6 @@ export default function SnapshotSettings() {
   return (
     <div className="settings">
       <h1 className="settings__title">{t('pageTitle')}</h1>
-      <p className="settings__section-description">{t('pageDescription')}</p>
 
       {statusError && (
         <div className="settings__section">
@@ -313,6 +361,164 @@ export default function SnapshotSettings() {
           <p className="settings__hint">{t('hintDisabled')}</p>
         )}
       </div>
+
+      {!isLoading && enabled && settingsDraft && (
+        <div className="settings__section" data-testid="snapshot-schedule-settings">
+          <h2 className="settings__section-title">{t('settings.title')}</h2>
+          <p className="settings__section-description">
+            {t('settings.description')}
+          </p>
+          <div className="settings__field">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={settingsDraft.enabled}
+                onChange={(event) =>
+                  setSettingsDraft({
+                    ...settingsDraft,
+                    enabled: event.target.checked,
+                    runOnStartup: false,
+                  })
+                }
+                className="mt-1 accent-brand"
+                data-testid="snapshot-schedule-enabled"
+              />
+              <span>
+                <span className="text-interface-text block text-sm font-medium">
+                  {t('settings.enabledLabel')}
+                </span>
+                <span className="text-muted-foreground text-sm">
+                  {t('settings.enabledDescription')}
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="settings__field">
+              <Label htmlFor="snapshot-schedule-mode">
+                {t('settings.modeLabel')}
+              </Label>
+              <select
+                id="snapshot-schedule-mode"
+                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+                value={settingsDraft.mode}
+                disabled={!settingsDraft.enabled || settingsSaving}
+                onChange={(event) =>
+                  setSettingsDraft({
+                    ...settingsDraft,
+                    mode: event.target.value as 'interval' | 'daily',
+                    runOnStartup: false,
+                  })
+                }
+              >
+                <option value="daily">{t('settings.dailyMode')}</option>
+                <option value="interval">{t('settings.intervalMode')}</option>
+              </select>
+            </div>
+            {settingsDraft.mode === 'daily' ? (
+              <div className="settings__field">
+                <Label htmlFor="snapshot-schedule-time">
+                  {t('settings.timeLabel')}
+                </Label>
+                <Input
+                  id="snapshot-schedule-time"
+                  type="time"
+                  value={`${String(settingsDraft.hour).padStart(2, '0')}:${String(settingsDraft.minute).padStart(2, '0')}`}
+                  disabled={!settingsDraft.enabled || settingsSaving}
+                  onChange={(event) => {
+                    const [hour, minute] = event.target.value
+                      .split(':')
+                      .map(Number)
+                    setSettingsDraft({ ...settingsDraft, hour, minute })
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="settings__field">
+                <Label htmlFor="snapshot-schedule-interval">
+                  {t('settings.intervalLabel')}
+                </Label>
+                <Input
+                  id="snapshot-schedule-interval"
+                  value={settingsDraft.interval}
+                  placeholder="24h"
+                  disabled={!settingsDraft.enabled || settingsSaving}
+                  onChange={(event) =>
+                    setSettingsDraft({
+                      ...settingsDraft,
+                      interval: event.target.value,
+                    })
+                  }
+                />
+                <p className="settings__hint">
+                  {t('settings.intervalDescription')}
+                </p>
+              </div>
+            )}
+            {settingsDraft.mode === 'daily' && (
+              <div className="settings__field sm:col-span-2">
+                <Label htmlFor="snapshot-schedule-timezone">
+                  {t('settings.timeZoneLabel')}
+                </Label>
+                <Input
+                  id="snapshot-schedule-timezone"
+                  value={settingsDraft.timeZone}
+                  placeholder="Asia/Shanghai"
+                  disabled={!settingsDraft.enabled || settingsSaving}
+                  onChange={(event) =>
+                    setSettingsDraft({
+                      ...settingsDraft,
+                      timeZone: event.target.value,
+                    })
+                  }
+                />
+                <p className="settings__hint">
+                  {t('settings.timeZoneDescription')}
+                </p>
+              </div>
+            )}
+            <div className="settings__field">
+              <Label htmlFor="snapshot-retention-count">
+                {t('settings.retentionLabel')}
+              </Label>
+              <Input
+                id="snapshot-retention-count"
+                type="number"
+                min={0}
+                max={100000}
+                step={1}
+                value={retentionInput}
+                disabled={settingsSaving}
+                aria-invalid={Boolean(settingsError)}
+                onChange={(event) => setRetentionInput(event.target.value)}
+                data-testid="snapshot-retention-count"
+              />
+              <p className="settings__hint">
+                {t('settings.retentionDescription')}
+              </p>
+            </div>
+          </div>
+          {settingsError && (
+            <p role="alert" className="text-error text-sm">
+              {settingsError}
+            </p>
+          )}
+          <div className="settings__actions">
+            <Button
+              onClick={() => void handleSettingsSave()}
+              disabled={settingsSaving}
+              data-testid="snapshot-settings-save"
+            >
+              {settingsSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <SaveIcon className="mr-2 h-4 w-4" />
+              )}
+              {t('settings.saveButton')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {!isLoading && enabled && (
         <>

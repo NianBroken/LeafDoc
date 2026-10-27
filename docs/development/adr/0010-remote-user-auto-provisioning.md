@@ -8,7 +8,7 @@ Accepted (2026-07-31).
 
 [ADR-0005: Reverse-Proxy Header Auth](./0005-reverse-proxy-header-auth.md) added `InjectRemoteUser` to trust an identity asserted by a reverse proxy (Authelia, Authentik, oauth2-proxy, Tailscale-based setups) instead of requiring a separate LeafWiki login. It deliberately scoped out auto-provisioning: "the proxy-asserted username must already exist as a LeafWiki user."
 
-[Issue #1330](https://github.com/perber/leafwiki/issues/1330) asks for that scope limit to be lifted: operators running LeafWiki behind oauth2-proxy don't want to manually pre-create a LeafWiki account for every identity the proxy already authenticates — every proxy-authenticated identity should just work, with a configurable default role since the proxy, not LeafWiki, owns authentication.
+Operators running LeafWiki behind oauth2-proxy do not want to manually pre-create an account for every identity the proxy already authenticates. Every proxy-authenticated identity should work, with a configurable default role because the proxy, not LeafWiki, owns authentication.
 
 The risk ADR-0005 called out — a forged header (from a misconfigured trusted-proxy allowlist, or LeafWiki becoming reachable directly) impersonates a user — gets strictly worse with auto-provisioning: a forged header could also mint a brand-new account. This ADR keeps that widened blast radius bounded rather than accepting it unconditionally.
 

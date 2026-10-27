@@ -11,5 +11,10 @@
     "auto": "Automatic",
     "always": "Always show contents",
     "never": "Always hide contents"
+  },
+  "modeDescriptions": {
+    "auto": "Show the table of contents when a page has more than three headings. Hide it on shorter pages.",
+    "always": "Show the table of contents on every page, regardless of its heading count.",
+    "never": "Keep the table of contents hidden while leaving page content unchanged."
   }
 }

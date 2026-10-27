@@ -27,20 +27,38 @@ export default function TocDisplaySettings() {
   return (
     <div className="settings" data-testid="toc-display-settings">
       <h1 className="settings__title">{t('pageTitle')}</h1>
-      <fieldset disabled={saving} className="space-y-4">
-        {['auto', 'always', 'never'].map((value) => (
-          <label key={value} className="flex items-center gap-3">
-            <input
-              type="radio"
-              name="toc-mode"
-              value={value}
-              checked={mode === value}
-              onChange={() => void apply(value)}
-            />
-            {t(`modes.${value}`)}
-          </label>
-        ))}
-      </fieldset>
+      <section className="settings__section">
+        <h2 className="settings__section-title">{t('sectionTitle')}</h2>
+        <p className="settings__section-description">
+          {t('sectionDescription')}
+        </p>
+        <fieldset disabled={saving} className="space-y-2">
+          <legend className="sr-only">{t('sectionTitle')}</legend>
+          {['auto', 'always', 'never'].map((value) => (
+            <label
+              key={value}
+              className="border-surface-border hover:bg-surface-alt flex cursor-pointer items-start gap-3 rounded-md border p-4 transition-colors"
+            >
+              <input
+                type="radio"
+                name="toc-mode"
+                value={value}
+                checked={mode === value}
+                onChange={() => void apply(value)}
+                className="mt-1 accent-brand"
+              />
+              <span className="flex flex-col gap-1">
+                <span className="text-interface-text text-sm font-medium">
+                  {t(`modes.${value}`)}
+                </span>
+                <span className="text-muted-foreground text-sm leading-5">
+                  {t(`modeDescriptions.${value}`)}
+                </span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      </section>
     </div>
   )
 }

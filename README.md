@@ -1,7 +1,5 @@
 # 🌿 LeafWiki
 
-[![GitHub Stars](https://img.shields.io/github/stars/perber/leafwiki?style=flat-square)](https://github.com/perber/leafwiki/stargazers) [![Latest Release](https://img.shields.io/github/v/release/perber/leafwiki?style=flat-square)](https://github.com/perber/leafwiki/releases) [![Backend CI](https://github.com/perber/leafwiki/actions/workflows/backend.yml/badge.svg)](https://github.com/perber/leafwiki/actions/workflows/backend.yml) [![Frontend CI](https://github.com/perber/leafwiki/actions/workflows/frontend.yml/badge.svg)](https://github.com/perber/leafwiki/actions/workflows/frontend.yml)
-
 Self-hosted wiki. Single Go binary. SQLite + Markdown stored on disk.
 
 For engineers and self-hosters who want structured, long-lived documentation. No Node.js, no Redis, no Postgres — just a binary and a data directory.
@@ -11,16 +9,13 @@ For engineers and self-hosters who want structured, long-lived documentation. No
 If you've looked at Wiki.js or Outline and thought "this is too much to operate for what I need" — this could fit for you.
 
 → Try it without installing: **[demo.leafwiki.com](https://demo.leafwiki.com)** · `Ctrl+E` edit · `Ctrl+S` save · resets hourly  
-→ If it fits, [a star](https://github.com/perber/leafwiki) helps others find it.  
-→ Useful to you? [Sponsor on GitHub](https://github.com/sponsors/perber) · [Buy a coffee on Ko-fi](https://ko-fi.com/perber)
-
 ```bash
 docker run -p 8080:8080 -v ~/leafwiki-data:/app/data \
   ghcr.io/perber/leafwiki:latest \
   --jwt-secret=yoursecret --admin-password=yourpassword --allow-insecure=true
 ```
 
-→ [All install options](#install) (Docker Compose, Linux installer, binary)
+→ [All install options](#install) (Docker, Docker Compose, Kubernetes, binary)
 
 ---
 
@@ -32,7 +27,6 @@ docker run -p 8080:8080 -v ~/leafwiki-data:/app/data \
   - [Docker](#docker)
   - [Docker Compose](#docker-compose)
   - [Kubernetes](#kubernetes)
-  - [Linux installer](#linux-installer)
   - [Binary](#binary)
   - [Reset admin password](#reset-admin-password)
   - [Restore a snapshot (offline)](#restore-a-snapshot-offline)
@@ -50,7 +44,6 @@ docker run -p 8080:8080 -v ~/leafwiki-data:/app/data \
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [External Edits & Resync](#external-edits--resync)
 - [Sorting Pages](#sorting-pages)
-- [Support this project](#support-this-project)
 - [Contributing](#contributing)
 
 ---
@@ -178,43 +171,11 @@ services:
 
 See [docs/install/kubernetes.md](docs/install/kubernetes.md) for a `Deployment` + `PersistentVolumeClaim` + `Service` + `Ingress` example (Gateway API alternative included).
 
-### Linux installer
-
-```bash
-sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/perber/leafwiki/main/install.sh)"
-```
-
-Installs LeafWiki as a system service. Tested on Ubuntu, Debian, and Raspbian.
-
-**Update:**
-
-```bash
-sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/perber/leafwiki/main/update.sh)"
-```
-
-> Only works if you installed with the script above. Not compatible with Docker or binary installs.
-
-**Non-interactive mode:**
-
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-sudo ./install.sh --non-interactive --env-file ./.env
-```
-
-> Security: in interactive mode, environment variables are written in plain text to `/etc/leafwiki/.env`. Restrict access to that file.
-
-**Deployment examples:**
-- [Install with nginx on Ubuntu](docs/install/nginx.md)
-- [Install on a Raspberry Pi](docs/install/raspberry.md)
-
 ### Binary
 
-Download `leafwiki-<version>-<os>-<arch>` and its `.sha256` file from
-[GitHub Releases](https://github.com/perber/leafwiki/releases)
-(linux-amd64, linux-arm64, linux-386, darwin-amd64, darwin-arm64,
-windows-amd64), check that the hash matches the one in the `.sha256` file,
-and rename it to `leafwiki`:
+Place the `leafwiki-<version>-<os>-<arch>` executable and its `.sha256` checksum
+file in the current directory. Verify the checksum, then rename the executable
+to `leafwiki`:
 
 ```bash
 sha256sum leafwiki-<version>-<os>-<arch>
@@ -232,15 +193,13 @@ The server binds to `127.0.0.1:8080` by default. To expose it on the network:
 
 Default data directory is `./data`. Change with `--data-dir`.
 
-> 32-bit x86 Linux (i686, e.g. Alpine on an Intel Atom) is supported on a best-effort basis: use the `linux-386` binary. It is built without CGO, so it doesn't need glibc and runs on musl-based distros. The systemd installer and Docker images only cover amd64/arm64, so the binary is the only install path on 32-bit x86 (that includes `update.sh`, which expects the systemd setup).
+> 32-bit x86 Linux (i686, e.g. Alpine on an Intel Atom) is supported on a best-effort basis: use the `linux-386` binary. It is built without CGO, so it doesn't need glibc and runs on musl-based distros. Docker images only cover amd64/arm64, so the standalone binary is the install path on 32-bit x86.
 
 ### Build from source
 
 Requires Go and Node.js (versions: the `toolchain` line in `go.mod`, and `.nvmrc`). `make build` compiles the UI, embeds it, and produces a self-contained `leafwiki` binary (same as release/Docker builds). Use HTTP (`http://localhost:8080/`), not HTTPS, unless you terminate TLS in front of LeafWiki.
 
 ```bash
-git clone https://github.com/perber/leafwiki.git
-cd leafwiki
 git switch --detach v0.13.0   # or any tag / main
 make build
 ./leafwiki --disable-auth --host=127.0.0.1 --data-dir ./data --allow-insecure=true
@@ -307,8 +266,6 @@ Authentication is completely disabled. Anyone who can reach the server can read 
 **Stack:** Go · React (Vite) · SQLite
 
 ```bash
-git clone https://github.com/perber/leafwiki.git
-cd leafwiki
 ```
 
 ```bash
@@ -320,7 +277,7 @@ make dev       # backend + Vite; Ctrl-C stops both
 Vite starts on `http://localhost:5173` (login `admin` / `devpassword`) and proxies the API to
 the backend on `127.0.0.1:8080`. `make doctor` checks your Go and Node versions.
 No local toolchain? The [Dev Container](.devcontainer/devcontainer.json) sets everything up in
-VS Code or [GitHub Codespaces](https://codespaces.new/perber/leafwiki); then run `make dev`.
+VS Code; then run `make dev`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) for running the two separately and for contribution guidelines.
 
@@ -702,19 +659,6 @@ The sort dialog lets you drag items into position, use the ↑ ↓ arrow buttons
 ![Sort dialog](./assets/sort-dialog.png)
 
 > Sorting is per level — the order of a section's direct children is independent of deeper nested items.
-
----
-
-## Support this project
-
-If it's useful to you:
-
-- ⭐ **[Star the repo](https://github.com/perber/leafwiki)** — helps others find it
-- 💛 **[Sponsor on GitHub](https://github.com/sponsors/perber)** — supports ongoing maintenance, bug fixes, and new features
-- ☕ **[Buy a coffee on Ko-fi](https://ko-fi.com/perber)** — a one-time thank-you
-- 🚀 **[Don't want to self-host? LeafWiki Hosted](https://leafwiki.com/hosted/)** — managed LeafWiki, your content stays plain Markdown
-
-Need help deploying LeafWiki for your team? [Business support & setup →](https://leafwiki.com/support/)
 
 ---
 

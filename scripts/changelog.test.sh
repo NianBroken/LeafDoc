@@ -93,7 +93,7 @@ expect_line filter "$out" "- Update README (Tester)"
 for hidden in "fix(test)" "fix(ci)" "docs(development)" "refactor(tree)" "test: more" "chore: tidy" "ci: new" "build: pin"; do
     expect_no_line filter "$out" "$hidden"
 done
-expect_line filter "$out" "Plus 8 internal changes (refactoring, tests, CI, build and developer docs) that don't change how LeafWiki behaves. Full list: [v1...v2](https://github.com/perber/leafwiki/compare/v1...v2)"
+expect_line filter "$out" "Plus 8 internal changes (refactoring, tests, CI, build and developer docs) that don't change how LeafWiki behaves."
 
 # No internal commits, no count line.
 repo="$(new_repo no-internal "fix: only a fix")"

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PermalinkDialog } from './PermalinkDialog'
+import { useConfigStore } from '@/stores/config'
 
 vi.mock('@/components/BaseDialog', () => ({
   default: ({
@@ -30,8 +31,10 @@ vi.mock('react-i18next', () => ({
         'permalinkDialog.openLink': 'Open link',
         'permalinkDialog.purposeNote':
           'This is a permanent internal link. It keeps working even after the page is renamed or moved.',
-        'permalinkDialog.accessNote':
-          'It is not a public link. Anyone you send it to still needs to sign in to this wiki.',
+        'permalinkDialog.accessNote.private':
+          'Public access is disabled. Recipients must sign in to open this page.',
+        'permalinkDialog.accessNote.public':
+          'Public access is enabled. Anyone who can access this wiki can open this page.',
         'permalinkDialog.copiedToast': 'Permalink copied',
         'permalinkDialog.copyErrorToast': 'Could not copy permalink',
       })[key] ?? key,
@@ -52,6 +55,7 @@ const page = { id: 'abc123', slug: 'my-page', title: 'My Page' }
 describe('PermalinkDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useConfigStore.setState({ publicAccess: false, loadConfig: vi.fn() })
   })
 
   it('explains that the link is permanent and still requires sign-in', () => {
@@ -62,7 +66,17 @@ describe('PermalinkDialog', () => {
     ).toMatch(/permanent internal link/i)
     expect(
       screen.getByTestId('permalink-dialog-access-note').textContent,
-    ).toMatch(/not a public link/i)
+    ).toMatch(/public access is disabled/i)
+  })
+
+  it('updates the note when public access changes', () => {
+    const { rerender } = render(<PermalinkDialog page={page} />)
+    useConfigStore.setState({ publicAccess: true })
+    rerender(<PermalinkDialog page={page} />)
+
+    expect(
+      screen.getByTestId('permalink-dialog-access-note').textContent,
+    ).toMatch(/public access is enabled/i)
   })
 
   it('copies the fully-qualified permalink URL', async () => {

@@ -18,8 +18,8 @@ For UI changes a screenshot or short recording speeds up review, but is not requ
 
 - [ ] I discussed the approach on the linked issue before starting (or this is a trivial fix: typo, docs, obvious one-liner)
 - [ ] This PR is focused on a single change
-- [ ] New behaviour plugs into an extension point; no new `if feature` branches in shared code ([rule 1](https://github.com/perber/leafwiki/blob/main/docs/development/rules.md#architecture))
+- [ ] New behaviour plugs into an extension point; no new `if feature` branches in shared code (see `docs/development/rules.md`, rule 1)
 - [ ] I updated documentation if needed
-- [ ] For UI changes: behaviour is covered by automated tests where possible ([rule 11](https://github.com/perber/leafwiki/blob/main/docs/development/rules.md#tests))
+- [ ] For UI changes: behaviour is covered by automated tests where possible (see `docs/development/rules.md`, rule 11)
 - [ ] For UI changes: I checked by hand what tests can't cover (look in light/dark mode, mobile width where relevant)
 - [ ] AI tools were used for this PR (name them: ___ ). I have reviewed and understand every line

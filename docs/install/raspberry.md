@@ -2,15 +2,11 @@
 
 Short introduction: this file explains how to install LeafWiki on a Raspberry Pi and how to expose it to the Internet using Cloudflare Tunnel.
 
-## Project installation
-To begin, you need to install `LeafWiki`. Here is the "quick install" command:
-```bash
-curl -sL https://raw.githubusercontent.com/perber/leafwiki/main/install.sh -o install.sh && chmod +x ./install.sh && sudo ./install.sh --arch arm64
-```
+## Run LeafWiki
 
-Thanks to this command, the LeafWiki service is now installed and should be accessible locally at:
-
-http://localhost:8080/
+Run LeafWiki on the Raspberry Pi with Docker or a locally built ARM64
+executable. Make sure the service is available locally at `http://localhost:8080/`
+before configuring the tunnel.
 
 ## Cloudflare
 

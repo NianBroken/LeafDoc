@@ -287,6 +287,10 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		if snapshotsDir == "" {
 			snapshotsDir = filepath.Join(cfg.server.dataDir, "snapshots")
 		}
+		snapshotSettings, err := snapshot.NewSettingsStore(cfg.server.dataDir, cfg.backup.snapshotInterval, cfg.backup.snapshotRetention)
+		if err != nil {
+			return fmt.Errorf("failed to initialize full backup settings: %w", err)
+		}
 		snapshotManager := snapshot.NewManager(snapshot.Config{
 			BackupsDir:         snapshotsDir,
 			RootDir:            filepath.Join(cfg.server.dataDir, "root"),
@@ -298,6 +302,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 				filepath.Join(cfg.server.dataDir, "public-access.json"),
 				filepath.Join(cfg.server.dataDir, "toc-display.json"),
 				filepath.Join(cfg.server.dataDir, "preferences.json"),
+				filepath.Join(cfg.server.dataDir, "snapshot-settings.json"),
 			},
 			SchemaFile:     filepath.Join(cfg.server.dataDir, "schema.json"),
 			UsersDBPath:    filepath.Join(cfg.server.dataDir, "users.db"),
@@ -306,9 +311,14 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 			Interval:       cfg.backup.snapshotInterval,
 			RetentionCount: cfg.backup.snapshotRetention,
 		})
+		snapshotManager.UpdateSettings(snapshotSettings.Get())
 		snapshotScheduler := snapshot.NewScheduler(snapshotManager)
+		snapshotSettings.SetApply(func(value snapshot.Settings) {
+			snapshotManager.UpdateSettings(value)
+			snapshotScheduler.UpdateSettings()
+		})
 		defer snapshotScheduler.Stop()
-		w.SetSnapshotRoutes(wikisnapshot.NewRoutes(snapshotManager, snapshotScheduler, w.AuthService(), cfg.backup.snapshotRetention))
+		w.SetSnapshotRoutes(wikisnapshot.NewRoutes(snapshotManager, snapshotScheduler, w.AuthService(), cfg.backup.snapshotRetention, snapshotSettings))
 
 		writeGate = restore.NewWriteGate()
 		restoreManager := restore.NewManager(restore.Config{
@@ -318,7 +328,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 			WriteGate:          writeGate,
 			AuthService:        w.AuthService(),
 			Stores:             w.StateStores(),
-			Reloadables:        []settings.Reloadable{w.BrandingService(), publicAccessService, tocDisplayService, globalPreferences},
+			Reloadables:        []settings.Reloadable{w.BrandingService(), publicAccessService, tocDisplayService, globalPreferences, snapshotSettings},
 			UserResolver:       w.UserResolver(),
 			TriggerResync:      w.TriggerResyncAsync,
 			MaxUploadSizeBytes: restoreUploadMaxSize,

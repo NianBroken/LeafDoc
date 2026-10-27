@@ -211,6 +211,58 @@ func TestBrandingService_Reload_PicksUpExternallyWrittenConfig(t *testing.T) {
 	}
 }
 
+func TestBrandingService_GetBrandingUsesAvailableBrandAssets(t *testing.T) {
+	t.Run("configured assets are shown only while their files exist", func(t *testing.T) {
+		svc, dir := newTestBrandingService(t)
+		assetsDir := filepath.Join(dir, "branding")
+		for name, content := range map[string][]byte{"logo.png": []byte("logo"), "favicon.ico": []byte("icon")} {
+			if err := os.WriteFile(filepath.Join(assetsDir, name), content, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		cfg := svc.store.Load()
+		cfg.LogoFile = "logo.png"
+		cfg.FaviconFile = "favicon.ico"
+		if err := svc.store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		got, err := svc.GetBranding()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.LogoFile != "logo.png" || got.FaviconFile != "favicon.ico" {
+			t.Fatalf("available assets = logo %q favicon %q", got.LogoFile, got.FaviconFile)
+		}
+		if err := os.Remove(filepath.Join(assetsDir, "logo.png")); err != nil {
+			t.Fatal(err)
+		}
+		got, err = svc.GetBranding()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.LogoFile != "" || got.FaviconFile != "favicon.ico" {
+			t.Fatalf("missing logo fallback state = logo %q favicon %q", got.LogoFile, got.FaviconFile)
+		}
+	})
+
+	t.Run("unconfigured assets are discovered from the branding directory", func(t *testing.T) {
+		svc, dir := newTestBrandingService(t)
+		assetsDir := filepath.Join(dir, "branding")
+		for name, content := range map[string][]byte{"logo.webp": []byte("logo"), "favicon.png": []byte("icon")} {
+			if err := os.WriteFile(filepath.Join(assetsDir, name), content, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		got, err := svc.GetBranding()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.LogoFile != "logo.webp" || got.FaviconFile != "favicon.png" {
+			t.Fatalf("discovered assets = logo %q favicon %q", got.LogoFile, got.FaviconFile)
+		}
+	})
+}
+
 func TestBrandingService_DeleteLogo_InvalidPath_ReturnsErrorAndDoesNotDeleteExternalFile(t *testing.T) {
 	svc, _ := newTestBrandingService(t)
 	externalFile := filepath.Join(t.TempDir(), "logo.png")

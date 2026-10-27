@@ -6,9 +6,8 @@ import (
 	"github.com/perber/wiki/internal/core/tree"
 )
 
-// Regression for perber/leafwiki#1615: an ambiguous [[Title]] (several pages
-// share the title) resolves to all of them and is shown as a normal backlink,
-// so it must not show up in the wiki-wide broken-links list.
+// An ambiguous [[Title]] resolves to every matching page and remains a normal
+// backlink instead of appearing in the wiki-wide broken-links list.
 func TestLinkService_GetBrokenLinks_AmbiguousWikilink_NotListed(t *testing.T) {
 	svc, ts, _ := setupLinkService(t)
 

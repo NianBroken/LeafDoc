@@ -14,6 +14,7 @@ export interface SnapshotEntry {
 export interface SnapshotStatusResponse {
   enabled: boolean
   retentionCount?: number
+  settings?: SnapshotSettings
   status?: {
     isRunning: boolean
     lastSnapshotAt: string | null
@@ -22,8 +23,33 @@ export interface SnapshotStatusResponse {
   }
 }
 
+export interface SnapshotSettings {
+  enabled: boolean
+  runOnStartup: boolean
+  mode: 'interval' | 'daily'
+  interval: string
+  hour: number
+  minute: number
+  timeZone: string
+  retentionCount: number
+}
+
 export async function fetchSnapshotStatus(): Promise<SnapshotStatusResponse> {
   return await fetchWithAuth<SnapshotStatusResponse>(SNAPSHOT_STATUS_URL, {})
+}
+
+export async function updateSnapshotSettings(
+  settings: SnapshotSettings,
+): Promise<SnapshotSettings> {
+  const response = await fetchWithAuth<{ settings: SnapshotSettings }>(
+    '/api/admin/snapshot/settings',
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    },
+  )
+  return response.settings
 }
 
 export async function fetchSnapshots(): Promise<SnapshotEntry[]> {

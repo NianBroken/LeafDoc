@@ -11,5 +11,10 @@
     "auto": "Automático",
     "always": "Mostrar siempre el índice",
     "never": "Ocultar siempre el índice"
+  },
+  "modeDescriptions": {
+    "auto": "Muestra el índice cuando una página tiene más de tres encabezados y lo oculta en páginas más cortas.",
+    "always": "Muestra el índice en todas las páginas, sin importar cuántos encabezados tengan.",
+    "never": "Mantiene oculto el índice sin cambiar el contenido de la página."
   }
 }

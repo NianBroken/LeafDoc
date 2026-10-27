@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,11 +81,46 @@ func waitForSnapshotDone(t *testing.T, m *snapshotSvc.Manager) {
 func newTestRouter(routes *Routes) *gin.Engine {
 	r := gin.New()
 	r.GET("/snapshot/status", routes.handleStatus)
+	r.PUT("/snapshot/settings", routes.handleUpdateSettings)
 	r.GET("/snapshot", routes.handleList)
 	r.POST("/snapshot", routes.handleTrigger)
 	r.GET("/snapshot/:id/download", routes.handleDownload)
 	r.DELETE("/snapshot/:id", routes.handleDelete)
 	return r
+}
+
+func TestHandleUpdateSettingsValidatesAndPersists(t *testing.T) {
+	manager := newTestManager(t)
+	settingsStore, err := snapshotSvc.NewSettingsStore(t.TempDir(), 24*time.Hour, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduler := snapshotSvc.NewScheduler(manager)
+	defer scheduler.Stop()
+	waitForSnapshotDone(t, manager)
+	router := newTestRouter(&Routes{manager: manager, scheduler: scheduler, settings: settingsStore})
+
+	invalid := `{"enabled":true,"runOnStartup":false,"mode":"daily","interval":"24h","hour":2,"minute":0,"timeZone":"Mars/Olympus","retentionCount":0}`
+	response := httptest.NewRecorder()
+	request, _ := http.NewRequest(http.MethodPut, "/snapshot/settings", strings.NewReader(invalid))
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("invalid timezone response = %d, want 400", response.Code)
+	}
+
+	valid := `{"enabled":true,"runOnStartup":false,"mode":"daily","interval":"24h","hour":2,"minute":0,"timeZone":"Asia/Shanghai","retentionCount":0}`
+	response = httptest.NewRecorder()
+	request, _ = http.NewRequest(http.MethodPut, "/snapshot/settings", strings.NewReader(valid))
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("valid settings response = %d, want 200: %s", response.Code, response.Body.String())
+	}
+	if got := manager.Settings(); got.TimeZone != "Asia/Shanghai" || got.RetentionCount != 0 {
+		t.Fatalf("manager settings = %+v, want saved daily settings", got)
+	}
+	if got := settingsStore.Get(); got.TimeZone != "Asia/Shanghai" || got.RetentionCount != 0 {
+		t.Fatalf("stored settings = %+v, want saved daily settings", got)
+	}
 }
 
 func TestHandleStatus_Disabled(t *testing.T) {

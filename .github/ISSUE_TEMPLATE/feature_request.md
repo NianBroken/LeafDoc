@@ -17,5 +17,4 @@ assignees: ''
 
 ## Is this ready to be implemented, or does it need discussion first?
 
-<!-- If the scope or approach is still open, please open a Discussion instead:
-     https://github.com/perber/leafwiki/discussions -->
+<!-- If the scope or approach is still open, discuss it with the maintainers first. -->

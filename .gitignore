@@ -77,3 +77,31 @@ internal/http/dist/*
 /.claude/settings.local.json
 /.claude/worktrees/
 # Maintainer-only skills and data are excluded via .git/info/exclude, not listed here.
+
+# Local environment overrides; distributable examples remain versioned
+.env.*
+!.env.example
+!.env.*.example
+
+# Generated build, tool cache and temporary output
+build/
+dist-ssr/
+.vite/
+.turbo/
+.parcel-cache/
+.npm/
+.pnpm-store/
+.eslintcache
+*.tsbuildinfo
+tmp/
+temp/
+__pycache__/
+*.pyc
+
+# Database journals and editor recovery files
+*.db-wal
+*.db-shm
+*.db-journal
+*.swp
+*.swo
+*~

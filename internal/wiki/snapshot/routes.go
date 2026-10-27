@@ -1,6 +1,8 @@
 package wikisnapshot
 
 import (
+	"encoding/json"
+	"io"
 	"mime"
 	"net/http"
 	"os"
@@ -19,15 +21,21 @@ type Routes struct {
 	scheduler      *snapshotSvc.Scheduler
 	authService    *coreauth.AuthService
 	retentionCount int
+	settings       *snapshotSvc.SettingsStore
 }
 
 // NewRoutes constructs the snapshot RouteRegistrar.
-func NewRoutes(manager *snapshotSvc.Manager, scheduler *snapshotSvc.Scheduler, authService *coreauth.AuthService, retentionCount int) *Routes {
+func NewRoutes(manager *snapshotSvc.Manager, scheduler *snapshotSvc.Scheduler, authService *coreauth.AuthService, retentionCount int, stores ...*snapshotSvc.SettingsStore) *Routes {
+	var store *snapshotSvc.SettingsStore
+	if len(stores) > 0 {
+		store = stores[0]
+	}
 	return &Routes{
 		manager:        manager,
 		scheduler:      scheduler,
 		authService:    authService,
 		retentionCount: retentionCount,
+		settings:       store,
 	}
 }
 
@@ -41,6 +49,7 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	adminGroup.Use(authmw.RequireAdmin(opts.AuthDisabled))
 
 	adminGroup.GET("/snapshot/status", r.handleStatus)
+	adminGroup.PUT("/snapshot/settings", r.handleUpdateSettings)
 	adminGroup.GET("/snapshot", r.handleList)
 	adminGroup.POST("/snapshot", r.handleTrigger)
 	adminGroup.GET("/snapshot/:id/download", authmw.RequireCookieSession(), r.handleDownload)
@@ -56,9 +65,50 @@ func (r *Routes) handleStatus(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"enabled":        true,
-		"retentionCount": r.retentionCount,
+		"settings":       r.currentSettings(),
+		"retentionCount": r.currentSettings().RetentionCount,
 		"status":         r.manager.Status(),
 	})
+}
+
+func (r *Routes) currentSettings() snapshotSvc.Settings {
+	if r.settings != nil {
+		return r.settings.Get()
+	}
+	value := r.manager.Settings()
+	value.RetentionCount = r.retentionCount
+	return value
+}
+
+func (r *Routes) handleUpdateSettings(c *gin.Context) {
+	if r.manager == nil || r.settings == nil {
+		r.respondNotEnabled(c)
+		return
+	}
+	var value snapshotSvc.Settings
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&value); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid snapshot settings"})
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid snapshot settings"})
+		return
+	}
+	if err := snapshotSvc.ValidateSettings(value); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := r.settings.Put(value); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save snapshot settings"})
+		return
+	}
+	r.manager.UpdateSettings(value)
+	if r.scheduler != nil {
+		r.scheduler.UpdateSettings()
+	}
+	c.JSON(http.StatusOK, gin.H{"settings": value})
 }
 
 // respondNotEnabled writes the standard 503 response for handlers that need

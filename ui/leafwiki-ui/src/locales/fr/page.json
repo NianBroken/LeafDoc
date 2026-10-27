@@ -86,7 +86,10 @@
     "copyLink": "Copier le lien",
     "openLink": "Ouvrir le lien",
     "purposeNote": "Ceci est un lien interne permanent. Il continue de fonctionner même après le renommage ou le déplacement de la page, vous pouvez donc le mettre en favori ou le référencer depuis d'autres pages en toute sécurité.",
-    "accessNote": "Ce n'est pas un lien public. Toute personne à qui vous l'envoyez devra se connecter à ce wiki pour l'ouvrir, sauf si le wiki est configuré en accès public. LeafWiki ne peut pas rendre une seule page publique tandis que le reste reste privé."
+    "accessNote": {
+      "public": "L'accès public est activé. Toute personne pouvant accéder à ce wiki peut ouvrir cette page. L'accès public s'applique à tout le wiki, pas à une page individuelle.",
+      "private": "L'accès public est désactivé. Les destinataires doivent se connecter pour ouvrir cette page. Ce lien ne rend pas la page publique à lui seul."
+    }
   },
   "createByPathDialog": {
     "createdToast": "Page créée avec succès",

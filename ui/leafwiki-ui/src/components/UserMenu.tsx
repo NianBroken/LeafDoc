@@ -25,7 +25,6 @@ import { useConfigStore } from '@/stores/config'
 import { useDialogsStore } from '@/stores/dialogs'
 import { useHotKeysStore } from '@/stores/hotkeys'
 import { useSessionStore } from '@/stores/session'
-import { Heart } from 'lucide-react'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { RoleGuard } from './RoleGuard'
@@ -40,7 +39,6 @@ const shortcutsDialogHotkeyLabel = getShortcutDisplayLabel(
 
 export default function UserMenu() {
   const { t } = useTranslation('auth')
-  const supportPageUrl = 'https://leafwiki.com/support/'
   const user = useSessionStore((s) => s.user)
   const logout = useSessionStore((s) => s.logout)
   const avatarVersion = useAvatarStore((s) => s.avatarVersion)
@@ -158,22 +156,6 @@ export default function UserMenu() {
               {t('userMenu.logout')}
             </DropdownMenuItem>
           )}
-          <RoleGuard roles={['admin']}>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              asChild
-              className="text-muted-foreground hover:text-foreground cursor-pointer gap-2"
-            >
-              <a
-                href={supportPageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Heart className="size-3.5 shrink-0" />
-                <span>{t('userMenu.supportLeafWiki')}</span>
-              </a>
-            </DropdownMenuItem>
-          </RoleGuard>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

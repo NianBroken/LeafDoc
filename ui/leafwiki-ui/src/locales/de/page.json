@@ -86,7 +86,10 @@
     "copyLink": "Link kopieren",
     "openLink": "Link öffnen",
     "purposeNote": "Dies ist ein permanenter interner Link. Er funktioniert auch nach dem Umbenennen oder Verschieben der Seite weiter und eignet sich daher für Lesezeichen oder Verweise von anderen Seiten.",
-    "accessNote": "Es ist kein öffentlicher Link. Wer ihn erhält, muss sich weiterhin in diesem Wiki anmelden, um ihn zu öffnen – es sei denn, das gesamte Wiki ist auf öffentlichen Zugriff gestellt. LeafWiki kann keine einzelne Seite öffentlich machen, während der Rest privat bleibt."
+    "accessNote": {
+      "public": "Der öffentliche Zugriff ist aktiviert. Alle Personen mit Zugriff auf dieses Wiki können diese Seite öffnen. Die Einstellung gilt für das gesamte Wiki, nicht für einzelne Seiten.",
+      "private": "Der öffentliche Zugriff ist deaktiviert. Empfänger müssen sich anmelden, um diese Seite zu öffnen. Dieser Link macht die Seite nicht eigenständig öffentlich."
+    }
   },
   "createByPathDialog": {
     "createdToast": "Seite erfolgreich erstellt",

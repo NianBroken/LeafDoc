@@ -73,7 +73,6 @@
   "package": {
     "title": "Choose Import Package",
     "description": "Select a zip archive that contains Markdown files. After that, we create a preview plan so you can inspect paths, actions, and notes before the import runs.",
-    "issueHint": "If you run into problems, unexpected results, or unsupported edge cases, please create an issue on our <link>GitHub repository</link>.",
     "currentZip": "Current Zip:",
     "noZipSelected": "No zip file selected",
     "selectZipFile": "Select Zip File",

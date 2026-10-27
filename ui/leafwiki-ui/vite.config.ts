@@ -5,6 +5,9 @@ import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import { defineConfig, type ConfigEnv } from 'vite'
 
+const backendTarget =
+  process.env.LEAFWIKI_BACKEND_URL?.trim() || 'http://localhost:8080'
+
 // Mermaid's published ESM distribution retains its own lazy diagram modules.
 // Serving those modules intact avoids rebundling large generated layout engines.
 function mermaidDistribution() {
@@ -85,17 +88,17 @@ export default defineConfig(({ command }: ConfigEnv) => ({
   server: {
     proxy: {
       '/assets': {
-        target: 'http://localhost:8080',
+        target: backendTarget,
         changeOrigin: true,
         secure: false,
       },
       '/branding': {
-        target: 'http://localhost:8080',
+        target: backendTarget,
         changeOrigin: true,
         secure: false,
       },
       '/api': {
-        target: 'http://localhost:8080',
+        target: backendTarget,
         changeOrigin: true,
         secure: false,
       },

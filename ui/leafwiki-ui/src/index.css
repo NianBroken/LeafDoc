@@ -845,39 +845,39 @@
 
   /* Login Form*/
   .login {
-    @apply border-surface-border bg-surface text-interface-text mx-auto w-full max-w-sm pt-8 shadow-md sm:mx-0 sm:h-screen sm:w-96 sm:max-w-none sm:border-r sm:pt-0;
+    @apply bg-background text-interface-text flex min-h-screen w-full items-center justify-center px-5 py-8;
   }
 
   .login__form {
-    @apply w-full p-4;
+    @apply border-surface-border bg-surface w-full max-w-md space-y-5 rounded-lg border p-6 shadow-lg sm:p-8;
   }
 
   .login__title {
-    @apply text-interface-text mb-4 text-xl font-bold;
+    @apply text-interface-text mb-7 flex flex-col items-center gap-3 text-center text-2xl font-bold;
   }
 
   .login__logo-image {
-    @apply inline-block h-10 w-auto max-w-48 object-contain align-middle;
+    @apply block h-16 w-auto max-w-56 object-contain;
   }
 
   .login__field {
-    @apply mb-4;
-  }
-
-  .login__submit {
     @apply w-full;
   }
 
-  .login__description {
-    @apply text-muted-foreground mb-4 text-sm;
-  }
-
-  .login__back {
+  .login__submit {
     @apply mt-2 w-full;
   }
 
+  .login__description {
+    @apply text-muted-foreground mb-5 text-center text-sm leading-6;
+  }
+
+  .login__back {
+    @apply mt-2 w-full justify-center;
+  }
+
   .login__forgot-password {
-    @apply text-muted-foreground hover:text-interface-text mb-4 block text-sm underline-offset-2 hover:underline;
+    @apply text-muted-foreground hover:text-interface-text block w-fit mx-auto text-center text-sm underline-offset-2 transition-colors hover:underline;
   }
 
   .editor-title-bar {

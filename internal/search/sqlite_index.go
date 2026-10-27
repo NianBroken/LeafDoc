@@ -78,7 +78,7 @@ func extractHeadings(src string) string {
 //
 // It classifies each whitespace-separated field independently rather than
 // making one all-or-nothing trust decision for the whole query string. The
-// earlier whole-query approach (github.com/perber/leafwiki/issues/1577)
+// earlier whole-query approach
 // trusted the *entire* query as deliberate FTS5 syntax the moment it saw an
 // operator character (*, (, ), :, AND, OR) anywhere in it — so a query like
 // `foo* bar,baz` or `it's* thing` still reached SQLite with an unescaped

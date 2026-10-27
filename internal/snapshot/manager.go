@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -33,12 +34,44 @@ type SnapshotEntry struct {
 }
 
 type Manager struct {
-	cfg    Config
-	status Status
+	cfgMu    sync.RWMutex
+	cfg      Config
+	settings Settings
+	status   Status
 }
 
 func NewManager(cfg Config) *Manager {
-	return &Manager{cfg: cfg}
+	return &Manager{
+		cfg: cfg,
+		settings: Settings{
+			Enabled:        cfg.Interval > 0,
+			RunOnStartup:   true,
+			Mode:           scheduleModeInterval,
+			Interval:       cfg.Interval.String(),
+			Hour:           2,
+			TimeZone:       "UTC",
+			RetentionCount: cfg.RetentionCount,
+		},
+	}
+}
+
+func (m *Manager) Settings() Settings {
+	m.cfgMu.RLock()
+	defer m.cfgMu.RUnlock()
+	return m.settings
+}
+
+func (m *Manager) UpdateSettings(value Settings) {
+	m.cfgMu.Lock()
+	defer m.cfgMu.Unlock()
+	m.settings = value
+	m.cfg.RetentionCount = value.RetentionCount
+}
+
+func (m *Manager) config() Config {
+	m.cfgMu.RLock()
+	defer m.cfgMu.RUnlock()
+	return m.cfg
 }
 
 // TriggerSnapshot starts a snapshot job asynchronously.
@@ -79,7 +112,7 @@ func (m *Manager) runOnceLocked(ctx context.Context) (err error) {
 		}
 	}()
 
-	if _, createErr := createSnapshot(ctx, m.cfg); createErr != nil {
+	if _, createErr := createSnapshot(ctx, m.config()); createErr != nil {
 		m.status.SetError(createErr.Error())
 		return createErr
 	}
@@ -96,21 +129,22 @@ func (m *Manager) runOnceLocked(ctx context.Context) (err error) {
 // pruneOldSnapshots deletes the oldest snapshots beyond cfg.RetentionCount.
 // A RetentionCount <= 0 means unlimited (no pruning).
 func (m *Manager) pruneOldSnapshots() error {
-	if m.cfg.RetentionCount <= 0 {
+	retentionCount := m.Settings().RetentionCount
+	if retentionCount <= 0 {
 		return nil
 	}
 	entries, err := m.List()
 	if err != nil {
 		return err
 	}
-	if len(entries) <= m.cfg.RetentionCount {
+	if len(entries) <= retentionCount {
 		return nil
 	}
-	for _, entry := range entries[m.cfg.RetentionCount:] {
+	for _, entry := range entries[retentionCount:] {
 		if err := m.Delete(entry.ID); err != nil {
 			return err
 		}
-		slog.Info("snapshot pruned", "id", entry.ID, "retention_count", m.cfg.RetentionCount)
+		slog.Info("snapshot pruned", "id", entry.ID, "retention_count", retentionCount)
 	}
 	return nil
 }
@@ -122,7 +156,7 @@ func (m *Manager) Status() StatusSnapshot {
 
 // List returns all finished snapshots sorted by date (newest first).
 func (m *Manager) List() ([]SnapshotEntry, error) {
-	dirEntries, err := os.ReadDir(m.cfg.BackupsDir)
+	dirEntries, err := os.ReadDir(m.config().BackupsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []SnapshotEntry{}, nil
@@ -140,7 +174,7 @@ func (m *Manager) List() ([]SnapshotEntry, error) {
 		if de.IsDir() || !strings.HasSuffix(de.Name(), ".json") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(m.cfg.BackupsDir, de.Name()))
+		data, err := os.ReadFile(filepath.Join(m.config().BackupsDir, de.Name()))
 		if err != nil {
 			return nil, sharederrors.NewLocalizedError(
 				"snapshot_list_failed",
@@ -176,8 +210,9 @@ func (m *Manager) Delete(id string) error {
 		return err
 	}
 
-	zipPath := filepath.Join(m.cfg.BackupsDir, id+".zip")
-	jsonPath := filepath.Join(m.cfg.BackupsDir, id+".json")
+	backupsDir := m.config().BackupsDir
+	zipPath := filepath.Join(backupsDir, id+".zip")
+	jsonPath := filepath.Join(backupsDir, id+".json")
 
 	zipErr := os.Remove(zipPath)
 	jsonErr := os.Remove(jsonPath)
@@ -214,7 +249,7 @@ func (m *Manager) Delete(id string) error {
 
 // BackupsDir returns the configured folder (for the download handler).
 func (m *Manager) BackupsDir() string {
-	return m.cfg.BackupsDir
+	return m.config().BackupsDir
 }
 
 // SnapshotZipPath validates id and returns the absolute path to its ZIP
@@ -224,7 +259,7 @@ func (m *Manager) SnapshotZipPath(id string) (string, error) {
 	if err := validateSnapshotID(id); err != nil {
 		return "", err
 	}
-	path := filepath.Join(m.cfg.BackupsDir, id+".zip")
+	path := filepath.Join(m.config().BackupsDir, id+".zip")
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return "", sharederrors.NewLocalizedError(

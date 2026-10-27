@@ -11,5 +11,10 @@
     "auto": "Automatisch",
     "always": "Inhaltsverzeichnis immer anzeigen",
     "never": "Inhaltsverzeichnis immer ausblenden"
+  },
+  "modeDescriptions": {
+    "auto": "Das Inhaltsverzeichnis erscheint bei mehr als drei Überschriften und bleibt auf kürzeren Seiten ausgeblendet.",
+    "always": "Das Inhaltsverzeichnis erscheint auf jeder Seite, unabhängig von der Anzahl der Überschriften.",
+    "never": "Das Inhaltsverzeichnis bleibt ausgeblendet. Der Seiteninhalt bleibt unverändert."
   }
 }

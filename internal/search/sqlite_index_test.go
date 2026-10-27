@@ -849,7 +849,7 @@ func TestSQLiteIndex_Search_FindsTermsInsideCodeBlocks(t *testing.T) {
 }
 
 // TestSQLiteIndex_Search_TolerateFTS5SpecialCharacters is the regression test
-// for https://github.com/perber/leafwiki/issues/1577: a comma, apostrophe, or
+// for punctuation in quoted terms: a comma, apostrophe, or
 // stray quote in the query used to reach SQLite's FTS5 query parser
 // unescaped and fail with "fts5: syntax error" / "unterminated string",
 // surfacing to callers as a generic error instead of a normal (possibly

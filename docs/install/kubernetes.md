@@ -1,6 +1,6 @@
 # Deploy LeafWiki on Kubernetes
 
-This example shows how to run LeafWiki on Kubernetes: a `Deployment` backed by a `PersistentVolumeClaim` for `/app/data`, a `Service`, and an `Ingress` to expose it. It was contributed by [@jforman](https://github.com/jforman) in [#1595](https://github.com/perber/leafwiki/issues/1595) and verified end-to-end in a local [kind](https://kind.sigs.k8s.io/) cluster before being added here.
+This example shows how to run LeafWiki on Kubernetes: a `Deployment` backed by a `PersistentVolumeClaim` for `/app/data`, a `Service`, and an `Ingress` to expose it. The configuration was verified in a local [kind](https://kind.sigs.k8s.io/) cluster.
 
 ---
 

@@ -16,13 +16,16 @@ beforeEach(() => {
 it('offers all three global defaults', () => {
   render(<TocDisplaySettings />)
   expect(screen.getAllByRole('radio')).toHaveLength(3)
-  expect(screen.getByRole('radio', { name: 'Automatic' })).toBeChecked()
+  expect(screen.getByRole('radio', { name: /Automatic/ })).toBeChecked()
+  expect(
+    screen.getByText('Show the table of contents when a page has more than three headings. Hide it on shorter pages.'),
+  ).toBeInTheDocument()
 })
 it('saves the never mode globally', async () => {
   vi.mocked(fetchWithAuth).mockResolvedValue({ mode: 'never' })
   render(<TocDisplaySettings />)
   await userEvent.click(
-    screen.getByRole('radio', { name: 'Always hide contents' }),
+    screen.getByRole('radio', { name: /Always hide contents/ }),
   )
   await waitFor(() =>
     expect(fetchWithAuth).toHaveBeenCalledWith(

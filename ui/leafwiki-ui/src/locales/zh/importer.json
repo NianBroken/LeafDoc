@@ -73,7 +73,6 @@
   "package": {
     "title": "选择导入包",
     "description": "选择一个包含 Markdown 文件的 ZIP 压缩包。之后我们会生成预览计划，让你在导入前检查路径、操作和备注。",
-    "issueHint": "若遇到问题、意外结果或不支持的边界情况，请在我们的 <link>GitHub 仓库</link>提交 issue。",
     "currentZip": "当前 ZIP：",
     "noZipSelected": "未选择 ZIP 文件",
     "selectZipFile": "选择 ZIP 文件",

@@ -46,7 +46,7 @@ describe('MarkdownImage', () => {
       event.preventDefault(),
     )
     render(
-      <a href="https://github.com/perber/leafwiki" onClick={handleLinkClick}>
+      <a href="https://example.com" onClick={handleLinkClick}>
         <MarkdownImage src="/assets/foo.png" alt="foo" />
       </a>,
     )

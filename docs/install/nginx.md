@@ -4,34 +4,11 @@ This guide demonstrates how to install **LeafWiki** on Ubuntu, configure **nginx
 
 ---
 
-## 1. Install LeafWiki
+## 1. Run LeafWiki
 
-Run the installation script:
-
-```bash
-curl -sL https://raw.githubusercontent.com/perber/leafwiki/main/install.sh -o install.sh
-chmod +x ./install.sh
-sudo ./install.sh --arch amd64 --port 8080 --host 127.0.0.1
-# Use --arch arm64 on ARM hosts (e.g. some cloud instances / Raspberry Pi).
-```
-
-Thanks to @Hugo-Galley for providing this installation script!
-
-During installation, you’ll be prompted for:
-
-- **JWT secret:** choose a secure secret  
-- **Admin password:** for the LeafWiki admin user  
-- **Public read access (y/N):** enter `y` if you want guests to read without login  
-- **Data directory (default: `$PWD/data`):** press Enter for default or specify a path  
-
-When complete, LeafWiki will be running as a systemd service:
-
-```
-Host: 127.0.0.1
-Port: 8080
-DataDirectory: /path/to/data
-Status: active
-```
+Start LeafWiki with Docker or with a locally built executable. Configure it to
+listen on `127.0.0.1:8080`, then use the following steps to place nginx in front
+of the service.
 
 ---
 
@@ -223,4 +200,4 @@ sudo certbot renew --dry-run
 ✅ **Result:**  
 - LeafWiki runs locally on port `8080`  
 - nginx proxies requests from your domain  
-- HTTPS is automatically managed by Let’s Encrypt  
+- HTTPS is automatically managed by Let’s Encrypt

@@ -4,7 +4,6 @@ import { useDateTimeFormat } from '@/lib/useDateTimeFormat'
 import { useImportStore } from '@/stores/import'
 import { FileUp, Loader2, PlayIcon, UploadIcon, XIcon } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Trans } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { useSetTitle } from '../viewer/setTitle'
 import {
@@ -282,21 +281,6 @@ export default function Importer() {
             <h2 className="settings__section-title">{t('package.title')}</h2>
             <p className="settings__section-description">
               {t('package.description')}
-            </p>
-            <p className="settings__section-description">
-              <Trans
-                i18nKey="package.issueHint"
-                ns="importer"
-                components={{
-                  link: (
-                    <a
-                      href="https://github.com/perber/leafwiki/issues"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    />
-                  ),
-                }}
-              />
             </p>
             <div className="settings__preview">
               <span className="settings__preview-label">

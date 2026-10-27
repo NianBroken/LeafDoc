@@ -3,9 +3,11 @@ import i18next from '@/lib/i18n'
 import {
   fetchSnapshotStatus,
   fetchSnapshots,
+  updateSnapshotSettings,
   triggerSnapshot,
   deleteSnapshot,
   SnapshotEntry,
+  SnapshotSettings,
 } from '@/lib/api/snapshot'
 import { sleep } from '@/lib/sleep'
 
@@ -15,6 +17,7 @@ const POLL_ERROR_LIMIT = 3
 interface SnapshotState {
   enabled: boolean
   retentionCount: number
+  settings: SnapshotSettings | null
   isRunning: boolean
   lastSnapshotAt: string | null
   lastError: string
@@ -26,6 +29,7 @@ interface SnapshotState {
   loadStatus: () => Promise<void>
   loadList: () => Promise<void>
   triggerNow: () => Promise<void>
+  saveSettings: (settings: SnapshotSettings) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -61,6 +65,7 @@ export const useSnapshotStore = create<SnapshotState>((set, get) => {
   return {
     enabled: false,
     retentionCount: 0,
+    settings: null,
     isRunning: false,
     lastSnapshotAt: null,
     lastError: '',
@@ -77,6 +82,7 @@ export const useSnapshotStore = create<SnapshotState>((set, get) => {
         set({
           enabled: data.enabled,
           retentionCount: data.retentionCount ?? 0,
+          settings: data.settings ?? null,
           isRunning: data.status?.isRunning ?? false,
           lastSnapshotAt: data.status?.lastSnapshotAt ?? null,
           lastError: data.status?.lastError ?? '',
@@ -115,6 +121,11 @@ export const useSnapshotStore = create<SnapshotState>((set, get) => {
         await pollUntilNotRunning()
         await get().loadList()
       }
+    },
+
+    saveSettings: async (settings) => {
+      const saved = await updateSnapshotSettings(settings)
+      set({ settings: saved, retentionCount: saved.retentionCount })
     },
 
     remove: async (id: string) => {
