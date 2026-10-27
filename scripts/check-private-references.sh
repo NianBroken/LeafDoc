@@ -1,8 +1,7 @@
 #!/bin/bash
 # Fails when tracked files reference things outside the public repository:
 # a maintainer's private notes or absolute paths on someone's machine.
-# Comments and docs reference GitHub issues or ADRs only
-# (docs/development/rules.md, rule 9).
+# Comments reference public GitHub issues instead of private machine paths.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -54,7 +53,7 @@ if [[ -n "$hits" ]]; then
         line="${rest%%:*}"
         echo "::error file=${file},line=${line}::Private reference: ${rest#*:}"
     done <<< "$hits"
-    echo "Reference GitHub issues or ADRs instead (docs/development/rules.md, rule 9)."
+    echo "Reference public GitHub issues instead of private machine paths."
     exit 1
 fi
 echo "No private references found."

@@ -7,7 +7,7 @@ services:
       context: ..
       dockerfile: Dockerfile
       args:
-        DISABLE_REFRESH_TOKEN_RATE_LIMIT: "true"
+        RATE_LIMIT_BYPASS: "true"
     command:
       - "--jwt-secret=proxy-e2e-secret"
       - "--admin-password=adminproxypassword"
@@ -46,7 +46,7 @@ services:
       context: ..
       dockerfile: Dockerfile
       args:
-        DISABLE_REFRESH_TOKEN_RATE_LIMIT: "true"
+        RATE_LIMIT_BYPASS: "true"
     command:
       - "--jwt-secret=proxy-e2e-secret"
       - "--admin-password=adminproxypassword"

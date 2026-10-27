@@ -22,8 +22,9 @@ $binary = Join-Path $runtime 'leafwiki.exe'
 function Stop-SavedProcesses($state) {
     foreach ($entry in $state.processes) {
         $process = Get-Process -Id $entry.id -ErrorAction SilentlyContinue
+        # JSON readers can return timestamps as either strings or DateTime values.
         if ($process -and $process.Path -eq $entry.path -and
-            $process.StartTime.ToUniversalTime().ToString('o') -eq $entry.started) {
+            $process.StartTime.ToUniversalTime() -eq ([DateTime]$entry.started).ToUniversalTime()) {
             Stop-Process -Id $process.Id
             $process.WaitForExit()
         }
@@ -123,7 +124,9 @@ try {
             if ($backend.HasExited -or $gateway.HasExited) { throw 'A service exited. Inspect the runtime logs.' }
             try {
                 $response = $client.GetAsync("$url/api/config").GetAwaiter().GetResult()
-                if ($response.IsSuccessStatusCode) { $ready = $true; break }
+                try {
+                    if ($response.IsSuccessStatusCode) { $ready = $true; break }
+                } finally { $response.Dispose() }
             } catch {
                 # Readiness retries end with an explicit failure and retain service diagnostics.
             }

@@ -19,6 +19,9 @@ new_repo() {
     local repo="$WORK/$1"
     shift
     git init -q "$repo"
+    # Fixture commits and lightweight tags are local test inputs, independent of signing keys.
+    git -C "$repo" config commit.gpgsign false
+    git -C "$repo" config tag.gpgsign false
     git -C "$repo" -c user.name=Tester -c user.email=t@example.com commit -q --allow-empty -m "chore: initial"
     git -C "$repo" tag v1
     local subject
@@ -37,7 +40,14 @@ changelog() {
 
 expect_line() {
     local name="$1" output="$2" line="$3"
-    if while IFS= read -r actual; do [[ "$actual" == "$line" ]] && exit 0; done <<< "$output"; then
+    local matched=0 actual
+    while IFS= read -r actual; do
+        if [[ "$actual" == "$line" ]]; then
+            matched=1
+            break
+        fi
+    done <<< "$output"
+    if [[ "$matched" -eq 1 ]]; then
         echo "PASS $name: has '$line'"
     else
         echo "FAIL $name: missing '$line'"
