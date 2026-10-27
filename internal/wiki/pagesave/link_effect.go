@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/perber/wiki/internal/core/links"
 	"github.com/perber/wiki/internal/core/tree"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/links"
 )
 
 // LinkIndexSideEffect updates the link index after every page mutation.

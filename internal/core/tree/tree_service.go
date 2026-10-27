@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/treemigration"
+	"github.com/perber/wiki/internal/core/tree/migration"
 )
 
 // TreeService is our main component for handling tree operations
@@ -104,7 +104,7 @@ func (t *TreeService) LoadTree() error {
 	}
 
 	t.log.Info("Migrating schema", "fromVersion", schema.Version, "toVersion", CurrentSchemaVersion)
-	if err := treemigration.Run(schema.Version, t.migrationDependencies()); err != nil {
+	if err := migration.Run(schema.Version, t.migrationDependencies()); err != nil {
 		t.log.Error("Error migrating schema", "error", err)
 		return err
 	}

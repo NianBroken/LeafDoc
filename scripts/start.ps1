@@ -7,6 +7,7 @@ param(
     [string]$DataDirectory = $env:LEAFWIKI_DATA_DIR,
     [string]$CertificatePath = $env:LEAFWIKI_TLS_CERT,
     [string]$KeyPath = $env:LEAFWIKI_TLS_KEY,
+    [string]$BasePath = $env:LEAFWIKI_BASE_PATH,
     [int]$Port = 0
 )
 
@@ -17,6 +18,9 @@ $DataDirectory = [IO.Path]::GetFullPath($DataDirectory)
 $runtime = Join-Path $DataDirectory '.runtime'
 $statePath = Join-Path $runtime 'processes.json'
 $binary = Join-Path $runtime 'leafwiki.exe'
+$BasePath = '/' + ([string]$BasePath).Trim().Trim('/')
+if ($BasePath -eq '/') { $BasePath = '' }
+if ($BasePath -match '[?#\s]') { throw 'The base path must be a URL path without query, fragment or whitespace.' }
 
 # Match both the executable and creation time before stopping a saved process.
 function Stop-SavedProcesses($state) {
@@ -41,8 +45,20 @@ if ($Stop) {
 if (Test-Path -LiteralPath $statePath) {
     throw 'A saved runtime exists. Stop it with this script and -Stop before starting again.'
 }
-$go = Get-Command go.exe -ErrorAction Stop
-$caddy = Get-Command caddy.exe -ErrorAction Stop
+# Resolve executables from the current process and refreshed machine environment.
+function Resolve-Executable([string]$Name) {
+    $command = Get-Command $Name -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+    $paths = @($env:Path, [Environment]::GetEnvironmentVariable('Path', 'Machine'))
+    foreach ($directory in (($paths -join ';') -split ';' | Select-Object -Unique)) {
+        if (-not $directory) { continue }
+        $candidate = Join-Path ([Environment]::ExpandEnvironmentVariables($directory)) $Name
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+    }
+    throw "Required executable was not found: $Name"
+}
+$go = Resolve-Executable 'go.exe'
+$caddy = Resolve-Executable 'caddy.exe'
 foreach ($file in @($CertificatePath, $KeyPath)) {
     if (-not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
         throw 'Set LEAFWIKI_TLS_CERT and LEAFWIKI_TLS_KEY to a trusted localhost certificate and its private key.'
@@ -67,7 +83,7 @@ $probe = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $Port)
 try { $probe.Start() } finally { $probe.Stop() }
 
 if ($Build -or -not (Test-Path -LiteralPath $binary)) {
-    Push-Location (Join-Path $root 'ui/leafwiki-ui')
+    Push-Location (Join-Path $root 'ui')
     try {
         & npm.cmd run build
         if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
@@ -78,10 +94,10 @@ if ($Build -or -not (Test-Path -LiteralPath $binary)) {
     if ([IO.Path]::GetFullPath($destination) -ne $expected) { throw 'Invalid frontend output path.' }
     Get-ChildItem -LiteralPath $destination -Force |
         Where-Object Name -ne '.gitkeep' | Remove-Item -Recurse -Force
-    Copy-Item -Path (Join-Path $root 'ui/leafwiki-ui/dist/*') -Destination $destination -Recurse
+    Copy-Item -Path (Join-Path $root 'ui/dist/*') -Destination $destination -Recurse
     Push-Location $root
     try {
-        & $go.Source build -ldflags '-X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production' -o $binary ./cmd/leafwiki
+        & $go build -ldflags '-X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production' -o $binary ./cmd/leafwiki
         if ($LASTEXITCODE -ne 0) { throw 'Backend build failed.' }
     } finally { Pop-Location }
 }
@@ -91,10 +107,14 @@ if (-not (Test-Path -LiteralPath $secretPath)) {
     [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(64)) |
         Set-Content -LiteralPath $secretPath -Encoding UTF8 -NoNewline
 }
+# Each instance owns a separate loopback administration listener.
+$adminPort = Get-FreePort
+while ($adminPort -eq $Port -or $adminPort -eq $backendPort) { $adminPort = Get-FreePort }
 $gatewayConfig = Join-Path $runtime 'Caddyfile'
 @"
 {
     auto_https off
+    admin 127.0.0.1:$adminPort
 }
 https://localhost:$Port {
     bind 127.0.0.1
@@ -102,18 +122,20 @@ https://localhost:$Port {
     reverse_proxy 127.0.0.1:$backendPort
 }
 "@ | Set-Content -LiteralPath $gatewayConfig -Encoding UTF8
-& $caddy.Source fmt --overwrite $gatewayConfig
+& $caddy fmt --overwrite $gatewayConfig
 if ($LASTEXITCODE -ne 0) { throw 'Gateway configuration formatting failed.' }
 
 $savedSecret = $env:LEAFWIKI_JWT_SECRET
 $processes = @()
 try {
     $env:LEAFWIKI_JWT_SECRET = Get-Content -LiteralPath $secretPath -Raw -Encoding UTF8
-    $backend = Start-Process -FilePath $binary -ArgumentList @('--host', '127.0.0.1', '--port', "$backendPort", '--data-dir', "`"$DataDirectory`"", '--enable-revision') -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'backend.stdout.log') -RedirectStandardError (Join-Path $runtime 'backend.stderr.log') -PassThru
+    $backendArguments = @('--host', '127.0.0.1', '--port', "$backendPort", '--data-dir', "`"$DataDirectory`"", '--enable-revision')
+    if ($BasePath) { $backendArguments += @('--base-path', $BasePath) }
+    $backend = Start-Process -FilePath $binary -ArgumentList $backendArguments -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'backend.stdout.log') -RedirectStandardError (Join-Path $runtime 'backend.stderr.log') -PassThru
     $processes += $backend
-    $gateway = Start-Process -FilePath $caddy.Source -ArgumentList @('run', '--config', "`"$gatewayConfig`"") -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'gateway.stdout.log') -RedirectStandardError (Join-Path $runtime 'gateway.stderr.log') -PassThru
+    $gateway = Start-Process -FilePath $caddy -ArgumentList @('run', '--config', "`"$gatewayConfig`"") -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'gateway.stdout.log') -RedirectStandardError (Join-Path $runtime 'gateway.stderr.log') -PassThru
     $processes += $gateway
-    $url = "https://localhost:$Port"
+    $url = "https://localhost:$Port$BasePath"
     $ready = $false
     $handler = [Net.Http.HttpClientHandler]::new()
     $handler.UseProxy = $false

@@ -158,7 +158,7 @@ func (s *UserService) CreateUser(username, email, password, role string) (*User,
 // callers can distinguish "restore in progress, retry" from "genuinely no
 // such user" instead of collapsing both into a 404.
 func mapUserLookupErr(err error) error {
-	if loc, ok := sharederrors.AsLocalizedError(err); ok && loc.Code == userStoreUnavailableCode {
+	if loc, ok := sharederrors.AsLocalizedError(err); ok && loc.Code == ErrCodeAuthUserStoreUnavailable {
 		return err
 	}
 	return ErrUserNotFound
@@ -456,11 +456,21 @@ func (s *UserService) ChangeOwnPassword(id, oldPassword, newPassword string) err
 	return nil
 }
 
-func (s *UserService) ResetAdminUserPassword(username, email string) (*User, error) {
-	// Generate a new password for the admin user
-	password, err := shared.GenerateRandomPassword(16)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate password: %w", err)
+func (s *UserService) ResetAdminUserPassword(username, email string, requestedPassword ...string) (*User, error) {
+	// Explicit recovery secrets use the same minimum length as account passwords.
+	password := ""
+	if len(requestedPassword) > 0 {
+		password = requestedPassword[0]
+	}
+	if password != "" && len(password) < MinPasswordLength {
+		return nil, ErrPasswordTooShort
+	}
+	if password == "" {
+		generated, err := shared.GenerateRandomPassword(16)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate password: %w", err)
+		}
+		password = generated
 	}
 
 	// if the user is not found create a new one
@@ -479,15 +489,22 @@ func (s *UserService) ResetAdminUserPassword(username, email string) (*User, err
 		}
 	}
 
-	// Update the password for the admin user
+	// Preserve the existing account ID and email while enforcing unique usernames.
+	if username != "" && username != adminUser.Username {
+		updated, updateErr := s.UpdateUser(adminUser.ID, username, adminUser.Email, "", RoleAdmin)
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		adminUser = updated
+	}
 	err = s.UpdatePassword(adminUser.ID, password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update admin password: %w", err)
 	}
 
-	// Return the admin user
-	// Note: I need to return the user with the new password, because the user lost his password
-	adminUser.Password = password // Set the password to the generated one
+	// The recovery caller receives the secret for one-time delivery.
+	adminUser.Password = password
+	adminUser.MustChangePassword = false
 
 	s.log.Info("admin password reset", "userID", adminUser.ID)
 	return adminUser, nil

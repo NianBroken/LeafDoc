@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 func TestDatabasePath_WindowsPath(t *testing.T) {
@@ -70,7 +70,7 @@ func setupTestUserStore(t *testing.T) *UserStore {
 
 func TestUserStore_UsesWALJournalMode(t *testing.T) {
 	userStore := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(userStore.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(userStore.Close, t)
 
 	if err := userStore.Connect(); err != nil {
 		t.Fatalf("Connect: %v", err)
@@ -123,7 +123,7 @@ func TestUserStore_DataSurvivesCloseAndFreshReopen(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(reopened.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(reopened.Close, t)
 
 	got, err := reopened.GetUserByID("u1")
 	if err != nil {
@@ -145,7 +145,7 @@ func TestUserStore_CreatesDatabaseInStorageDir(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(userStore.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(userStore.Close, t)
 
 	if _, err := os.Stat(filepath.Join(storageDir, "users.db")); err != nil {
 		t.Fatalf("expected users.db in storage dir, got err: %v", err)
@@ -154,7 +154,7 @@ func TestUserStore_CreatesDatabaseInStorageDir(t *testing.T) {
 
 func TestUserStore_CreateUser(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user := &User{
 		ID:       "1",
@@ -194,7 +194,7 @@ func TestUserStore_CreateUser(t *testing.T) {
 
 func TestUserStore_CreateUser_EmailAlreadyExists(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user1 := &User{
 		ID:       "1",
 		Username: "testuser1",
@@ -228,7 +228,7 @@ func TestUserStore_CreateUser_EmailAlreadyExists(t *testing.T) {
 
 func TestUserStore_CreateUser_UsernameAlreadyExists(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user1 := &User{
 		ID:       "1",
 		Username: "testuser1",
@@ -259,7 +259,7 @@ func TestUserStore_CreateUser_UsernameAlreadyExists(t *testing.T) {
 
 func TestUserStore_GetUserByID_NotExisting(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user := &User{
 		ID:       "1",
 		Username: "testuser",
@@ -293,7 +293,7 @@ func TestUserStore_GetUserByID_NotExisting(t *testing.T) {
 
 func TestUserStore_UpdateUser(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user := &User{
 		ID:       "1",
 		Username: "testuser",
@@ -344,7 +344,7 @@ func TestUserStore_UpdateUser(t *testing.T) {
 
 func TestUserStore_UpdateUser_LastAdminCannotBeDemoted(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	admin := &User{
 		ID:       "1",
@@ -366,7 +366,7 @@ func TestUserStore_UpdateUser_LastAdminCannotBeDemoted(t *testing.T) {
 
 func TestUserStore_UpdateUser_EMailAlreadyExists(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user1 := &User{
 		ID:       "1",
@@ -414,7 +414,7 @@ func TestUserStore_UpdateUser_EMailAlreadyExists(t *testing.T) {
 
 func TestUserStore_UpdateUser_UsernameAlreadyExists(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user1 := &User{
 		ID:       "1",
@@ -462,7 +462,7 @@ func TestUserStore_UpdateUser_UsernameAlreadyExists(t *testing.T) {
 
 func TestUserStore_DeleteUser(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user := &User{
 		ID:       "1",
 		Username: "testuser",
@@ -512,7 +512,7 @@ func TestUserStore_DeleteUser(t *testing.T) {
 }
 func TestUserStore_DeleteUser_NotExisting(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	// Attempt to delete a non-existing user
 	err := store.DeleteUser("non-existing-id")
@@ -526,7 +526,7 @@ func TestUserStore_DeleteUser_NotExisting(t *testing.T) {
 
 func TestUserStore_GetAllUsers(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user1 := &User{
 		ID:       "1",
@@ -586,7 +586,7 @@ func TestUserStore_GetAllUsers(t *testing.T) {
 }
 func TestUserStore_GetUserCount(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user1 := &User{
 		ID:       "1",
@@ -627,7 +627,7 @@ func TestUserStore_GetUserCount(t *testing.T) {
 
 func TestUserStore_GetUserByEmail(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user1 := &User{
 		ID:       "1",
@@ -678,7 +678,7 @@ func TestUserStore_GetUserByEmail(t *testing.T) {
 
 func TestUserStore_GetUserByUsername(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user1 := &User{
 		ID:       "1",
@@ -729,7 +729,7 @@ func TestUserStore_GetUserByUsername(t *testing.T) {
 
 func TestUserStoreUpdatePassword(t *testing.T) {
 	store := setupTestUserStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	user1 := &User{
 		ID:       "1",
@@ -794,7 +794,7 @@ func TestUserStore_Suspend_ClosesDBAndBlocksReconnect(t *testing.T) {
 		t.Fatal("expected a query against a suspended store to fail, not silently reconnect")
 	}
 	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != "auth_user_store_unavailable" {
+	if !ok || localized.Code != ErrCodeAuthUserStoreUnavailable {
 		t.Fatalf("expected auth_user_store_unavailable, got %v", err)
 	}
 	if store.db != nil {

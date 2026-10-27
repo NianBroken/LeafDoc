@@ -64,7 +64,7 @@ else
     echo "mise  not found (optional; nvm or fnm with .nvmrc work too)"
 fi
 
-if [ ! -d ui/leafwiki-ui/node_modules ] || [ ! -d e2e/node_modules ]; then
+if [ ! -d ui/node_modules ] || [ ! -d tests/e2e/node_modules ]; then
     echo "  note: npm dependencies are not installed yet; run 'make setup'."
 fi
 

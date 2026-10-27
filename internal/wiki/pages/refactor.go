@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/perber/wiki/internal/core/links"
 	"github.com/perber/wiki/internal/core/revision"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 	"github.com/perber/wiki/internal/core/tree"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/links"
 	"github.com/perber/wiki/internal/wiki/pagesave"
 )
 

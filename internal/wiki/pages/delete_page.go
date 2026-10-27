@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/perber/wiki/internal/core/assets"
+	"github.com/perber/wiki/internal/core/favorites"
 	"github.com/perber/wiki/internal/core/revision"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/favorites"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
 	"github.com/perber/wiki/internal/wiki/pagesave"
 )

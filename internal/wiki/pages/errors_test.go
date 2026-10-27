@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/perber/wiki/internal/core/favorites"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/favorites"
 )
 
 // TestRespondWithPageError_FavoritesStoreUnavailable_Returns503 is the

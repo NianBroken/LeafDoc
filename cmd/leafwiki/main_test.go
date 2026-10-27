@@ -1175,7 +1175,7 @@ func resolveMakeVars(content, s string) string {
 // used by the Go build, rather than a second, independently-drifting
 // git-describe implementation in JS.
 func TestViteConfig_ResolvesVersionViaSharedScript(t *testing.T) {
-	content, err := os.ReadFile(filepath.Join("..", "..", "ui", "leafwiki-ui", "vite.config.ts"))
+	content, err := os.ReadFile(filepath.Join("..", "..", "ui", "vite.config.ts"))
 	if err != nil {
 		t.Fatalf("failed to read vite.config.ts: %v", err)
 	}

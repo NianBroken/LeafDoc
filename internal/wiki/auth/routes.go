@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	coreavatar "github.com/perber/wiki/internal/avatar"
 	coreauth "github.com/perber/wiki/internal/core/auth"
+	coreavatar "github.com/perber/wiki/internal/core/avatar"
+	"github.com/perber/wiki/internal/core/preferences"
 	httpinternal "github.com/perber/wiki/internal/http"
 	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 	"github.com/perber/wiki/internal/http/middleware/security"
 	"github.com/perber/wiki/internal/http/middleware/utils"
-	"github.com/perber/wiki/internal/preferences"
 )
 
 const (
@@ -185,7 +185,7 @@ func (r *Routes) handleConfig(ctx httpinternal.RouterContext) gin.HandlerFunc {
 			"authDisabled":            opts.AuthDisabled,
 			"basePath":                opts.BasePath,
 			"maxAssetUploadSizeBytes": opts.MaxAssetUploadSizeBytes,
-			// Avatar constraints are fixed feature constants (internal/avatar),
+			// Avatar constraints are fixed feature constants (internal/core/avatar),
 			// not a configurable RouterOptions field like MaxAssetUploadSizeBytes
 			// above — read straight from the package rather than plumbed through
 			// Opts, since there's no flag/env var that could ever override them.

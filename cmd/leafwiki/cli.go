@@ -115,8 +115,9 @@ func newRootCommandWithConfig(cfg *serverConfig) *cli.Command {
 
 func newResetAdminPasswordCommand(cfg *serverConfig) *cli.Command {
 	return &cli.Command{
-		Name:  "reset-admin-password",
-		Usage: "Reset the admin password and print the new one",
+		Name:        "reset-admin-password",
+		Usage:       "Reset the admin password and print the generated password",
+		Description: "LEAFWIKI_ADMIN_PASSWORD supplies an explicit password. Explicit passwords are never printed. The account ID is retained and existing sessions are revoked.",
 		Action: func(_ context.Context, _ *cli.Command) error {
 			return runResetAdminPasswordCommand(cfg)
 		},

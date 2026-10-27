@@ -211,7 +211,7 @@ func AsStoreUnavailableErr(err error) (*sharederrors.LocalizedError, bool) {
 	if !ok {
 		return nil, false
 	}
-	if loc.Code == ErrCodeAPIKeyStoreUnavailable || loc.Code == userStoreUnavailableCode {
+	if loc.Code == ErrCodeAPIKeyStoreUnavailable || loc.Code == ErrCodeAuthUserStoreUnavailable {
 		return loc, true
 	}
 	return nil, false

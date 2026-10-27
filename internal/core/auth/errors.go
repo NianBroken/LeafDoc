@@ -24,3 +24,6 @@ var ErrAPIKeyPrefixCollision = errors.New("api key prefix collision")
 var ErrEmailTokenInvalid = errors.New("invalid or expired token")
 var ErrEmailDisabled = errors.New("email is not configured")
 var ErrInviteAlreadyAccepted = errors.New("invite has already been accepted")
+
+// ErrCodeAuthUserStoreUnavailable identifies a suspended user store.
+const ErrCodeAuthUserStoreUnavailable = "auth_user_store_unavailable"

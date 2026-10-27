@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/perber/wiki/internal/core/shared/sqliteutil"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 // Regression test for the startup path that replaced an unreadable users.db
@@ -16,7 +16,7 @@ import (
 // the startup flags (ADR-0013). users.db must fail and keep every byte.
 func TestNewUserStore_CorruptFile_FailsAndPreservesOriginal(t *testing.T) {
 	dir := t.TempDir()
-	files := test_utils.WriteCorruptSQLiteDB(t, filepath.Join(dir, "users.db"))
+	files := testutil.WriteCorruptSQLiteDB(t, filepath.Join(dir, "users.db"))
 
 	store, err := NewUserStore(dir)
 	if err == nil {
@@ -31,8 +31,8 @@ func TestNewUserStore_CorruptFile_FailsAndPreservesOriginal(t *testing.T) {
 	if corrupt.Path != filepath.Join(dir, "users.db") {
 		t.Errorf("CorruptDatabaseError.Path = %q, want %q", corrupt.Path, filepath.Join(dir, "users.db"))
 	}
-	test_utils.AssertFilesUnchanged(t, files)
-	test_utils.AssertNoSQLiteQuarantine(t, filepath.Join(dir, "users.db"))
+	testutil.AssertFilesUnchanged(t, files)
+	testutil.AssertNoSQLiteQuarantine(t, filepath.Join(dir, "users.db"))
 }
 
 // Sessions and email tokens are short-lived: a corrupt file is moved aside
@@ -53,7 +53,7 @@ func TestShortLivedAuthStores_CorruptFile_QuarantinesAndContinues(t *testing.T) 
 				if err != nil {
 					t.Fatalf("NewSessionStore: %v", err)
 				}
-				defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+				defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 				if err := store.CreateSession("s1", "u1", "refresh", time.Now().Add(time.Hour)); err != nil {
 					t.Fatalf("CreateSession after quarantine: %v", err)
 				}
@@ -67,7 +67,7 @@ func TestShortLivedAuthStores_CorruptFile_QuarantinesAndContinues(t *testing.T) 
 				if err != nil {
 					t.Fatalf("NewEmailTokenStore: %v", err)
 				}
-				defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+				defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 				if _, err := store.Issue("u1", PurposePasswordReset, time.Hour); err != nil {
 					t.Fatalf("Issue after quarantine: %v", err)
 				}
@@ -79,11 +79,11 @@ func TestShortLivedAuthStores_CorruptFile_QuarantinesAndContinues(t *testing.T) 
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			dbPath := filepath.Join(dir, tt.filename)
-			files := test_utils.WriteCorruptSQLiteDB(t, dbPath)
+			files := testutil.WriteCorruptSQLiteDB(t, dbPath)
 
 			tt.openAndUse(t, dir)
 
-			test_utils.AssertSQLiteQuarantined(t, dbPath, files)
+			testutil.AssertSQLiteQuarantined(t, dbPath, files)
 		})
 	}
 }
@@ -122,7 +122,7 @@ func TestRealStateStores_RelativeDataDir_KeepWAL(t *testing.T) {
 				t.Fatalf("mkdir data: %v", err)
 			}
 			dbPath := filepath.Join("data", tt.filename)
-			files := test_utils.WriteCorruptSQLiteDB(t, dbPath)
+			files := testutil.WriteCorruptSQLiteDB(t, dbPath)
 
 			closeStore, err := tt.open("./data")
 
@@ -131,14 +131,14 @@ func TestRealStateStores_RelativeDataDir_KeepWAL(t *testing.T) {
 				if !errors.As(err, &corrupt) {
 					t.Fatalf("open error = %v, want *sqliteutil.CorruptDatabaseError", err)
 				}
-				test_utils.AssertFilesUnchanged(t, files)
+				testutil.AssertFilesUnchanged(t, files)
 				return
 			}
 			if err != nil {
 				t.Fatalf("open: %v", err)
 			}
-			test_utils.WrapCloseWithErrorCheck(closeStore, t)
-			test_utils.AssertSQLiteQuarantined(t, dbPath, files)
+			testutil.WrapCloseWithErrorCheck(closeStore, t)
+			testutil.AssertSQLiteQuarantined(t, dbPath, files)
 		})
 	}
 }
@@ -196,12 +196,12 @@ func TestAuthStores_MissingOrEmptyFile_OpensWithoutQuarantine(t *testing.T) {
 				if err != nil {
 					t.Fatalf("open: %v", err)
 				}
-				test_utils.WrapCloseWithErrorCheck(closeStore, t)
+				testutil.WrapCloseWithErrorCheck(closeStore, t)
 
 				if info, err := os.Stat(dbPath); err != nil || info.Size() == 0 {
 					t.Fatalf("expected %q to hold a fresh database, info=%v err=%v", dbPath, info, err)
 				}
-				test_utils.AssertNoSQLiteQuarantine(t, dbPath)
+				testutil.AssertNoSQLiteQuarantine(t, dbPath)
 			})
 		}
 	}
@@ -225,20 +225,20 @@ func TestNewUserStore_SpecialCharactersInDataDir_KeepsUsers(t *testing.T) {
 			if err := first.CreateUser(&User{ID: "u1", Username: "alice", Email: "alice@example.com", Password: "pw", Role: RoleEditor}); err != nil {
 				t.Fatalf("CreateUser: %v", err)
 			}
-			test_utils.WrapCloseWithErrorCheck(first.Close, t)
+			testutil.WrapCloseWithErrorCheck(first.Close, t)
 
 			second, err := NewUserStore(dir)
 			if err != nil {
 				t.Fatalf("second NewUserStore on a healthy users.db: %v", err)
 			}
-			defer test_utils.WrapCloseWithErrorCheck(second.Close, t)
+			defer testutil.WrapCloseWithErrorCheck(second.Close, t)
 			if _, err := second.GetUserByUsername("alice"); err != nil {
 				t.Fatalf("user lost after reopen: %v", err)
 			}
 			if _, err := os.Stat(filepath.Join(dir, "users.db")); err != nil {
 				t.Fatalf("users.db not at the expected path: %v", err)
 			}
-			test_utils.AssertNoSQLiteQuarantine(t, filepath.Join(dir, "users.db"))
+			testutil.AssertNoSQLiteQuarantine(t, filepath.Join(dir, "users.db"))
 		})
 	}
 }

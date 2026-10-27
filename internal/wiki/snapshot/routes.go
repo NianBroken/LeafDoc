@@ -10,9 +10,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	coreauth "github.com/perber/wiki/internal/core/auth"
+	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
 	httpinternal "github.com/perber/wiki/internal/http"
 	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	snapshotSvc "github.com/perber/wiki/internal/snapshot"
 )
 
 // Routes is the RouteRegistrar for the full-backup (snapshot) admin endpoints.

@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/perber/wiki/internal/core/restore"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/restore"
 )
 
 var exemptPathSegmentSequences = [][]string{

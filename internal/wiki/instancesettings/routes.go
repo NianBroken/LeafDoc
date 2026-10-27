@@ -1,7 +1,5 @@
-// Package instancesettings exposes admin-only instance settings that can be
-// changed at runtime instead of only via flags/env + a restart. Today that is
-// just the public-access ("public mode") toggle; it is the natural home for
-// future runtime-reconfigurable RouterOptions.
+// Package instancesettings exposes administrator-managed runtime preferences,
+// anonymous access and table-of-contents defaults through authenticated routes.
 package instancesettings
 
 import (
@@ -11,10 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	coreauth "github.com/perber/wiki/internal/core/auth"
 	"github.com/perber/wiki/internal/core/localization"
+	"github.com/perber/wiki/internal/core/publicaccess"
+	"github.com/perber/wiki/internal/core/tocdisplay"
 	httpinternal "github.com/perber/wiki/internal/http"
 	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/publicaccess"
-	"github.com/perber/wiki/internal/tocdisplay"
 )
 
 // Routes is the RouteRegistrar for runtime instance settings.

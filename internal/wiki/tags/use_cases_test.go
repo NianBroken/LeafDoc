@@ -2,11 +2,11 @@ package tags
 
 import (
 	"context"
+	"github.com/perber/wiki/internal/testutil"
 	"testing"
 
+	coretags "github.com/perber/wiki/internal/core/tags"
 	"github.com/perber/wiki/internal/core/tree"
-	coretags "github.com/perber/wiki/internal/tags"
-	"github.com/perber/wiki/internal/test_utils"
 )
 
 // ─── test helpers ─────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ func setupUseCases(t *testing.T) (*GetPagesByTagsUseCase, *coretags.TagsService,
 			t.Error(err)
 		}
 	})
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(store.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(store.Close, t) })
 
 	svc := coretags.NewTagsService(store)
 	uc := NewGetPagesByTagsUseCase(svc, ts, nil)

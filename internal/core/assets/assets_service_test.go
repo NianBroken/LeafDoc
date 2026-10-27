@@ -11,7 +11,7 @@ import (
 	"github.com/perber/wiki/internal/core/shared"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 const testAssetMaxBytes int64 = 1024
@@ -29,7 +29,7 @@ func TestSaveAndListAsset(t *testing.T) {
 	}
 	service := NewAssetService(tmp, tree.NewSlugService())
 
-	file, name, err := test_utils.CreateMultipartFile("my-image.png", []byte("hello image"))
+	file, name, err := testutil.CreateMultipartFile("my-image.png", []byte("hello image"))
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestDeletePageAndEnsureAllAssetsAreDeleted(t *testing.T) {
 	}
 	service := NewAssetService(tmp, tree.NewSlugService())
 
-	file, name, err := test_utils.CreateMultipartFile("my-image.png", []byte("hello image"))
+	file, name, err := testutil.CreateMultipartFile("my-image.png", []byte("hello image"))
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
@@ -109,9 +109,9 @@ func TestSlugCollision(t *testing.T) {
 	service := NewAssetService(tmp, tree.NewSlugService())
 
 	for i := 0; i < 3; i++ {
-		file, name, err := test_utils.CreateMultipartFile("logo.png", []byte("image"))
+		file, name, err := testutil.CreateMultipartFile("logo.png", []byte("image"))
 		if err != nil {
-			t.Fatalf("test_utils.CreateMultipartFile failed: %v", err)
+			t.Fatalf("testutil.CreateMultipartFile failed: %v", err)
 		}
 		defer func(f multipart.File) {
 			if err := f.Close(); err != nil {
@@ -148,7 +148,7 @@ func TestAssetRename(t *testing.T) {
 	}
 	service := NewAssetService(tmp, tree.NewSlugService())
 
-	file, name, err := test_utils.CreateMultipartFile("old-name.png", []byte("old image"))
+	file, name, err := testutil.CreateMultipartFile("old-name.png", []byte("old image"))
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
@@ -328,7 +328,7 @@ func TestSaveAssetForPage_TooLarge_DoesNotLeavePartialFile(t *testing.T) {
 	page := &tree.PageNode{Slug: "limit-page", ID: "limit-page-id"}
 	service := NewAssetService(tmp, tree.NewSlugService())
 
-	file, name, err := test_utils.CreateMultipartFile("too-large.bin", []byte(strings.Repeat("a", 32)))
+	file, name, err := testutil.CreateMultipartFile("too-large.bin", []byte(strings.Repeat("a", 32)))
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}

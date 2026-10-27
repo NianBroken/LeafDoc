@@ -1,0 +1,15 @@
+import { fetchWithAuth } from '@/shared/lib/api/client'
+import type { Page } from '@/shared/lib/api/pages'
+
+export async function getFavorites(): Promise<Page[]> {
+  const res = await fetchWithAuth<{ pages: Page[] }>('/api/favorites')
+  return res.pages
+}
+
+export async function addFavorite(pageId: string): Promise<void> {
+  await fetchWithAuth(`/api/pages/${pageId}/favorite`, { method: 'PUT' })
+}
+
+export async function removeFavorite(pageId: string): Promise<void> {
+  await fetchWithAuth(`/api/pages/${pageId}/favorite`, { method: 'DELETE' })
+}

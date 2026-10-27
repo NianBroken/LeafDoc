@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	coreavatar "github.com/perber/wiki/internal/avatar"
+	coreavatar "github.com/perber/wiki/internal/core/avatar"
 )
 
 type fakeMultipartFile struct {

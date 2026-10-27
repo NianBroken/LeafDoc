@@ -174,15 +174,13 @@ func (a *AuthService) IssueSessionForUser(userID string) (*AuthToken, error) {
 	return a.sessions.IssueSession(user)
 }
 
-const userStoreUnavailableCode = "auth_user_store_unavailable"
-
 // errUserStoreUnavailable is returned while the user store is suspended for
 // an in-progress live restore (see UserStore.suspend / PauseUserStoreForSwap).
 // A GET request landing in that window gets this immediately instead of
 // racing a reconnect against the file swap.
 func errUserStoreUnavailable() error {
 	return sharederrors.NewLocalizedError(
-		userStoreUnavailableCode,
+		ErrCodeAuthUserStoreUnavailable,
 		"The server is restoring from a backup — please try again in a moment",
 		"user store is suspended for an in-progress restore",
 		nil,

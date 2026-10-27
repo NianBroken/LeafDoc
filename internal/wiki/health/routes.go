@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/perber/wiki/internal/core/search"
 	httpinternal "github.com/perber/wiki/internal/http"
-	"github.com/perber/wiki/internal/search"
 )
 
 type Routes struct {

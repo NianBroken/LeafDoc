@@ -2,6 +2,7 @@ package branding
 
 import (
 	"errors"
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,27 +27,13 @@ const (
 )
 
 // BrandingErrorResponse is the structured JSON error body returned by branding endpoints.
-type BrandingErrorResponse struct {
-	Error BrandingErrorDetail `json:"error"`
-}
+type BrandingErrorResponse = httpinternal.ErrorResponse
 
 // BrandingErrorDetail carries the localization-ready error data.
-type BrandingErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type BrandingErrorDetail = httpinternal.ErrorDetail
 
 func respondWithBrandingStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, BrandingErrorResponse{
-		Error: BrandingErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithBrandingError maps errors to JSON responses for branding endpoints.
@@ -58,10 +45,7 @@ func respondWithBrandingError(c *gin.Context, err error) {
 
 	var vErr *sharederrors.ValidationErrors
 	if errors.As(err, &vErr) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":  "validation_error",
-			"fields": vErr.Errors,
-		})
+		httpinternal.RespondValidationErrors(c, vErr)
 		return
 	}
 

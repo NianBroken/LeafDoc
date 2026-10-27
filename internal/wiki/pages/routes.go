@@ -133,30 +133,6 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 
 // ─── Handlers ───────────────────────────────────────────────────────────────
 
-func (r *Routes) handleGetTree(c *gin.Context) {
-	root := r.treeService.GetTree()
-	depthStr := strings.TrimSpace(c.Query("depth"))
-	if depthStr == "" {
-		c.JSON(http.StatusOK, dto.ToAPINode(root, "", r.userResolver))
-		return
-	}
-	depth, err := strconv.Atoi(depthStr)
-	if err != nil {
-		depth = -1
-	}
-	c.JSON(http.StatusOK, dto.ToAPINodeWithDepth(root, "", r.userResolver, depth))
-}
-
-func (r *Routes) handleGetPage(c *gin.Context) {
-	id := strings.TrimSpace(c.Param("id"))
-	page, err := r.queries.GetPage(id)
-	if err != nil {
-		respondWithPageError(c, err)
-		return
-	}
-	r.respondPage(c, http.StatusOK, page)
-}
-
 func (r *Routes) handleGetByPath(c *gin.Context) {
 	routePath := strings.TrimSpace(c.Query("path"))
 	if routePath == "" {
@@ -391,21 +367,6 @@ func (r *Routes) handleAddFavorite(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Page favorited"})
-}
-
-func (r *Routes) handleRemoveFavorite(c *gin.Context) {
-	id := strings.TrimSpace(c.Param("id"))
-	user := authmw.MustGetUser(c)
-	if user == nil {
-		return
-	}
-	if err := r.removeFavorite.Execute(c.Request.Context(), RemoveFavoriteInput{
-		UserID: user.ID, PageID: id,
-	}); err != nil {
-		respondWithPageError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Page unfavorited"})
 }
 
 func (r *Routes) handleListFavorites(c *gin.Context) {

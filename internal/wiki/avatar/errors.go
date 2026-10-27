@@ -1,6 +1,7 @@
 package avatar
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,27 +18,13 @@ const (
 
 // AvatarErrorResponse is the structured JSON error body returned by
 // avatar endpoints.
-type AvatarErrorResponse struct {
-	Error AvatarErrorDetail `json:"error"`
-}
+type AvatarErrorResponse = httpinternal.ErrorResponse
 
 // AvatarErrorDetail carries the localization-ready error data.
-type AvatarErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type AvatarErrorDetail = httpinternal.ErrorDetail
 
 func respondWithAvatarStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, AvatarErrorResponse{
-		Error: AvatarErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithAvatarError maps errors to JSON responses for avatar endpoints.

@@ -23,19 +23,19 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/perber/wiki/internal/core/auth"
+	"github.com/perber/wiki/internal/core/auth/maintenance"
 	"github.com/perber/wiki/internal/core/email"
 	"github.com/perber/wiki/internal/core/ignore"
 	"github.com/perber/wiki/internal/core/localization"
+	"github.com/perber/wiki/internal/core/preferences"
+	"github.com/perber/wiki/internal/core/publicaccess"
+	"github.com/perber/wiki/internal/core/restore"
 	"github.com/perber/wiki/internal/core/settings"
-	"github.com/perber/wiki/internal/core/tools"
+	"github.com/perber/wiki/internal/core/snapshot"
+	"github.com/perber/wiki/internal/core/tocdisplay"
 	httpinternal "github.com/perber/wiki/internal/http"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
 	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/preferences"
-	"github.com/perber/wiki/internal/publicaccess"
-	"github.com/perber/wiki/internal/restore"
-	"github.com/perber/wiki/internal/snapshot"
-	"github.com/perber/wiki/internal/tocdisplay"
 	"github.com/perber/wiki/internal/wiki"
 	wikiinstancesettings "github.com/perber/wiki/internal/wiki/instancesettings"
 	wikirestore "github.com/perber/wiki/internal/wiki/restore"
@@ -120,7 +120,7 @@ func main() {
 }
 
 func runResetAdminPasswordCommand(cfg *serverConfig) error {
-	user, err := tools.ResetAdminPassword(cfg.server.dataDir, cfg.auth.adminUsername, cfg.auth.adminEmail)
+	user, err := maintenance.ResetAdminPassword(cfg.server.dataDir, cfg.auth.adminUsername, cfg.auth.adminEmail, os.Getenv("LEAFWIKI_ADMIN_PASSWORD"))
 	if err != nil {
 		if msg, ok := corruptDatabaseMessage(err); ok {
 			return fmt.Errorf("password reset failed: %s", msg)
@@ -129,7 +129,9 @@ func runResetAdminPasswordCommand(cfg *serverConfig) error {
 	}
 
 	fmt.Println("Admin password reset successfully.")
-	fmt.Printf("New password for user %s: %s\n", user.Username, user.Password)
+	if os.Getenv("LEAFWIKI_ADMIN_PASSWORD") == "" {
+		fmt.Printf("New password for user %s: %s\n", user.Username, user.Password)
+	}
 	return nil
 }
 

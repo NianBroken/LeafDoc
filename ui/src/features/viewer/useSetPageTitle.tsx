@@ -1,0 +1,16 @@
+import { Page } from '@/shared/lib/api/pages'
+import { useBrandingStore } from '@/features/branding/state/branding'
+import { useEffect } from 'react'
+
+export interface UseSetPageTitleOptions {
+  page: Page | null
+}
+
+// Hook to set the document title based on the page title
+export function useSetPageTitle({ page }: UseSetPageTitleOptions) {
+  const siteName = useBrandingStore((s) => s.siteName)
+
+  useEffect(() => {
+    document.title = page?.title ? `${page?.title} - ${siteName}` : siteName
+  }, [page?.title, siteName])
+}

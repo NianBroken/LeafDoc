@@ -1,6 +1,7 @@
 package links
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,25 +15,13 @@ const (
 )
 
 // LinkErrorResponse is the structured JSON error body returned by link endpoints.
-type LinkErrorResponse struct {
-	Error LinkErrorDetail `json:"error"`
-}
+type LinkErrorResponse = httpinternal.ErrorResponse
 
 // LinkErrorDetail carries the localization-ready error data.
-type LinkErrorDetail struct {
-	Code     string `json:"code"`
-	Message  string `json:"message"`
-	Template string `json:"template"`
-}
+type LinkErrorDetail = httpinternal.ErrorDetail
 
 func respondWithLinkStatusError(c *gin.Context, status int, code, message, template string) {
-	c.JSON(status, LinkErrorResponse{
-		Error: LinkErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template)
 }
 
 // respondWithLinkError maps errors to JSON responses for link endpoints.

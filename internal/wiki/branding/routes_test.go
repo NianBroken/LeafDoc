@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"testing"
 
-	corebranding "github.com/perber/wiki/internal/branding"
+	corebranding "github.com/perber/wiki/internal/core/branding"
 )
 
 func newTestRoutes(t *testing.T) (*Routes, *corebranding.BrandingConfigResponse) {

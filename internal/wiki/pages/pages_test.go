@@ -3,6 +3,7 @@ package pages_test
 import (
 	"context"
 	"errors"
+	"github.com/perber/wiki/internal/testutil"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,13 +14,13 @@ import (
 	"testing"
 
 	"github.com/perber/wiki/internal/core/assets"
+	"github.com/perber/wiki/internal/core/favorites"
+	"github.com/perber/wiki/internal/core/links"
 	"github.com/perber/wiki/internal/core/revision"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/favorites"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/links"
-	"github.com/perber/wiki/internal/test_utils"
+
 	wikiassets "github.com/perber/wiki/internal/wiki/assets"
 	"github.com/perber/wiki/internal/wiki/pages"
 	"github.com/perber/wiki/internal/wiki/pagesave"
@@ -1204,11 +1205,11 @@ func TestCopyPageUseCase_WithAssets(t *testing.T) {
 		UserID: "user1", Title: "Original", Slug: "original", Kind: pageKind(),
 	})
 
-	file, _, err := test_utils.CreateMultipartFile("image.png", []byte("image content"))
+	file, _, err := testutil.CreateMultipartFile("image.png", []byte("image content"))
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(file.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(file.Close, t)
 
 	if _, err := deps.assets.SaveAssetForPage(original.Page.PageNode, file, "image.png", 1024); err != nil {
 		t.Fatalf("Failed to save asset for original page: %v", err)

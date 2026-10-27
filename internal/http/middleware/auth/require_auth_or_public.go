@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/publicaccess"
+	"github.com/perber/wiki/internal/core/publicaccess"
 )
 
 // RequireAuthOrPublicRead gates the read-only route groups that used to be

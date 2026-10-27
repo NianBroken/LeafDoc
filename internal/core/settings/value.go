@@ -5,7 +5,7 @@ import "errors"
 // ErrEnvManaged is returned by Value.Put when the value is pinned by an
 // environment variable or CLI flag and therefore cannot be changed at
 // runtime. A domain layer that needs a localized / HTTP-mapped error tests
-// for this with errors.Is and substitutes its own (internal/publicaccess
+// for this with errors.Is and substitutes its own (internal/core/publicaccess
 // maps it to a *LocalizedError with code public_access_env_managed).
 var ErrEnvManaged = errors.New("settings: value is managed by environment configuration")
 
@@ -14,7 +14,7 @@ var ErrEnvManaged = errors.New("settings: value is managed by environment config
 // by an env var / flag with no backing file at all (Fixed). Carrying a
 // single Value lets a feature drop the (value, envManaged, store) triple and
 // the mode branch every accessor otherwise repeats — see the env- vs
-// settings-managed split in internal/publicaccess and internal/backup.
+// settings-managed split in internal/core/publicaccess and internal/backup.
 type Value[T any] interface {
 	Reloadable
 
@@ -42,7 +42,7 @@ func (Managed[T]) EnvManaged() bool { return false }
 
 // Fixed is a Value pinned to a boot-time constant. It has no file: Put always
 // fails with ErrEnvManaged and Reload is a no-op, so a Fixed value can sit in
-// internal/restore's []Reloadable harmlessly (a restore cannot and must not
+// internal/core/restore's []Reloadable harmlessly (a restore cannot and must not
 // change an env-pinned value).
 type Fixed[T any] struct {
 	v T

@@ -3,12 +3,13 @@ package pages
 import (
 	"errors"
 	"fmt"
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/perber/wiki/internal/core/favorites"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/favorites"
 )
 
 // Error codes for the pages domain.
@@ -42,27 +43,13 @@ func newPageRootOperationError(operation string) *sharederrors.LocalizedError {
 }
 
 // PageErrorResponse is the structured JSON error body returned by page endpoints.
-type PageErrorResponse struct {
-	Error PageErrorDetail `json:"error"`
-}
+type PageErrorResponse = httpinternal.ErrorResponse
 
 // PageErrorDetail carries the localization-ready error data.
-type PageErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type PageErrorDetail = httpinternal.ErrorDetail
 
 func respondWithPageStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, PageErrorResponse{
-		Error: PageErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithPageError is the central error handler for all page endpoints.
@@ -76,10 +63,7 @@ func respondWithPageError(c *gin.Context, err error) {
 
 	var vErr *sharederrors.ValidationErrors
 	if errors.As(err, &vErr) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":  "validation_error",
-			"fields": vErr.Errors,
-		})
+		httpinternal.RespondValidationErrors(c, vErr)
 		return
 	}
 

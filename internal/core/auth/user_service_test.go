@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 func setupTestUserService(t *testing.T) *UserService {
@@ -242,7 +242,7 @@ func TestUserService_InitDefaultAdmin_SkipsWhenAdminAlreadyExists(t *testing.T) 
 
 func TestUserService_ResetAdminUserPassword(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	// Create initial admin user
 	_, err := service.CreateUser("admin", "admin@example.com", "oldpassword", "admin")
@@ -283,7 +283,7 @@ func TestUserService_ResetAdminUserPassword(t *testing.T) {
 
 func TestUserService_ResetAdminUserPassword_NoAdmin(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	// Don't create an admin user first - test should create one
 
@@ -314,7 +314,7 @@ func TestUserService_ResetAdminUserPassword_NoAdmin(t *testing.T) {
 
 func TestUserService_ResetAdminUserPassword_NoAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	// Don't create an admin user first - test should create one with the given identity
 
@@ -364,7 +364,7 @@ func TestUserService_GetUserByID_StoreSuspended_ReturnsStoreUnavailable(t *testi
 		t.Fatalf("expected the store-unavailable error, not ErrUserNotFound: %v", err)
 	}
 	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != "auth_user_store_unavailable" {
+	if !ok || localized.Code != ErrCodeAuthUserStoreUnavailable {
 		t.Fatalf("expected auth_user_store_unavailable, got %v", err)
 	}
 }
@@ -398,7 +398,7 @@ func TestUserService_GetUserByUsername_StoreSuspended_ReturnsStoreUnavailable(t 
 		t.Fatalf("expected the store-unavailable error, not ErrUserNotFound: %v", err)
 	}
 	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != "auth_user_store_unavailable" {
+	if !ok || localized.Code != ErrCodeAuthUserStoreUnavailable {
 		t.Fatalf("expected auth_user_store_unavailable, got %v", err)
 	}
 }
@@ -423,7 +423,7 @@ func TestUserService_GetUserByIdentifier_StoreSuspended_ReturnsStoreUnavailable(
 		t.Fatalf("expected the store-unavailable error, not ErrUserNotFound: %v", err)
 	}
 	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != "auth_user_store_unavailable" {
+	if !ok || localized.Code != ErrCodeAuthUserStoreUnavailable {
 		t.Fatalf("expected auth_user_store_unavailable, got %v", err)
 	}
 }
@@ -448,14 +448,14 @@ func TestUserService_DeleteUser_StoreSuspended_ReturnsStoreUnavailable(t *testin
 		t.Fatalf("expected the store-unavailable error, not ErrUserNotFound: %v", err)
 	}
 	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != "auth_user_store_unavailable" {
+	if !ok || localized.Code != ErrCodeAuthUserStoreUnavailable {
 		t.Fatalf("expected auth_user_store_unavailable, got %v", err)
 	}
 }
 
 func TestUserService_GetOrCreateRemoteUser_CreatesNewUser(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	user, err := service.GetOrCreateRemoteUser("carol", "carol@example.com", RoleViewer)
 	if err != nil {
@@ -469,7 +469,7 @@ func TestUserService_GetOrCreateRemoteUser_CreatesNewUser(t *testing.T) {
 
 func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserOnSecondCall(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	first, err := service.GetOrCreateRemoteUser("carol", "carol@example.com", RoleViewer)
 	if err != nil {
@@ -502,7 +502,7 @@ func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserOnSecondCall(t *te
 
 func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserByEmail(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	preexisting, err := service.CreateUser("dave", "dave@example.com", "secure", RoleEditor)
 	if err != nil {
@@ -526,7 +526,7 @@ func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserByEmail(t *testing
 
 func TestUserService_GetOrCreateRemoteUser_SynthesizesPlaceholderEmailWhenNoneGiven(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	user, err := service.GetOrCreateRemoteUser("erin", "", RoleViewer)
 	if err != nil {
@@ -541,7 +541,7 @@ func TestUserService_GetOrCreateRemoteUser_SynthesizesPlaceholderEmailWhenNoneGi
 
 func TestUserService_GetOrCreateRemoteUser_InvalidRolePropagates(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	_, err := service.GetOrCreateRemoteUser("frank", "frank@example.com", "guest")
 	if err != ErrUserInvalidRole {
@@ -551,7 +551,7 @@ func TestUserService_GetOrCreateRemoteUser_InvalidRolePropagates(t *testing.T) {
 
 func TestUserService_LookupRemoteUserByIdentifier_StoreErrorPropagates(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	// Simulate a transient store failure (e.g. a DB hiccup), not a genuine
 	// "user doesn't exist yet". GetOrCreateRemoteUser treats ErrUserNotFound
@@ -570,7 +570,7 @@ func TestUserService_LookupRemoteUserByIdentifier_StoreErrorPropagates(t *testin
 
 func TestUserService_GetOrCreateRemoteUser_EmailConflictWithDifferentUserReturnsDistinctError(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	// A pre-existing, unrelated user already owns this email.
 	_, err := service.CreateUser("dave", "shared@example.com", "secure", RoleEditor)
@@ -595,7 +595,7 @@ func TestUserService_GetOrCreateRemoteUser_EmailConflictWithDifferentUserReturns
 
 func TestUserService_GetOrCreateRemoteUser_ConcurrentCallsCreateExactlyOneUser(t *testing.T) {
 	service := setupTestUserService(t)
-	defer test_utils.WrapCloseWithErrorCheck(service.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
 	const goroutines = 20
 	results := make(chan *User, goroutines)

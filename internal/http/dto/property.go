@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/perber/wiki/internal/core/auth"
+	coreprop "github.com/perber/wiki/internal/core/properties"
 	"github.com/perber/wiki/internal/core/tree"
-	coreprop "github.com/perber/wiki/internal/properties"
 )
 
 // PropertyEntry is the HTTP representation of a single property value.

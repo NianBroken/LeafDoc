@@ -109,7 +109,7 @@ func (s *APIKeyStore) suspend() error {
 // wiki/apikeys HTTP layer's status mapping) can pass it through instead of
 // collapsing it into ErrAPIKeyInvalid. Exported — the sole source of truth
 // for this code, so no other layer needs its own copy of the literal.
-// Mirrors userStoreUnavailableCode.
+// Mirrors ErrCodeAuthUserStoreUnavailable.
 const ErrCodeAPIKeyStoreUnavailable = "apikey_store_unavailable"
 
 // errAPIKeyStoreUnavailable is returned while the store is suspended for an

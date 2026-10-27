@@ -10,7 +10,7 @@ import (
 
 	coreauth "github.com/perber/wiki/internal/core/auth"
 	httpinternal "github.com/perber/wiki/internal/http"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 	"github.com/perber/wiki/internal/wiki"
 	wikirestore "github.com/perber/wiki/internal/wiki/restore"
 	wikisnapshot "github.com/perber/wiki/internal/wiki/snapshot"
@@ -36,7 +36,7 @@ func newAPIKeyRouterTest(t *testing.T) (*wiki.Wiki, http.Handler) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance: %v", err)
 	}
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(w.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(w.Close, t) })
 	// Nil managers: the routes answer 503 when reached, which is enough to test
 	// the guards in front of them.
 	w.SetSnapshotRoutes(wikisnapshot.NewRoutes(nil, nil, w.AuthService(), 0))

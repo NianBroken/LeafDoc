@@ -2,12 +2,12 @@ package apikeys
 
 import (
 	"errors"
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	coreauth "github.com/perber/wiki/internal/core/auth"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	wikiauth "github.com/perber/wiki/internal/wiki/auth"
 )
 
 const (
@@ -22,27 +22,13 @@ const (
 )
 
 // APIKeyErrorResponse is the structured JSON error body returned by api-key endpoints.
-type APIKeyErrorResponse struct {
-	Error APIKeyErrorDetail `json:"error"`
-}
+type APIKeyErrorResponse = httpinternal.ErrorResponse
 
 // APIKeyErrorDetail carries the localization-ready error data.
-type APIKeyErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type APIKeyErrorDetail = httpinternal.ErrorDetail
 
 func respondWithAPIKeyStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, APIKeyErrorResponse{
-		Error: APIKeyErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithAPIKeyError is the central error handler for api-key endpoints.
@@ -54,10 +40,7 @@ func respondWithAPIKeyError(c *gin.Context, err error) {
 
 	var vErr *sharederrors.ValidationErrors
 	if errors.As(err, &vErr) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":  "validation_error",
-			"fields": vErr.Errors,
-		})
+		httpinternal.RespondValidationErrors(c, vErr)
 		return
 	}
 
@@ -87,7 +70,7 @@ func apiKeyErrorStatus(code string) int {
 		return http.StatusConflict
 	case ErrCodeAPIKeysDisabled:
 		return http.StatusForbidden
-	case coreauth.ErrCodeAPIKeyStoreUnavailable, wikiauth.ErrCodeAuthUserStoreUnavailable:
+	case coreauth.ErrCodeAPIKeyStoreUnavailable, coreauth.ErrCodeAuthUserStoreUnavailable:
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError

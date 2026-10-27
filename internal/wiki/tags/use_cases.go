@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/perber/wiki/internal/core/auth"
+	coretags "github.com/perber/wiki/internal/core/tags"
 	"github.com/perber/wiki/internal/core/tree"
 	"github.com/perber/wiki/internal/http/dto"
-	coretags "github.com/perber/wiki/internal/tags"
 )
 
 // ─── GetTagsUseCase ──────────────────────────────────────────────────────────

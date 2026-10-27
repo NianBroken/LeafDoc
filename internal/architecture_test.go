@@ -20,16 +20,8 @@ var allowedSliceImports = map[string]bool{
 	"internal/wiki/pagesave": true,
 }
 
-// knownExceptions are existing violations with a cleanup plan. Don't add to
-// this list; remove an entry once the import is gone.
-var knownExceptions = map[string]bool{
-	// apikeys reuses wiki/auth's error mapping until the shared error helper
-	// exists (see docs/development/conventions.md#errors).
-	"internal/wiki/apikeys -> internal/wiki/auth": true,
-}
-
 // TestArchitecture_ImportBoundaries_FollowLayerRules enforces the layer rules
-// from docs/development/conventions.md#layers-and-where-code-goes.
+// from docs/development/architecture.md.
 func TestArchitecture_ImportBoundaries_FollowLayerRules(t *testing.T) {
 	imports := collectProductionImports(t, ".")
 	if len(imports) == 0 {
@@ -41,9 +33,6 @@ func TestArchitecture_ImportBoundaries_FollowLayerRules(t *testing.T) {
 		for _, dep := range deps {
 			if reason := violation(pkg, dep); reason != "" {
 				edge := pkg + " -> " + dep
-				if knownExceptions[edge] {
-					continue
-				}
 				violations = append(violations, edge+": "+reason)
 			}
 		}
@@ -156,11 +145,11 @@ func TestArchitecture_Violation_DetectsForbiddenImports(t *testing.T) {
 	}{
 		{"internal/core/tree", "internal/core/markdown", false},
 		{"internal/core/tree", "github.com/gin-gonic/gin", true},
-		{"internal/core/tree", "internal/links", true},
+		{"internal/core/tree", "internal/core/links", false},
 		{"internal/core/tree", "internal/wiki/pages", true},
-		{"internal/links", "internal/core/tree", false},
-		{"internal/links", "internal/http/dto", true},
-		{"internal/links", "internal/wiki", true},
+		{"internal/core/links", "internal/core/tree", false},
+		{"internal/core/links", "internal/http/dto", true},
+		{"internal/core/links", "internal/wiki", true},
 		{"internal/http/middleware/auth", "internal/core/auth", false},
 		{"internal/http", "internal/wiki/pages", true},
 		{"internal/wiki/pages", "internal/wiki/pagesave", false},

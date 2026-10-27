@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/perber/wiki/internal/core/auth"
+	coreprop "github.com/perber/wiki/internal/core/properties"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 	"github.com/perber/wiki/internal/core/tree"
 	"github.com/perber/wiki/internal/http/dto"
-	coreprop "github.com/perber/wiki/internal/properties"
 )
 
 // ─── Sentinel errors ─────────────────────────────────────────────────────────

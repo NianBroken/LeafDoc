@@ -1,11 +1,11 @@
 package pagesave
 
 import (
+	"github.com/perber/wiki/internal/testutil"
 	"testing"
 
+	"github.com/perber/wiki/internal/core/tags"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/tags"
-	"github.com/perber/wiki/internal/test_utils"
 )
 
 func setupTagsEffectTest(t *testing.T) (*tree.TreeService, *tags.TagsService, *TagsSideEffect) {
@@ -26,7 +26,7 @@ func setupTagsEffectTest(t *testing.T) (*tree.TreeService, *tags.TagsService, *T
 			t.Error(err)
 		}
 	})
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(store.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(store.Close, t) })
 
 	svc := tags.NewTagsService(store)
 	effect := NewTagsSideEffect(svc, nil, nil)

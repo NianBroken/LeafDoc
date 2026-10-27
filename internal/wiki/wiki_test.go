@@ -3,6 +3,7 @@ package wiki
 import (
 	"context"
 	"errors"
+	"github.com/perber/wiki/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,11 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/perber/wiki/internal/core/restore"
 	"github.com/perber/wiki/internal/core/shared/sqliteutil"
 	"github.com/perber/wiki/internal/core/tree"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/restore"
-	"github.com/perber/wiki/internal/test_utils"
+
 	wikipages "github.com/perber/wiki/internal/wiki/pages"
 	wikiresync "github.com/perber/wiki/internal/wiki/resync"
 )
@@ -107,7 +108,7 @@ func deletePageForTest(t *testing.T, w *Wiki, userID, id string, recursive bool)
 
 func TestWiki_DeletePage_Simple(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	page := createPageForTest(t, w, "system", nil, "Trash", "trash", pageNodeKind())
 	deletePageForTest(t, w, "system", page.ID, false)
 	if _, err := w.tree.GetPage(page.ID); err == nil {
@@ -117,7 +118,7 @@ func TestWiki_DeletePage_Simple(t *testing.T) {
 
 func TestWiki_DeletePage_WithChildren(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	parent := createPageForTest(t, w, "system", nil, "Parent", "parent", pageNodeKind())
 	createPageForTest(t, w, "system", &parent.ID, "Child", "child", pageNodeKind())
 
@@ -132,7 +133,7 @@ func TestWiki_DeletePage_WithChildren(t *testing.T) {
 
 func TestWiki_DeletePage_Recursive(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	parent := createPageForTest(t, w, "system", nil, "Parent", "parent", pageNodeKind())
 	child := createPageForTest(t, w, "system", &parent.ID, "Child", "child", pageNodeKind())
 
@@ -148,7 +149,7 @@ func TestWiki_DeletePage_Recursive(t *testing.T) {
 func TestWiki_TriggerResyncAsync_EmitsMetrics(t *testing.T) {
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	w := createWikiTestInstanceWithMetrics(t, metrics)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	w.TriggerResyncAsync()
 
@@ -175,7 +176,7 @@ func TestWiki_TriggerResyncAsync_EmitsMetrics(t *testing.T) {
 
 func TestWiki_DeletePage_PurgesRevisionData(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	page := createPageForTest(t, w, "system", nil, "Page", "page", pageNodeKind())
 	content := "updated"
@@ -194,7 +195,7 @@ func TestWiki_DeletePage_PurgesRevisionData(t *testing.T) {
 
 func TestWiki_InitDefaultAdmin_UsesGivenPassword(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	_, err := w.user.GetUserByEmailOrUsernameAndPassword("admin", "adminpassword")
 	if err != nil {
@@ -215,7 +216,7 @@ func TestWiki_InitDefaultAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	user, err := wikiInstance.user.GetUserByEmailOrUsernameAndPassword("root", "adminpassword")
 	if err != nil {
@@ -231,7 +232,7 @@ func TestWiki_InitDefaultAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
 // flags. NewWiki must fail before that and leave the file alone (ADR-0013).
 func TestNewWiki_CorruptUsersDB_FailsWithoutCreatingDefaultAdmin(t *testing.T) {
 	dir := t.TempDir()
-	files := test_utils.WriteCorruptSQLiteDB(t, filepath.Join(dir, "users.db"))
+	files := testutil.WriteCorruptSQLiteDB(t, filepath.Join(dir, "users.db"))
 
 	w, err := NewWiki(&WikiOptions{
 		StorageDir:          dir,
@@ -249,7 +250,7 @@ func TestNewWiki_CorruptUsersDB_FailsWithoutCreatingDefaultAdmin(t *testing.T) {
 	if !errors.As(err, &corrupt) {
 		t.Fatalf("NewWiki error = %v (%T), want it to wrap *sqliteutil.CorruptDatabaseError", err, err)
 	}
-	test_utils.AssertFilesUnchanged(t, files)
+	testutil.AssertFilesUnchanged(t, files)
 }
 
 // assertNoOpenSQLiteDBs fails for every *.db-wal file left in dir. SQLite
@@ -318,7 +319,7 @@ func TestNewWiki_FailedBoot_ClosesOpenedDatabases(t *testing.T) {
 
 func TestWiki_Login_SuccessAndFailure(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	authSvc := w.auth
 	if authSvc == nil {
@@ -349,7 +350,7 @@ func TestWiki_AuthDisabled_Initialization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	// Verify that the auth service is nil
 	if wikiInstance.auth != nil {
@@ -370,7 +371,7 @@ func TestWiki_AuthDisabled_APIKeysUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	if wikiInstance.apiKeys != nil {
 		t.Error("Expected api key service to be nil when AuthDisabled is true")
@@ -397,7 +398,7 @@ func TestWiki_APIKeyManagementDisabled_APIKeysUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	if wikiInstance.APIKeyService() != nil {
 		t.Error("Expected APIKeyService() to be nil when EnableAPIKeyManagement is false")
@@ -419,7 +420,7 @@ func TestWiki_APIKeyManagementEnabled_APIKeysAvailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	if wikiInstance.APIKeyService() == nil {
 		t.Error("Expected APIKeyService() to be non-nil when EnableAPIKeyManagement is true")
@@ -435,7 +436,7 @@ func TestWiki_AuthDisabled_LoginUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	// Auth operations are unavailable when auth is disabled.
 	if wikiInstance.auth != nil {
@@ -452,7 +453,7 @@ func TestWiki_AuthDisabled_LogoutUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	// Auth operations are unavailable when auth is disabled.
 	if wikiInstance.auth != nil {
@@ -469,7 +470,7 @@ func TestWiki_AuthDisabled_RefreshTokenUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	// Auth operations are unavailable when auth is disabled.
 	if wikiInstance.auth != nil {
@@ -486,7 +487,7 @@ func TestWiki_AuthDisabled_CoreFunctionalityWorks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(wikiInstance.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
 
 	// Test creating a page
 	page := createPageForTest(t, wikiInstance, "system", nil, "Test Page", "test-page", pageNodeKind())
@@ -519,7 +520,7 @@ func TestWiki_AuthDisabled_CoreFunctionalityWorks(t *testing.T) {
 
 func TestWiki_EnsureBaselineRevisions_SkipsUnreadablePages(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	okPage := createPageForTest(t, w, "system", nil, "Healthy", "healthy", pageNodeKind())
 	brokenPage := createPageForTest(t, w, "system", nil, "Broken", "broken", pageNodeKind())
@@ -564,9 +565,9 @@ func TestWiki_ResyncRespectsLeafwikiignore(t *testing.T) {
 	}
 
 	// .leafwikiignore goes in root/ alongside the markdown files
-	test_utils.WriteFile(t, tmp, "root/.leafwikiignore", "secret.md")
-	test_utils.WriteFile(t, tmp, "root/public.md", "# Public Page")
-	test_utils.WriteFile(t, tmp, "root/secret.md", "# Secret Page")
+	testutil.WriteFile(t, tmp, "root/.leafwikiignore", "secret.md")
+	testutil.WriteFile(t, tmp, "root/public.md", "# Public Page")
+	testutil.WriteFile(t, tmp, "root/secret.md", "# Secret Page")
 
 	w, err := NewWiki(&WikiOptions{
 		StorageDir:          tmp,
@@ -578,7 +579,7 @@ func TestWiki_ResyncRespectsLeafwikiignore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWiki: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	// Verify tree has only the public page
 	tree := w.tree.GetTree()
@@ -601,7 +602,7 @@ func TestWiki_ResyncRespectsLeafwikiignore(t *testing.T) {
 
 func TestWiki_ReloadWithProgress_PicksUpDiskChangesAndFinishesInSearchPhase(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	if err := os.WriteFile(filepath.Join(w.GetStorageDir(), "root", "from-disk.md"), []byte("# From Disk\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
@@ -634,7 +635,7 @@ func TestWiki_ReloadWithProgress_PicksUpDiskChangesAndFinishesInSearchPhase(t *t
 func TestWiki_ReloadWithProgress_CanceledContext_FinishesWithErrorAndFailureMetric(t *testing.T) {
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	w := createWikiTestInstanceWithMetrics(t, metrics)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -725,13 +726,13 @@ func TestNewWiki_CorruptQuarantinedStore_BootsAndKeepsUsers(t *testing.T) {
 				}
 				seedWikiWithUser(t, dir)
 				dbPath := filepath.Join(dir, s.filename)
-				files := test_utils.WriteCorruptSQLiteDB(t, dbPath)
+				files := testutil.WriteCorruptSQLiteDB(t, dbPath)
 
 				w, err := newWikiOnDir(dir)
 				if err != nil {
 					t.Fatalf("NewWiki with a corrupt %s: %v", s.filename, err)
 				}
-				defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+				defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 				alice, err := w.UserService().GetUserByUsername("alice")
 				if err != nil {
@@ -750,7 +751,7 @@ func TestNewWiki_CorruptQuarantinedStore_BootsAndKeepsUsers(t *testing.T) {
 				if err := w.Favorites().Add(alice.ID, "page-2"); err != nil {
 					t.Fatalf("Favorites.Add after the restart: %v", err)
 				}
-				test_utils.AssertSQLiteQuarantined(t, dbPath, files)
+				testutil.AssertSQLiteQuarantined(t, dbPath, files)
 			})
 		}
 	}
@@ -768,17 +769,17 @@ func TestNewWiki_RelativeDataDir_UsersDB(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewWiki: %v", err)
 		}
-		defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 		if _, err := w.UserService().GetUserByUsername("alice"); err != nil {
 			t.Fatalf("alice lost after the restart: %v", err)
 		}
-		test_utils.AssertNoSQLiteQuarantine(t, filepath.Join("data", "users.db"))
+		testutil.AssertNoSQLiteQuarantine(t, filepath.Join("data", "users.db"))
 	})
 
 	t.Run("corrupt users.db fails and keeps every byte", func(t *testing.T) {
 		t.Chdir(t.TempDir())
 		seedWikiWithUser(t, "./data")
-		files := test_utils.WriteCorruptSQLiteDB(t, filepath.Join("data", "users.db"))
+		files := testutil.WriteCorruptSQLiteDB(t, filepath.Join("data", "users.db"))
 
 		w, err := newWikiOnDir("./data")
 
@@ -790,8 +791,8 @@ func TestNewWiki_RelativeDataDir_UsersDB(t *testing.T) {
 		if !errors.As(err, &corrupt) {
 			t.Fatalf("NewWiki error = %v (%T), want *sqliteutil.CorruptDatabaseError", err, err)
 		}
-		test_utils.AssertFilesUnchanged(t, files)
-		test_utils.AssertNoSQLiteQuarantine(t, filepath.Join("data", "users.db"))
+		testutil.AssertFilesUnchanged(t, files)
+		testutil.AssertNoSQLiteQuarantine(t, filepath.Join("data", "users.db"))
 	})
 }
 

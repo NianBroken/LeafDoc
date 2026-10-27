@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/perber/wiki/internal/core/links"
 	"github.com/perber/wiki/internal/core/revision"
+	"github.com/perber/wiki/internal/core/search"
 	"github.com/perber/wiki/internal/core/tree"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/links"
-	"github.com/perber/wiki/internal/search"
 )
 
 func TestNewLinkIndexSideEffect_DefaultsLogger(t *testing.T) {

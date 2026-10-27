@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/perber/wiki/internal/core/shared"
-	"github.com/perber/wiki/internal/core/treemigration"
+	"github.com/perber/wiki/internal/core/tree/migration"
 )
 
 type migrationNodeAdapter struct {
@@ -50,11 +50,11 @@ func (n *migrationNodeAdapter) SetKind(kind string) {
 	n.node.Kind = NodeKind(kind)
 }
 
-func (n *migrationNodeAdapter) Metadata() treemigration.Metadata {
+func (n *migrationNodeAdapter) Metadata() migration.Metadata {
 	if n == nil || n.node == nil {
-		return treemigration.Metadata{}
+		return migration.Metadata{}
 	}
-	return treemigration.Metadata{
+	return migration.Metadata{
 		CreatedAt:    n.node.Metadata.CreatedAt,
 		UpdatedAt:    n.node.Metadata.UpdatedAt,
 		CreatorID:    n.node.Metadata.CreatorID,
@@ -62,7 +62,7 @@ func (n *migrationNodeAdapter) Metadata() treemigration.Metadata {
 	}
 }
 
-func (n *migrationNodeAdapter) SetMetadata(metadata treemigration.Metadata) {
+func (n *migrationNodeAdapter) SetMetadata(metadata migration.Metadata) {
 	if n == nil || n.node == nil {
 		return
 	}
@@ -74,12 +74,12 @@ func (n *migrationNodeAdapter) SetMetadata(metadata treemigration.Metadata) {
 	}
 }
 
-func (n *migrationNodeAdapter) Children() []treemigration.Node {
+func (n *migrationNodeAdapter) Children() []migration.Node {
 	if n == nil || n.node == nil {
 		return nil
 	}
 
-	children := make([]treemigration.Node, 0, len(n.node.Children))
+	children := make([]migration.Node, 0, len(n.node.Children))
 	for _, child := range n.node.Children {
 		children = append(children, &migrationNodeAdapter{node: child})
 	}
@@ -90,7 +90,7 @@ type migrationStoreAdapter struct {
 	store *NodeStore
 }
 
-func (a *migrationStoreAdapter) ResolveNode(node treemigration.Node) (*treemigration.ResolvedNode, error) {
+func (a *migrationStoreAdapter) ResolveNode(node migration.Node) (*migration.ResolvedNode, error) {
 	entry, err := unwrapMigrationNode(node)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (a *migrationStoreAdapter) ResolveNode(node treemigration.Node) (*treemigra
 	if err != nil {
 		return nil, err
 	}
-	return &treemigration.ResolvedNode{
+	return &migration.ResolvedNode{
 		Kind:       string(resolved.Kind),
 		DirPath:    resolved.DirPath,
 		FilePath:   resolved.FilePath,
@@ -107,7 +107,7 @@ func (a *migrationStoreAdapter) ResolveNode(node treemigration.Node) (*treemigra
 	}, nil
 }
 
-func (a *migrationStoreAdapter) ContentPathForRead(node treemigration.Node) (string, error) {
+func (a *migrationStoreAdapter) ContentPathForRead(node migration.Node) (string, error) {
 	entry, err := unwrapMigrationNode(node)
 	if err != nil {
 		return "", err
@@ -115,7 +115,7 @@ func (a *migrationStoreAdapter) ContentPathForRead(node treemigration.Node) (str
 	return a.store.contentPathForNodeRead(entry)
 }
 
-func (a *migrationStoreAdapter) ContentPathForWrite(node treemigration.Node) (string, error) {
+func (a *migrationStoreAdapter) ContentPathForWrite(node migration.Node) (string, error) {
 	entry, err := unwrapMigrationNode(node)
 	if err != nil {
 		return "", err
@@ -123,7 +123,7 @@ func (a *migrationStoreAdapter) ContentPathForWrite(node treemigration.Node) (st
 	return a.store.contentPathForNodeWrite(entry)
 }
 
-func (a *migrationStoreAdapter) EnsureSectionIndex(node treemigration.Node) (string, error) {
+func (a *migrationStoreAdapter) EnsureSectionIndex(node migration.Node) (string, error) {
 	entry, err := unwrapMigrationNode(node)
 	if err != nil {
 		return "", err
@@ -131,7 +131,7 @@ func (a *migrationStoreAdapter) EnsureSectionIndex(node treemigration.Node) (str
 	return a.store.ensureSectionIndex(entry)
 }
 
-func (a *migrationStoreAdapter) SaveChildOrder(node treemigration.Node) error {
+func (a *migrationStoreAdapter) SaveChildOrder(node migration.Node) error {
 	entry, err := unwrapMigrationNode(node)
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func (a *migrationStoreAdapter) SaveChildOrder(node treemigration.Node) error {
 	return a.store.SaveChildOrder(entry)
 }
 
-func (a *migrationStoreAdapter) ReadPageRaw(node treemigration.Node) (string, error) {
+func (a *migrationStoreAdapter) ReadPageRaw(node migration.Node) (string, error) {
 	entry, err := unwrapMigrationNode(node)
 	if err != nil {
 		return "", err
@@ -147,7 +147,7 @@ func (a *migrationStoreAdapter) ReadPageRaw(node treemigration.Node) (string, er
 	return a.store.ReadPageRaw(entry)
 }
 
-func unwrapMigrationNode(node treemigration.Node) (*PageNode, error) {
+func unwrapMigrationNode(node migration.Node) (*PageNode, error) {
 	adapted, ok := node.(*migrationNodeAdapter)
 	if !ok || adapted == nil || adapted.node == nil {
 		return nil, errors.New("invalid migration node")
@@ -155,13 +155,13 @@ func unwrapMigrationNode(node treemigration.Node) (*PageNode, error) {
 	return adapted.node, nil
 }
 
-func (t *TreeService) migrationDependencies() treemigration.Dependencies {
-	var root treemigration.Node
+func (t *TreeService) migrationDependencies() migration.Dependencies {
+	var root migration.Node
 	if t.tree != nil {
 		root = &migrationNodeAdapter{node: t.tree}
 	}
 
-	return treemigration.Dependencies{
+	return migration.Dependencies{
 		Root:                 root,
 		Store:                &migrationStoreAdapter{store: t.store},
 		Log:                  t.log,

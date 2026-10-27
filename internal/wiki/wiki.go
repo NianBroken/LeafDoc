@@ -8,21 +8,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/perber/wiki/internal/avatar"
-	"github.com/perber/wiki/internal/branding"
 	"github.com/perber/wiki/internal/core/assets"
 	"github.com/perber/wiki/internal/core/auth"
+	"github.com/perber/wiki/internal/core/avatar"
+	"github.com/perber/wiki/internal/core/branding"
 	"github.com/perber/wiki/internal/core/email"
+	"github.com/perber/wiki/internal/core/favorites"
 	"github.com/perber/wiki/internal/core/ignore"
+	"github.com/perber/wiki/internal/core/links"
+	"github.com/perber/wiki/internal/core/properties"
+	"github.com/perber/wiki/internal/core/restore"
 	"github.com/perber/wiki/internal/core/revision"
+	"github.com/perber/wiki/internal/core/search"
+	"github.com/perber/wiki/internal/core/tags"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/favorites"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/links"
-	"github.com/perber/wiki/internal/properties"
-	"github.com/perber/wiki/internal/restore"
-	"github.com/perber/wiki/internal/search"
-	"github.com/perber/wiki/internal/tags"
 	wikiapikeys "github.com/perber/wiki/internal/wiki/apikeys"
 	wikiassets "github.com/perber/wiki/internal/wiki/assets"
 	wikiauth "github.com/perber/wiki/internal/wiki/auth"
@@ -202,7 +202,7 @@ func (w *Wiki) GetStorageDir() string {
 // restore-swap-tracking one when auth is enabled (see AuthService.UserService),
 // falling back to the UserService constructed in initAuth when auth is
 // disabled — in that mode there's no AuthService and, per
-// internal/restore/manager.go's AuthService-nil guards, a live restore never
+// internal/core/restore/manager.go's AuthService-nil guards, a live restore never
 // swaps this store either, so the fallback is never stale.
 func (w *Wiki) UserService() *auth.UserService {
 	if w.auth != nil {

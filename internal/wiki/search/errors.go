@@ -1,6 +1,7 @@
 package search
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,27 +17,13 @@ const (
 )
 
 // SearchErrorResponse is the structured JSON error body returned by search endpoints.
-type SearchErrorResponse struct {
-	Error SearchErrorDetail `json:"error"`
-}
+type SearchErrorResponse = httpinternal.ErrorResponse
 
 // SearchErrorDetail carries the localization-ready error data.
-type SearchErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type SearchErrorDetail = httpinternal.ErrorDetail
 
 func respondWithSearchStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, SearchErrorResponse{
-		Error: SearchErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithSearchError maps errors to JSON responses for search endpoints.

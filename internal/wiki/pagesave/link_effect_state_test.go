@@ -3,8 +3,8 @@ package pagesave
 import (
 	"testing"
 
+	"github.com/perber/wiki/internal/core/links"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/links"
 )
 
 func createEffectPage(t *testing.T, ts *tree.TreeService, parentID *string, title, slug string) string {

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/perber/wiki/internal/testutil"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -15,12 +16,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/branding"
 	coreauth "github.com/perber/wiki/internal/core/auth"
+	"github.com/perber/wiki/internal/core/branding"
+	"github.com/perber/wiki/internal/core/restore"
 	"github.com/perber/wiki/internal/core/settings"
-	"github.com/perber/wiki/internal/restore"
-	snapshotSvc "github.com/perber/wiki/internal/snapshot"
-	"github.com/perber/wiki/internal/test_utils"
+	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
+
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
@@ -31,7 +32,7 @@ func init() {
 // newTestManager wires a real restore.Manager (real snapshot manager, real
 // AuthService, real BrandingService) against fresh temp dirs — the
 // Manager-level behavior itself is covered exhaustively in
-// internal/restore's own tests; this package only needs to verify the HTTP
+// internal/core/restore's own tests; this package only needs to verify the HTTP
 // wiring (routing, status codes, response shapes) on top of it.
 func newTestManager(t *testing.T) *restore.Manager {
 	return newTestManagerWithMaxUploadSize(t, 0)
@@ -45,7 +46,7 @@ func newTestManagerWithMaxUploadSize(t *testing.T, maxUploadSizeBytes int64) *re
 	base := t.TempDir()
 
 	rootDir := filepath.Join(base, "root")
-	test_utils.WriteFile(t, rootDir, "page.md", "# Hello\n")
+	testutil.WriteFile(t, rootDir, "page.md", "# Hello\n")
 
 	userStore, err := coreauth.NewUserStore(base)
 	if err != nil {
@@ -111,7 +112,7 @@ func buildFixtureZipPath(t *testing.T) string {
 	src := t.TempDir()
 
 	rootDir := filepath.Join(src, "root")
-	test_utils.WriteFile(t, rootDir, "welcome.md", "# Uploaded backup content\n")
+	testutil.WriteFile(t, rootDir, "welcome.md", "# Uploaded backup content\n")
 
 	userStore, err := coreauth.NewUserStore(src)
 	if err != nil {

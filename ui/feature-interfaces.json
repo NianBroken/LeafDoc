@@ -1,0 +1,40 @@
+{
+  "apikeys": ["ApiKeysManagement"],
+  "assets": ["AssetPreviewTooltip"],
+  "branding": ["BrandingSettings", "state/branding"],
+  "designtoggle": ["designmode"],
+  "editor": ["pageEditorStore"],
+  "favorites": ["FavoriteToggleButton", "FavoritesSection", "state/favorites"],
+  "history": ["PageHistoryContent", "pageHistory"],
+  "importer": ["Importer"],
+  "links": ["BrokenLinks", "LinkInfo", "linkStatusStore"],
+  "page": ["pageMutationRefresh", "pageRefactorDialogState"],
+  "preview": [
+    "MarkdownPreview",
+    "TocDropdownButton",
+    "TocSidePanel",
+    "extractTocEntries",
+    "rehypeLineNumber",
+    "state/tocPanel",
+    "tocVisibility",
+    "useTocScrollSpy"
+  ],
+  "progressbar": ["progressbarStore"],
+  "restore": ["state/restore"],
+  "settings": [
+    "account/ChangeOwnPasswordPanel",
+    "account/state/avatar",
+    "state/resync"
+  ],
+  "sidebar": [
+    "SidebarAccordionSection",
+    "state/sidebar",
+    "state/sidebarPanels"
+  ],
+  "snapshot": ["SnapshotSettings"],
+  "tags": ["components/TagInputWithSuggestions"],
+  "toolbar": ["toolbarStore", "useExitModeButton"],
+  "tree": ["state/tree"],
+  "users": ["UserManagement", "state/users"],
+  "viewer": ["setTitle", "useSetPageTitle", "viewer"]
+}

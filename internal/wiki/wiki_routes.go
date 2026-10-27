@@ -3,8 +3,8 @@ package wiki
 import (
 	"path/filepath"
 
+	coreimporter "github.com/perber/wiki/internal/core/importer"
 	httpinternal "github.com/perber/wiki/internal/http"
-	coreimporter "github.com/perber/wiki/internal/importer"
 	wikiapikeys "github.com/perber/wiki/internal/wiki/apikeys"
 	wikiassets "github.com/perber/wiki/internal/wiki/assets"
 	wikiauth "github.com/perber/wiki/internal/wiki/auth"

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 func TestSessionStore_UsesWALJournalMode(t *testing.T) {
@@ -21,7 +21,7 @@ func TestSessionStore_UsesWALJournalMode(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	var mode string
 	if err := store.withDB(func(db *sql.DB) error {
@@ -44,7 +44,7 @@ func TestSessionStore_CreateAndValidateSession(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	expiresAt := time.Now().Add(time.Hour)
 	if err := store.CreateSession("s1", "u1", "refresh", expiresAt); err != nil {
@@ -78,7 +78,7 @@ func TestSessionStore_RevokeAllSessionsForUserExcept(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	expiresAt := time.Now().Add(time.Hour)
 	if err := store.CreateSession("keep", "u1", "refresh", expiresAt); err != nil {
@@ -124,7 +124,7 @@ func TestSessionStore_RevokeAllSessionsForUserExcept_EmptyExceptRevokesAll(t *te
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	expiresAt := time.Now().Add(time.Hour)
 	if err := store.CreateSession("s1", "u1", "refresh", expiresAt); err != nil {
@@ -150,7 +150,7 @@ func TestSessionStore_CreatesDatabaseInStorageDir(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	if _, err := os.Stat(filepath.Join(tmp, "sessions.db")); err != nil {
 		t.Fatalf("expected sessions.db in storage dir, got err: %v", err)

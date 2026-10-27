@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/perber/wiki/internal/core/assets"
+	"github.com/perber/wiki/internal/core/links"
 	"github.com/perber/wiki/internal/core/revision"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/links"
 	wikipages "github.com/perber/wiki/internal/wiki/pages"
 	"github.com/perber/wiki/internal/wiki/pagesave"
 	wikirevisions "github.com/perber/wiki/internal/wiki/revisions"

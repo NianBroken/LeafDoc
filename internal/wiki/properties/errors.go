@@ -1,6 +1,7 @@
 package properties
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,43 +15,21 @@ const (
 	ErrCodePropertiesInvalidLimit = "properties_invalid_limit"
 )
 
-type propertiesErrorResponse struct {
-	Error propertiesErrorDetail `json:"error"`
-}
+type propertiesErrorResponse = httpinternal.ErrorResponse
 
-type propertiesErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type propertiesErrorDetail = httpinternal.ErrorDetail
 
 func respondWithPropertiesError(c *gin.Context, err error) {
 	if loc, ok := sharederrors.AsLocalizedError(err); ok {
-		c.JSON(propertiesErrorStatus(loc.Code), propertiesErrorResponse{
-			Error: propertiesErrorDetail{
-				Code:     loc.Code,
-				Message:  loc.Message,
-				Template: loc.Template,
-				Args:     loc.Args,
-			},
-		})
+		httpinternal.RespondError(c, propertiesErrorStatus(loc.Code), loc.Code, loc.Message, loc.Template, loc.Args...)
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, propertiesErrorResponse{
-		Error: propertiesErrorDetail{
-			Code:     ErrCodePropertiesInternal,
-			Message:  "Internal server error",
-			Template: "internal server error",
-		},
-	})
+	httpinternal.RespondError(c, http.StatusInternalServerError, ErrCodePropertiesInternal, "Internal server error", "internal server error")
 }
 
 func respondWithPropertiesBadRequest(c *gin.Context, code, message, template string) {
-	c.JSON(http.StatusBadRequest, propertiesErrorResponse{
-		Error: propertiesErrorDetail{Code: code, Message: message, Template: template},
-	})
+	httpinternal.RespondError(c, http.StatusBadRequest, code, message, template)
 }
 
 func propertiesErrorStatus(code string) int {

@@ -1,6 +1,7 @@
 package importer
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -22,27 +23,13 @@ const (
 )
 
 // ImporterErrorResponse is the structured JSON error body returned by importer endpoints.
-type ImporterErrorResponse struct {
-	Error ImporterErrorDetail `json:"error"`
-}
+type ImporterErrorResponse = httpinternal.ErrorResponse
 
 // ImporterErrorDetail carries the localization-ready error data.
-type ImporterErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type ImporterErrorDetail = httpinternal.ErrorDetail
 
 func respondWithImporterStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, ImporterErrorResponse{
-		Error: ImporterErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithImporterError maps errors to JSON responses for importer endpoints.

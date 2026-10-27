@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	coreimporter "github.com/perber/wiki/internal/core/importer"
 	coreshared "github.com/perber/wiki/internal/core/shared"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 	"github.com/perber/wiki/internal/core/tree"
-	coreimporter "github.com/perber/wiki/internal/importer"
 )
 
 // setupCreateImportPlanUseCase builds a real ImporterService (no mocks) with

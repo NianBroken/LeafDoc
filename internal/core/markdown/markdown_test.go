@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 func TestPlanner_extractTitleFromMDFile_FrontmatterTitleWins(t *testing.T) {
 	tmp := t.TempDir()
-	abs := test_utils.WriteFile(t, tmp, "t.md", "---\ntitle: FM Title\n---\n\n# Heading")
+	abs := testutil.WriteFile(t, tmp, "t.md", "---\ntitle: FM Title\n---\n\n# Heading")
 
 	mdFile, err := LoadMarkdownFile(abs)
 	if err != nil {
@@ -27,7 +27,7 @@ func TestPlanner_extractTitleFromMDFile_FrontmatterTitleWins(t *testing.T) {
 
 func TestPlanner_extractTitleFromMDFile_LeafwikiTitle(t *testing.T) {
 	tmp := t.TempDir()
-	abs := test_utils.WriteFile(t, tmp, "t.md", "---\nleafwiki_title: Leaf\n---\n\n# Heading")
+	abs := testutil.WriteFile(t, tmp, "t.md", "---\nleafwiki_title: Leaf\n---\n\n# Heading")
 
 	mdFile, err := LoadMarkdownFile(abs)
 	if err != nil {
@@ -44,7 +44,7 @@ func TestPlanner_extractTitleFromMDFile_LeafwikiTitle(t *testing.T) {
 
 func TestPlanner_extractTitleFromMDFile_FirstHeadingFallback(t *testing.T) {
 	tmp := t.TempDir()
-	abs := test_utils.WriteFile(t, tmp, "t.md", "no fm\n\n# Heading Only\nx")
+	abs := testutil.WriteFile(t, tmp, "t.md", "no fm\n\n# Heading Only\nx")
 
 	mdFile, err := LoadMarkdownFile(abs)
 	if err != nil {
@@ -61,7 +61,7 @@ func TestPlanner_extractTitleFromMDFile_FirstHeadingFallback(t *testing.T) {
 
 func TestPlanner_extractTitleFromMDFile_FilenameFallback(t *testing.T) {
 	tmp := t.TempDir()
-	abs := test_utils.WriteFile(t, tmp, "some-file.md", "no title")
+	abs := testutil.WriteFile(t, tmp, "some-file.md", "no title")
 
 	mdFile, err := LoadMarkdownFile(abs)
 	if err != nil {
@@ -93,7 +93,7 @@ func TestPlanner_extractTitleFromMDFile_FilenameFallback_WindowsPath(t *testing.
 
 func TestMarkdownFile_WriteToFile_PreservesCustomFrontmatter(t *testing.T) {
 	tmp := t.TempDir()
-	abs := test_utils.WriteFile(t, tmp, "t.md", `---
+	abs := testutil.WriteFile(t, tmp, "t.md", `---
 custom_key: keep-me
 aliases:
   - one
@@ -145,7 +145,7 @@ leafwiki_title: Old Title
 
 func TestLoadMarkdownFile_UppercaseExtension(t *testing.T) {
 	tmp := t.TempDir()
-	abs := test_utils.WriteFile(t, tmp, "README.MD", "# Uppercase Extension\n\nThis file has .MD extension")
+	abs := testutil.WriteFile(t, tmp, "README.MD", "# Uppercase Extension\n\nThis file has .MD extension")
 
 	mdFile, err := LoadMarkdownFile(abs)
 	if err != nil {

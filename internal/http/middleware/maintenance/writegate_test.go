@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/restore"
+	"github.com/perber/wiki/internal/core/restore"
 )
 
 func init() {

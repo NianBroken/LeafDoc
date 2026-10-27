@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	coreauth "github.com/perber/wiki/internal/core/auth"
+	"github.com/perber/wiki/internal/core/publicaccess"
 	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/publicaccess"
 )
 
 // flipGate is a publicaccess.ReadGate whose value can be toggled between

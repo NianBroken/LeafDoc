@@ -9,7 +9,7 @@ import (
 	"time"
 
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 func setupTestAPIKeyStore(t *testing.T) *APIKeyStore {
@@ -28,7 +28,7 @@ func setupTestAPIKeyStore(t *testing.T) *APIKeyStore {
 
 func TestAPIKeyStore_UsesWALJournalMode(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	var mode string
 	if err := store.withDB(func(db *sql.DB) error {
@@ -52,7 +52,7 @@ func TestAPIKeyStore_CreatesDatabaseInStorageDir(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	if _, err := os.Stat(filepath.Join(storageDir, "api_keys.db")); err != nil {
 		t.Fatalf("expected api_keys.db in storage dir, got err: %v", err)
@@ -61,7 +61,7 @@ func TestAPIKeyStore_CreatesDatabaseInStorageDir(t *testing.T) {
 
 func TestAPIKeyStore_CreateAndGetByPrefix(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	key := &APIKey{
 		ID:        "k1",
@@ -94,7 +94,7 @@ func TestAPIKeyStore_CreateAndGetByPrefix(t *testing.T) {
 
 func TestAPIKeyStore_GetByPrefix_NotFound(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	if _, err := store.GetByPrefix("missing"); err != ErrAPIKeyNotFound {
 		t.Fatalf("expected ErrAPIKeyNotFound, got %v", err)
@@ -103,7 +103,7 @@ func TestAPIKeyStore_GetByPrefix_NotFound(t *testing.T) {
 
 func TestAPIKeyStore_GetByID_NotFound(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	if _, err := store.GetByID("missing"); err != ErrAPIKeyNotFound {
 		t.Fatalf("expected ErrAPIKeyNotFound, got %v", err)
@@ -112,7 +112,7 @@ func TestAPIKeyStore_GetByID_NotFound(t *testing.T) {
 
 func TestAPIKeyStore_CreateAPIKey_DuplicatePrefixCollides(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	base := &APIKey{ID: "k1", Name: "n1", UserID: "u1", Prefix: "dup123", KeyHash: "h1", Role: RoleViewer, CreatedBy: "admin1", CreatedAt: time.Now()}
 	if err := store.CreateAPIKey(base); err != nil {
@@ -127,7 +127,7 @@ func TestAPIKeyStore_CreateAPIKey_DuplicatePrefixCollides(t *testing.T) {
 
 func TestAPIKeyStore_ListAll_OrderedNewestFirst(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	older := &APIKey{ID: "k1", Name: "older", UserID: "u1", Prefix: "p1", KeyHash: "h1", Role: RoleViewer, CreatedBy: "admin1", CreatedAt: time.Now().Add(-time.Hour)}
 	newer := &APIKey{ID: "k2", Name: "newer", UserID: "u1", Prefix: "p2", KeyHash: "h2", Role: RoleEditor, CreatedBy: "admin1", CreatedAt: time.Now()}
@@ -152,7 +152,7 @@ func TestAPIKeyStore_ListAll_OrderedNewestFirst(t *testing.T) {
 
 func TestAPIKeyStore_DeleteAllForUser_RemovesOnlyThatUsersKeys(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	u1Key := &APIKey{ID: "k1", Name: "u1 key", UserID: "u1", Prefix: "p1", KeyHash: "h1", Role: RoleViewer, CreatedBy: "admin1", CreatedAt: time.Now()}
 	u2Key := &APIKey{ID: "k2", Name: "u2 key", UserID: "u2", Prefix: "p2", KeyHash: "h2", Role: RoleViewer, CreatedBy: "admin1", CreatedAt: time.Now()}
@@ -178,7 +178,7 @@ func TestAPIKeyStore_DeleteAllForUser_RemovesOnlyThatUsersKeys(t *testing.T) {
 
 func TestAPIKeyStore_DeleteAllForUser_NoKeysIsNotAnError(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	if err := store.DeleteAllForUser("no-such-user"); err != nil {
 		t.Fatalf("DeleteAllForUser err: %v", err)
@@ -187,7 +187,7 @@ func TestAPIKeyStore_DeleteAllForUser_NoKeysIsNotAnError(t *testing.T) {
 
 func TestAPIKeyStore_Revoke(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	key := &APIKey{ID: "k1", Name: "n1", UserID: "u1", Prefix: "p1", KeyHash: "h1", Role: RoleViewer, CreatedBy: "admin1", CreatedAt: time.Now()}
 	if err := store.CreateAPIKey(key); err != nil {
@@ -212,7 +212,7 @@ func TestAPIKeyStore_Revoke(t *testing.T) {
 
 func TestAPIKeyStore_Revoke_NotFound(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	if err := store.Revoke("missing"); err != ErrAPIKeyNotFound {
 		t.Fatalf("expected ErrAPIKeyNotFound, got %v", err)
@@ -221,7 +221,7 @@ func TestAPIKeyStore_Revoke_NotFound(t *testing.T) {
 
 func TestAPIKeyStore_Revoke_Idempotent(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	key := &APIKey{ID: "k1", Name: "n1", UserID: "u1", Prefix: "p1", KeyHash: "h1", Role: RoleViewer, CreatedBy: "admin1", CreatedAt: time.Now()}
 	if err := store.CreateAPIKey(key); err != nil {
@@ -245,7 +245,7 @@ func TestAPIKeyStore_Revoke_Idempotent(t *testing.T) {
 
 func TestAPIKeyStore_TouchLastUsed(t *testing.T) {
 	store := setupTestAPIKeyStore(t)
-	defer test_utils.WrapCloseWithErrorCheck(store.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
 	key := &APIKey{ID: "k1", Name: "n1", UserID: "u1", Prefix: "p1", KeyHash: "h1", Role: RoleViewer, CreatedBy: "admin1", CreatedAt: time.Now()}
 	if err := store.CreateAPIKey(key); err != nil {

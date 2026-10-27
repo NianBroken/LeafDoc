@@ -1,11 +1,12 @@
 package instancesettings
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/perber/wiki/internal/core/publicaccess"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/publicaccess"
 )
 
 const (
@@ -15,31 +16,12 @@ const (
 	ErrCodeInternal = "instance_settings_internal_error"
 )
 
-// NOTE: errorResponse / errorDetail / respondWithStatusError mirror the
-// hand-rolled localized-error-to-JSON shape every feature package carries
-// (see internal/wiki/branding/errors.go and siblings). Consolidating them
-// into one shared http helper is tracked in the architecture refactoring
-// backlog, not done here.
-type errorResponse struct {
-	Error errorDetail `json:"error"`
-}
+type errorResponse = httpinternal.ErrorResponse
 
-type errorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type errorDetail = httpinternal.ErrorDetail
 
 func respondWithStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, errorResponse{
-		Error: errorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithError maps a domain error to a structured JSON response.

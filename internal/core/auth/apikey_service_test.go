@@ -6,7 +6,7 @@ import (
 	"time"
 
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 func setupTestAPIKeyService(t *testing.T) (*APIKeyService, *UserService) {
@@ -21,7 +21,7 @@ func setupTestAPIKeyService(t *testing.T) (*APIKeyService, *UserService) {
 			t.Error(err)
 		}
 	})
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(userStore.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(userStore.Close, t) })
 	userService := NewUserService(userStore)
 
 	sessionStore, err := NewSessionStore(t.TempDir())
@@ -33,7 +33,7 @@ func setupTestAPIKeyService(t *testing.T) (*APIKeyService, *UserService) {
 			t.Error(err)
 		}
 	})
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(sessionStore.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(sessionStore.Close, t) })
 	sessions := NewSessionManager(sessionStore, "test-secret-key-for-unit-tests-1", time.Hour, 24*time.Hour)
 	authService := NewAuthService(userService, sessions)
 
@@ -46,7 +46,7 @@ func setupTestAPIKeyService(t *testing.T) (*APIKeyService, *UserService) {
 			t.Error(err)
 		}
 	})
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(keyStore.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(keyStore.Close, t) })
 
 	return NewAPIKeyService(keyStore, authService), userService
 }
@@ -130,8 +130,8 @@ func TestAPIKeyService_Resolve_UserStoreSuspended_ReturnsStoreUnavailable(t *tes
 		t.Fatalf("expected the store-unavailable error, not ErrAPIKeyInvalid: %v", err)
 	}
 	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != userStoreUnavailableCode {
-		t.Fatalf("expected %s, got %v", userStoreUnavailableCode, err)
+	if !ok || localized.Code != ErrCodeAuthUserStoreUnavailable {
+		t.Fatalf("expected %s, got %v", ErrCodeAuthUserStoreUnavailable, err)
 	}
 }
 

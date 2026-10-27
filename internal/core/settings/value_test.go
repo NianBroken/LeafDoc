@@ -81,7 +81,7 @@ func TestValue_BothImplementationsSatisfyInterface_AndReloadInSlice(t *testing.T
 		Managed[testConfig]{Store: st},
 		NewFixed(testConfig{Name: "pinned"}),
 	}
-	// internal/restore iterates []Reloadable; a Fixed entry must be a safe
+	// internal/core/restore iterates []Reloadable; a Fixed entry must be a safe
 	// no-op there.
 	for i, v := range values {
 		if err := v.Reload(); err != nil {

@@ -3,8 +3,8 @@ package pages
 import (
 	"context"
 
+	"github.com/perber/wiki/internal/core/favorites"
 	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/favorites"
 )
 
 type AddFavoriteInput struct {

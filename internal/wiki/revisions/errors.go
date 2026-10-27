@@ -2,6 +2,7 @@ package revisions
 
 import (
 	"errors"
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 	"os"
 
@@ -32,27 +33,13 @@ const (
 )
 
 // RevisionErrorResponse is the structured JSON error body returned by revision endpoints.
-type RevisionErrorResponse struct {
-	Error RevisionErrorDetail `json:"error"`
-}
+type RevisionErrorResponse = httpinternal.ErrorResponse
 
 // RevisionErrorDetail carries the localization-ready error data.
-type RevisionErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type RevisionErrorDetail = httpinternal.ErrorDetail
 
 func respondWithRevisionStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, RevisionErrorResponse{
-		Error: RevisionErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // respondWithRevisionError is the central error handler for revision endpoints.

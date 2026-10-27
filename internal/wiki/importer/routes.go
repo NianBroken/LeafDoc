@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	coreauth "github.com/perber/wiki/internal/core/auth"
+	coreimporter "github.com/perber/wiki/internal/core/importer"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 	httpinternal "github.com/perber/wiki/internal/http"
 	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	coreimporter "github.com/perber/wiki/internal/importer"
 )
 
 const (

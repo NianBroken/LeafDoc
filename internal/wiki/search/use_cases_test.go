@@ -2,12 +2,12 @@ package search
 
 import (
 	"context"
+	"github.com/perber/wiki/internal/testutil"
 	"testing"
 
+	coresearch "github.com/perber/wiki/internal/core/search"
+	coretags "github.com/perber/wiki/internal/core/tags"
 	"github.com/perber/wiki/internal/core/tree"
-	coresearch "github.com/perber/wiki/internal/search"
-	coretags "github.com/perber/wiki/internal/tags"
-	"github.com/perber/wiki/internal/test_utils"
 )
 
 func setupSearchUseCaseForTags(t *testing.T) (*SearchUseCase, *coretags.TagsService, *tree.TreeService) {
@@ -24,7 +24,7 @@ func setupSearchUseCaseForTags(t *testing.T) (*SearchUseCase, *coretags.TagsServ
 	if err != nil {
 		t.Fatalf("NewSQLiteIndex: %v", err)
 	}
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(index.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(index.Close, t) })
 
 	tagsStore, err := coretags.NewTagsStore(dir)
 	if err != nil {
@@ -35,7 +35,7 @@ func setupSearchUseCaseForTags(t *testing.T) (*SearchUseCase, *coretags.TagsServ
 			t.Error(err)
 		}
 	})
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(tagsStore.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(tagsStore.Close, t) })
 
 	tagsSvc := coretags.NewTagsService(tagsStore)
 	return NewSearchUseCase(index, tagsSvc, treeSvc), tagsSvc, treeSvc

@@ -18,13 +18,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/perber/wiki/internal/core/assets"
+	"github.com/perber/wiki/internal/core/publicaccess"
 	"github.com/perber/wiki/internal/core/revision"
+	"github.com/perber/wiki/internal/core/tocdisplay"
 	"github.com/perber/wiki/internal/core/tree"
 	httpinternal "github.com/perber/wiki/internal/http"
 	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/publicaccess"
-	"github.com/perber/wiki/internal/test_utils"
-	"github.com/perber/wiki/internal/tocdisplay"
+	"github.com/perber/wiki/internal/testutil"
 	"github.com/perber/wiki/internal/wiki"
 	wikiinstancesettings "github.com/perber/wiki/internal/wiki/instancesettings"
 )
@@ -276,7 +276,7 @@ func uploadAssetViaAPI(t *testing.T, router http.Handler, pageID, filename, cont
 	}
 
 	loginRes := loginRec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
 
 	cookies := loginRes.Cookies()
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
@@ -466,7 +466,7 @@ func brandingErrorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 
 func TestBrandingUploadLogo_TooLarge_Returns413(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	cfg, err := w.BrandingService().GetBranding()
@@ -509,7 +509,7 @@ func TestBrandingUploadLogo_TooLarge_Returns413(t *testing.T) {
 
 func TestBrandingUploadLogo_MissingFile_Returns400(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := &bytes.Buffer{}
@@ -542,7 +542,7 @@ func TestBrandingUploadLogo_MissingFile_Returns400(t *testing.T) {
 
 func TestBrandingUploadFavicon_TooLarge_Returns413(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	cfg, err := w.BrandingService().GetBranding()
@@ -585,7 +585,7 @@ func TestBrandingUploadFavicon_TooLarge_Returns413(t *testing.T) {
 
 func TestBrandingUploadFavicon_MissingFile_Returns400(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := &bytes.Buffer{}
@@ -619,7 +619,7 @@ func TestBrandingUploadFavicon_MissingFile_Returns400(t *testing.T) {
 func importerFixturePathForHTTPTests(t *testing.T, rel string) string {
 	t.Helper()
 
-	return test_utils.FixturePath(t, rel, "../importer/fixtures", "internal/importer/fixtures")
+	return testutil.FixturePath(t, rel, "../core/importer/fixtures", "internal/core/importer/fixtures")
 }
 
 func createZipFromDir(t *testing.T, root string) []byte {
@@ -666,7 +666,7 @@ func createZipFromDir(t *testing.T, root string) []byte {
 
 func TestDisableRequestLog_DoesNotCrash(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = nil
 		o.DisableRequestLog = true
@@ -683,7 +683,7 @@ func TestDisableRequestLog_DoesNotCrash(t *testing.T) {
 
 func TestMetricsEndpoint_IsNotExposedOnAppRouterByDefault(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
@@ -697,7 +697,7 @@ func TestMetricsEndpoint_IsNotExposedOnAppRouterByDefault(t *testing.T) {
 
 func TestMetricsEndpoint_IsNotExposedOnAppRouterWhenMetricsEnabled(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithMetricsEnabled(w, t)
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
@@ -711,7 +711,7 @@ func TestMetricsEndpoint_IsNotExposedOnAppRouterWhenMetricsEnabled(t *testing.T)
 
 func TestMeEndpoint_Unauthenticated_Returns200WithNullBody(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
@@ -728,7 +728,7 @@ func TestMeEndpoint_Unauthenticated_Returns200WithNullBody(t *testing.T) {
 
 func TestMeEndpoint_Authenticated_ReturnsUser(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/auth/me", nil)
@@ -751,7 +751,7 @@ func TestMeEndpoint_Authenticated_ReturnsUser(t *testing.T) {
 
 func TestMeEndpoint_HasNoCacheHeaders(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	for _, name := range []string{"unauthenticated", "authenticated"} {
@@ -780,7 +780,7 @@ func TestMeEndpoint_HasNoCacheHeaders(t *testing.T) {
 
 func TestCreatePageEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	title := "Getting Started"
@@ -814,7 +814,7 @@ func TestCreatePageEndpoint(t *testing.T) {
 
 func TestConfigEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithAllowInsecure(w, false, t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
@@ -832,7 +832,7 @@ func TestConfigEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
 
 func TestLoginEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithAllowInsecure(w, false, t)
 
 	loginBody := `{"identifier": "admin", "password": "adminpassword"}`
@@ -852,7 +852,7 @@ func TestLoginEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
 
 func TestCreatePageEndpoint_MissingTitle(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"title": ""}`
@@ -865,7 +865,7 @@ func TestCreatePageEndpoint_MissingTitle(t *testing.T) {
 
 func TestCreatePageEndpoint_InvalidJSON(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `this is not valid json`
@@ -878,7 +878,7 @@ func TestCreatePageEndpoint_InvalidJSON(t *testing.T) {
 
 func TestCreatePageEndpoint_PageAlreadyExists(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"title": "Page Exists", "slug": "page-exists"}`
@@ -897,7 +897,7 @@ func TestCreatePageEndpoint_PageAlreadyExists(t *testing.T) {
 
 func TestGetTreeEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/tree", nil)
@@ -931,7 +931,7 @@ func TestGetTreeEndpoint(t *testing.T) {
 
 func TestConfigEndpoint_IncludesMaxAssetUploadSizeBytes(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	const maxAssetUploadSizeBytes int64 = 123456
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
@@ -964,7 +964,7 @@ func TestConfigEndpoint_IncludesMaxAssetUploadSizeBytes(t *testing.T) {
 
 func TestConfigEndpoint_IncludesEnableLinkRefactor(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -996,7 +996,7 @@ func TestConfigEndpoint_IncludesEnableLinkRefactor(t *testing.T) {
 
 func TestConfigEndpoint_IncludesEnableAPIKeyManagement(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1028,7 +1028,7 @@ func TestConfigEndpoint_IncludesEnableAPIKeyManagement(t *testing.T) {
 
 func TestConfigEndpoint_EnableAPIKeyManagementDefaultsToFalse(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1059,7 +1059,7 @@ func TestConfigEndpoint_EnableAPIKeyManagementDefaultsToFalse(t *testing.T) {
 
 func TestConfigEndpoint_IncludesUserManagementUrl(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1091,7 +1091,7 @@ func TestConfigEndpoint_IncludesUserManagementUrl(t *testing.T) {
 
 func TestConfigEndpoint_UserManagementUrlDefaultsToEmpty(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1122,7 +1122,7 @@ func TestConfigEndpoint_UserManagementUrlDefaultsToEmpty(t *testing.T) {
 
 func TestConfigEndpoint_IncludesLoginAndLogoutUrl(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1162,7 +1162,7 @@ func TestConfigEndpoint_IncludesLoginAndLogoutUrl(t *testing.T) {
 
 func TestConfigEndpoint_LoginAndLogoutUrlDefaultToEmpty(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1200,7 +1200,7 @@ func TestConfigEndpoint_LoginAndLogoutUrlDefaultToEmpty(t *testing.T) {
 
 func TestConfigEndpoint_IncludesDefaultLanguage(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1232,7 +1232,7 @@ func TestConfigEndpoint_IncludesDefaultLanguage(t *testing.T) {
 
 func TestConfigEndpoint_DefaultLanguageDefaultsToEmpty(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
@@ -1263,7 +1263,7 @@ func TestConfigEndpoint_DefaultLanguageDefaultsToEmpty(t *testing.T) {
 
 func TestRefactorPreviewEndpoint_UsesFrontendJSONShape(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.EnableLinkRefactor = true
@@ -1315,7 +1315,7 @@ func TestRefactorPreviewEndpoint_UsesFrontendJSONShape(t *testing.T) {
 
 func TestRefactorPreviewEndpoint_IsDisabledWhenFlagIsOff(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.EnableLinkRefactor = false
@@ -1331,7 +1331,7 @@ func TestRefactorPreviewEndpoint_IsDisabledWhenFlagIsOff(t *testing.T) {
 
 func TestRefactorApply_DoesNotPersistRevisionsWhenRevisionDisabled(t *testing.T) {
 	w := createWikiTestInstanceWithRevisionFlag(t, false)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.EnableRevision = false
@@ -1380,7 +1380,7 @@ func TestRefactorApply_DoesNotPersistRevisionsWhenRevisionDisabled(t *testing.T)
 
 func TestUploadAssetEndpoint_RejectsFilesExceedingConfiguredLimit(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.MaxAssetUploadSizeBytes = 32
@@ -1452,7 +1452,7 @@ func TestUploadAssetEndpoint_RejectsFilesExceedingConfiguredLimit(t *testing.T) 
 
 func TestSuggestSlugEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithRevision(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/pages/slug-suggestion?title=NewPage", nil)
@@ -1477,7 +1477,7 @@ func TestSuggestSlugEndpoint(t *testing.T) {
 
 func TestCancelImportPlanEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	var body bytes.Buffer
@@ -1488,11 +1488,11 @@ func TestCancelImportPlanEndpoint(t *testing.T) {
 		t.Fatalf("CreateFormFile failed: %v", err)
 	}
 
-	zipFile, err := os.Open("../importer/fixtures/fixture-1.zip")
+	zipFile, err := os.Open("../core/importer/fixtures/fixture-1.zip")
 	if err != nil {
 		t.Fatalf("Open fixture zip failed: %v", err)
 	}
-	defer test_utils.WrapCloseWithErrorCheck(zipFile.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(zipFile.Close, t)
 
 	if _, err := io.Copy(fileWriter, zipFile); err != nil {
 		t.Fatalf("Copy zip fixture failed: %v", err)
@@ -1513,7 +1513,7 @@ func TestCancelImportPlanEndpoint(t *testing.T) {
 	}
 
 	loginRes := loginRec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
 
 	cookies := loginRes.Cookies()
 	if len(cookies) == 0 {
@@ -1583,7 +1583,7 @@ func TestCancelImportPlanEndpoint(t *testing.T) {
 
 func TestImportExecuteEndpoint_WithZipUpload_ImportsPagesLinksAndAssets(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	fixtureDir := importerFixturePathForHTTPTests(t, "link-assets-package")
@@ -1600,7 +1600,7 @@ func TestImportExecuteEndpoint_WithZipUpload_ImportsPagesLinksAndAssets(t *testi
 	}
 
 	loginRes := loginRec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
 
 	cookies := loginRes.Cookies()
 	if len(cookies) == 0 {
@@ -1754,7 +1754,7 @@ func TestImportExecuteEndpoint_WithZipUpload_ImportsPagesLinksAndAssets(t *testi
 
 func TestImportExecuteEndpoint_UsesConfiguredAssetUploadLimit(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithMaxAssetUploadSize(w, t, 1024)
 
 	fixtureDir := t.TempDir()
@@ -1781,7 +1781,7 @@ func TestImportExecuteEndpoint_UsesConfiguredAssetUploadLimit(t *testing.T) {
 	}
 
 	loginRes := loginRec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
 
 	cookies := loginRes.Cookies()
 	if len(cookies) == 0 {
@@ -1903,7 +1903,7 @@ func TestImportExecuteEndpoint_UsesConfiguredAssetUploadLimit(t *testing.T) {
 
 func TestSuggestSlugEndpoint_MissingTitle(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/pages/slug-suggestion", nil)
@@ -1915,7 +1915,7 @@ func TestSuggestSlugEndpoint_MissingTitle(t *testing.T) {
 
 func TestDeletePageEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Delete Me", "delete-me", nil, pageNodeKind())
@@ -1933,7 +1933,7 @@ func TestDeletePageEndpoint(t *testing.T) {
 
 func TestDeletePageEndpoint_NotFound(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodDelete, "/api/pages/not-found-id", nil)
@@ -1945,7 +1945,7 @@ func TestDeletePageEndpoint_NotFound(t *testing.T) {
 
 func TestDeletePageEndpoint_HasChildren(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	parent := createPageViaAPI(t, router, "Parent", "parent", nil, pageNodeKind())
@@ -1960,7 +1960,7 @@ func TestDeletePageEndpoint_HasChildren(t *testing.T) {
 
 func TestDeletePageEndpoint_Recursive(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	parent := createPageViaAPI(t, router, "Parent", "parent", nil, pageNodeKind())
@@ -1979,7 +1979,7 @@ func TestDeletePageEndpoint_Recursive(t *testing.T) {
 
 func TestUpdatePageEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Original Title", "original-title", nil, pageNodeKind())
@@ -2016,7 +2016,7 @@ func TestUpdatePageEndpoint(t *testing.T) {
 
 func TestUpdatePageEndpoint_WritesTagsAndStringProperties(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Original Title", "original-title", nil, pageNodeKind())
@@ -2065,7 +2065,7 @@ func TestUpdatePageEndpoint_WritesTagsAndStringProperties(t *testing.T) {
 
 func TestUpdatePageEndpoint_RemovesTagsWhenEmptyListIsSent(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Original Title", "original-title", nil, pageNodeKind())
@@ -2136,7 +2136,7 @@ func TestUpdatePageEndpoint_RemovesTagsWhenEmptyListIsSent(t *testing.T) {
 
 func TestUpdatePageEndpoint_IndexesTagsForTagsEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Original Title", "original-title", nil, pageNodeKind())
@@ -2175,7 +2175,7 @@ func TestUpdatePageEndpoint_IndexesTagsForTagsEndpoint(t *testing.T) {
 
 func TestGetTagsEndpoint_CountsSuggestionsWithinSelectedTags(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	pageA := createPageViaAPI(t, router, "Page A", "page-a", nil, pageNodeKind())
@@ -2224,7 +2224,7 @@ func TestGetTagsEndpoint_CountsSuggestionsWithinSelectedTags(t *testing.T) {
 
 func TestGetTagsEndpoint_AcceptsRepeatedSelectedParams(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Page A", "page-a", nil, pageNodeKind())
@@ -2262,7 +2262,7 @@ func TestGetTagsEndpoint_AcceptsRepeatedSelectedParams(t *testing.T) {
 
 func TestSearchEndpoint_FiltersResultsByTags(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	reactPage := createPageViaAPI(t, router, "React Search Match", "react-search-match", nil, pageNodeKind())
@@ -2322,7 +2322,7 @@ func TestSearchEndpoint_FiltersResultsByTags(t *testing.T) {
 
 func TestSearchEndpoint_ReturnsTagMatchesWithoutQuery(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	reactPage := createPageViaAPI(t, router, "React Tag Match", "react-tag-match", nil, pageNodeKind())
@@ -2381,7 +2381,7 @@ func TestSearchEndpoint_ReturnsTagMatchesWithoutQuery(t *testing.T) {
 
 func TestSearchEndpoint_NormalizesTagOnlyPaginationBounds(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "React Tag Match", "react-tag-match-bounds", nil, pageNodeKind())
@@ -2432,7 +2432,7 @@ func TestSearchEndpoint_NormalizesTagOnlyPaginationBounds(t *testing.T) {
 
 func TestSearchEndpoint_TagFacetsShrinkWithAdditionalFilters(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	type searchResponse struct {
@@ -2521,7 +2521,7 @@ func TestSearchEndpoint_TagFacetsShrinkWithAdditionalFilters(t *testing.T) {
 
 func TestGetPagesByTagsEndpoint_ReturnsExcerpt(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Excerpt Page", "excerpt-page", nil, pageNodeKind())
@@ -2571,7 +2571,7 @@ func TestGetPagesByTagsEndpoint_ReturnsExcerpt(t *testing.T) {
 
 func TestGetPagesByTagsEndpoint_AcceptsRepeatedTagsParams(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	pageA := createPageViaAPI(t, router, "Page A", "page-a", nil, pageNodeKind())
@@ -2615,7 +2615,7 @@ func TestGetPagesByTagsEndpoint_AcceptsRepeatedTagsParams(t *testing.T) {
 
 func TestUpdatePage_NotFound(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"version":"stale-version","title":"Updated","slug":"updated","content":"New content"}`
@@ -2627,7 +2627,7 @@ func TestUpdatePage_NotFound(t *testing.T) {
 
 func TestUpdatePage_SlugRemainsIfUnchanged(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a page
@@ -2660,7 +2660,7 @@ func TestUpdatePage_SlugRemainsIfUnchanged(t *testing.T) {
 
 func TestUpdatePage_PageAlreadyExists(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Original Title", "original-title", nil, pageNodeKind())
@@ -2683,7 +2683,7 @@ func TestUpdatePage_PageAlreadyExists(t *testing.T) {
 
 func TestUpdatePage_InvalidJSON(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `this is not valid json`
@@ -2696,7 +2696,7 @@ func TestUpdatePage_InvalidJSON(t *testing.T) {
 
 func TestUpdatePage_MissingTitle(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"version":"required","slug":"updated","content":"New content"}`
@@ -2708,7 +2708,7 @@ func TestUpdatePage_MissingTitle(t *testing.T) {
 
 func TestUpdatePage_MissingSlug(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"version":"required","title":"Updated","content":"New content"}`
@@ -2721,7 +2721,7 @@ func TestUpdatePage_MissingSlug(t *testing.T) {
 
 func TestUpdatePage_InvalidProperties(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	page := createPageViaAPI(t, router, "Original Title", "original-title", nil, pageNodeKind())
@@ -2769,7 +2769,7 @@ func TestUpdatePage_InvalidProperties(t *testing.T) {
 
 func TestGetPageEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a page
@@ -2837,7 +2837,7 @@ Body
 
 func TestGetPageEndpoint_NotFound(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/pages/not-found-id", nil)
@@ -2849,7 +2849,7 @@ func TestGetPageEndpoint_NotFound(t *testing.T) {
 
 func TestGetPageEndpoint_MissingID(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/pages/", nil)
@@ -2861,7 +2861,7 @@ func TestGetPageEndpoint_MissingID(t *testing.T) {
 
 func TestGetPageByPathEndpoint_MissingPath(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/pages/by-path", nil)
@@ -2873,7 +2873,7 @@ func TestGetPageByPathEndpoint_MissingPath(t *testing.T) {
 
 func TestGetPageByPathEndpoint_NotFound(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/pages/by-path?path=does-not-exist", nil)
@@ -2885,7 +2885,7 @@ func TestGetPageByPathEndpoint_NotFound(t *testing.T) {
 
 func TestGetPageByPathEndpoint_PageReturnsNoChildren(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a standalone page (no children – adding children auto-converts it to a section)
@@ -2913,7 +2913,7 @@ func TestGetPageByPathEndpoint_PageReturnsNoChildren(t *testing.T) {
 
 func TestGetPageByPathEndpoint_SectionReturnsDirectChildrenOnly(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	sectionKind := tree.NodeKindSection
@@ -2952,7 +2952,7 @@ func TestGetPageByPathEndpoint_SectionReturnsDirectChildrenOnly(t *testing.T) {
 
 func TestGetPagePermalinkEndpoint_ReturnsCurrentPath(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	docs := createPageViaAPI(t, router, "Docs", "docs", nil, pageNodeKind())
@@ -2987,7 +2987,7 @@ func TestGetPagePermalinkEndpoint_ReturnsCurrentPath(t *testing.T) {
 
 func TestGetPagePermalinkEndpoint_PublicAccessAllowsUnauthenticatedReads(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 		o.PublicAccess = publicaccess.NewEnvManaged(true)
 	})
@@ -3020,7 +3020,7 @@ func TestReadRouteAccessMatrix(t *testing.T) {
 	buildRouter := func(t *testing.T, public bool) (*gin.Engine, *wiki.Wiki) {
 		t.Helper()
 		w := createWikiTestInstance(t)
-		t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(w.Close, t) })
+		t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(w.Close, t) })
 		router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
 			o.PublicAccess = publicaccess.NewEnvManaged(public)
 		})
@@ -3152,7 +3152,7 @@ func anonStatus(router http.Handler, method, path string) int {
 // goes 401 → 200 → 401 as the toggle endpoint is called.
 func TestPublicAccessToggle_SettingsManaged_FlipsReadAccessOnTheSameEngine(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewSettingsManaged: %v", err)
@@ -3187,7 +3187,7 @@ func TestPublicAccessToggle_SettingsManaged_FlipsReadAccessOnTheSameEngine(t *te
 
 func TestPublicAccessToggle_ConfigEndpointReflectsTheChange(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewSettingsManaged: %v", err)
@@ -3228,7 +3228,7 @@ func TestPublicAccessToggle_ConfigEndpointReflectsTheChange(t *testing.T) {
 
 func TestPublicAccessToggle_EnvManaged_Returns409AndDoesNotChange(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc := publicaccess.NewEnvManaged(false)
 	router := routerWithPublicAccess(t, w, svc)
 
@@ -3246,7 +3246,7 @@ func TestPublicAccessToggle_EnvManaged_Returns409AndDoesNotChange(t *testing.T) 
 
 func TestPublicAccessToggle_RequiresAdmin(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewSettingsManaged: %v", err)
@@ -3269,7 +3269,7 @@ func TestPublicAccessToggle_RequiresAdmin(t *testing.T) {
 
 func TestPublicAccessToggle_BadPayload_Returns400(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewSettingsManaged: %v", err)
@@ -3286,7 +3286,7 @@ func TestPublicAccessToggle_BadPayload_Returns400(t *testing.T) {
 
 func TestTocDisplayToggle_ConfigEndpointReflectsTheChangeOnTheSameEngine(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := tocdisplay.New(t.TempDir())
 	if err != nil {
 		t.Fatalf("tocdisplay.New: %v", err)
@@ -3332,7 +3332,7 @@ func TestTocDisplayToggle_ConfigEndpointReflectsTheChangeOnTheSameEngine(t *test
 
 func TestTocDisplayToggle_RequiresAdmin(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := tocdisplay.New(t.TempDir())
 	if err != nil {
 		t.Fatalf("tocdisplay.New: %v", err)
@@ -3355,7 +3355,7 @@ func TestTocDisplayToggle_RequiresAdmin(t *testing.T) {
 
 func TestTocDisplayToggle_BadPayload_Returns400(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := tocdisplay.New(t.TempDir())
 	if err != nil {
 		t.Fatalf("tocdisplay.New: %v", err)
@@ -3372,7 +3372,7 @@ func TestTocDisplayToggle_BadPayload_Returns400(t *testing.T) {
 
 func TestMovePageEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create two pages a and b
@@ -3395,7 +3395,7 @@ func TestMovePageEndpoint(t *testing.T) {
 
 func TestMovePageEndpoint_NotFound(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodPut, "/api/pages/not-found-id/move", strings.NewReader(`{"version":"missing","parentId":"root"}`))
@@ -3407,7 +3407,7 @@ func TestMovePageEndpoint_NotFound(t *testing.T) {
 
 func TestMovePageEndpoint_InvalidJSON(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodPut, "/api/pages/invalid-id/move", strings.NewReader(`this is not valid json`))
@@ -3419,7 +3419,7 @@ func TestMovePageEndpoint_InvalidJSON(t *testing.T) {
 
 func TestMovePageEndpoint_MissingParentID(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodPut, "/api/pages/missing-parent/move", strings.NewReader(`{"version":"missing","parentId":""}`))
@@ -3431,7 +3431,7 @@ func TestMovePageEndpoint_MissingParentID(t *testing.T) {
 
 func TestMovePageEndpoint_ParentNotFound(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	a := createPageViaAPI(t, router, "Section A", "section-a", nil, pageNodeKind())
@@ -3448,7 +3448,7 @@ func TestMovePageEndpoint_ParentNotFound(t *testing.T) {
 
 func TestMovePageEndpoint_CircularReference(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	a := createPageViaAPI(t, router, "Section A", "section-a", nil, pageNodeKind())
@@ -3464,7 +3464,7 @@ func TestMovePageEndpoint_CircularReference(t *testing.T) {
 
 func TestMovePage_FailsIfTargetAlreadyHasPageWithSameSlug(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	a := createPageViaAPI(t, router, "Section A", "section-a", nil, pageNodeKind())
@@ -3483,7 +3483,7 @@ func TestMovePage_FailsIfTargetAlreadyHasPageWithSameSlug(t *testing.T) {
 
 func TestMovePage_InTheSamePlace(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	a := createPageViaAPI(t, router, "Section A", "section-a", nil, pageNodeKind())
@@ -3497,7 +3497,7 @@ func TestMovePage_InTheSamePlace(t *testing.T) {
 
 func TestSortPagesEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create pages
@@ -3546,7 +3546,7 @@ func TestSortPagesEndpoint(t *testing.T) {
 
 func TestAuthLoginEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"identifier": "admin", "password": "adminpassword"}`
@@ -3561,7 +3561,7 @@ func TestAuthLoginEndpoint(t *testing.T) {
 	}
 
 	res := rec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(res.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(res.Body.Close, t)
 
 	// Prüfen, ob Cookies gesetzt wurden
 	cookies := res.Cookies()
@@ -3572,7 +3572,7 @@ func TestAuthLoginEndpoint(t *testing.T) {
 
 func TestAuthLogin_InvalidCredentials(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"identifier": "admin", "password": "wrong"}`
@@ -3589,7 +3589,7 @@ func TestAuthLogin_InvalidCredentials(t *testing.T) {
 
 func TestAuthRefreshToken(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	type authResponse struct {
@@ -3616,7 +3616,7 @@ func TestAuthRefreshToken(t *testing.T) {
 	}
 
 	loginRes := loginRec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
 	cookies := loginRes.Cookies()
 
 	if len(cookies) == 0 {
@@ -3660,7 +3660,7 @@ func TestAuthRefreshToken(t *testing.T) {
 
 	// optional: check if new cookies are set
 	refreshRes := rec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(refreshRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(refreshRes.Body.Close, t)
 	newCookies := refreshRes.Cookies()
 	if len(newCookies) == 0 {
 		t.Fatalf("Expected new auth cookies on refresh")
@@ -3669,7 +3669,7 @@ func TestAuthRefreshToken(t *testing.T) {
 
 func TestCreateUserEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"username": "john", "email": "john@example.com", "password": "secret123", "role": "editor"}`
@@ -3682,7 +3682,7 @@ func TestCreateUserEndpoint(t *testing.T) {
 
 func TestCreateUser_DuplicateEmailOrUsername(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create initial user
@@ -3706,7 +3706,7 @@ func TestCreateUser_DuplicateEmailOrUsername(t *testing.T) {
 
 func TestCreateUser_InvalidRole(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"username": "sam", "email": "sam@example.com", "password": "secret1234", "role": "undefined"}`
@@ -3719,7 +3719,7 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 
 func TestCreateUser_WithViewerRole(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	body := `{"username": "vieweruser", "email": "viewer@example.com", "password": "secret1234", "role": "viewer"}`
@@ -3732,7 +3732,7 @@ func TestCreateUser_WithViewerRole(t *testing.T) {
 
 func TestUpdateUser_RoleToViewer(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create user
@@ -3757,7 +3757,7 @@ func TestUpdateUser_RoleToViewer(t *testing.T) {
 
 func TestViewer_CannotCreatePage(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a viewer user
@@ -3775,7 +3775,7 @@ func TestViewer_CannotCreatePage(t *testing.T) {
 
 func TestViewer_CannotUploadAsset(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a viewer user
@@ -3799,7 +3799,7 @@ func TestViewer_CannotUploadAsset(t *testing.T) {
 
 func TestViewer_CannotUpdatePage(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a viewer user
@@ -3824,7 +3824,7 @@ func TestViewer_CannotUpdatePage(t *testing.T) {
 
 func TestViewer_CannotDeletePage(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a viewer user
@@ -3848,7 +3848,7 @@ func TestViewer_CannotDeletePage(t *testing.T) {
 
 func TestViewer_CannotMovePage(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a viewer user
@@ -3869,7 +3869,7 @@ func TestViewer_CannotMovePage(t *testing.T) {
 
 func TestViewer_CannotSortPages(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create a viewer user
@@ -3895,7 +3895,7 @@ func TestViewer_CannotSortPages(t *testing.T) {
 
 func TestGetUsersEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/users", nil)
@@ -3915,7 +3915,7 @@ func TestGetUsersEndpoint(t *testing.T) {
 
 func TestUpdateUserEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create user
@@ -3951,7 +3951,7 @@ func loginStatus(t *testing.T, router http.Handler, identifier, password string)
 
 func TestUpdateUserEndpoint_NonAdminOnOwnAccount_Forbidden(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	create := `{"username": "jane", "email": "jane@example.com", "password": "secretpassword", "role": "viewer"}`
@@ -3972,7 +3972,7 @@ func TestUpdateUserEndpoint_NonAdminOnOwnAccount_Forbidden(t *testing.T) {
 
 func TestUpdateUserEndpoint_AdminOwnPassword_Rejected(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	meRec := authenticatedRequest(t, router, http.MethodGet, "/api/auth/me", nil)
@@ -4012,7 +4012,7 @@ func loginSession(t *testing.T, router http.Handler, identifier, password string
 		t.Fatalf("Failed to login as %s: %d - %s", identifier, rec.Code, rec.Body.String())
 	}
 	res := rec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(res.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(res.Body.Close, t)
 	sess := testSession{cookies: res.Cookies(), csrf: rec.Header().Get("X-CSRF-Token")}
 	if len(sess.cookies) == 0 {
 		t.Fatalf("Expected auth cookies on login response, got none")
@@ -4061,7 +4061,7 @@ func (s testSession) do(router http.Handler, method, url, body string) *httptest
 
 func TestChangeOwnPasswordEndpoint_RevokesOtherSessionsKeepsCurrent(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	create := `{"username": "jane", "email": "jane@example.com", "password": "secretpassword", "role": "editor"}`
@@ -4085,7 +4085,7 @@ func TestChangeOwnPasswordEndpoint_RevokesOtherSessionsKeepsCurrent(t *testing.T
 
 func TestUpdateUserEndpoint_AdminSetsPassword_RevokesTargetSessions(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	create := `{"username": "jane", "email": "jane@example.com", "password": "secretpassword", "role": "editor"}`
@@ -4108,7 +4108,7 @@ func TestUpdateUserEndpoint_AdminSetsPassword_RevokesTargetSessions(t *testing.T
 
 func TestUpdateUserEndpoint_AdminEditsProfileOnly_KeepsTargetSessions(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	create := `{"username": "jane", "email": "jane@example.com", "password": "secretpassword", "role": "editor"}`
@@ -4131,7 +4131,7 @@ func TestUpdateUserEndpoint_AdminEditsProfileOnly_KeepsTargetSessions(t *testing
 
 func TestChangeOwnPasswordEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	create := `{"username": "jane", "email": "jane@example.com", "password": "secretpassword", "role": "editor"}`
@@ -4177,7 +4177,7 @@ func TestChangeOwnPasswordEndpoint(t *testing.T) {
 
 func TestDeleteUserEndpoint(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Create user
@@ -4195,7 +4195,7 @@ func TestDeleteUserEndpoint(t *testing.T) {
 
 func TestDeleteAdminUser_ShouldFail(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Get default admin
@@ -4223,7 +4223,7 @@ func TestDeleteAdminUser_ShouldFail(t *testing.T) {
 
 func TestRequireAdminMiddleware(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Default Admin create user should succeed
@@ -4237,7 +4237,7 @@ func TestRequireAdminMiddleware(t *testing.T) {
 
 func TestRequireAdminMiddleware_BlockedWhenAuthDisabled(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	// Create router with auth disabled
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
@@ -4276,7 +4276,7 @@ func TestRequireAdminMiddleware_BlockedWhenAuthDisabled(t *testing.T) {
 
 func TestRequireAuthMiddleware_Unauthorized(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Request ohne Token
@@ -4293,7 +4293,7 @@ func TestRequireAuthMiddleware_Unauthorized(t *testing.T) {
 
 func TestRequireAuthMiddleware_InvalidToken(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/pages", strings.NewReader(`{"title": "Bad", "slug": "bad"}`))
@@ -4310,7 +4310,7 @@ func TestRequireAuthMiddleware_InvalidToken(t *testing.T) {
 
 func TestAssetEndpoints(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Step 0: Login als Admin und Cookies holen
@@ -4326,7 +4326,7 @@ func TestAssetEndpoints(t *testing.T) {
 	}
 
 	loginRes := loginRec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
 
 	cookies := loginRes.Cookies()
 	if len(cookies) == 0 {
@@ -4446,7 +4446,7 @@ func TestAssetEndpoints(t *testing.T) {
 
 func TestAssetMutationRevisionsUseAuthenticatedUser(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithRevision(w, t)
 	adminUserID := getAdminUserIDViaAPI(t, router)
 
@@ -4461,7 +4461,7 @@ func TestAssetMutationRevisionsUseAuthenticatedUser(t *testing.T) {
 	}
 
 	loginRes := loginRec.Result()
-	defer test_utils.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(loginRes.Body.Close, t)
 
 	cookies := loginRes.Cookies()
 	if len(cookies) == 0 {
@@ -4590,7 +4590,7 @@ func TestAssetMutationRevisionsUseAuthenticatedUser(t *testing.T) {
 func TestIndexingStatusEndpoint(t *testing.T) {
 	// Lets call /api/search/status
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// Default Admin holen
@@ -4728,7 +4728,7 @@ func uploadTestAsset(t *testing.T, router *gin.Engine, w *wiki.Wiki, content str
 func TestAssetAccessControl(t *testing.T) {
 	t.Run("PrivateMode_UnauthenticatedAccess_Returns401", func(t *testing.T) {
 		w := createWikiTestInstance(t)
-		defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 		// Create router with PublicAccess=false and AuthDisabled=false
 		router := newTestRouter(w, nil)
@@ -4749,7 +4749,7 @@ func TestAssetAccessControl(t *testing.T) {
 
 	t.Run("PrivateMode_AuthenticatedAccess_Returns200", func(t *testing.T) {
 		w := createWikiTestInstance(t)
-		defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 		// Create router with PublicAccess=false and AuthDisabled=false
 		router := newTestRouter(w, nil)
@@ -4779,7 +4779,7 @@ func TestAssetAccessControl(t *testing.T) {
 
 	t.Run("PublicAccessMode_UnauthenticatedAccess_Returns200", func(t *testing.T) {
 		w := createWikiTestInstance(t)
-		defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 		// Create router with PublicAccess=true
 		router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
@@ -4808,7 +4808,7 @@ func TestAssetAccessControl(t *testing.T) {
 
 	t.Run("AuthDisabledMode_UnauthenticatedAccess_Returns200", func(t *testing.T) {
 		w := createWikiTestInstance(t)
-		defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 		// Create router with AuthDisabled=true
 		router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
@@ -4903,7 +4903,7 @@ func TestBuildFrontendFaviconHref(t *testing.T) {
 
 func TestCustomStylesheetRoute(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	customCSSPath := filepath.Join(w.GetStorageDir(), "custom.css")
 	if err := os.WriteFile(customCSSPath, []byte("body { color: red; }"), 0644); err != nil {
@@ -4933,7 +4933,7 @@ func TestCustomStylesheetRoute(t *testing.T) {
 
 func TestCustomStylesheetRoute_RejectsPathOutsideStorageDir(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	outsideCSSPath := filepath.Join(t.TempDir(), "outside.css")
 	if err := os.WriteFile(outsideCSSPath, []byte("body { color: blue; }"), 0644); err != nil {
@@ -4955,7 +4955,7 @@ func TestCustomStylesheetRoute_RejectsPathOutsideStorageDir(t *testing.T) {
 
 func TestCustomStylesheetRoute_RejectsNonCSSFile(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	textFilePath := filepath.Join(w.GetStorageDir(), "custom.txt")
 	if err := os.WriteFile(textFilePath, []byte("not css"), 0644); err != nil {
@@ -4977,7 +4977,7 @@ func TestCustomStylesheetRoute_RejectsNonCSSFile(t *testing.T) {
 
 func TestBrandingAssetRoute_DisablesClientCache(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := createRouterTestInstance(w, t)
 	uploadBrandingLogoViaAPI(t, router, "logo.png", []byte("logo"))
@@ -4997,7 +4997,7 @@ func TestBrandingAssetRoute_DisablesClientCache(t *testing.T) {
 
 func TestFaviconRoute_DisablesClientCache(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	EmbedFrontendOrig := httpinternal.EmbedFrontend
 	httpinternal.EmbedFrontend = "true"
@@ -5022,7 +5022,7 @@ func TestFaviconRoute_DisablesClientCache(t *testing.T) {
 
 func TestFaviconICORoute_ServesCustomBrandingFavicon(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := createRouterTestInstance(w, t)
 	uploadBrandingFaviconViaAPI(t, router, "favicon.ico", []byte("custom-favicon"))
@@ -5046,7 +5046,7 @@ func TestFaviconICORoute_ServesCustomBrandingFavicon(t *testing.T) {
 
 func TestFaviconICORoute_FallsBackToDefaultSVG(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
 	router := createRouterTestInstance(w, t)
 
@@ -5076,7 +5076,7 @@ func TestBuildCustomStylesheetTag_WhitespacePath(t *testing.T) {
 
 func TestBrokenLinksEndpoint_AdminGetsLinksArray(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	rec := authenticatedRequest(t, router, http.MethodGet, "/api/links/broken", nil)
@@ -5098,7 +5098,7 @@ func TestBrokenLinksEndpoint_AdminGetsLinksArray(t *testing.T) {
 
 func TestBrokenLinksEndpoint_ViewerForbidden(t *testing.T) {
 	w := createWikiTestInstance(t)
-	defer test_utils.WrapCloseWithErrorCheck(w.Close, t)
+	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
 
 	// The broken-links audit is admin-only maintenance data — a non-admin

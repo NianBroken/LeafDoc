@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	httpinternal "github.com/perber/wiki/internal/http"
 	"log/slog"
 	"net/http"
 
@@ -27,7 +28,7 @@ const (
 	ErrCodeAuthInvalidRefreshToken      = "auth_invalid_refresh_token"
 	ErrCodeAuthInvalidRequest           = "auth_invalid_request"
 	ErrCodeAuthAccountLocked            = "auth_account_locked"
-	ErrCodeAuthUserStoreUnavailable     = "auth_user_store_unavailable"
+	ErrCodeAuthUserStoreUnavailable     = coreauth.ErrCodeAuthUserStoreUnavailable
 	ErrCodeAuthEmailDisabled            = "auth_email_disabled"
 	ErrCodeAuthTokenInvalid             = "auth_token_invalid"
 	ErrCodeAuthInviteAlreadyAccepted    = "auth_invite_already_accepted"
@@ -35,27 +36,13 @@ const (
 )
 
 // AuthErrorResponse is the structured JSON error body returned by auth endpoints.
-type AuthErrorResponse struct {
-	Error AuthErrorDetail `json:"error"`
-}
+type AuthErrorResponse = httpinternal.ErrorResponse
 
 // AuthErrorDetail carries the localization-ready error data.
-type AuthErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type AuthErrorDetail = httpinternal.ErrorDetail
 
 func respondWithAuthStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, AuthErrorResponse{
-		Error: AuthErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 // isUserStoreUnavailable reports whether err is the user store's own
@@ -76,10 +63,7 @@ func respondWithAuthError(c *gin.Context, err error) {
 
 	var vErr *sharederrors.ValidationErrors
 	if errors.As(err, &vErr) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":  "validation_error",
-			"fields": vErr.Errors,
-		})
+		httpinternal.RespondValidationErrors(c, vErr)
 		return
 	}
 

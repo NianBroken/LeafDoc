@@ -3,7 +3,7 @@ package health
 import (
 	"os"
 
-	"github.com/perber/wiki/internal/search"
+	"github.com/perber/wiki/internal/core/search"
 )
 
 type checkResult struct {

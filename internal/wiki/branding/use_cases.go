@@ -4,7 +4,7 @@ import (
 	"context"
 	"mime/multipart"
 
-	corebanding "github.com/perber/wiki/internal/branding"
+	corebanding "github.com/perber/wiki/internal/core/branding"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 )
 

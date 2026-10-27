@@ -4,7 +4,7 @@ import (
 	"context"
 	"mime/multipart"
 
-	coreavatar "github.com/perber/wiki/internal/avatar"
+	coreavatar "github.com/perber/wiki/internal/core/avatar"
 )
 
 // ─── UploadAvatarUseCase ─────────────────────────────────────────────────────

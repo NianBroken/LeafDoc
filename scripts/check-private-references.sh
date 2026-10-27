@@ -17,8 +17,8 @@ HOME_PATHS='/(home|Users)/[A-Za-z_][A-Za-z0-9._-]*'
 # Existing hits that are deliberate. This list may only shrink.
 ALLOWED=(
     # Test data: a slug taken from a real page, harmless as a string.
-    ':!ui/leafwiki-ui/src/features/preview/MarkdownPreview.test.tsx'
-    ':!ui/leafwiki-ui/src/lib/preprocessWikilinks.test.ts'
+    ':!ui/src/features/preview/MarkdownPreview.test.tsx'
+    ':!ui/src/lib/preprocessWikilinks.test.ts'
 )
 
 EXCLUDED=(

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	coreavatar "github.com/perber/wiki/internal/avatar"
-	"github.com/perber/wiki/internal/test_utils"
+	coreavatar "github.com/perber/wiki/internal/core/avatar"
+	"github.com/perber/wiki/internal/testutil"
 	"github.com/perber/wiki/internal/wiki"
 )
 
@@ -22,7 +22,7 @@ import (
 func newAvatarRouterTest(t *testing.T) (*wiki.Wiki, http.Handler, string) {
 	t.Helper()
 	w := createWikiTestInstance(t)
-	t.Cleanup(func() { test_utils.WrapCloseWithErrorCheck(w.Close, t) })
+	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(w.Close, t) })
 	admin, err := w.UserService().GetUserByUsername("admin")
 	if err != nil {
 		t.Fatalf("GetUserByUsername(admin): %v", err)

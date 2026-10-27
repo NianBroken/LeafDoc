@@ -1,6 +1,7 @@
 package tags
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,43 +14,21 @@ const (
 	ErrCodeTagsInvalidLimit = "tags_invalid_limit"
 )
 
-type tagsErrorResponse struct {
-	Error tagsErrorDetail `json:"error"`
-}
+type tagsErrorResponse = httpinternal.ErrorResponse
 
-type tagsErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type tagsErrorDetail = httpinternal.ErrorDetail
 
 func respondWithTagsError(c *gin.Context, err error) {
 	if loc, ok := sharederrors.AsLocalizedError(err); ok {
-		c.JSON(tagsErrorStatus(loc.Code), tagsErrorResponse{
-			Error: tagsErrorDetail{
-				Code:     loc.Code,
-				Message:  loc.Message,
-				Template: loc.Template,
-				Args:     loc.Args,
-			},
-		})
+		httpinternal.RespondError(c, tagsErrorStatus(loc.Code), loc.Code, loc.Message, loc.Template, loc.Args...)
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, tagsErrorResponse{
-		Error: tagsErrorDetail{
-			Code:     ErrCodeTagsInternal,
-			Message:  "Internal server error",
-			Template: "internal server error",
-		},
-	})
+	httpinternal.RespondError(c, http.StatusInternalServerError, ErrCodeTagsInternal, "Internal server error", "internal server error")
 }
 
 func respondWithTagsBadRequest(c *gin.Context, code, message, template string) {
-	c.JSON(http.StatusBadRequest, tagsErrorResponse{
-		Error: tagsErrorDetail{Code: code, Message: message, Template: template},
-	})
+	httpinternal.RespondError(c, http.StatusBadRequest, code, message, template)
 }
 
 func tagsErrorStatus(code string) int {

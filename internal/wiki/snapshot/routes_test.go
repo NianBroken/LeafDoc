@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	snapshotSvc "github.com/perber/wiki/internal/snapshot"
+	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
 

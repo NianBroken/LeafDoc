@@ -3,7 +3,7 @@ package pages
 import (
 	"context"
 
-	"github.com/perber/wiki/internal/favorites"
+	"github.com/perber/wiki/internal/core/favorites"
 )
 
 type RemoveFavoriteInput struct {

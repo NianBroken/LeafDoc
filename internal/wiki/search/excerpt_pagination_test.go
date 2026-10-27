@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	coretags "github.com/perber/wiki/internal/core/tags"
 	"github.com/perber/wiki/internal/core/tree"
-	coretags "github.com/perber/wiki/internal/tags"
 )
 
 func setupExcerptPages(tb testing.TB, count int) (*SearchUseCase, []string) {

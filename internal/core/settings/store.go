@@ -10,7 +10,7 @@ import (
 	"github.com/perber/wiki/internal/core/shared"
 )
 
-// Reloadable is anything internal/restore can re-read from disk after a
+// Reloadable is anything internal/core/restore can re-read from disk after a
 // snapshot restore swaps files in place, instead of the caller having to
 // know each settings-backed service individually. *Store[T] satisfies it
 // directly; a feature's own service (e.g. BrandingService) usually just
@@ -37,7 +37,7 @@ type Store[T any] struct {
 // one that's fine to be world-readable). onLoad, if non-nil, is called after
 // every successful load or Reload — it exists for fields that must be
 // populated at runtime but never persisted (json:"-"), mirroring what
-// internal/branding's BrandingStore.Load did by hand.
+// internal/core/branding's BrandingStore.Load did by hand.
 func New[T any](dir, filename string, perm os.FileMode, zero T, onLoad func(*T)) (*Store[T], error) {
 	s := &Store[T]{
 		path:   filepath.Join(dir, filename),

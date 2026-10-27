@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/perber/wiki/internal/core/shared/sqliteutil"
-	"github.com/perber/wiki/internal/test_utils"
+	"github.com/perber/wiki/internal/testutil"
 )
 
 func TestCorruptDatabaseMessage(t *testing.T) {
@@ -64,12 +64,12 @@ func TestCorruptDatabaseMessage(t *testing.T) {
 func TestRunResetAdminPasswordCommand_CorruptUsersDB_ExplainsTheWayOut(t *testing.T) {
 	cfg := &serverConfig{}
 	cfg.server.dataDir = t.TempDir()
-	files := test_utils.WriteCorruptSQLiteDB(t, filepath.Join(cfg.server.dataDir, "users.db"))
+	files := testutil.WriteCorruptSQLiteDB(t, filepath.Join(cfg.server.dataDir, "users.db"))
 
 	err := runResetAdminPasswordCommand(cfg)
 
 	if err == nil || !strings.Contains(err.Error(), "restore-snapshot") {
 		t.Fatalf("runResetAdminPasswordCommand error = %v, want the corrupt-database guidance", err)
 	}
-	test_utils.AssertFilesUnchanged(t, files)
+	testutil.AssertFilesUnchanged(t, files)
 }

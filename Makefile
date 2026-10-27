@@ -3,7 +3,7 @@ CMD_DIR=./cmd/leafwiki
 VERSION ?= $(shell ./scripts/resolve-version.sh)
 RELEASE_DIR := releases
 DOCKER_BUILDER := Dockerfile.builder
-UI_DIR := ui/leafwiki-ui
+UI_DIR := ui
 HTTP_DIST := internal/http/dist
 # The lint target reads its tool version from one shared file.
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
@@ -42,16 +42,16 @@ build: ui
 build-api:
 	go build -ldflags "-X main.Version=$(VERSION)" -o $(BINARY_NAME) $(CMD_DIR)
 
-# npm dependencies for the frontend (ui-deps) and the e2e tests. Install
+# npm dependencies for the frontend (ui-deps) and the tests/e2e tests. Install
 # scripts stay off, like in CI and `make ui`.
 setup: ui-deps
-	cd e2e && npm ci --ignore-scripts
+	cd tests/e2e && npm ci --ignore-scripts
 
 # Only for running the E2E suites locally (make run-e2e-local); Chromium is
 # the browser the suites use. On Linux, `npx playwright install-deps chromium`
-# in e2e/ adds missing system libraries (needs sudo).
+# in tests/e2e/ adds missing system libraries (needs sudo).
 setup-e2e: setup
-	cd e2e && npx playwright install chromium
+	cd tests/e2e && npx playwright install chromium
 
 # Toolchain versions against .nvmrc and go.mod; exits 1 on a missing tool or
 # the wrong Node major.
@@ -82,7 +82,7 @@ ui-deps:
 	cd $(UI_DIR) && npm ci --ignore-scripts
 
 ui-lint: ui-deps
-	cd $(UI_DIR) && npm run lint -- --max-warnings=0 && npm run format:check
+	cd $(UI_DIR) && npm run lint -- --max-warnings=0 && npm run format:check && npm run check:architecture
 
 # `npm run build` is the type check (tsc -b).
 ui-test: ui-deps
@@ -94,7 +94,7 @@ ui-check: ui-lint ui-test
 ci: verify lint test cross ui-check
 
 bench:
-	go test -bench=. -benchmem -benchtime=3s ./internal/links/... ./internal/core/revision/...
+	go test -bench=. -benchmem -benchtime=3s ./internal/core/links/... ./internal/core/revision/...
 
 # Build and vet (which also type-checks _test.go files) for each of
 # CROSS_PLATFORMS, without cgo, like the release builds.
@@ -146,26 +146,26 @@ $(PLATFORMS):
 
 run-e2e:
 	@echo "🚀 Starting end-to-end tests..."
-	@./e2e/run.sh
+	@./tests/e2e/run.sh
 
 run-proxy-e2e:
 	@echo "🔐 Starting proxy auth E2E tests..."
-	@./e2e-proxy/run.sh
+	@./tests/proxy/run.sh
 
 run-e2e-local:
 	@echo "⚡ Starting end-to-end tests (local fast path)..."
-	@E2E_RUN_MODE=local ./e2e/run.sh
+	@E2E_RUN_MODE=local ./tests/e2e/run.sh
 
 # Skip the Vite build when dist/ is already up to date; useful when iterating
 # on tests without changing the frontend. Pass GREP=<pattern> to filter tests,
 # e.g.: make run-e2e-local-fast GREP="shoutout"
 run-e2e-local-fast:
 	@echo "⚡ Starting end-to-end tests (local, skip UI build)..."
-	@E2E_RUN_MODE=local E2E_SKIP_UI_BUILD=1 ./e2e/run.sh $(if $(GREP),--grep "$(GREP)",)
+	@E2E_RUN_MODE=local E2E_SKIP_UI_BUILD=1 ./tests/e2e/run.sh $(if $(GREP),--grep "$(GREP)",)
 
 help:
 	@echo "Available commands:"
-	@echo "  make setup                – Install npm dependencies (frontend and e2e)"
+	@echo "  make setup                – Install npm dependencies (frontend and tests/e2e)"
 	@echo "  make setup-e2e            – make setup plus the Playwright browser for local E2E runs"
 	@echo "  make doctor               – Show Go, Node, npm and mise versions; check them against go.mod and .nvmrc"
 	@echo "  make dev                  – Run backend and Vite dev server together (http://localhost:5173)"

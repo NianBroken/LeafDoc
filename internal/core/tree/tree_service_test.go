@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/treemigration"
+	"github.com/perber/wiki/internal/core/tree/migration"
 )
 
 // --- helpers ---
@@ -1891,7 +1891,7 @@ func TestTreeService_LoadTree_ResumesInterruptedMigrationWithPersistedLegacySnap
 		return nil
 	}
 
-	err = treemigration.Run(0, deps)
+	err = migration.Run(0, deps)
 	if !errors.Is(err, stopErr) {
 		t.Fatalf("expected interrupted migration error, got %v", err)
 	}

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	coreavatar "github.com/perber/wiki/internal/avatar"
 	coreauth "github.com/perber/wiki/internal/core/auth"
+	coreavatar "github.com/perber/wiki/internal/core/avatar"
 	httpinternal "github.com/perber/wiki/internal/http"
 	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )

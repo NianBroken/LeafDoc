@@ -8,7 +8,7 @@
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-UI_DIR="$ROOT/ui/leafwiki-ui"
+UI_DIR="$ROOT/ui"
 
 for tool in go npm; do
     if ! command -v "$tool" >/dev/null 2>&1; then
@@ -23,7 +23,7 @@ if [ ! -d "$UI_DIR/node_modules" ]; then
 fi
 
 # Build instead of `go run`: signalling `go run` reaches only the wrapper, not
-# the server it starts (see e2e/run.sh), and compile errors show up before
+# the server it starts (see tests/e2e/run.sh), and compile errors show up before
 # Vite starts.
 tmp="$(mktemp -d)"
 bin="$tmp/leafwiki$(cd "$ROOT" && go env GOEXE)"

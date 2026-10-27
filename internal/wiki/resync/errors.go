@@ -1,6 +1,7 @@
 package wikiresync
 
 import (
+	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -20,27 +21,13 @@ var ErrResyncAlreadyRunning = sharederrors.NewLocalizedError(
 )
 
 // ResyncErrorResponse is the structured JSON error body returned by resync endpoints.
-type ResyncErrorResponse struct {
-	Error ResyncErrorDetail `json:"error"`
-}
+type ResyncErrorResponse = httpinternal.ErrorResponse
 
 // ResyncErrorDetail carries the localization-ready error data.
-type ResyncErrorDetail struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Template string   `json:"template"`
-	Args     []string `json:"args,omitempty"`
-}
+type ResyncErrorDetail = httpinternal.ErrorDetail
 
 func respondWithResyncStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
-	c.JSON(status, ResyncErrorResponse{
-		Error: ResyncErrorDetail{
-			Code:     code,
-			Message:  message,
-			Template: template,
-			Args:     append([]string(nil), args...),
-		},
-	})
+	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
 func respondWithResyncError(c *gin.Context, err error) {
