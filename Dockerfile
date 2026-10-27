@@ -1,5 +1,5 @@
 # Step 1: Frontend
-FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS frontend-build
+FROM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS frontend-build
 WORKDIR /app/ui/leafwiki-ui
 ARG APP_VERSION
 COPY ./ui/leafwiki-ui/package*.json ./
