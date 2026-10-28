@@ -21,7 +21,10 @@
     "noLogo": "未上传 Logo",
     "uploadLabel": "上传 Logo",
     "uploadButton": "上传图片",
-    "hint": "支持 {{exts}}，最大 {{size}} MB"
+    "hint": "支持 {{exts}}，最大 {{size}} MB",
+    "builtin": "系统内置Logo",
+    "unavailable": "没有可用Logo",
+    "deleteLabel": "删除自定义Logo"
   },
   "favicon": {
     "title": "站点图标",
@@ -30,7 +33,10 @@
     "noFavicon": "使用默认站点图标",
     "uploadLabel": "上传站点图标",
     "uploadButton": "上传图标",
-    "hint": "支持 {{exts}}，最大 {{size}} MB"
+    "hint": "支持 {{exts}}，最大 {{size}} MB",
+    "builtin": "系统内置站点图标",
+    "unavailable": "没有可用站点图标",
+    "deleteLabel": "删除自定义站点图标"
   },
   "save": "保存设置",
   "toast": {
@@ -44,5 +50,6 @@
     "logoUploadFailed": "上传 Logo 失败",
     "faviconUploaded": "站点图标上传成功",
     "faviconUploadFailed": "上传站点图标失败"
-  }
+  },
+  "loading": "正在加载当前资源"
 }

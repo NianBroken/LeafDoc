@@ -3259,6 +3259,51 @@
     @apply border-surface-border bg-surface text-interface-text w-full rounded-md border px-3 py-2 text-sm md:max-w-sm;
   }
 
+  /* Schedule fields share the settings controls and collapse to one column. */
+  .settings__schedule-toggle {
+    @apply flex cursor-pointer items-start gap-3 text-sm;
+  }
+
+  .settings__schedule-grid {
+    @apply grid items-start gap-x-6 gap-y-4 sm:grid-cols-2;
+  }
+
+  .settings__schedule-grid .settings__field {
+    @apply mb-0 min-w-0 space-y-2;
+  }
+
+  /* Column widths belong to the table, never to independently sized rows. */
+  .users__table {
+    @apply min-w-[48rem] table-fixed border-collapse;
+  }
+
+  .users__column-name {
+    width: 20%;
+  }
+  .users__column-email {
+    width: 30%;
+  }
+  .users__column-role {
+    width: 14%;
+  }
+  .users__column-actions {
+    width: 36%;
+  }
+
+  .users__table th,
+  .users__table td {
+    @apply text-left align-middle;
+    overflow-wrap: anywhere;
+  }
+
+  .users__table .settings__role-pill {
+    @apply inline-block whitespace-nowrap;
+  }
+
+  .users__actions {
+    @apply flex flex-wrap items-center justify-start gap-2;
+  }
+
   .settings__table-head {
     @apply bg-surface-alt text-left;
   }

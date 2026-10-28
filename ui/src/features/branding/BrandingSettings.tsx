@@ -2,7 +2,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { mapApiError } from '@/shared/lib/api/errors'
-import { withBasePath } from '@/shared/lib/routePath'
+import { BrandingAsset } from './BrandingAsset'
 import { useBrandingStore } from '@/features/branding/state/branding'
 import {
   ImageIcon,
@@ -24,6 +24,8 @@ export default function BrandingSettings() {
     logoVersion,
     faviconVersion,
     isLoading,
+    isLoaded,
+    error,
     logoExts,
     maxLogoSize,
     faviconExts,
@@ -116,6 +118,11 @@ export default function BrandingSettings() {
     <>
       <div className="settings">
         <h1 className="settings__title">{t('pageTitle')}</h1>
+        {error && (
+          <p role="alert" className="settings__notice">
+            {error}
+          </p>
+        )}
         <div className="settings__section">
           <h2 className="settings__section-title">{t('siteName.title')}</h2>
           <p className="settings__section-description">
@@ -142,26 +149,31 @@ export default function BrandingSettings() {
             <span className="settings__preview-label">
               {t('logo.currentLabel')}
             </span>
-            {logoFile ? (
-              <>
-                <img
-                  src={`${withBasePath(`/branding/${logoFile}`)}?v=${logoVersion}`}
-                  alt={t('logo.title')}
-                  className="settings__preview-image"
-                />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleLogoDelete}
-                  disabled={isLoading}
-                >
-                  <TrashIcon />
-                </Button>
-              </>
+            {!isLoaded && isLoading ? (
+              <Loader2
+                className="h-4 w-4 animate-spin"
+                aria-label={t('loading')}
+              />
             ) : (
-              <span className="settings__preview-placeholder">
-                {t('logo.noLogo')}
-              </span>
+              <BrandingAsset
+                kind="logo"
+                file={logoFile}
+                version={logoVersion}
+                alt={t('logo.title')}
+                className="settings__preview-image"
+                showSource
+              />
+            )}
+            {logoFile && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleLogoDelete}
+                disabled={isLoading}
+                aria-label={t('logo.deleteLabel')}
+              >
+                <TrashIcon />
+              </Button>
             )}
           </div>
 
@@ -201,27 +213,31 @@ export default function BrandingSettings() {
             <span className="settings__preview-label">
               {t('favicon.currentLabel')}
             </span>
-            {faviconFile ? (
-              <>
-                {' '}
-                <img
-                  src={`${withBasePath(`/branding/${faviconFile}`)}?v=${faviconVersion}`}
-                  alt={t('favicon.title')}
-                  className="settings__preview-favicon"
-                />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleFaviconDelete}
-                  disabled={isLoading}
-                >
-                  <TrashIcon />
-                </Button>
-              </>
+            {!isLoaded && isLoading ? (
+              <Loader2
+                className="h-4 w-4 animate-spin"
+                aria-label={t('loading')}
+              />
             ) : (
-              <span className="settings__preview-placeholder">
-                {t('favicon.noFavicon')}
-              </span>
+              <BrandingAsset
+                kind="favicon"
+                file={faviconFile}
+                version={faviconVersion}
+                alt={t('favicon.title')}
+                className="settings__preview-favicon"
+                showSource
+              />
+            )}
+            {faviconFile && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleFaviconDelete}
+                disabled={isLoading}
+                aria-label={t('favicon.deleteLabel')}
+              >
+                <TrashIcon />
+              </Button>
             )}
           </div>
 

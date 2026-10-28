@@ -79,6 +79,15 @@ describe('PreferencesPanel', () => {
     ).toBeInTheDocument()
   })
 
+  it('lists date formats in the requested order', async () => {
+    const user = userEvent.setup({ delay: null, pointerEventsCheck: 0 })
+    render(<PreferencesPanel />)
+    await user.click(screen.getByTestId('preferences-dateformat-select'))
+    expect(
+      screen.getAllByRole('option').map((option) => option.textContent),
+    ).toEqual(['2026-08-27', '08/27/2026', '27/08/2026', '27.08.2026'])
+  })
+
   it('lets the user pick a date format', async () => {
     const user = userEvent.setup({ delay: null, pointerEventsCheck: 0 })
     render(<PreferencesPanel />)

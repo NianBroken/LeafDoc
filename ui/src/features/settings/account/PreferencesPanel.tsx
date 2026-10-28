@@ -13,9 +13,9 @@ import { useTranslation } from 'react-i18next'
 
 const DATE_FORMAT_OPTIONS = [
   { value: 'iso', labelKey: 'account.preferences.dateFormat.iso' },
-  { value: 'dmy_dot', labelKey: 'account.preferences.dateFormat.dmyDot' },
   { value: 'mdy_slash', labelKey: 'account.preferences.dateFormat.mdySlash' },
   { value: 'dmy_slash', labelKey: 'account.preferences.dateFormat.dmySlash' },
+  { value: 'dmy_dot', labelKey: 'account.preferences.dateFormat.dmyDot' },
 ] as const
 
 const TIME_FORMAT_OPTIONS = [

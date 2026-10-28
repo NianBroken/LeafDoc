@@ -42,19 +42,26 @@ export default function UserManagement() {
 
         <div className="settings__table-card">
           <div className="settings__table-scroll">
-            <table className="settings__table">
+            {/* One column grid governs the header, body and empty states. */}
+            <table className="settings__table users__table">
+              <colgroup>
+                <col className="users__column-name" />
+                <col className="users__column-email" />
+                <col className="users__column-role" />
+                <col className="users__column-actions" />
+              </colgroup>
               <thead className="settings__table-head">
                 <tr>
-                  <th className="settings__table-header-cell">
+                  <th scope="col" className="settings__table-header-cell">
                     {t('columns.username')}
                   </th>
-                  <th className="settings__table-header-cell">
+                  <th scope="col" className="settings__table-header-cell">
                     {t('columns.email')}
                   </th>
-                  <th className="settings__table-header-cell">
+                  <th scope="col" className="settings__table-header-cell">
                     {t('columns.role')}
                   </th>
-                  <th className="settings__table-header-cell">
+                  <th scope="col" className="settings__table-header-cell">
                     {t('columns.actions')}
                   </th>
                 </tr>
@@ -62,14 +69,14 @@ export default function UserManagement() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="settings__table-body-message">
+                    <td colSpan={4} className="settings__table-body-message">
                       {t('loading')}
                     </td>
                   </tr>
                 )}
                 {!loading && users.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="settings__table-body-message">
+                    <td colSpan={4} className="settings__table-body-message">
                       {t('noUsersFound')}
                     </td>
                   </tr>
@@ -92,7 +99,7 @@ export default function UserManagement() {
                         </span>
                       </td>
                       <td className="settings__actions-cell">
-                        <div className="settings__actions">
+                        <div className="users__actions">
                           {user.mustSetPassword && (
                             <>
                               <span className="settings__pill settings__pill-warning">

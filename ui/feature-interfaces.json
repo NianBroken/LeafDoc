@@ -1,7 +1,7 @@
 {
   "apikeys": ["ApiKeysManagement"],
   "assets": ["AssetPreviewTooltip"],
-  "branding": ["BrandingSettings", "state/branding"],
+  "branding": ["BrandingAsset", "BrandingSettings", "state/branding"],
   "designtoggle": ["designmode"],
   "editor": ["pageEditorStore"],
   "favorites": ["FavoriteToggleButton", "FavoritesSection", "state/favorites"],

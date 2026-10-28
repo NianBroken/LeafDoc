@@ -21,7 +21,10 @@
     "noLogo": "Kein Logo hochgeladen",
     "uploadLabel": "Logo hochladen",
     "uploadButton": "Bild hochladen",
-    "hint": "Akzeptiert {{exts}}, maximale Größe {{size}} MB"
+    "hint": "Akzeptiert {{exts}}, maximale Größe {{size}} MB",
+    "builtin": "Integriertes Logo",
+    "unavailable": "Kein Logo verfügbar",
+    "deleteLabel": "Benutzerdefiniertes Logo löschen"
   },
   "favicon": {
     "title": "Favicon",
@@ -30,7 +33,10 @@
     "noFavicon": "Standard-Favicon wird verwendet",
     "uploadLabel": "Favicon hochladen",
     "uploadButton": "Favicon hochladen",
-    "hint": "Akzeptiert {{exts}}, maximale Größe {{size}} MB"
+    "hint": "Akzeptiert {{exts}}, maximale Größe {{size}} MB",
+    "builtin": "Integriertes Website-Symbol",
+    "unavailable": "Kein Website-Symbol verfügbar",
+    "deleteLabel": "Benutzerdefiniertes Website-Symbol löschen"
   },
   "save": "Einstellungen speichern",
   "toast": {
@@ -44,5 +50,6 @@
     "logoUploadFailed": "Logo konnte nicht hochgeladen werden",
     "faviconUploaded": "Favicon erfolgreich hochgeladen",
     "faviconUploadFailed": "Favicon konnte nicht hochgeladen werden"
-  }
+  },
+  "loading": "Aktuelle Ressourcen werden geladen"
 }

@@ -1,6 +1,6 @@
 import * as brandingAPI from '@/shared/lib/api/branding'
 import i18next from '@/shared/lib/i18n'
-import { withBasePath } from '@/shared/lib/routePath'
+import { brandingAssetUrl } from '../assets'
 import { create } from 'zustand'
 
 const t = (key: string) => i18next.t(key, { ns: 'branding' })
@@ -73,8 +73,11 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
     set({ isLoading: true, error: null })
     try {
       const updated = await brandingAPI.updateBranding(config)
-      applyFavicon(updated.faviconFile, Date.now())
+      const assetVersion = Date.now()
+      applyFavicon(updated.faviconFile, assetVersion)
       set({
+        logoVersion: assetVersion,
+        faviconVersion: assetVersion,
         siteName: updated.siteName,
         logoFile: updated.logoFile,
         faviconFile: updated.faviconFile,
@@ -138,10 +141,10 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
   deleteLogo: async () => {
     set({ isLoading: true, error: null })
     try {
-      await brandingAPI.deleteBrandingLogo()
+      const result = await brandingAPI.deleteBrandingLogo()
       const assetVersion = Date.now()
       set({
-        logoFile: '',
+        logoFile: result.logoFile,
         logoVersion: assetVersion,
       })
     } catch (err) {
@@ -160,11 +163,11 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
   deleteFavicon: async () => {
     set({ isLoading: true, error: null })
     try {
-      await brandingAPI.deleteBrandingFavicon()
+      const result = await brandingAPI.deleteBrandingFavicon()
       const assetVersion = Date.now()
-      applyFavicon('', assetVersion)
+      applyFavicon(result.faviconFile, assetVersion)
       set({
-        faviconFile: '',
+        faviconFile: result.faviconFile,
         faviconVersion: assetVersion,
       })
     } catch (err) {
@@ -183,11 +186,24 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
 
 function applyFavicon(faviconFile: string, version: number) {
   const link = getOrCreateFaviconLink()
-  const faviconPath = faviconFile
-    ? withBasePath(`/branding/${faviconFile}`)
-    : withBasePath('/favicon.svg')
-
-  link.href = `${faviconPath}?v=${version}`
+  const source = brandingAssetUrl('favicon', faviconFile, version)!
+  link.href = source
+  // Verify the image independently because link error events vary by browser.
+  if (faviconFile) {
+    const image = new Image()
+    image.onerror = () => {
+      if (link.getAttribute('href') === source) {
+        link.href = brandingAssetUrl('favicon', '', version)!
+      }
+      image.onload = null
+      image.onerror = null
+    }
+    image.onload = () => {
+      image.onload = null
+      image.onerror = null
+    }
+    image.src = source
+  }
 }
 
 function getOrCreateFaviconLink(): HTMLLinkElement {

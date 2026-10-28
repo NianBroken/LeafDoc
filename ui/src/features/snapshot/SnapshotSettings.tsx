@@ -1,3 +1,11 @@
+import { Checkbox } from '@/shared/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select'
 import { useSnapshotSettings } from './useSnapshotSettings'
 
 import {
@@ -230,51 +238,61 @@ export default function SnapshotSettings() {
             {t('settings.description')}
           </p>
           <div className="settings__field">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
+            <label className="settings__schedule-toggle">
+              <Checkbox
                 checked={settingsDraft.enabled}
-                onChange={(event) =>
+                onCheckedChange={(checked) =>
                   setSettingsDraft({
                     ...settingsDraft,
-                    enabled: event.target.checked,
+                    enabled: checked === true,
                     runOnStartup: false,
                   })
                 }
-                className="accent-brand mt-1"
+                disabled={settingsSaving}
+                className="mt-0.5"
                 data-testid="snapshot-schedule-enabled"
               />
               <span>
                 <span className="text-interface-text block text-sm font-medium">
                   {t('settings.enabledLabel')}
                 </span>
-                <span className="text-muted-foreground text-sm">
+                <span className="settings__hint block">
                   {t('settings.enabledDescription')}
                 </span>
               </span>
             </label>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="settings__schedule-grid">
             <div className="settings__field">
               <Label htmlFor="snapshot-schedule-mode">
                 {t('settings.modeLabel')}
               </Label>
-              <select
-                id="snapshot-schedule-mode"
-                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+              <Select
                 value={settingsDraft.mode}
                 disabled={!settingsDraft.enabled || settingsSaving}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setSettingsDraft({
                     ...settingsDraft,
-                    mode: event.target.value as 'interval' | 'daily',
+                    mode: value as 'interval' | 'daily',
                     runOnStartup: false,
                   })
                 }
               >
-                <option value="daily">{t('settings.dailyMode')}</option>
-                <option value="interval">{t('settings.intervalMode')}</option>
-              </select>
+                <SelectTrigger
+                  id="snapshot-schedule-mode"
+                  aria-label={t('settings.modeLabel')}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">
+                    {t('settings.dailyMode')}
+                  </SelectItem>
+                  <SelectItem value="interval">
+                    {t('settings.intervalMode')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {settingsDraft.mode === 'daily' ? (
               <div className="settings__field">

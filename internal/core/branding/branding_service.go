@@ -220,6 +220,10 @@ func (s *BrandingService) DeleteLogo() error {
 	defer s.mu.Unlock()
 
 	cfg := s.store.Load()
+	// Discover unregistered assets using the same rule as the public response.
+	if cfg.LogoFile == "" {
+		cfg.LogoFile = s.availableAsset("", "logo", cfg.BrandingConstraints.LogoExts)
+	}
 
 	if cfg.LogoFile == "" {
 		return nil // No logo to delete
@@ -314,6 +318,10 @@ func (s *BrandingService) DeleteFavicon() error {
 	defer s.mu.Unlock()
 
 	cfg := s.store.Load()
+	// Discover unregistered assets using the same rule as the public response.
+	if cfg.FaviconFile == "" {
+		cfg.FaviconFile = s.availableAsset("", "favicon", cfg.BrandingConstraints.FaviconExts)
+	}
 
 	if cfg.FaviconFile == "" {
 		return nil // No favicon to delete

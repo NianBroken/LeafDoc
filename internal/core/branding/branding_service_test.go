@@ -984,3 +984,35 @@ func TestBrandingService_UploadFavicon_TooLarge_ReturnsErrorAndDoesNotUpdateConf
 		t.Fatalf("expected FaviconFile to remain empty, got %q", cfg.FaviconFile)
 	}
 }
+
+// Discovered files are removable even when branding.json has no file reference.
+func TestBrandingService_DeleteDiscoveredAssets(t *testing.T) {
+	for _, kind := range []string{"logo", "favicon"} {
+		t.Run(kind, func(t *testing.T) {
+			svc, dir := newTestBrandingService(t)
+			path := filepath.Join(dir, "branding", kind+".png")
+			if err := os.WriteFile(path, []byte("image"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			if kind == "logo" {
+				err = svc.DeleteLogo()
+			} else {
+				err = svc.DeleteFavicon()
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Fatalf("asset still exists: %v", err)
+			}
+			cfg, err := svc.GetBranding()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.LogoFile != "" || cfg.FaviconFile != "" {
+				t.Fatal("deleted asset remains in response")
+			}
+		})
+	}
+}

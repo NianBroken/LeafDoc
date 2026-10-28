@@ -1,3 +1,4 @@
+import { BrandingAsset } from '@/features/branding/BrandingAsset'
 import { DialogManager } from '@/app/components/DialogManager'
 import { HotKeyHandler } from '@/app/components/HotKeyHandler'
 import { Button } from '@/shared/components/ui/button'
@@ -10,7 +11,6 @@ import Progressbar from '@/features/progressbar/Progressbar'
 import Sidebar from '@/features/sidebar/Sidebar'
 import SettingsNav from '@/features/settings/SettingsNav'
 import { Toolbar } from '@/features/toolbar/Toolbar'
-import { withBasePath } from '@/shared/lib/routePath'
 import { useAppMode } from '@/shared/lib/useAppMode'
 import { useAutoCloseSidebarOnMobile } from '@/features/sidebar/useAutoCloseSidebarOnMobile'
 import { useIsMobile } from '@/shared/lib/useIsMobile'
@@ -208,15 +208,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="app-layout__logo-n-title">
             <h2>
               <Link to="/">
-                {logoFile ? (
-                  <img
-                    src={`${withBasePath(`/branding/${logoFile}`)}?v=${logoVersion}`}
-                    alt={siteName}
-                    className="app-layout__logo-image"
-                  />
-                ) : (
-                  <span className="app-layout__logo-emoji">🌿</span>
-                )}{' '}
+                <BrandingAsset
+                  kind="logo"
+                  file={logoFile}
+                  version={logoVersion}
+                  alt={siteName}
+                  className="app-layout__logo-image"
+                />{' '}
                 <span className="app-layout__site-name max-md:hidden">
                   {siteName}
                 </span>

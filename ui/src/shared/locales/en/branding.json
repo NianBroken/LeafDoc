@@ -21,7 +21,10 @@
     "noLogo": "No logo uploaded",
     "uploadLabel": "Upload Logo",
     "uploadButton": "Upload Image",
-    "hint": "Accepts {{exts}}, max size {{size}} MB"
+    "hint": "Accepts {{exts}}, max size {{size}} MB",
+    "builtin": "Built-in logo",
+    "unavailable": "No available logo",
+    "deleteLabel": "Delete custom logo"
   },
   "favicon": {
     "title": "Favicon",
@@ -30,7 +33,10 @@
     "noFavicon": "Using default favicon",
     "uploadLabel": "Upload Favicon",
     "uploadButton": "Upload Favicon",
-    "hint": "Accepts {{exts}}, max size {{size}} MB"
+    "hint": "Accepts {{exts}}, max size {{size}} MB",
+    "builtin": "Built-in favicon",
+    "unavailable": "No available favicon",
+    "deleteLabel": "Delete custom favicon"
   },
   "save": "Save Settings",
   "toast": {
@@ -44,5 +50,6 @@
     "logoUploadFailed": "Failed to upload logo",
     "faviconUploaded": "Favicon uploaded successfully",
     "faviconUploadFailed": "Failed to upload favicon"
-  }
+  },
+  "loading": "Loading current assets"
 }

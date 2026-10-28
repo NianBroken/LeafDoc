@@ -1,8 +1,8 @@
+import { BrandingAsset } from '@/features/branding/BrandingAsset'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { login } from '@/shared/lib/api/auth'
 import { mapApiError } from '@/shared/lib/api/errors'
-import { withBasePath } from '@/shared/lib/routePath'
 import { useBrandingStore } from '@/features/branding/state/branding'
 import { useConfigStore } from '@/shared/state/config'
 import { useSessionStore } from '@/shared/state/session'
@@ -69,15 +69,13 @@ export default function LoginForm() {
 
   const logoHeader = (
     <h1 className="login__title">
-      {logoFile ? (
-        <img
-          src={`${withBasePath(`/branding/${logoFile}`)}?v=${logoVersion}`}
-          alt={siteName}
-          className="login__logo-image"
-        />
-      ) : (
-        <span>🌿</span>
-      )}{' '}
+      <BrandingAsset
+        kind="logo"
+        file={logoFile}
+        version={logoVersion}
+        alt={siteName}
+        className="login__logo-image"
+      />{' '}
       {siteName}
     </h1>
   )
