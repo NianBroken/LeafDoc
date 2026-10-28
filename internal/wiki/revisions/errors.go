@@ -2,9 +2,10 @@ package revisions
 
 import (
 	"errors"
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 	"os"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -20,23 +21,12 @@ const (
 	ErrCodeRevisionRestoreInvalidRevision      = "revision_restore_invalid_revision"
 	ErrCodeRevisionRestoreRevisionNotFound     = "revision_restore_revision_not_found"
 	ErrCodeRevisionRestorePageNotFound         = "revision_restore_page_not_found"
-	ErrCodeRevisionRestoreFailed               = "revision_restore_failed"
-	ErrCodeRevisionRestoreContentMissing       = "revision_restore_content_missing"
-	ErrCodeRevisionRestoreAssetsMissing        = "revision_restore_assets_missing"
 	ErrCodeRevisionServiceUnavailable          = "revision_service_unavailable"
-	ErrCodeRevisionPreviewContentUnavailable   = "revision_preview_content_unavailable"
-	ErrCodeRevisionPreviewAssetsUnavailable    = "revision_preview_assets_unavailable"
 	ErrCodeRevisionPreviewAssetNotFound        = "revision_preview_asset_not_found"
 	ErrCodeRevisionPreviewAssetInvalidName     = "revision_preview_asset_invalid_name"
 	ErrCodeRevisionPreviewAssetBlobUnavailable = "revision_preview_asset_blob_unavailable"
 	ErrCodeRevisionInternalError               = "revision_internal_error"
 )
-
-// RevisionErrorResponse is the structured JSON error body returned by revision endpoints.
-type RevisionErrorResponse = httpinternal.ErrorResponse
-
-// RevisionErrorDetail carries the localization-ready error data.
-type RevisionErrorDetail = httpinternal.ErrorDetail
 
 func respondWithRevisionStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

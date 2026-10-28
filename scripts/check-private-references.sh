@@ -14,13 +14,6 @@ PRIVATE_NOTES='pleaf|ai-gen-infos'
 # left out: tests use them on purpose for path handling.
 HOME_PATHS='/(home|Users)/[A-Za-z_][A-Za-z0-9._-]*'
 
-# Existing hits that are deliberate. This list may only shrink.
-ALLOWED=(
-    # Test data: a slug taken from a real page, harmless as a string.
-    ':!ui/src/features/preview/MarkdownPreview.test.tsx'
-    ':!ui/src/lib/preprocessWikilinks.test.ts'
-)
-
 EXCLUDED=(
     ':(exclude)scripts/check-private-references.sh'
     # In glob magic a leading **/ also matches zero directories, so these
@@ -34,7 +27,7 @@ EXCLUDED=(
 # not pass as "nothing found".
 search() {
     local status=0
-    git grep -n -I -E "$@" -- . "${EXCLUDED[@]}" "${ALLOWED[@]}" || status=$?
+    git grep -n -I -E "$@" -- . "${EXCLUDED[@]}" || status=$?
     if [[ "$status" -gt 1 ]]; then
         echo "::error::git grep failed (exit $status); is $ROOT a git checkout?" >&2
         exit 2

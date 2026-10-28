@@ -1,8 +1,9 @@
 package importer
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -21,12 +22,6 @@ const (
 	ErrCodeImporterZipExtractedTooLarge = "importer_zip_extracted_too_large"
 	ErrCodeImporterZipRatioTooHigh      = "importer_zip_ratio_too_high"
 )
-
-// ImporterErrorResponse is the structured JSON error body returned by importer endpoints.
-type ImporterErrorResponse = httpinternal.ErrorResponse
-
-// ImporterErrorDetail carries the localization-ready error data.
-type ImporterErrorDetail = httpinternal.ErrorDetail
 
 func respondWithImporterStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

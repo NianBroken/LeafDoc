@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"io"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -43,15 +42,6 @@ type PageNode struct {
 
 func (p *PageNode) HasChildren() bool {
 	return len(p.Children) > 0
-}
-
-func (p *PageNode) ChildAlreadyExists(slug string) bool {
-	for _, child := range p.Children {
-		if strings.EqualFold(child.Slug, slug) {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *PageNode) IsChildOf(childID string, recursive bool) bool {

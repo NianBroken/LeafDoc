@@ -1,11 +1,11 @@
 package properties
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	httpinternal "github.com/perber/wiki/internal/http"
 )
 
 const (
@@ -14,10 +14,6 @@ const (
 	ErrCodePropertiesMissingValue = "properties_missing_value"
 	ErrCodePropertiesInvalidLimit = "properties_invalid_limit"
 )
-
-type propertiesErrorResponse = httpinternal.ErrorResponse
-
-type propertiesErrorDetail = httpinternal.ErrorDetail
 
 func respondWithPropertiesError(c *gin.Context, err error) {
 	if loc, ok := sharederrors.AsLocalizedError(err); ok {

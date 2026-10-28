@@ -7,6 +7,7 @@ import os
 import secrets
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -146,5 +147,9 @@ with tempfile.TemporaryDirectory(prefix='leafwiki-acceptance-') as data:
         check(request('/api/config',client=1)[1]['preferences']['language']=='fr','重启后所有访问者仍读取已保存配置')
         REPORT.write_text(json.dumps(checks,ensure_ascii=False,indent=2),encoding='utf-8')
         print(json.dumps({'passed':len(checks),'checks':checks},ensure_ascii=False,indent=2))
+    except BaseException:
+        output.flush()
+        print((Path(data)/'acceptance-server.log').read_text(encoding='utf-8'),file=sys.stderr)
+        raise
     finally:
         process.terminate(); process.wait(15); output.close()

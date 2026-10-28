@@ -145,7 +145,12 @@ func (s *AvatarService) UploadAvatar(userID string, file multipart.File, filenam
 	}
 
 	targetPath := s.avatarPath(userID)
-	if err := shared.WriteStreamAtomic(targetPath, &out, MaxUploadSize, 0o644); err != nil {
+	// An unused avatar directory can be removed between uploads.
+	err = os.MkdirAll(s.avatarsDir, 0o755)
+	if err == nil {
+		err = shared.WriteStreamAtomic(targetPath, &out, MaxUploadSize, 0o644)
+	}
+	if err != nil {
 		return sharederrors.NewLocalizedError(
 			"avatar_upload_failed",
 			"Failed to save avatar file",

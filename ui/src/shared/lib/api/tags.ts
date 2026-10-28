@@ -5,16 +5,6 @@ export type TagCount = {
   count: number
 }
 
-export type TaggedPage = {
-  id: string
-  title: string
-  path: string
-  excerpt?: string
-  tags: string[]
-  updatedAt?: string
-  lastAuthor?: { id: string; username: string }
-}
-
 export async function fetchTags(
   filter = '',
   limit = 50,
@@ -26,17 +16,4 @@ export async function fetchTags(
     params.append('selected', tag)
   }
   return await fetchWithAuth<TagCount[]>(`/api/tags?${params}`)
-}
-
-export async function fetchPagesByTags(
-  tags: string[],
-  signal?: AbortSignal,
-): Promise<TaggedPage[]> {
-  const params = new URLSearchParams()
-  for (const tag of tags) {
-    params.append('tags', tag)
-  }
-  return await fetchWithAuth<TaggedPage[]>(`/api/tags/pages?${params}`, {
-    signal,
-  })
 }

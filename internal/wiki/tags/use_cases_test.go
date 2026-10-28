@@ -2,8 +2,9 @@ package tags
 
 import (
 	"context"
-	"github.com/perber/wiki/internal/testutil"
 	"testing"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	coretags "github.com/perber/wiki/internal/core/tags"
 	"github.com/perber/wiki/internal/core/tree"

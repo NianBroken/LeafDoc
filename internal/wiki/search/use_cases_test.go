@@ -2,8 +2,9 @@ package search
 
 import (
 	"context"
-	"github.com/perber/wiki/internal/testutil"
 	"testing"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	coresearch "github.com/perber/wiki/internal/core/search"
 	coretags "github.com/perber/wiki/internal/core/tags"

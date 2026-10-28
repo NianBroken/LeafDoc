@@ -708,6 +708,10 @@ func TestBrandingService_UploadFavicon_InvalidExtension_ReturnsError(t *testing.
 
 func TestBrandingService_UploadLogo_WritesFileAndUpdatesConfig(t *testing.T) {
 	svc, dir := newTestBrandingService(t)
+	// Uploads recreate an unused storage directory removed by housekeeping.
+	if err := os.Remove(filepath.Join(dir, "branding")); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a small "image" file (content doesn't matter; size and extension do)
 	content := bytes.Repeat([]byte("a"), 128)
@@ -756,6 +760,10 @@ func TestBrandingService_UploadLogo_WritesFileAndUpdatesConfig(t *testing.T) {
 
 func TestBrandingService_UploadFavicon_WritesFileAndUpdatesConfig(t *testing.T) {
 	svc, dir := newTestBrandingService(t)
+	// Favicons support the same directory lifecycle as logos.
+	if err := os.Remove(filepath.Join(dir, "branding")); err != nil {
+		t.Fatal(err)
+	}
 
 	content := bytes.Repeat([]byte("b"), 128)
 	tmp, err := os.CreateTemp(t.TempDir(), "favicon-*.ico")

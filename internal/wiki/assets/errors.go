@@ -1,8 +1,9 @@
 package assets
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -18,17 +19,8 @@ const (
 	ErrCodeAssetInvalidExtension = "asset_invalid_extension"
 	ErrCodeAssetInvalidName      = "asset_invalid_name"
 	ErrCodeAssetInvalidPayload   = "asset_invalid_payload"
-	ErrCodeAssetUploadFailed     = "asset_upload_failed"
-	ErrCodeAssetDeleteFailed     = "asset_delete_failed"
-	ErrCodeAssetRenameFailed     = "asset_rename_failed"
 	ErrCodeAssetInternalError    = "asset_internal_error"
 )
-
-// AssetErrorResponse is the structured JSON error body returned by asset endpoints.
-type AssetErrorResponse = httpinternal.ErrorResponse
-
-// AssetErrorDetail carries the localization-ready error data.
-type AssetErrorDetail = httpinternal.ErrorDetail
 
 func respondWithAssetStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

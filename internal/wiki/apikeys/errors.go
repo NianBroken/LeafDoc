@@ -2,8 +2,9 @@ package apikeys
 
 import (
 	"errors"
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	coreauth "github.com/perber/wiki/internal/core/auth"
@@ -20,12 +21,6 @@ const (
 	ErrCodeAPIKeysDisabled       = "api_keys_disabled"
 	ErrCodeAPIKeyInternalError   = "api_key_internal_error"
 )
-
-// APIKeyErrorResponse is the structured JSON error body returned by api-key endpoints.
-type APIKeyErrorResponse = httpinternal.ErrorResponse
-
-// APIKeyErrorDetail carries the localization-ready error data.
-type APIKeyErrorDetail = httpinternal.ErrorDetail
 
 func respondWithAPIKeyStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

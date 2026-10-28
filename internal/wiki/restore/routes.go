@@ -147,14 +147,9 @@ func (r *Routes) handleSelfRestart(c *gin.Context) {
 			"self-restart is only available after a restore reports it needs intervention")
 		return
 	}
-	if err := r.manager.SelfRestart(); err != nil {
-		// This is the swallow point: the response only ever carries a generic
-		// message (the client can't act on the underlying cause), so the real
-		// error must be logged here or it's lost entirely — and this is the
-		// one recovery path a stuck restore has, so an operator needs to be
-		// able to diagnose why it failed.
-		slog.Default().Error("restore: self-restart failed", "error", err)
-		respondWithRestoreStatusError(c, http.StatusInternalServerError, ErrCodeRestoreInternalError, "Failed to restart server", "failed to restart server")
-		return
-	}
+	// A successful restart replaces or exits the process. Returning here means
+	// the restart failed, so retain the cause in the server log.
+	err := r.manager.SelfRestart()
+	slog.Default().Error("restore: self-restart failed", "error", err)
+	respondWithRestoreStatusError(c, http.StatusInternalServerError, ErrCodeRestoreInternalError, "Failed to restart server", "failed to restart server")
 }

@@ -1,8 +1,9 @@
 package wikiresync
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -22,9 +23,6 @@ var ErrResyncAlreadyRunning = sharederrors.NewLocalizedError(
 
 // ResyncErrorResponse is the structured JSON error body returned by resync endpoints.
 type ResyncErrorResponse = httpinternal.ErrorResponse
-
-// ResyncErrorDetail carries the localization-ready error data.
-type ResyncErrorDetail = httpinternal.ErrorDetail
 
 func respondWithResyncStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

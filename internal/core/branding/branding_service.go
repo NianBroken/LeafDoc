@@ -155,6 +155,14 @@ func containsControlCharacters(s string) bool {
 	return false
 }
 
+// writeAsset creates the storage directory on demand and atomically saves an upload.
+func (s *BrandingService) writeAsset(targetPath string, file multipart.File, maxBytes int64) error {
+	if err := os.MkdirAll(s.store.brandingAssetsDir(), 0o755); err != nil {
+		return err
+	}
+	return shared.WriteStreamAtomic(targetPath, file, maxBytes, 0o644)
+}
+
 // UploadLogo saves a custom logo image
 func (s *BrandingService) UploadLogo(file multipart.File, filename string) (string, error) {
 	s.mu.Lock()
@@ -180,7 +188,7 @@ func (s *BrandingService) UploadLogo(file multipart.File, filename string) (stri
 	targetPath := filepath.Join(assetsDir, "logo"+ext)
 
 	// Write new logo atomically first
-	if err := shared.WriteStreamAtomic(targetPath, file, cfg.BrandingConstraints.MaxLogoSize, 0o644); err != nil {
+	if err := s.writeAsset(targetPath, file, cfg.BrandingConstraints.MaxLogoSize); err != nil {
 		return "", sharederrors.NewLocalizedError(
 			"branding_logo_upload_failed",
 			"Failed to save logo file",
@@ -274,7 +282,7 @@ func (s *BrandingService) UploadFavicon(file multipart.File, filename string) (s
 	targetPath := filepath.Join(assetsDir, "favicon"+ext)
 
 	// Write new favicon atomically first
-	if err := shared.WriteStreamAtomic(targetPath, file, cfg.BrandingConstraints.MaxFaviconSize, 0o644); err != nil {
+	if err := s.writeAsset(targetPath, file, cfg.BrandingConstraints.MaxFaviconSize); err != nil {
 		return "", sharederrors.NewLocalizedError(
 			"branding_favicon_upload_failed",
 			"Failed to save favicon file",

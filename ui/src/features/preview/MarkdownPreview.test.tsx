@@ -330,12 +330,12 @@ describe('MarkdownPreview wikilinks with a slash in the title', () => {
   it('renders a slash-and-space title as a resolved link, not raw text', () => {
     const adr = node(
       'adr-11',
-      'ai-gen-infos/adr/adr-0011-smtp',
+      'guides/optional-smtp',
       'ADR-0011: SMTP as a CLI/ENV-Only Optional Feature',
     )
     useTreeStore.setState({
       byId: { 'adr-11': adr },
-      byPath: { 'ai-gen-infos/adr/adr-0011-smtp': adr },
+      byPath: { 'guides/optional-smtp': adr },
     })
 
     const { container } = render(
@@ -346,9 +346,7 @@ describe('MarkdownPreview wikilinks with a slash in the title', () => {
       </MemoryRouter>,
     )
 
-    const link = container.querySelector(
-      'a[href="/ai-gen-infos/adr/adr-0011-smtp"]',
-    )
+    const link = container.querySelector('a[href="/guides/optional-smtp"]')
     expect(link).not.toBeNull()
     expect(link?.textContent).toBe(
       'ADR-0011: SMTP as a CLI/ENV-Only Optional Feature',

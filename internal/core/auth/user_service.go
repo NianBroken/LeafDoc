@@ -549,12 +549,6 @@ func (s *UserService) CompleteInvite(id, password string) error {
 	return nil
 }
 
-// ConsumeRecoveryCodeHash atomically replaces oldHashes with newHashes for id
-// via compare-and-swap: the write only takes effect if the stored hashes
-// still match oldHashes exactly. Returns swapped=false (with no error) if
-// they no longer match — e.g. a concurrent request already consumed a code —
-// so the caller can re-read the current hashes and retry.
-
 func (s *UserService) Close() error {
 	return s.store.Close()
 }

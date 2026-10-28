@@ -3,7 +3,6 @@ package pages_test
 import (
 	"context"
 	"errors"
-	"github.com/perber/wiki/internal/testutil"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	"github.com/perber/wiki/internal/core/assets"
 	"github.com/perber/wiki/internal/core/favorites"

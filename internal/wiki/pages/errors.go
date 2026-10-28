@@ -3,8 +3,9 @@ package pages
 import (
 	"errors"
 	"fmt"
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/perber/wiki/internal/core/favorites"
@@ -41,12 +42,6 @@ func newPageRootOperationError(operation string) *sharederrors.LocalizedError {
 		nil, operation,
 	)
 }
-
-// PageErrorResponse is the structured JSON error body returned by page endpoints.
-type PageErrorResponse = httpinternal.ErrorResponse
-
-// PageErrorDetail carries the localization-ready error data.
-type PageErrorDetail = httpinternal.ErrorDetail
 
 func respondWithPageStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

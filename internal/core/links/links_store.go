@@ -747,10 +747,3 @@ func (s *LinksStore) Close() error {
 	}
 	return nil
 }
-
-func (s *LinksStore) GetDB() *sql.DB {
-	if s.db == nil {
-		return nil
-	}
-	return s.db
-}

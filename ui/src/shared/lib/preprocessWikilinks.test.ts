@@ -104,7 +104,7 @@ describe('preprocessWikilinks', () => {
     it('resolves a slash-and-space title against the tree instead of emitting raw text', () => {
       const adr = page(
         '1',
-        'ai-gen-infos/adr/adr-0011-smtp',
+        'guides/optional-smtp',
         'ADR-0011: SMTP as a CLI/ENV-Only Optional Feature',
       )
       const result = preprocessWikilinks(
@@ -112,7 +112,7 @@ describe('preprocessWikilinks', () => {
         singleMatch(adr),
       )
       expect(result).toBe(
-        '[ADR-0011: SMTP as a CLI/ENV-Only Optional Feature](/ai-gen-infos/adr/adr-0011-smtp)',
+        '[ADR-0011: SMTP as a CLI/ENV-Only Optional Feature](/guides/optional-smtp)',
       )
     })
 

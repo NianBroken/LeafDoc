@@ -2,12 +2,13 @@ package importer
 
 import (
 	"fmt"
-	"github.com/perber/wiki/internal/testutil"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	"github.com/perber/wiki/internal/core/ignore"
 	"github.com/perber/wiki/internal/core/markdown"

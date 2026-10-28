@@ -1,13 +1,6 @@
 import type { PageKind } from '@/shared/contracts/page'
 import { fetchWithAuth } from '@/shared/lib/api/client'
 
-export type IndexingStatus = {
-  active: boolean
-  indexed: number
-  failed: number
-  finished_at: string
-}
-
 export type SearchResultItem = {
   page_id: string
   path: string
@@ -54,8 +47,4 @@ export async function searchPages(
   }
 
   return await fetchWithAuth<SearchResult>(`/api/search?${params}`)
-}
-
-export async function getSearchStatus(): Promise<IndexingStatus> {
-  return await fetchWithAuth<IndexingStatus>('/api/search/status')
 }

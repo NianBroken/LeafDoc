@@ -2,9 +2,10 @@ package auth
 
 import (
 	"errors"
-	httpinternal "github.com/perber/wiki/internal/http"
 	"log/slog"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	coreauth "github.com/perber/wiki/internal/core/auth"
@@ -35,23 +36,8 @@ const (
 	ErrCodeAuthEditorLimitReached       = "auth_editor_limit_reached"
 )
 
-// AuthErrorResponse is the structured JSON error body returned by auth endpoints.
-type AuthErrorResponse = httpinternal.ErrorResponse
-
-// AuthErrorDetail carries the localization-ready error data.
-type AuthErrorDetail = httpinternal.ErrorDetail
-
 func respondWithAuthStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)
-}
-
-// isUserStoreUnavailable reports whether err is the user store's own
-// "suspended for live restore" LocalizedError (see errUserStoreUnavailable
-// in internal/core/auth), so callers can bucket it separately from a genuine
-// failure instead of miscounting it as one.
-func isUserStoreUnavailable(err error) bool {
-	loc, ok := sharederrors.AsLocalizedError(err)
-	return ok && loc.Code == ErrCodeAuthUserStoreUnavailable
 }
 
 // respondWithAuthError is the central error handler for auth endpoints.

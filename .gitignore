@@ -29,7 +29,6 @@ go.work.sum
 .env
 
 releases/*
-!releases/.gitkeep
 
 
 dist/*
@@ -73,13 +72,11 @@ internal/http/dist/*
 # Project instructions are versioned; personal agent overlays stay local.
 /AGENTS.local.md
 /CLAUDE.local.md
-/.claude/settings.local.json
-/.claude/worktrees/
+.claude/
+.github/
 
-# Local environment overrides; distributable examples remain versioned
+# Local environment overrides
 .env.*
-!.env.example
-!.env.*.example
 
 # Generated build, tool cache and temporary output
 build/

@@ -1,12 +1,13 @@
 package importer_test
 
 import (
-	"github.com/perber/wiki/internal/testutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	"github.com/perber/wiki/internal/core/importer"
 	"github.com/perber/wiki/internal/core/markdown"

@@ -1,4 +1,5 @@
 import { APIRequestContext, expect, request } from '@playwright/test';
+import { toAppPath } from '../pages/appPath';
 
 const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080';
 export const adminUser = process.env.E2E_ADMIN_USER || 'admin';
@@ -13,7 +14,7 @@ export async function csrfHeader(ctx: APIRequestContext) {
 // loggedIn returns a standalone API context with its own session cookies.
 export async function loggedIn(identifier = adminUser, password = adminPassword) {
   const ctx = await request.newContext({ baseURL });
-  const resp = await ctx.post('/api/auth/login', { data: { identifier, password } });
+  const resp = await ctx.post(toAppPath('/api/auth/login'), { data: { identifier, password } });
   expect(resp.status(), `login as ${identifier}`).toBe(200);
   return ctx;
 }

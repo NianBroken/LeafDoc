@@ -13,7 +13,6 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { RouterProvider } from 'react-router/dom'
 import { toast, Toaster } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import '@/app/App.css'
 import { useBrandingStore } from '@/features/branding/state/branding'
 import { useConfigStore } from '@/shared/state/config'
 

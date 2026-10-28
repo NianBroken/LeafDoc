@@ -3,7 +3,6 @@ package wiki
 import (
 	"context"
 	"errors"
-	"github.com/perber/wiki/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	"github.com/perber/wiki/internal/core/restore"
 	"github.com/perber/wiki/internal/core/shared/sqliteutil"

@@ -68,7 +68,8 @@ async function createPageAndOpenViewer(page: import('@playwright/test').Page, ti
   await treeView.clickPageByTitle(title);
 
   const viewPage = new ViewPage(page);
-  test.expect(await viewPage.getTitle()).toBe(title);
+  // Newly created pages display their title after the asynchronous page fetch.
+  await expect(page.locator('article>h1')).toHaveText(title);
 
   return viewPage;
 }

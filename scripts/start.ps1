@@ -12,6 +12,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$readinessAttempts = 120
+$readinessIntervalMilliseconds = 500
+$requestTimeoutSeconds = 5
+$portDiscoveryAttempts = 64
 $root = Split-Path $PSScriptRoot -Parent
 if (-not $DataDirectory) { $DataDirectory = Join-Path $root 'data' }
 $DataDirectory = [IO.Path]::GetFullPath($DataDirectory)
@@ -68,19 +72,42 @@ $CertificatePath = (Resolve-Path -LiteralPath $CertificatePath).Path
 $KeyPath = (Resolve-Path -LiteralPath $KeyPath).Path
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 
-# Bind to port zero to discover available ports, without assuming a local service layout.
-function Get-FreePort {
-    $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
-    try {
-        $listener.Start()
-        return $listener.LocalEndpoint.Port
-    } finally { $listener.Stop() }
+# HTTPS also needs a UDP listener for HTTP/3; probe both protocols when requested.
+function Get-FreePort([switch]$RequireUdp) {
+    for ($attempt = 0; $attempt -lt $portDiscoveryAttempts; $attempt++) {
+        $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+        $udp = $null
+        try {
+            $listener.Start()
+            $candidate = $listener.LocalEndpoint.Port
+            if ($RequireUdp) {
+                $udp = [Net.Sockets.UdpClient]::new()
+                $udp.ExclusiveAddressUse = $true
+                $udp.Client.Bind([Net.IPEndPoint]::new([Net.IPAddress]::Loopback, $candidate))
+            }
+            return $candidate
+        } catch [Net.Sockets.SocketException] {
+            # Windows can reserve a port for one protocol while the other remains free.
+        } finally {
+            if ($udp) { $udp.Dispose() }
+            $listener.Stop()
+        }
+    }
+    throw 'No available service port was found.'
 }
-if ($Port -eq 0) { $Port = Get-FreePort }
+if ($Port -eq 0) { $Port = Get-FreePort -RequireUdp }
 $backendPort = Get-FreePort
 while ($backendPort -eq $Port) { $backendPort = Get-FreePort }
 $probe = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $Port)
-try { $probe.Start() } finally { $probe.Stop() }
+$udpProbe = [Net.Sockets.UdpClient]::new()
+try {
+    $probe.Start()
+    $udpProbe.ExclusiveAddressUse = $true
+    $udpProbe.Client.Bind([Net.IPEndPoint]::new([Net.IPAddress]::Loopback, $Port))
+} finally {
+    $udpProbe.Dispose()
+    $probe.Stop()
+}
 
 if ($Build -or -not (Test-Path -LiteralPath $binary)) {
     Push-Location (Join-Path $root 'ui')
@@ -127,38 +154,43 @@ if ($LASTEXITCODE -ne 0) { throw 'Gateway configuration formatting failed.' }
 
 $savedSecret = $env:LEAFWIKI_JWT_SECRET
 $processes = @()
+$handler = [Net.Http.HttpClientHandler]::new()
+$handler.UseProxy = $false
+$client = [Net.Http.HttpClient]::new($handler)
+$client.Timeout = [TimeSpan]::FromSeconds($requestTimeoutSeconds)
+
+# Probe the backend before exposing it through the gateway, then verify HTTPS.
+function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
+    for ($attempt = 0; $attempt -lt $readinessAttempts; $attempt++) {
+        foreach ($service in $Services) {
+            if ($service.HasExited) { throw 'A service exited. Inspect the runtime logs.' }
+        }
+        try {
+            $response = $client.GetAsync($Url).GetAwaiter().GetResult()
+            try {
+                if ($response.IsSuccessStatusCode) { return }
+            } finally { $response.Dispose() }
+        } catch [Net.Http.HttpRequestException] {
+            # Connection refusal is expected until the listener is ready.
+        } catch [Threading.Tasks.TaskCanceledException] {
+            # Individual requests are bounded by the client timeout.
+        }
+        Start-Sleep -Milliseconds $readinessIntervalMilliseconds
+    }
+    throw "Service readiness check failed for $Url. Inspect the runtime logs."
+}
+
 try {
     $env:LEAFWIKI_JWT_SECRET = Get-Content -LiteralPath $secretPath -Raw -Encoding UTF8
     $backendArguments = @('--host', '127.0.0.1', '--port', "$backendPort", '--data-dir', "`"$DataDirectory`"", '--enable-revision')
     if ($BasePath) { $backendArguments += @('--base-path', $BasePath) }
     $backend = Start-Process -FilePath $binary -ArgumentList $backendArguments -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'backend.stdout.log') -RedirectStandardError (Join-Path $runtime 'backend.stderr.log') -PassThru
     $processes += $backend
+    Wait-ServiceReady "http://127.0.0.1:$backendPort$BasePath/api/health" $processes
     $gateway = Start-Process -FilePath $caddy -ArgumentList @('run', '--config', "`"$gatewayConfig`"") -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'gateway.stdout.log') -RedirectStandardError (Join-Path $runtime 'gateway.stderr.log') -PassThru
     $processes += $gateway
     $url = "https://localhost:$Port$BasePath"
-    $ready = $false
-    $handler = [Net.Http.HttpClientHandler]::new()
-    $handler.UseProxy = $false
-    $client = [Net.Http.HttpClient]::new($handler)
-    $client.Timeout = [TimeSpan]::FromSeconds(5)
-    try {
-        for ($attempt = 0; $attempt -lt 120; $attempt++) {
-            if ($backend.HasExited -or $gateway.HasExited) { throw 'A service exited. Inspect the runtime logs.' }
-            try {
-                $response = $client.GetAsync("$url/api/config").GetAwaiter().GetResult()
-                try {
-                    if ($response.IsSuccessStatusCode) { $ready = $true; break }
-                } finally { $response.Dispose() }
-            } catch {
-                # Readiness retries end with an explicit failure and retain service diagnostics.
-            }
-            Start-Sleep -Milliseconds 500
-        }
-    } finally {
-        $client.Dispose()
-        $handler.Dispose()
-    }
-    if (-not $ready) { throw 'HTTPS readiness check failed. Inspect the runtime logs.' }
+    Wait-ServiceReady "$url/api/config" $processes
     $state = @{ url = $url; dataDirectory = $DataDirectory; processes = @(
         foreach ($process in $processes) {
             @{ id = $process.Id; path = $process.Path; started = $process.StartTime.ToUniversalTime().ToString('o') }
@@ -174,4 +206,6 @@ try {
 } finally {
     $env:LEAFWIKI_JWT_SECRET = $savedSecret
     foreach ($process in $processes) { $process.Dispose() }
+    $client.Dispose()
+    $handler.Dispose()
 }

@@ -40,20 +40,6 @@ func setupTestAuthService(t *testing.T) *AuthService {
 	return authService
 }
 
-func mustNewSessionStore(t *testing.T) *SessionStore {
-	t.Helper()
-	s, err := NewSessionStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := s.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	return s
-}
-
 func TestAuthService_LoginAndValidateToken(t *testing.T) {
 	authService := setupTestAuthService(t)
 

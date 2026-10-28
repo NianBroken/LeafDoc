@@ -49,8 +49,6 @@ import (
 // scripts/resolve-version.sh via -ldflags "-X main.Version=v0.12.0".
 var Version = "dev"
 
-const ()
-
 func setupLogger(w io.Writer, format string) {
 	level := slog.LevelInfo
 	switch os.Getenv("LEAFWIKI_LOG_LEVEL") {

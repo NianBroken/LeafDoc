@@ -91,22 +91,6 @@ func createTestFavoritesDB(t *testing.T, path string) {
 	}
 }
 
-func createTestUserSettingsDB(t *testing.T, path string) {
-	t.Helper()
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatalf("failed to open user settings db: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(db.Close, t)
-
-	if _, err := db.Exec("CREATE TABLE user_settings (user_id TEXT, language TEXT)"); err != nil {
-		t.Fatalf("failed to create user_settings table: %v", err)
-	}
-	if _, err := db.Exec("INSERT INTO user_settings (user_id, language) VALUES (?, ?)", "user-1", "en"); err != nil {
-		t.Fatalf("failed to seed user_settings table: %v", err)
-	}
-}
-
 func TestCreateSnapshot_CreatesZip(t *testing.T) {
 	cfg := newTestConfig(t)
 

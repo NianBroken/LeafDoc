@@ -135,12 +135,6 @@ func (s *SlugService) NormalizePath(path string, validate bool) (string, error) 
 	return strings.Join(segments, string("/")), nil
 }
 
-func (s *SlugService) NormalizeFilename(filename string) string {
-	ext := filepath.Ext(filename)
-	base := filename[:len(filename)-len(ext)]
-	return normalizeSlug(base) + ext
-}
-
 // NormalizePathToValidSlugs converts a slash-separated source path into valid route segments.
 // This is used by imports before pages exist in the tree, so it must not depend on sibling lookups.
 func (s *SlugService) NormalizePathToValidSlugs(value string) (string, error) {

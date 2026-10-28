@@ -1,8 +1,9 @@
 package wikirestore
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -20,9 +21,6 @@ const (
 
 // RestoreErrorResponse is the structured JSON error body returned by restore endpoints.
 type RestoreErrorResponse = httpinternal.ErrorResponse
-
-// RestoreErrorDetail carries the localization-ready error data.
-type RestoreErrorDetail = httpinternal.ErrorDetail
 
 func respondWithRestoreStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

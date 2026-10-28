@@ -5,6 +5,7 @@ const headless = process.env.E2E_HEADLESS !== 'false';
 const maxFailures = Number(process.env.E2E_MAX_FAILURES || '1');
 
 export default defineConfig({
+  globalSetup: './helpers/setup.ts',
   testDir: './tests',
   timeout: 3 * 60 * 1000, // 3 minutes per test
   maxFailures,

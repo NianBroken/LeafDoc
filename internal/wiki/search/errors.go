@@ -1,8 +1,9 @@
 package search
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -15,12 +16,6 @@ const (
 	ErrCodeSearchInvalidOffset = "search_invalid_offset"
 	ErrCodeSearchInvalidLimit  = "search_invalid_limit"
 )
-
-// SearchErrorResponse is the structured JSON error body returned by search endpoints.
-type SearchErrorResponse = httpinternal.ErrorResponse
-
-// SearchErrorDetail carries the localization-ready error data.
-type SearchErrorDetail = httpinternal.ErrorDetail
 
 func respondWithSearchStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

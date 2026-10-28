@@ -343,13 +343,6 @@ func (m *HTTPMetrics) ObserveRefactorStep(kind, step string, started time.Time) 
 	m.refactorStepDuration.WithLabelValues(kind, step).Observe(time.Since(started).Seconds())
 }
 
-func (m *HTTPMetrics) ObserveResyncTriggerAccepted() {
-	if m == nil {
-		return
-	}
-	m.resyncRuns.WithLabelValues("accepted").Inc()
-}
-
 func (m *HTTPMetrics) ObserveResyncRun(err error, started time.Time) {
 	if m == nil {
 		return

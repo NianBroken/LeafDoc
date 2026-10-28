@@ -1,8 +1,9 @@
 package wikisnapshot
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -12,12 +13,6 @@ const (
 	ErrCodeSnapshotNotEnabled    = "snapshot_not_enabled"
 	ErrCodeSnapshotInternalError = "snapshot_internal_error"
 )
-
-// SnapshotErrorResponse is the structured JSON error body returned by snapshot endpoints.
-type SnapshotErrorResponse = httpinternal.ErrorResponse
-
-// SnapshotErrorDetail carries the localization-ready error data.
-type SnapshotErrorDetail = httpinternal.ErrorDetail
 
 func respondWithSnapshotStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

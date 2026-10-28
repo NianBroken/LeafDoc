@@ -112,6 +112,20 @@ func solidSquarePNG(t *testing.T, size int) []byte {
 	return encodePNG(t, img)
 }
 
+// Uploads recreate an empty storage directory removed by housekeeping.
+func TestAvatarService_UploadAvatar_RecreatesMissingDirectory(t *testing.T) {
+	svc, dir := newTestAvatarService(t)
+	if err := os.Remove(filepath.Join(dir, "avatars")); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.UploadAvatar("user-1", newMultipartFile(solidSquarePNG(t, 100)), "avatar.png"); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := svc.AvatarPath("user-1"); !exists {
+		t.Fatal("uploaded avatar does not exist")
+	}
+}
+
 func TestAvatarService_UploadAvatar_ValidFormats_ProducesTargetSizePNG(t *testing.T) {
 	square := image.NewRGBA(image.Rect(0, 0, 300, 300))
 	for y := 0; y < 300; y++ {

@@ -1,12 +1,12 @@
 package instancesettings
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/perber/wiki/internal/core/publicaccess"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	httpinternal "github.com/perber/wiki/internal/http"
 )
 
 const (
@@ -15,10 +15,6 @@ const (
 	// ErrCodeInternal is the fallback for an unclassified failure.
 	ErrCodeInternal = "instance_settings_internal_error"
 )
-
-type errorResponse = httpinternal.ErrorResponse
-
-type errorDetail = httpinternal.ErrorDetail
 
 func respondWithStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)

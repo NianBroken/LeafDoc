@@ -31,7 +31,6 @@ type ExecutionAction string
 
 const (
 	ExecutionActionCreated ExecutionAction = "created"
-	ExecutionActionUpdated ExecutionAction = "updated"
 	ExecutionActionSkipped ExecutionAction = "skipped"
 )
 

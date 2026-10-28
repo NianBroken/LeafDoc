@@ -1,4 +1,3 @@
-import i18next from '@/shared/lib/i18n'
 import { AppMode } from '@/shared/lib/useAppMode'
 import { HotKeyDefinition } from '@/shared/state/hotkeys'
 
@@ -373,8 +372,4 @@ export function createHotkeyDefinition(
     shouldHandle: options?.shouldHandle,
     action,
   }
-}
-
-export function getShortcutLabel(id: ShortcutId) {
-  return i18next.t(getShortcutDefinition(id).labelKey, { ns: 'viewer' })
 }

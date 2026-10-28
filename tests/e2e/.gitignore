@@ -13,13 +13,11 @@ dist-ssr
 *.local
 test-results
 e2e-tests-data
-!e2e-tests-data/.gitkeep
 
 local.sh
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 .idea
 .DS_Store
 *.suo

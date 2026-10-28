@@ -14,8 +14,6 @@ export const WIKILINK_PROTOCOLS = [
 
 export type MarkdownNodeProp = ExtraProps
 
-export type SemanticAlertKind = 'info' | 'success' | 'warning' | 'error'
-
 export type ShoutoutConfig = {
   kind: string
 }

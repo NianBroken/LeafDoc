@@ -3,12 +3,13 @@ package search
 import (
 	"database/sql"
 	"fmt"
-	"github.com/perber/wiki/internal/testutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	"github.com/perber/wiki/internal/core/tree"
 

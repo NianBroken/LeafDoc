@@ -1,8 +1,9 @@
 package pagesave
 
 import (
-	"github.com/perber/wiki/internal/testutil"
 	"testing"
+
+	"github.com/perber/wiki/internal/testutil"
 
 	"github.com/perber/wiki/internal/core/properties"
 	"github.com/perber/wiki/internal/core/tree"

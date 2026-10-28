@@ -1,8 +1,9 @@
 package tags
 
 import (
-	httpinternal "github.com/perber/wiki/internal/http"
 	"net/http"
+
+	httpinternal "github.com/perber/wiki/internal/http"
 
 	"github.com/gin-gonic/gin"
 	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
@@ -13,10 +14,6 @@ const (
 	ErrCodeTagsMissingParam = "tags_missing_param"
 	ErrCodeTagsInvalidLimit = "tags_invalid_limit"
 )
-
-type tagsErrorResponse = httpinternal.ErrorResponse
-
-type tagsErrorDetail = httpinternal.ErrorDetail
 
 func respondWithTagsError(c *gin.Context, err error) {
 	if loc, ok := sharederrors.AsLocalizedError(err); ok {
