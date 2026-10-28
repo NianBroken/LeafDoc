@@ -1,13 +1,12 @@
 # Step 1: Frontend
 FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS frontend-build
 WORKDIR /app/ui
-ARG APP_VERSION
 COPY ./ui/package*.json ./
 RUN npm ci --ignore-scripts
 COPY ./ui/ ./
 COPY ./scripts/sync-error-catalogs.mjs /app/scripts/sync-error-catalogs.mjs
 RUN mkdir -p /app/internal/core/localization
-RUN VITE_API_URL=/ APP_VERSION=${APP_VERSION} npm run build
+RUN VITE_API_URL=/ npm run build
 
 # Step 2: Backend + Build binary
 FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS backend-build

@@ -8,9 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu'
 import { avatarUrl } from '@/shared/lib/api/avatar'
@@ -19,10 +17,7 @@ import i18next from '@/shared/lib/i18n'
 import { DIALOG_SHORTCUTS_HELP } from '@/shared/lib/registries/instances'
 import { useTranslation } from 'react-i18next'
 import { redirectToExternal } from '@/shared/lib/redirectToExternal'
-import {
-  createHotkeyDefinition,
-  getShortcutDisplayLabel,
-} from '@/shared/lib/shortcuts/shortcutCatalog'
+import { createHotkeyDefinition } from '@/shared/lib/shortcuts/shortcutCatalog'
 import { useIsReadOnly } from '@/shared/lib/useIsReadOnly'
 import { useAvatarStore } from '@/features/settings/account/state/avatar'
 import { useConfigStore } from '@/shared/state/config'
@@ -32,14 +27,6 @@ import { useSessionStore } from '@/shared/state/session'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { RoleGuard } from '@/features/auth/components/RoleGuard'
-
-const isMacOS =
-  typeof navigator !== 'undefined' &&
-  /Mac|iPhone|iPad|iPod/.test(navigator.platform)
-const shortcutsDialogHotkeyLabel = getShortcutDisplayLabel(
-  'shortcuts.help.open',
-  isMacOS,
-)
 
 export default function UserMenu() {
   const { t } = useTranslation('auth')
@@ -134,10 +121,6 @@ export default function UserMenu() {
           >
             {t('userMenu.settings')}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-            {t('userMenu.version', { version: __APP_VERSION__ })}
-          </DropdownMenuLabel>
           <RoleGuard roles={['admin', 'editor']}>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -145,9 +128,6 @@ export default function UserMenu() {
               onClick={() => openDialog(DIALOG_SHORTCUTS_HELP)}
             >
               {i18next.t('shortcutsHelp.menuItem', { ns: 'viewer' })}
-              <DropdownMenuShortcut>
-                {shortcutsDialogHotkeyLabel}
-              </DropdownMenuShortcut>
             </DropdownMenuItem>
           </RoleGuard>
           {(!httpRemoteUserEnabled || logoutUrl) && (

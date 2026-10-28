@@ -6,11 +6,9 @@ import { BrandingAsset } from './BrandingAsset'
 // Exercise real image error events and URL changes without browser networking.
 describe('BrandingAsset', () => {
   it('shows the built-in logo when no custom file exists', () => {
-    render(
-      <BrandingAsset kind="logo" file="" version={1} alt="Logo" showSource />,
-    )
+    render(<BrandingAsset kind="logo" file="" version={1} alt="Logo" />)
     expect(screen.getByRole('img', { name: 'Logo' })).toHaveTextContent('🌿')
-    expect(screen.getByText('Built-in logo')).toBeInTheDocument()
+    expect(screen.queryByText('Built-in logo')).not.toBeInTheDocument()
   })
 
   it('falls back from a broken logo and retries when its version changes', () => {
@@ -41,17 +39,9 @@ describe('BrandingAsset', () => {
       'src',
       '/branding/favicon.png?v=1',
     )
-    rerender(
-      <BrandingAsset
-        kind="favicon"
-        file=""
-        version={2}
-        alt="Icon"
-        showSource
-      />,
-    )
+    rerender(<BrandingAsset kind="favicon" file="" version={2} alt="Icon" />)
     expect(screen.getByRole('img')).toHaveAttribute('src', '/favicon.svg?v=2')
-    expect(screen.getByText('Built-in favicon')).toBeInTheDocument()
+    expect(screen.queryByText('Built-in favicon')).not.toBeInTheDocument()
   })
 
   it('reports absence only after both favicon sources fail', () => {

@@ -18,11 +18,8 @@
     "title": "Logo",
     "description": "Le logo affiché dans l'en-tête à côté du nom du site.",
     "currentLabel": "Logo actuel :",
-    "noLogo": "Aucun logo téléversé",
-    "uploadLabel": "Téléverser un logo",
     "uploadButton": "Téléverser une image",
     "hint": "Formats acceptés : {{exts}}, taille max. {{size}} Mo",
-    "builtin": "Logo intégré",
     "unavailable": "Aucun logo disponible",
     "deleteLabel": "Supprimer le logo personnalisé"
   },
@@ -30,11 +27,8 @@
     "title": "Favicon",
     "description": "L'icône affichée dans l'onglet du navigateur.",
     "currentLabel": "Favicon actuel :",
-    "noFavicon": "Favicon par défaut utilisé",
-    "uploadLabel": "Téléverser un favicon",
     "uploadButton": "Téléverser un favicon",
     "hint": "Formats acceptés : {{exts}}, taille max. {{size}} Mo",
-    "builtin": "Icône du site intégrée",
     "unavailable": "Aucune icône disponible",
     "deleteLabel": "Supprimer l’icône personnalisée"
   },

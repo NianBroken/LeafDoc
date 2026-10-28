@@ -18,11 +18,8 @@
     "title": "Logo",
     "description": "The logo displayed in the header next to the site name.",
     "currentLabel": "Current Logo:",
-    "noLogo": "No logo uploaded",
-    "uploadLabel": "Upload Logo",
     "uploadButton": "Upload Image",
     "hint": "Accepts {{exts}}, max size {{size}} MB",
-    "builtin": "Built-in logo",
     "unavailable": "No available logo",
     "deleteLabel": "Delete custom logo"
   },
@@ -30,11 +27,8 @@
     "title": "Favicon",
     "description": "The icon displayed in the browser tab.",
     "currentLabel": "Current Favicon:",
-    "noFavicon": "Using default favicon",
-    "uploadLabel": "Upload Favicon",
     "uploadButton": "Upload Favicon",
     "hint": "Accepts {{exts}}, max size {{size}} MB",
-    "builtin": "Built-in favicon",
     "unavailable": "No available favicon",
     "deleteLabel": "Delete custom favicon"
   },

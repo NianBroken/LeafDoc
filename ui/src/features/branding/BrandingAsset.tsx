@@ -8,7 +8,6 @@ type BrandingAssetProps = {
   version: number
   alt: string
   className?: string
-  showSource?: boolean
 }
 
 // Image failures fall back to the same built-in resource used by the site.
@@ -19,7 +18,6 @@ export function BrandingAsset({
   version,
   alt,
   className,
-  showSource = false,
 }: BrandingAssetProps) {
   const { t } = useTranslation('branding')
   const [failedUrls, setFailedUrls] = useState<string[]>([])
@@ -27,7 +25,6 @@ export function BrandingAsset({
   const builtinUrl = brandingAssetUrl(kind, '', version)
   const source =
     customUrl && !failedUrls.includes(customUrl) ? customUrl : builtinUrl
-  const builtin = !file || source !== customUrl
   const unavailable = source !== null && failedUrls.includes(source)
 
   return (
@@ -36,7 +33,7 @@ export function BrandingAsset({
         <span
           role="img"
           aria-label={alt}
-          className={`${className ?? ''} text-xl`}
+          className={`${className ?? ''} inline-flex items-center justify-center text-xl leading-none`}
         >
           {BUILTIN_LOGO}
         </span>
@@ -51,9 +48,6 @@ export function BrandingAsset({
             if (source) setFailedUrls((urls) => [...urls, source])
           }}
         />
-      )}
-      {showSource && builtin && !unavailable && (
-        <span className="settings__hint">{t(`${kind}.builtin`)}</span>
       )}
     </>
   )

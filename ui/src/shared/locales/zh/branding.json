@@ -18,11 +18,8 @@
     "title": "Logo",
     "description": "显示在页眉站点名称旁的 Logo。",
     "currentLabel": "当前 Logo：",
-    "noLogo": "未上传 Logo",
-    "uploadLabel": "上传 Logo",
     "uploadButton": "上传图片",
     "hint": "支持 {{exts}}，最大 {{size}} MB",
-    "builtin": "系统内置Logo",
     "unavailable": "没有可用Logo",
     "deleteLabel": "删除自定义Logo"
   },
@@ -30,11 +27,8 @@
     "title": "站点图标",
     "description": "显示在浏览器标签页中的图标。",
     "currentLabel": "当前站点图标：",
-    "noFavicon": "使用默认站点图标",
-    "uploadLabel": "上传站点图标",
     "uploadButton": "上传图标",
     "hint": "支持 {{exts}}，最大 {{size}} MB",
-    "builtin": "系统内置站点图标",
     "unavailable": "没有可用站点图标",
     "deleteLabel": "删除自定义站点图标"
   },

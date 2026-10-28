@@ -18,11 +18,8 @@
     "title": "Logo",
     "description": "Das Logo, das in der Kopfzeile neben dem Seitennamen angezeigt wird.",
     "currentLabel": "Aktuelles Logo:",
-    "noLogo": "Kein Logo hochgeladen",
-    "uploadLabel": "Logo hochladen",
     "uploadButton": "Bild hochladen",
     "hint": "Akzeptiert {{exts}}, maximale Größe {{size}} MB",
-    "builtin": "Integriertes Logo",
     "unavailable": "Kein Logo verfügbar",
     "deleteLabel": "Benutzerdefiniertes Logo löschen"
   },
@@ -30,11 +27,8 @@
     "title": "Favicon",
     "description": "Das Symbol, das im Browser-Tab angezeigt wird.",
     "currentLabel": "Aktuelles Favicon:",
-    "noFavicon": "Standard-Favicon wird verwendet",
-    "uploadLabel": "Favicon hochladen",
     "uploadButton": "Favicon hochladen",
     "hint": "Akzeptiert {{exts}}, maximale Größe {{size}} MB",
-    "builtin": "Integriertes Website-Symbol",
     "unavailable": "Kein Website-Symbol verfügbar",
     "deleteLabel": "Benutzerdefiniertes Website-Symbol löschen"
   },

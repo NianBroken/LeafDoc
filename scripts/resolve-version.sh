@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Single source of truth for the LeafWiki build version, used by both the
-# Go build (main.Version via -ldflags) and the frontend build
-# (__APP_VERSION__ via vite.config.ts) so they can never drift out of sync.
+# Resolves the backend release version for main.Version and release artifacts.
 if [ -n "${APP_VERSION:-}" ]; then
   echo "$APP_VERSION"
   exit 0

@@ -145,25 +145,26 @@ export default function BrandingSettings() {
             {t('logo.description')}
           </p>
 
-          <div className="settings__preview">
+          <div className="settings__preview settings__branding-preview">
             <span className="settings__preview-label">
               {t('logo.currentLabel')}
             </span>
-            {!isLoaded && isLoading ? (
-              <Loader2
-                className="h-4 w-4 animate-spin"
-                aria-label={t('loading')}
-              />
-            ) : (
-              <BrandingAsset
-                kind="logo"
-                file={logoFile}
-                version={logoVersion}
-                alt={t('logo.title')}
-                className="settings__preview-image"
-                showSource
-              />
-            )}
+            <div className="settings__branding-asset">
+              {!isLoaded && isLoading ? (
+                <Loader2
+                  className="h-4 w-4 animate-spin"
+                  aria-label={t('loading')}
+                />
+              ) : (
+                <BrandingAsset
+                  kind="logo"
+                  file={logoFile}
+                  version={logoVersion}
+                  alt={t('logo.title')}
+                  className="settings__preview-image"
+                />
+              )}
+            </div>
             {logoFile && (
               <Button
                 variant="destructive"
@@ -178,7 +179,6 @@ export default function BrandingSettings() {
           </div>
 
           <div className="settings__field">
-            <Label>{t('logo.uploadLabel')}</Label>{' '}
             <input
               type="file"
               ref={logoInputRef}
@@ -209,25 +209,26 @@ export default function BrandingSettings() {
             {t('favicon.description')}
           </p>
 
-          <div className="settings__preview">
+          <div className="settings__preview settings__branding-preview">
             <span className="settings__preview-label">
               {t('favicon.currentLabel')}
             </span>
-            {!isLoaded && isLoading ? (
-              <Loader2
-                className="h-4 w-4 animate-spin"
-                aria-label={t('loading')}
-              />
-            ) : (
-              <BrandingAsset
-                kind="favicon"
-                file={faviconFile}
-                version={faviconVersion}
-                alt={t('favicon.title')}
-                className="settings__preview-favicon"
-                showSource
-              />
-            )}
+            <div className="settings__branding-asset">
+              {!isLoaded && isLoading ? (
+                <Loader2
+                  className="h-4 w-4 animate-spin"
+                  aria-label={t('loading')}
+                />
+              ) : (
+                <BrandingAsset
+                  kind="favicon"
+                  file={faviconFile}
+                  version={faviconVersion}
+                  alt={t('favicon.title')}
+                  className="settings__preview-favicon"
+                />
+              )}
+            </div>
             {faviconFile && (
               <Button
                 variant="destructive"
@@ -242,7 +243,6 @@ export default function BrandingSettings() {
           </div>
 
           <div className="settings__field">
-            <Label>{t('favicon.uploadLabel')}</Label>
             <input
               type="file"
               ref={faviconInputRef}

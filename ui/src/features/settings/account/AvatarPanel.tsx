@@ -4,7 +4,6 @@ import {
   AvatarImage,
 } from '@/shared/components/ui/avatar'
 import { Button } from '@/shared/components/ui/button'
-import { Label } from '@/shared/components/ui/label'
 import { avatarUrl } from '@/shared/lib/api/avatar'
 import { mapApiError } from '@/shared/lib/api/errors'
 import { formatBytes } from '@/shared/lib/config'
@@ -76,7 +75,6 @@ export function AvatarPanel() {
       </div>
 
       <div className="settings__field">
-        <Label>{t('account.avatar.uploadButton')}</Label>
         <input
           type="file"
           ref={fileInputRef}

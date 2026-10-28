@@ -27,7 +27,7 @@ all: build
 # Build the Vite SPA into internal/http/dist for go:embed.
 ui:
 	@echo "Building frontend..."
-	cd $(UI_DIR) && npm ci --ignore-scripts && VITE_API_URL=/ APP_VERSION=$(VERSION) npm run build
+	cd $(UI_DIR) && npm ci --ignore-scripts && VITE_API_URL=/ npm run build
 	rm -rf $(HTTP_DIST)
 	mkdir -p $(HTTP_DIST)
 	cp -R $(UI_DIR)/dist/. $(HTTP_DIST)/

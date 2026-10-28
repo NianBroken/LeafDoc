@@ -17,8 +17,6 @@ describe('UserMenu', () => {
   })
 
   beforeEach(() => {
-    vi.stubGlobal('__APP_VERSION__', 'test-version')
-
     useDialogsStore.setState({
       dialogType: null,
       dialogProps: null,
@@ -79,6 +77,8 @@ describe('UserMenu', () => {
     expect(trigger).toBeTruthy()
     await user.click(trigger as HTMLButtonElement)
 
+    expect(screen.queryByText(/test-version|Version /)).not.toBeInTheDocument()
+    expect(screen.queryByText('Ctrl+/')).not.toBeInTheDocument()
     const menuItem = await screen.findByText('Keyboard Shortcuts')
     await user.click(menuItem)
 

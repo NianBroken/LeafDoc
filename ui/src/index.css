@@ -3069,12 +3069,21 @@
     @apply text-3xl;
   }
 
+  /* Branding resources share a centered viewport independent of labels and actions. */
+  .settings__branding-preview {
+    @apply flex-wrap;
+  }
+
+  .settings__branding-asset {
+    @apply flex h-16 w-48 max-w-full min-w-0 items-center justify-center;
+  }
+
   .settings__preview-image {
-    @apply h-12 w-auto max-w-48 object-contain;
+    @apply block h-12 w-auto max-w-full object-contain;
   }
 
   .settings__preview-favicon {
-    @apply h-8 w-8;
+    @apply block h-8 w-8 max-w-full object-contain;
   }
 
   .settings__preview-placeholder {
