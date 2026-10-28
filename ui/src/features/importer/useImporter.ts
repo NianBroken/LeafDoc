@@ -136,7 +136,8 @@ export function useImporter() {
   ).length
   const currentStepItem = stepItems.find((step) => step.number === currentStep)
   const showPackageStep = currentStep === 1
-  const showPlanStep = currentStep === 2
+  // A failed run without result items still exposes its plan and execution error.
+  const showPlanStep = currentStep === 2 || (currentStep === 4 && !importResult)
   const showRunStep = currentStep === 3
   const showResultStep = currentStep === 4
   const showRunSection = currentStep === 2 || currentStep === 3

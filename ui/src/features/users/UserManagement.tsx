@@ -1,13 +1,16 @@
+import { UserRowActions } from './UserRowActions'
+import {
+  SettingsTable,
+  SettingsTableCell,
+  SettingsTableHeader,
+} from '@/shared/components/SettingsTable'
 import { mapApiError } from '@/shared/lib/api/errors'
 import { useUserStore } from '@/features/users/state/users'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useSetTitle } from '@/features/viewer/setTitle'
-import { ChangePasswordButton } from '@/features/users/ChangePasswordButton'
 import { CreateEditUserButton } from '@/features/users/CreateEditUserButton'
-import { DeleteUserButton } from '@/features/users/DeleteUserButton'
-import { ResendInviteButton } from '@/features/users/ResendInviteButton'
 
 export default function UserManagement() {
   const { t } = useTranslation('users')
@@ -42,52 +45,55 @@ export default function UserManagement() {
 
         <div className="settings__table-card">
           <div className="settings__table-scroll">
-            {/* One column grid governs the header, body and empty states. */}
-            <table className="settings__table users__table">
-              <colgroup>
-                <col className="users__column-name" />
-                <col className="users__column-email" />
-                <col className="users__column-role" />
-                <col className="users__column-actions" />
-              </colgroup>
+            <SettingsTable columns={4}>
               <thead className="settings__table-head">
                 <tr>
-                  <th scope="col" className="settings__table-header-cell">
+                  <SettingsTableHeader>
                     {t('columns.username')}
-                  </th>
-                  <th scope="col" className="settings__table-header-cell">
+                  </SettingsTableHeader>
+                  <SettingsTableHeader>
                     {t('columns.email')}
-                  </th>
-                  <th scope="col" className="settings__table-header-cell">
+                  </SettingsTableHeader>
+                  <SettingsTableHeader content="role">
                     {t('columns.role')}
-                  </th>
-                  <th scope="col" className="settings__table-header-cell">
+                  </SettingsTableHeader>
+                  <SettingsTableHeader content="actions">
                     {t('columns.actions')}
-                  </th>
+                  </SettingsTableHeader>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={4} className="settings__table-body-message">
+                    <SettingsTableCell
+                      colSpan={4}
+                      className="settings__table-body-message"
+                    >
                       {t('loading')}
-                    </td>
+                    </SettingsTableCell>
                   </tr>
                 )}
                 {!loading && users.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="settings__table-body-message">
+                    <SettingsTableCell
+                      colSpan={4}
+                      className="settings__table-body-message"
+                    >
                       {t('noUsersFound')}
-                    </td>
+                    </SettingsTableCell>
                   </tr>
                 )}
                 {!loading &&
                   users.length > 0 &&
                   users.map((user) => (
                     <tr key={user.id} className="settings__table-row">
-                      <td className="settings__table-cell">{user.username}</td>
-                      <td className="settings__table-cell">{user.email}</td>
-                      <td className="settings__table-cell">
+                      <SettingsTableCell className="settings__table-cell">
+                        {user.username}
+                      </SettingsTableCell>
+                      <SettingsTableCell className="settings__table-cell">
+                        {user.email}
+                      </SettingsTableCell>
+                      <SettingsTableCell className="settings__table-cell">
                         <span
                           className={`settings__role-pill ${
                             user.role === 'admin'
@@ -97,26 +103,14 @@ export default function UserManagement() {
                         >
                           {t(`roles.${user.role}`)}
                         </span>
-                      </td>
-                      <td className="settings__actions-cell">
-                        <div className="users__actions">
-                          {user.mustSetPassword && (
-                            <>
-                              <span className="settings__pill settings__pill-warning">
-                                {t('invite.pendingPill')}
-                              </span>
-                              <ResendInviteButton user={user} />
-                            </>
-                          )}
-                          <CreateEditUserButton user={user} />
-                          <ChangePasswordButton user={user} />
-                          <DeleteUserButton user={user} />
-                        </div>
-                      </td>
+                      </SettingsTableCell>
+                      <SettingsTableCell className="settings__actions-cell">
+                        <UserRowActions user={user} />
+                      </SettingsTableCell>
                     </tr>
                   ))}
               </tbody>
-            </table>
+            </SettingsTable>
           </div>
         </div>
       </div>

@@ -1,3 +1,7 @@
+import {
+  SettingsTable,
+  SettingsTableCell,
+} from '@/shared/components/SettingsTable'
 import { mapApiError } from '@/shared/lib/api/errors'
 import { useApiKeyStore } from '@/features/apikeys/state/apikeys'
 import { useUserStore } from '@/features/users/state/users'
@@ -50,7 +54,7 @@ export default function ApiKeysManagement() {
 
       <div className="settings__table-card">
         <div className="settings__table-scroll">
-          <table className="settings__table">
+          <SettingsTable columns={6}>
             <thead className="settings__table-head">
               <tr>
                 <th className="settings__table-header-cell">
@@ -76,27 +80,35 @@ export default function ApiKeysManagement() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="settings__table-body-message">
+                  <SettingsTableCell
+                    colSpan={6}
+                    className="settings__table-body-message"
+                  >
                     {t('table.loading')}
-                  </td>
+                  </SettingsTableCell>
                 </tr>
               )}
               {!loading && apiKeys.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="settings__table-body-message">
+                  <SettingsTableCell
+                    colSpan={6}
+                    className="settings__table-body-message"
+                  >
                     {t('table.empty')}
-                  </td>
+                  </SettingsTableCell>
                 </tr>
               )}
               {!loading &&
                 apiKeys.length > 0 &&
                 apiKeys.map((apiKey) => (
                   <tr key={apiKey.id} className="settings__table-row">
-                    <td className="settings__table-cell">{apiKey.name}</td>
-                    <td className="settings__table-cell">
+                    <SettingsTableCell className="settings__table-cell">
+                      {apiKey.name}
+                    </SettingsTableCell>
+                    <SettingsTableCell className="settings__table-cell">
                       {usernameFor(apiKey.userId)}
-                    </td>
-                    <td className="settings__table-cell">
+                    </SettingsTableCell>
+                    <SettingsTableCell className="settings__table-cell">
                       <span
                         className={`settings__role-pill ${
                           apiKey.role === 'admin'
@@ -108,14 +120,14 @@ export default function ApiKeysManagement() {
                           defaultValue: apiKey.role,
                         })}
                       </span>
-                    </td>
-                    <td className="settings__table-cell">
+                    </SettingsTableCell>
+                    <SettingsTableCell className="settings__table-cell">
                       {formatTimestamp(apiKey.expiresAt)}
-                    </td>
-                    <td className="settings__table-cell">
+                    </SettingsTableCell>
+                    <SettingsTableCell className="settings__table-cell">
                       {formatTimestamp(apiKey.lastUsedAt)}
-                    </td>
-                    <td className="settings__actions-cell">
+                    </SettingsTableCell>
+                    <SettingsTableCell className="settings__actions-cell">
                       <div className="settings__actions">
                         {apiKey.revokedAt ? (
                           <span className="settings__table-body-message">
@@ -125,11 +137,11 @@ export default function ApiKeysManagement() {
                           <DeleteApiKeyButton apiKey={apiKey} />
                         )}
                       </div>
-                    </td>
+                    </SettingsTableCell>
                   </tr>
                 ))}
             </tbody>
-          </table>
+          </SettingsTable>
         </div>
       </div>
     </div>

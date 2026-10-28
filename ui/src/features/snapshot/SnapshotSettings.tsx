@@ -1,3 +1,8 @@
+import { getIntervalOptions, getTimeZoneOptions } from './scheduleOptions'
+import {
+  downwardSelectContentProps,
+  revealDownwardSelect,
+} from '@/shared/lib/selectPlacement'
 import { Checkbox } from '@/shared/components/ui/checkbox'
 import {
   Select,
@@ -82,6 +87,8 @@ export default function SnapshotSettings() {
     handleSelfRestart,
     restorePhaseLabel,
   } = useSnapshotSettings()
+  const intervalChoices = getIntervalOptions(settingsDraft?.interval ?? '')
+  const timeZoneChoices = getTimeZoneOptions(settingsDraft?.timeZone ?? '')
   return (
     <div className="settings">
       <h1 className="settings__title">{t('pageTitle')}</h1>
@@ -269,6 +276,9 @@ export default function SnapshotSettings() {
               </Label>
               <Select
                 value={settingsDraft.mode}
+                onOpenChange={(open) =>
+                  revealDownwardSelect('snapshot-schedule-mode', open)
+                }
                 disabled={!settingsDraft.enabled || settingsSaving}
                 onValueChange={(value) =>
                   setSettingsDraft({
@@ -284,7 +294,7 @@ export default function SnapshotSettings() {
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent {...downwardSelectContentProps}>
                   <SelectItem value="daily">
                     {t('settings.dailyMode')}
                   </SelectItem>
@@ -317,18 +327,36 @@ export default function SnapshotSettings() {
                 <Label htmlFor="snapshot-schedule-interval">
                   {t('settings.intervalLabel')}
                 </Label>
-                <Input
-                  id="snapshot-schedule-interval"
-                  value={settingsDraft.interval}
-                  placeholder="24h"
-                  disabled={!settingsDraft.enabled || settingsSaving}
-                  onChange={(event) =>
-                    setSettingsDraft({
-                      ...settingsDraft,
-                      interval: event.target.value,
-                    })
+                <Select
+                  value={intervalChoices.value}
+                  onOpenChange={(open) =>
+                    revealDownwardSelect('snapshot-schedule-interval', open)
                   }
-                />
+                  disabled={!settingsDraft.enabled || settingsSaving}
+                  onValueChange={(interval) =>
+                    setSettingsDraft({ ...settingsDraft, interval })
+                  }
+                >
+                  <SelectTrigger
+                    id="snapshot-schedule-interval"
+                    aria-label={t('settings.intervalLabel')}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent {...downwardSelectContentProps}>
+                    {intervalChoices.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.unit
+                          ? t(`settings.intervalUnits.${option.unit}`, {
+                              count: option.count,
+                            })
+                          : t('settings.currentInterval', {
+                              value: option.value,
+                            })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="settings__hint">
                   {t('settings.intervalDescription')}
                 </p>
@@ -339,18 +367,30 @@ export default function SnapshotSettings() {
                 <Label htmlFor="snapshot-schedule-timezone">
                   {t('settings.timeZoneLabel')}
                 </Label>
-                <Input
-                  id="snapshot-schedule-timezone"
+                <Select
                   value={settingsDraft.timeZone}
-                  placeholder="Asia/Shanghai"
-                  disabled={!settingsDraft.enabled || settingsSaving}
-                  onChange={(event) =>
-                    setSettingsDraft({
-                      ...settingsDraft,
-                      timeZone: event.target.value,
-                    })
+                  onOpenChange={(open) =>
+                    revealDownwardSelect('snapshot-schedule-timezone', open)
                   }
-                />
+                  disabled={!settingsDraft.enabled || settingsSaving}
+                  onValueChange={(timeZone) =>
+                    setSettingsDraft({ ...settingsDraft, timeZone })
+                  }
+                >
+                  <SelectTrigger
+                    id="snapshot-schedule-timezone"
+                    aria-label={t('settings.timeZoneLabel')}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent {...downwardSelectContentProps}>
+                    {timeZoneChoices.map((timeZone) => (
+                      <SelectItem key={timeZone} value={timeZone}>
+                        {timeZone}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="settings__hint">
                   {t('settings.timeZoneDescription')}
                 </p>

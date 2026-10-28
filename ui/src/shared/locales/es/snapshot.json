@@ -26,15 +26,24 @@
     "intervalMode": "A intervalos fijos",
     "timeLabel": "Hora diaria",
     "intervalLabel": "Intervalo",
-    "intervalDescription": "Usa el formato de duración de Go, por ejemplo 24h o 6h. El mínimo es 1 minuto.",
+    "intervalDescription": "Selecciona un intervalo. Los demás intervalos guardados siguen disponibles.",
     "timeZoneLabel": "Zona horaria",
-    "timeZoneDescription": "Escribe una zona IANA, por ejemplo Asia/Shanghai o UTC.",
+    "timeZoneDescription": "Selecciona una zona horaria. El horario de verano sigue la zona elegida.",
     "retentionLabel": "Copias que se conservarán",
     "retentionDescription": "Escribe un entero entre 0 y 100000. El valor 0 conserva todas las copias.",
     "invalidRetention": "La retención debe ser un entero entre 0 y 100000.",
     "saveButton": "Guardar ajustes",
     "savedToast": "Se guardaron los ajustes de copia de seguridad",
-    "saveError": "No se pudieron guardar los ajustes de copia de seguridad"
+    "saveError": "No se pudieron guardar los ajustes de copia de seguridad",
+    "currentInterval": "Configuración actual: {{value}}",
+    "intervalUnits": {
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días"
+    }
   },
   "manualSectionTitle": "Copia de seguridad manual",
   "manualSectionDescription": "Inicia una copia de seguridad completa inmediata sin esperar a la próxima ejecución programada.",

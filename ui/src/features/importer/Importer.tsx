@@ -1,3 +1,7 @@
+import {
+  SettingsTable,
+  SettingsTableCell,
+} from '@/shared/components/SettingsTable'
 import { useImporter } from './useImporter'
 
 import { Button } from '@/shared/components/ui/button'
@@ -344,32 +348,38 @@ export default function Importer() {
 
             <div className="settings__table-card">
               <div className="settings__table-scroll">
-                <table className="settings__table">
+                <SettingsTable columns={2}>
                   <tbody>
                     <tr>
                       <th className="settings__table-header-cell">
                         {t('plan.idLabel')}
                       </th>
-                      <td>{importPlan.id}</td>
+                      <SettingsTableCell>{importPlan.id}</SettingsTableCell>
                     </tr>
                     <tr>
                       <th className="settings__table-header-cell">
                         {t('plan.treeHashLabel')}
                       </th>
-                      <td>{importPlan.tree_hash}</td>
+                      <SettingsTableCell>
+                        {importPlan.tree_hash}
+                      </SettingsTableCell>
                     </tr>
                     <tr>
                       <th className="settings__table-header-cell">
                         {t('plan.progressLabel')}
                       </th>
-                      <td>{progressLabel ?? '0/0'}</td>
+                      <SettingsTableCell>
+                        {progressLabel ?? '0/0'}
+                      </SettingsTableCell>
                     </tr>
                     {importPlan.started_at && (
                       <tr>
                         <th className="settings__table-header-cell">
                           {t('plan.startedAtLabel')}
                         </th>
-                        <td>{formatDateTime(importPlan.started_at)}</td>
+                        <SettingsTableCell>
+                          {formatDateTime(importPlan.started_at)}
+                        </SettingsTableCell>
                       </tr>
                     )}
                     {importPlan.finished_at && (
@@ -377,11 +387,13 @@ export default function Importer() {
                         <th className="settings__table-header-cell">
                           {t('plan.finishedAtLabel')}
                         </th>
-                        <td>{formatDateTime(importPlan.finished_at)}</td>
+                        <SettingsTableCell>
+                          {formatDateTime(importPlan.finished_at)}
+                        </SettingsTableCell>
                       </tr>
                     )}
                   </tbody>
-                </table>
+                </SettingsTable>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
@@ -428,7 +440,7 @@ export default function Importer() {
               <div className="settings__field">
                 <div className="settings__table-card">
                   <div className="settings__table-scroll">
-                    <table className="settings__table">
+                    <SettingsTable columns={6}>
                       <thead className="settings__table-head">
                         <tr>
                           <th className="settings__table-header-cell">
@@ -454,26 +466,26 @@ export default function Importer() {
                       <tbody>
                         {importPlan.items.map((item) => (
                           <tr key={`${item.source_path}::${item.target_path}`}>
-                            <td className="settings__table-cell">
+                            <SettingsTableCell className="settings__table-cell">
                               {item.source_path}
-                            </td>
-                            <td className="settings__table-cell">
+                            </SettingsTableCell>
+                            <SettingsTableCell className="settings__table-cell">
                               {item.target_path}
-                            </td>
-                            <td className="settings__table-cell">
+                            </SettingsTableCell>
+                            <SettingsTableCell className="settings__table-cell">
                               {item.title}
-                            </td>
-                            <td className="settings__table-cell">
+                            </SettingsTableCell>
+                            <SettingsTableCell className="settings__table-cell">
                               <span className="settings__pill settings__pill-success">
                                 {item.kind}
                               </span>
-                            </td>
-                            <td className="settings__table-cell">
+                            </SettingsTableCell>
+                            <SettingsTableCell className="settings__table-cell">
                               <span className={getPlanActionClass(item.action)}>
                                 {getPlanActionLabel(item.action)}
                               </span>
-                            </td>
-                            <td className="settings__table-cell importer__details-cell">
+                            </SettingsTableCell>
+                            <SettingsTableCell className="settings__table-cell importer__details-cell">
                               {item.notes && item.notes.length > 0 ? (
                                 item.notes.join(', ')
                               ) : (
@@ -481,11 +493,11 @@ export default function Importer() {
                                   {t('plannedItems.noSpecialNotes')}
                                 </span>
                               )}
-                            </td>
+                            </SettingsTableCell>
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </SettingsTable>
                   </div>
                 </div>
               </div>
@@ -642,28 +654,34 @@ export default function Importer() {
 
             <div className="settings__table-card">
               <div className="settings__table-scroll">
-                <table className="settings__table">
+                <SettingsTable columns={2}>
                   <tbody>
                     <tr>
                       <th className="settings__table-header-cell">
                         {t('result.importedCount')}
                       </th>
-                      <td>{importResult.imported_count}</td>
+                      <SettingsTableCell>
+                        {importResult.imported_count}
+                      </SettingsTableCell>
                     </tr>
                     <tr>
                       <th className="settings__table-header-cell">
                         {t('result.updatedCount')}
                       </th>
-                      <td>{importResult.updated_count}</td>
+                      <SettingsTableCell>
+                        {importResult.updated_count}
+                      </SettingsTableCell>
                     </tr>
                     <tr>
                       <th className="settings__table-header-cell">
                         {t('result.skippedCount')}
                       </th>
-                      <td>{importResult.skipped_count}</td>
+                      <SettingsTableCell>
+                        {importResult.skipped_count}
+                      </SettingsTableCell>
                     </tr>
                   </tbody>
-                </table>
+                </SettingsTable>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
@@ -742,7 +760,7 @@ export default function Importer() {
             </div>
             <div className="settings__table-card">
               <div className="settings__table-scroll">
-                <table className="settings__table">
+                <SettingsTable columns={4}>
                   <thead className="settings__table-head">
                     <tr>
                       <th className="settings__table-header-cell">
@@ -762,13 +780,13 @@ export default function Importer() {
                   <tbody>
                     {filteredResultItems.map((item) => (
                       <tr key={`${item.source_path}::${item.target_path}`}>
-                        <td className="settings__table-cell">
+                        <SettingsTableCell className="settings__table-cell">
                           {item.source_path}
-                        </td>
-                        <td className="settings__table-cell">
+                        </SettingsTableCell>
+                        <SettingsTableCell className="settings__table-cell">
                           {item.target_path}
-                        </td>
-                        <td className="settings__table-cell">
+                        </SettingsTableCell>
+                        <SettingsTableCell className="settings__table-cell">
                           <span
                             className={getResultActionClass(
                               item.action,
@@ -780,8 +798,8 @@ export default function Importer() {
                               Boolean(item.error),
                             )}
                           </span>
-                        </td>
-                        <td className="settings__table-cell importer__details-cell">
+                        </SettingsTableCell>
+                        <SettingsTableCell className="settings__table-cell importer__details-cell">
                           {item.error ? (
                             item.error
                           ) : item.action === 'created' ? (
@@ -795,21 +813,21 @@ export default function Importer() {
                               {t('resultItems.detailNone')}
                             </span>
                           )}
-                        </td>
+                        </SettingsTableCell>
                       </tr>
                     ))}
                     {filteredResultItems.length === 0 && (
                       <tr>
-                        <td
+                        <SettingsTableCell
                           className="settings__table-body-message"
                           colSpan={4}
                         >
                           {t('resultItems.noItemsMatch')}
-                        </td>
+                        </SettingsTableCell>
                       </tr>
                     )}
                   </tbody>
-                </table>
+                </SettingsTable>
               </div>
             </div>
           </div>

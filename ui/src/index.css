@@ -3002,6 +3002,12 @@
     @apply mx-auto w-full max-w-4xl px-4 pt-4 pb-4 sm:px-8 sm:pt-8;
   }
 
+  /* Table pages use the available viewport before requiring horizontal scrolling. */
+  .settings:has(.settings__table) {
+    width: fit-content;
+    max-width: 100%;
+  }
+
   .settings-nav .list-view__header {
     @apply border-b-surface-border bg-surface h-12 min-h-0 border-b px-2;
   }
@@ -3100,15 +3106,68 @@
   }
 
   .settings__table-card {
-    @apply border-surface-border bg-surface mt-4 rounded-md border shadow-sm;
+    @apply border-surface-border bg-surface mt-4 w-fit max-w-full rounded-md border shadow-sm;
   }
 
   .settings__table-scroll {
     @apply overflow-x-auto;
   }
 
+  /* Management tables keep one shared size at every viewport width. */
   .settings__table {
-    @apply w-full text-sm;
+    --settings-table-column-width: 240px;
+    --settings-table-row-height: 56px;
+    --settings-table-cell-padding: 12px;
+    @apply table-fixed border-collapse text-sm;
+    width: calc(
+      var(--settings-table-columns) * var(--settings-table-column-width)
+    );
+  }
+
+  .settings__table col {
+    width: var(--settings-table-column-width);
+  }
+
+  .settings__table tr {
+    height: var(--settings-table-row-height);
+  }
+
+  .settings__table th,
+  .settings__table td {
+    box-sizing: border-box;
+    height: var(--settings-table-row-height);
+    padding: 0 var(--settings-table-cell-padding);
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .settings__table-text {
+    height: calc(
+      var(--settings-table-row-height) - 2 * var(--settings-table-cell-padding)
+    );
+    line-height: calc(
+      var(--settings-table-row-height) - 2 * var(--settings-table-cell-padding)
+    );
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .settings__table-text:focus-visible {
+    @apply outline-brand rounded outline-2 -outline-offset-2;
+  }
+
+  .settings__table-tooltip {
+    max-width: min(32rem, calc(100vw - 2rem));
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .settings__table .settings__actions {
+    @apply h-full flex-nowrap items-center justify-start;
   }
 
   .importer .settings__table {
@@ -3232,7 +3291,7 @@
   }
 
   .importer__details-cell {
-    @apply max-w-xl leading-6;
+    @apply text-interface-text;
   }
 
   .importer__muted-copy {
@@ -3272,36 +3331,36 @@
     @apply mb-0 min-w-0 space-y-2;
   }
 
-  /* Column widths belong to the table, never to independently sized rows. */
-  .users__table {
-    @apply min-w-[48rem] table-fixed border-collapse;
-  }
-
-  .users__column-name {
-    width: 20%;
-  }
-  .users__column-email {
-    width: 30%;
-  }
-  .users__column-role {
-    width: 14%;
-  }
-  .users__column-actions {
-    width: 36%;
-  }
-
-  .users__table th,
-  .users__table td {
-    @apply text-left align-middle;
-    overflow-wrap: anywhere;
-  }
-
-  .users__table .settings__role-pill {
-    @apply inline-block whitespace-nowrap;
-  }
-
   .users__actions {
-    @apply flex flex-wrap items-center justify-start gap-2;
+    @apply flex h-full flex-nowrap items-center justify-start gap-2;
+  }
+
+  .users__actions > * {
+    @apply shrink-0;
+  }
+
+  /* Text in headers shares the content insets of the corresponding controls. */
+  .settings__table {
+    --settings-table-role-inset: 0.5rem;
+    --settings-table-action-inset: 0.75rem;
+  }
+
+  .settings__table-heading--role {
+    padding-inline: var(--settings-table-role-inset);
+  }
+
+  .settings__table-heading--actions {
+    display: inline-flex;
+    border-inline: 1px solid transparent;
+    padding-inline: var(--settings-table-action-inset);
+  }
+
+  .settings__table .settings__role-pill {
+    padding-inline: var(--settings-table-role-inset);
+  }
+
+  .users__actions > button {
+    padding-inline: var(--settings-table-action-inset);
   }
 
   .settings__table-head {

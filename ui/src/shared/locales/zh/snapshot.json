@@ -26,15 +26,24 @@
     "intervalMode": "按固定间隔",
     "timeLabel": "每天运行时间",
     "intervalLabel": "运行间隔",
-    "intervalDescription": "使用 Go 时间间隔格式，例如 24h 或 6h。最短为 1 分钟。",
+    "intervalDescription": "从列表选择运行间隔。已有的其他合法间隔会保留为当前选项。",
     "timeZoneLabel": "时区",
-    "timeZoneDescription": "填写 IANA 时区名称，例如 Asia/Shanghai 或 UTC。夏令时按该时区规则计算。",
+    "timeZoneDescription": "从列表选择时区。夏令时按所选时区规则计算。",
     "retentionLabel": "保留份数",
     "retentionDescription": "填写 0 至 100000 的整数。0 表示不自动删除旧备份。",
     "invalidRetention": "保留份数必须是 0 至 100000 的整数。",
     "saveButton": "保存设置",
     "savedToast": "完整备份设置已保存",
-    "saveError": "无法保存完整备份设置"
+    "saveError": "无法保存完整备份设置",
+    "currentInterval": "当前设置：{{value}}",
+    "intervalUnits": {
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天"
+    }
   },
   "manualSectionTitle": "手动备份",
   "manualSectionDescription": "无需等待下次计划运行，立即触发一次完整备份。",

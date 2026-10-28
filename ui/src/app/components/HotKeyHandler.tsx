@@ -37,6 +37,14 @@ export function HotKeyHandler() {
 
       const comboString = getHotkeyComboFromEvent(e)
 
+      // Open menus own Escape so closing a list never exits its surrounding page.
+      if (
+        comboString === 'Escape' &&
+        target?.closest('[role="listbox"], [role="menu"]')
+      ) {
+        return
+      }
+
       // Escape bypasses the button/textarea guard below so it always reaches
       // the registered hotkey (e.g. closing a dialog or the editor).
       if (comboString !== 'Escape') {

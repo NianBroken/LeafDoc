@@ -82,6 +82,34 @@ describe('HotKeyHandler', () => {
     addSpy.mockRestore()
   })
 
+  it.each(['listbox', 'menu'])(
+    'leaves Escape to an open %s instead of navigating away',
+    (role) => {
+      const action = vi.fn()
+      const menuKeyDown = vi.fn()
+      useHotKeysStore.getState().registerHotkey({
+        keyCombo: 'Escape',
+        enabled: true,
+        mode: ['view'],
+        action,
+      })
+      render(
+        <MemoryRouter initialEntries={['/docs/getting-started']}>
+          <HotKeyHandler />
+          <div role={role} onKeyDown={menuKeyDown}>
+            <button>Choice</button>
+          </div>
+        </MemoryRouter>,
+      )
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Choice' }), {
+        key: 'Escape',
+        code: 'Escape',
+      })
+      expect(action).not.toHaveBeenCalled()
+      expect(menuKeyDown).toHaveBeenCalledOnce()
+    },
+  )
+
   it('dispatches Escape to the dialog when an editor registers later', () => {
     const closeDialog = vi.fn()
     const closeEditor = vi.fn()

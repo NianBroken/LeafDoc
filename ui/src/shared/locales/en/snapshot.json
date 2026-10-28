@@ -26,15 +26,24 @@
     "intervalMode": "At a fixed interval",
     "timeLabel": "Daily run time",
     "intervalLabel": "Run interval",
-    "intervalDescription": "Use Go duration format, such as 24h or 6h. The minimum is 1 minute.",
+    "intervalDescription": "Choose a backup interval. Other saved intervals remain available.",
     "timeZoneLabel": "Time zone",
-    "timeZoneDescription": "Enter an IANA time zone such as Asia/Shanghai or UTC. Daylight saving follows that zone's rules.",
+    "timeZoneDescription": "Select a time zone. Daylight saving follows the selected zone.",
     "retentionLabel": "Number of backups to keep",
     "retentionDescription": "Enter an integer from 0 to 100000. Zero keeps all backups.",
     "invalidRetention": "Retention must be an integer from 0 to 100000.",
     "saveButton": "Save settings",
     "savedToast": "Full backup settings saved",
-    "saveError": "Could not save full backup settings"
+    "saveError": "Could not save full backup settings",
+    "currentInterval": "Current setting: {{value}}",
+    "intervalUnits": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    }
   },
   "manualSectionTitle": "Manual Backup",
   "manualSectionDescription": "Trigger an immediate full backup without waiting for the next scheduled run.",

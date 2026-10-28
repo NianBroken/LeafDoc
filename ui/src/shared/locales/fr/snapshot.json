@@ -26,15 +26,24 @@
     "intervalMode": "À intervalle fixe",
     "timeLabel": "Heure quotidienne",
     "intervalLabel": "Intervalle",
-    "intervalDescription": "Utilisez le format de durée Go, par exemple 24h ou 6h. Minimum : 1 minute.",
+    "intervalDescription": "Choisissez un intervalle. Les autres intervalles enregistrés restent disponibles.",
     "timeZoneLabel": "Fuseau horaire",
-    "timeZoneDescription": "Saisissez un fuseau IANA, par exemple Asia/Shanghai ou UTC.",
+    "timeZoneDescription": "Sélectionnez un fuseau horaire. Le changement d’heure suit le fuseau choisi.",
     "retentionLabel": "Nombre de sauvegardes à conserver",
     "retentionDescription": "Saisissez un entier de 0 à 100000. La valeur 0 conserve toutes les sauvegardes.",
     "invalidRetention": "La valeur doit être un entier de 0 à 100000.",
     "saveButton": "Enregistrer les paramètres",
     "savedToast": "Paramètres de sauvegarde enregistrés",
-    "saveError": "Impossible d'enregistrer les paramètres de sauvegarde"
+    "saveError": "Impossible d'enregistrer les paramètres de sauvegarde",
+    "currentInterval": "Réglage actuel : {{value}}",
+    "intervalUnits": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours"
+    }
   },
   "manualSectionTitle": "Sauvegarde manuelle",
   "manualSectionDescription": "Déclencher une sauvegarde complète immédiate sans attendre la prochaine exécution planifiée.",

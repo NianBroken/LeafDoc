@@ -26,15 +26,24 @@
     "intervalMode": "In festen Abständen",
     "timeLabel": "Tägliche Startzeit",
     "intervalLabel": "Zeitabstand",
-    "intervalDescription": "Verwenden Sie das Go-Dauerformat, zum Beispiel 24h oder 6h. Mindestens 1 Minute.",
+    "intervalDescription": "Wählen Sie ein Intervall. Andere gespeicherte Intervalle bleiben verfügbar.",
     "timeZoneLabel": "Zeitzone",
-    "timeZoneDescription": "Geben Sie eine IANA-Zeitzone ein, zum Beispiel Asia/Shanghai oder UTC.",
+    "timeZoneDescription": "Wählen Sie eine Zeitzone. Die Sommerzeit folgt der gewählten Zone.",
     "retentionLabel": "Anzahl aufzubewahrender Sicherungen",
     "retentionDescription": "Geben Sie eine ganze Zahl von 0 bis 100000 ein. Bei 0 bleiben alle Sicherungen erhalten.",
     "invalidRetention": "Die Anzahl muss eine ganze Zahl von 0 bis 100000 sein.",
     "saveButton": "Einstellungen speichern",
     "savedToast": "Sicherungseinstellungen gespeichert",
-    "saveError": "Sicherungseinstellungen konnten nicht gespeichert werden"
+    "saveError": "Sicherungseinstellungen konnten nicht gespeichert werden",
+    "currentInterval": "Aktuelle Einstellung: {{value}}",
+    "intervalUnits": {
+      "minutes_one": "{{count}} Minute",
+      "minutes_other": "{{count}} Minuten",
+      "hours_one": "{{count}} Stunde",
+      "hours_other": "{{count}} Stunden",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage"
+    }
   },
   "manualSectionTitle": "Manuelle Sicherung",
   "manualSectionDescription": "Löst eine sofortige vollständige Sicherung aus, ohne auf den nächsten geplanten Lauf zu warten.",

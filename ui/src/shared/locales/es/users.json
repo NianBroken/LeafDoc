@@ -13,7 +13,9 @@
     "edit": "Editar",
     "new": "Nuevo usuario",
     "changePassword": "Cambiar contraseña",
-    "delete": "Eliminar"
+    "delete": "Eliminar",
+    "more": "Más acciones",
+    "moreFor": "Más acciones para {{username}}"
   },
   "invite": {
     "pendingPill": "Invitación pendiente",

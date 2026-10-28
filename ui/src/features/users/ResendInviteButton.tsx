@@ -5,12 +5,17 @@ import { useUserStore } from '@/features/users/state/users'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu'
 
 type ResendInviteButtonProps = {
   user: User
+  menuItem?: boolean
 }
 
-export function ResendInviteButton({ user }: ResendInviteButtonProps) {
+export function ResendInviteButton({
+  user,
+  menuItem,
+}: ResendInviteButtonProps) {
   const { t } = useTranslation('users')
   const resendInvite = useUserStore((s) => s.resendInvite)
   const [loading, setLoading] = useState(false)
@@ -27,6 +32,20 @@ export function ResendInviteButton({ user }: ResendInviteButtonProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (menuItem) {
+    return (
+      <DropdownMenuItem
+        disabled={loading}
+        onSelect={(event) => {
+          event.preventDefault()
+          void handleClick()
+        }}
+      >
+        {loading ? t('invite.resending') : t('invite.resendAction')}
+      </DropdownMenuItem>
+    )
   }
 
   return (

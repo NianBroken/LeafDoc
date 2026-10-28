@@ -13,7 +13,9 @@
     "edit": "编辑",
     "new": "新建用户",
     "changePassword": "修改密码",
-    "delete": "删除"
+    "delete": "删除",
+    "more": "更多操作",
+    "moreFor": "{{username}} 的更多操作"
   },
   "invite": {
     "pendingPill": "邀请待处理",
