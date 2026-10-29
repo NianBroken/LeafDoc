@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/perber/wiki/internal/core/settings"
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
 )
 
 // BrandingStore persists BrandingConfig to <storageDir>/branding.json, backed

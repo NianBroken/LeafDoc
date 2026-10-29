@@ -17,7 +17,7 @@ import SettingsLayout from '@/features/settings/SettingsLayout'
 import SettingsSectionGuard from '@/features/settings/SettingsSectionGuard'
 import AuthWrapper from '@/app/router/RouterAuthWrapper'
 
-export const createLeafWikiRouter = (
+export const createLeafDocRouter = (
   authDisabled: boolean,
   enableRevision: boolean,
   loginUrl: string,

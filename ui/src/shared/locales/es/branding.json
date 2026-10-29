@@ -12,7 +12,7 @@
     "title": "Nombre del Sitio",
     "description": "El nombre que se muestra en el encabezado, los títulos de las páginas y la pantalla de inicio de sesión.",
     "label": "Nombre del sitio",
-    "placeholder": "LeafWiki"
+    "placeholder": "LeafDoc"
   },
   "logo": {
     "title": "Logotipo",

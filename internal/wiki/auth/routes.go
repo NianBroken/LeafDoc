@@ -6,19 +6,19 @@ import (
 	"net/http"
 	"time"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	coreavatar "github.com/NianBroken/LeafDoc/internal/core/avatar"
+	"github.com/NianBroken/LeafDoc/internal/core/preferences"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/utils"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	coreavatar "github.com/perber/wiki/internal/core/avatar"
-	"github.com/perber/wiki/internal/core/preferences"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/http/middleware/security"
-	"github.com/perber/wiki/internal/http/middleware/utils"
 )
 
 const (
 	httpsRequiredLogMsg        = "https required for auth cookies use allow insecure"
-	httpsRequiredUserMsg       = "HTTPS is required for auth cookies. Use HTTPS or start LeafWiki with --allow-insecure for trusted plain HTTP setups."
+	httpsRequiredUserMsg       = "HTTPS is required for auth cookies. Use HTTPS or start LeafDoc with --allow-insecure for trusted plain HTTP setups."
 	errInvalidRequestUserMsg   = "Invalid request"
 	errInvalidRequestLogMsg    = "invalid request"
 	errFailedToIssueCSRFCookie = "Failed to issue CSRF cookie"
@@ -260,7 +260,7 @@ func (r *Routes) handleLogin(rctx httpinternal.RouterContext) gin.HandlerFunc {
 		}
 		if _, err := rctx.CSRFCookie.Issue(c); err != nil {
 			writeAuthCookieError(c, err,
-				"HTTPS is required for login cookies. Use HTTPS or start LeafWiki with --allow-insecure for trusted plain HTTP setups.",
+				"HTTPS is required for login cookies. Use HTTPS or start LeafDoc with --allow-insecure for trusted plain HTTP setups.",
 				errFailedToIssueCSRFCookie,
 				"failed to issue login CSRF cookie",
 			)
@@ -547,7 +547,7 @@ func (r *Routes) handleConfirmInvite(rctx httpinternal.RouterContext) gin.Handle
 		}
 		if _, err := rctx.CSRFCookie.Issue(c); err != nil {
 			writeAuthCookieError(c, err,
-				"HTTPS is required for login cookies. Use HTTPS or start LeafWiki with --allow-insecure for trusted plain HTTP setups.",
+				"HTTPS is required for login cookies. Use HTTPS or start LeafDoc with --allow-insecure for trusted plain HTTP setups.",
 				errFailedToIssueCSRFCookie,
 				"failed to issue invite-accept CSRF cookie",
 			)

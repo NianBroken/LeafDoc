@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 func (s *Service) ListRevisions(pageID string) ([]*Revision, error) {

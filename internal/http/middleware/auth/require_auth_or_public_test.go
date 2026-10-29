@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/publicaccess"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 // flipGate is a publicaccess.ReadGate whose value can be toggled between
@@ -88,7 +88,7 @@ func TestRequireAuthOrPublicRead_InvalidToken_PublicOff_Returns401(t *testing.T)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	r := newAuthOrPublicRouter(fixture.auth, authCookies, false, &flipGate{enabled: false}, nil)
 
-	w := doGet(r, &http.Cookie{Name: "leafwiki_at", Value: "bogus"})
+	w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: "bogus"})
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", w.Code)
 	}
@@ -103,7 +103,7 @@ func TestRequireAuthOrPublicRead_InvalidToken_PublicOn_PassesAnonymously(t *test
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	r := newAuthOrPublicRouter(fixture.auth, authCookies, false, &flipGate{enabled: true}, nil)
 
-	w := doGet(r, &http.Cookie{Name: "leafwiki_at", Value: "bogus"})
+	w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: "bogus"})
 	if w.Code != http.StatusOK || w.Body.String() != `{"user":null}` {
 		t.Fatalf("expected 200 anonymous for invalid token in public mode, got %d %s", w.Code, w.Body.String())
 	}
@@ -120,7 +120,7 @@ func TestRequireAuthOrPublicRead_ValidToken_AttachesUser_BothModes(t *testing.T)
 
 	for _, public := range []bool{false, true} {
 		r := newAuthOrPublicRouter(fixture.auth, authCookies, false, &flipGate{enabled: public}, nil)
-		w := doGet(r, &http.Cookie{Name: "leafwiki_at", Value: tok.Token})
+		w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: tok.Token})
 		if w.Code != http.StatusOK || w.Body.String() != `{"user":"admin"}` {
 			t.Fatalf("public=%v: expected 200 with admin user attached, got %d %s", public, w.Code, w.Body.String())
 		}
@@ -133,7 +133,7 @@ func TestRequireAuthOrPublicRead_NilAuthServiceWithToken_Returns500(t *testing.T
 	// misconfiguration, not a fall-through to anonymous.
 	r := newAuthOrPublicRouter(nil, authCookies, false, &flipGate{enabled: true}, nil)
 
-	w := doGet(r, &http.Cookie{Name: "leafwiki_at", Value: "something"})
+	w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: "something"})
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d %s", w.Code, w.Body.String())
 	}

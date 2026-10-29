@@ -4,10 +4,10 @@ import (
 	"log/slog"
 	"net/http"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 const maxMultipartMemory = 32 << 20 // 32 MiB

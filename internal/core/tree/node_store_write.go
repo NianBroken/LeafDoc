@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 func (f *NodeStore) SaveChildOrder(parent *PageNode) error {
@@ -85,7 +85,7 @@ func (f *NodeStore) CreatePage(parentEntry *PageNode, newEntry *PageNode) error 
 	// Guard against ignored paths
 	rel, _ := filepath.Rel(filepath.Join(f.storageDir, "root"), destBase)
 	if f.isPathIgnored(rel, false) {
-		return &InvalidOpError{Op: "CreatePage", Reason: "target path matches .leafwikiignore"}
+		return &InvalidOpError{Op: "CreatePage", Reason: "target path matches .leafdocignore"}
 	}
 
 	destFile := destBase + ".md"
@@ -142,7 +142,7 @@ func (f *NodeStore) CreateSection(parentEntry *PageNode, newEntry *PageNode) err
 	// Guard against ignored paths
 	rel, _ := filepath.Rel(filepath.Join(f.storageDir, "root"), destBase)
 	if f.isPathIgnored(rel, true) {
-		return &InvalidOpError{Op: "CreateSection", Reason: "target path matches .leafwikiignore"}
+		return &InvalidOpError{Op: "CreateSection", Reason: "target path matches .leafdocignore"}
 	}
 
 	destFile := destBase + ".md"
@@ -231,7 +231,7 @@ func (f *NodeStore) UpsertContentPreservingFrontmatter(entry *PageNode, content 
 
 // UpsertContentAndMetadata is the UI-edit path: it replaces the body and the
 // editor-visible frontmatter (tags and string-typed properties) while keeping
-// system-managed frontmatter (leafwiki_*) and non-string pass-through fields
+// system-managed frontmatter (leafdoc_*) and non-string pass-through fields
 // (booleans, numbers, non-tag lists) intact.
 //
 // Ownership rules for ExtraFields:
@@ -355,7 +355,7 @@ func (f *NodeStore) MoveNode(entry *PageNode, parentEntry *PageNode) error {
 	// Guard against ignored paths
 	rel, _ := filepath.Rel(filepath.Join(f.storageDir, "root"), destBase)
 	if f.isPathIgnored(rel, entry.Kind == NodeKindSection) {
-		return &InvalidOpError{Op: "MoveNode", Reason: "target path matches .leafwikiignore"}
+		return &InvalidOpError{Op: "MoveNode", Reason: "target path matches .leafdocignore"}
 	}
 
 	destFile := destBase + ".md"
@@ -515,7 +515,7 @@ func (f *NodeStore) RenameNode(entry *PageNode, newSlug string) error {
 	// Guard against ignored paths
 	rel, _ := filepath.Rel(filepath.Join(f.storageDir, "root"), newBase)
 	if f.isPathIgnored(rel, entry.Kind == NodeKindSection) {
-		return &InvalidOpError{Op: "RenameNode", Reason: "target path matches .leafwikiignore"}
+		return &InvalidOpError{Op: "RenameNode", Reason: "target path matches .leafdocignore"}
 	}
 
 	// destination collision checks
@@ -715,7 +715,7 @@ func (f *NodeStore) ConvertNode(entry *PageNode, target NodeKind) error {
 	}
 }
 
-// SetPinnedFrontmatter updates the leafwiki_pinned flag in the page file on disk.
+// SetPinnedFrontmatter updates the leafdoc_pinned flag in the page file on disk.
 // Returns the body content (without frontmatter) for use in the caller.
 func (f *NodeStore) SetPinnedFrontmatter(entry *PageNode, pinned bool) (string, error) {
 	if entry == nil {
@@ -739,7 +739,7 @@ func (f *NodeStore) SetPinnedFrontmatter(entry *PageNode, pinned bool) (string, 
 		return "", fmt.Errorf("load markdown file: %w", err)
 	}
 
-	mdFile.SetLeafWikiPinned(pinned)
+	mdFile.SetLeafDocPinned(pinned)
 
 	if err := mdFile.WriteToFile(); err != nil {
 		return "", fmt.Errorf("write markdown file: %w", err)

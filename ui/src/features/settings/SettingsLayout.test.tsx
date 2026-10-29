@@ -53,7 +53,7 @@ describe('SettingsLayout exit', () => {
       location: {
         pathname: '/docs/getting-started',
         search: '',
-        state: { leafwikiVisitId: 'visit-42' },
+        state: { leafdocVisitId: 'visit-42' },
       },
     })
 

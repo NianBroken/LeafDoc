@@ -1,8 +1,8 @@
 {
-  "name": "leafwiki-e2e",
+  "name": "leafdoc-e2e",
   "private": true,
   "version": "0.0.0",
-  "description": "End-to-end tests for LeafWiki",
+  "description": "End-to-end tests for LeafDoc",
   "scripts": {
     "test": "node --use-system-ca ./node_modules/@playwright/test/cli.js test",
     "lint": "eslint \"{tests,pages}/**/*.ts\" --max-warnings=0",

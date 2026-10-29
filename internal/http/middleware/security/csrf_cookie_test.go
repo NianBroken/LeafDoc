@@ -7,16 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/http/middleware/utils"
 )
 
 func TestCSRFCookie_CookieName_Secure(t *testing.T) {
 	csrf := NewCSRFCookie(false, time.Hour)
 
 	name := csrf.cookieName(true)
-	if name != "__Host-leafwiki_csrf" {
-		t.Errorf("Expected secure CSRF cookie name '__Host-leafwiki_csrf', got '%s'", name)
+	if name != "__Host-leafdoc_csrf" {
+		t.Errorf("Expected secure CSRF cookie name '__Host-leafdoc_csrf', got '%s'", name)
 	}
 }
 
@@ -24,8 +24,8 @@ func TestCSRFCookie_CookieName_Insecure(t *testing.T) {
 	csrf := NewCSRFCookie(true, time.Hour)
 
 	name := csrf.cookieName(false)
-	if name != "leafwiki_csrf" {
-		t.Errorf("Expected insecure CSRF cookie name 'leafwiki_csrf', got '%s'", name)
+	if name != "leafdoc_csrf" {
+		t.Errorf("Expected insecure CSRF cookie name 'leafdoc_csrf', got '%s'", name)
 	}
 }
 
@@ -60,8 +60,8 @@ func TestCSRFCookie_Issue_Secure(t *testing.T) {
 	}
 
 	csrfCookie := cookies[0]
-	if csrfCookie.Name != "__Host-leafwiki_csrf" {
-		t.Errorf("Expected CSRF cookie name '__Host-leafwiki_csrf', got '%s'", csrfCookie.Name)
+	if csrfCookie.Name != "__Host-leafdoc_csrf" {
+		t.Errorf("Expected CSRF cookie name '__Host-leafdoc_csrf', got '%s'", csrfCookie.Name)
 	}
 	if csrfCookie.Value == "" {
 		t.Error("Expected CSRF cookie to have a non-empty value")
@@ -121,8 +121,8 @@ func TestCSRFCookie_Issue_Insecure(t *testing.T) {
 	}
 
 	csrfCookie := cookies[0]
-	if csrfCookie.Name != "leafwiki_csrf" {
-		t.Errorf("Expected CSRF cookie name 'leafwiki_csrf', got '%s'", csrfCookie.Name)
+	if csrfCookie.Name != "leafdoc_csrf" {
+		t.Errorf("Expected CSRF cookie name 'leafdoc_csrf', got '%s'", csrfCookie.Name)
 	}
 	if csrfCookie.Secure {
 		t.Error("Expected CSRF cookie to NOT be Secure in insecure mode")
@@ -178,7 +178,7 @@ func TestCSRFCookie_Read_Secure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.TLS = &tls.ConnectionState{}
 	req.AddCookie(&http.Cookie{
-		Name:  "__Host-leafwiki_csrf",
+		Name:  "__Host-leafdoc_csrf",
 		Value: "test-csrf-token",
 	})
 	w := httptest.NewRecorder()
@@ -206,7 +206,7 @@ func TestCSRFCookie_Read_Insecure(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "leafwiki_csrf",
+		Name:  "leafdoc_csrf",
 		Value: "test-csrf-token-insecure",
 	})
 	w := httptest.NewRecorder()
@@ -273,8 +273,8 @@ func TestCSRFCookie_Clear_Secure(t *testing.T) {
 	}
 
 	csrfCookie := cookies[0]
-	if csrfCookie.Name != "__Host-leafwiki_csrf" {
-		t.Errorf("Expected CSRF cookie name '__Host-leafwiki_csrf', got '%s'", csrfCookie.Name)
+	if csrfCookie.Name != "__Host-leafdoc_csrf" {
+		t.Errorf("Expected CSRF cookie name '__Host-leafdoc_csrf', got '%s'", csrfCookie.Name)
 	}
 	if csrfCookie.Value != "" {
 		t.Errorf("Expected CSRF cookie value to be empty, got '%s'", csrfCookie.Value)
@@ -313,8 +313,8 @@ func TestCSRFCookie_Clear_Insecure(t *testing.T) {
 	}
 
 	csrfCookie := cookies[0]
-	if csrfCookie.Name != "leafwiki_csrf" {
-		t.Errorf("Expected CSRF cookie name 'leafwiki_csrf', got '%s'", csrfCookie.Name)
+	if csrfCookie.Name != "leafdoc_csrf" {
+		t.Errorf("Expected CSRF cookie name 'leafdoc_csrf', got '%s'", csrfCookie.Name)
 	}
 	if csrfCookie.MaxAge != -1 {
 		t.Errorf("Expected CSRF cookie MaxAge -1, got %d", csrfCookie.MaxAge)

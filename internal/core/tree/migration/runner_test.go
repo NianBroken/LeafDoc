@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func writeSchema(t *testing.T, dir string, version int) {
@@ -84,11 +84,11 @@ func TestTreeMigration_LoadTree_MigratesToV2_AddsFrontmatterAndPreservesBody(t *
 	if !has {
 		t.Fatalf("expected frontmatter after migration, got:\n%s", string(raw))
 	}
-	if fm.LeafWikiID != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if fm.LeafDocID != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if strings.TrimSpace(fm.LeafWikiTitle) == "" {
-		t.Fatalf("expected leafwiki_title to be set")
+	if strings.TrimSpace(fm.LeafDocTitle) == "" {
+		t.Fatalf("expected leafdoc_title to be set")
 	}
 	if migratedBody != body {
 		t.Fatalf("expected body preserved exactly.\nGot:\n%q\nWant:\n%q", migratedBody, body)
@@ -153,11 +153,11 @@ Hello World
 	if !has {
 		t.Fatalf("expected frontmatter after migration, got:\n%s", migrated)
 	}
-	if fm.LeafWikiID != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if fm.LeafDocID != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if strings.TrimSpace(fm.LeafWikiTitle) == "" {
-		t.Fatalf("expected leafwiki_title to be set")
+	if strings.TrimSpace(fm.LeafDocTitle) == "" {
+		t.Fatalf("expected leafdoc_title to be set")
 	}
 	wantBody := "# Page 1 Content\nHello World\n"
 	if migratedBody != wantBody {
@@ -197,7 +197,7 @@ func TestTreeMigration_LoadTree_MigratesToV3_BackfillsMetadataFrontmatter(t *tes
 	persistLegacyTreeSnapshot(t, tmpDir, svc.GetTree())
 
 	pagePath := filepath.Join(tmpDir, "root", "page1.md")
-	legacyContent := "---\nleafwiki_id: " + *id + "\nleafwiki_title: Page1\n---\n# Page 1 Content\nHello World\n"
+	legacyContent := "---\nleafdoc_id: " + *id + "\nleafdoc_title: Page1\n---\n# Page 1 Content\nHello World\n"
 	if err := os.WriteFile(pagePath, []byte(legacyContent), 0o644); err != nil {
 		t.Fatalf("write legacy content failed: %v", err)
 	}
@@ -220,10 +220,10 @@ func TestTreeMigration_LoadTree_MigratesToV3_BackfillsMetadataFrontmatter(t *tes
 	if !has {
 		t.Fatalf("expected frontmatter after migration")
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-21T10:15:30Z" || fm.LeafWikiUpdatedAt != "2026-03-21T11:16:31Z" {
+	if fm.LeafDocCreatedAt != "2026-03-21T10:15:30Z" || fm.LeafDocUpdatedAt != "2026-03-21T11:16:31Z" {
 		t.Fatalf("expected metadata timestamps to be backfilled, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "bob" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "bob" {
 		t.Fatalf("expected metadata authors to be backfilled, got %#v", fm)
 	}
 	wantBody := "# Page 1 Content\nHello World\n"
@@ -363,13 +363,13 @@ func TestTreeMigration_LoadTree_MigratesToV4_MaterializesMissingSectionIndex(t *
 	if !has {
 		t.Fatalf("expected frontmatter after migration")
 	}
-	if fm.LeafWikiID != *id || fm.LeafWikiTitle != "Docs" {
+	if fm.LeafDocID != *id || fm.LeafDocTitle != "Docs" {
 		t.Fatalf("expected section frontmatter to be materialized, got %#v", fm)
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafWikiUpdatedAt != "2026-03-22T11:16:31Z" {
+	if fm.LeafDocCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafDocUpdatedAt != "2026-03-22T11:16:31Z" {
 		t.Fatalf("expected timestamps to be materialized, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "bob" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "bob" {
 		t.Fatalf("expected author metadata to be materialized, got %#v", fm)
 	}
 	if strings.TrimSpace(body) != "" {
@@ -378,7 +378,7 @@ func TestTreeMigration_LoadTree_MigratesToV4_MaterializesMissingSectionIndex(t *
 }
 
 func TestTreeMigration_LoadTree_MigratesToV5_PageNodeWithChildrenPreservesChildOrder(t *testing.T) {
-	// Regression test for: https://github.com/perber/wiki/issues/932
+	// Regression test for: https://github.com/perber/leafwiki/issues/932
 	// Legacy trees could contain page nodes that have children when a folder and an .md file
 	// shared the same name. The V5 migration must coerce such nodes to section so that
 	// SaveChildOrder can write the .order.json and the legacy child ordering is preserved.

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	coretags "github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
+	coretags "github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func setupExcerptPages(tb testing.TB, count int) (*SearchUseCase, []string) {
@@ -30,7 +30,7 @@ func setupExcerptPages(tb testing.TB, count int) (*SearchUseCase, []string) {
 	ids := make([]string, count)
 	for i := range ids {
 		ids[i] = fmt.Sprintf("p-%04d", i)
-		raw := fmt.Sprintf("---\nleafwiki_id: %s\nleafwiki_title: Page %04d\nleafwiki_created_at: 2026-01-01T00:00:00Z\nleafwiki_updated_at: 2026-01-01T00:00:00Z\nleafwiki_creator_id: system\nleafwiki_last_author_id: system\ntags: [docs]\n---\n\nUnique excerpt %04d", ids[i], i, i)
+		raw := fmt.Sprintf("---\nleafdoc_id: %s\nleafdoc_title: Page %04d\nleafdoc_created_at: 2026-01-01T00:00:00Z\nleafdoc_updated_at: 2026-01-01T00:00:00Z\nleafdoc_creator_id: system\nleafdoc_last_author_id: system\ntags: [docs]\n---\n\nUnique excerpt %04d", ids[i], i, i)
 		if err := os.WriteFile(filepath.Join(dir, "root", fmt.Sprintf("page-%04d.md", i)), []byte(raw), 0644); err != nil {
 			tb.Fatal(err)
 		}

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // ErrAlreadyRunning is returned by TriggerSnapshot when a snapshot is

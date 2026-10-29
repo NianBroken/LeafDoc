@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/favorites"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 )
 
 // TestRespondWithPageError_FavoritesStoreUnavailable_Returns503 is the

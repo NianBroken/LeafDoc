@@ -1,13 +1,13 @@
 package wiki
 
 import (
-	"github.com/perber/wiki/internal/core/auth"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // runtimeStatsSource adapts the wiki's tree and user services to the
 // httpmetrics.RuntimeStatsSource interface behind the scrape-time
-// leafwiki_pages / leafwiki_users gauges. It holds the *Wiki rather than the
+// leafdoc_pages / leafdoc_users gauges. It holds the *Wiki rather than the
 // concrete services so UserStats always reads the current, restore-swap-aware
 // UserService (see Wiki.UserService).
 type runtimeStatsSource struct {

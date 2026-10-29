@@ -5,14 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
-	coreshared "github.com/perber/wiki/internal/core/shared"
+	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 // RestoreOffline validates and swaps a snapshot ZIP directly into dataDir,
 // without any of the live-instance machinery (no write gate, no AuthService
 // reopen, no resync trigger). Intended to run before the server starts —
 // the next NewWiki() cold boot picks up the restored users.db/tree/etc for
-// free. Used by `leafwiki restore-snapshot`.
+// free. Used by `leafdoc restore-snapshot`.
 //
 // zipPath is a local filesystem path the operator running this CLI command
 // chose directly — running it already requires the same filesystem access

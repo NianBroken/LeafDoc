@@ -3,8 +3,8 @@ package pagesave
 import (
 	"testing"
 
-	"github.com/perber/wiki/internal/core/links"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/links"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func pageKindPtr() *tree.NodeKind {

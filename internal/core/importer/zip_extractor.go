@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 const logCloseFailed = "close failed"

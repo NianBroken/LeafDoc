@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 func TestZipExtractor_ValidateExtractedFiles(t *testing.T) {

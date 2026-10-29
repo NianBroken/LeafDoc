@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/perber/wiki/internal/core/settings"
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
 )
 
 // Config is public instance configuration and never contains account data or credentials.

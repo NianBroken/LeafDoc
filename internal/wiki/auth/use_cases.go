@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/favorites"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // ErrAuthDisabled is returned when an auth operation is called while auth is disabled.

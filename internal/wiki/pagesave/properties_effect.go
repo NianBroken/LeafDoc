@@ -3,9 +3,9 @@ package pagesave
 import (
 	"log/slog"
 
-	"github.com/perber/wiki/internal/core/properties"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/properties"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // PropertiesSideEffect updates the properties index after every page mutation.

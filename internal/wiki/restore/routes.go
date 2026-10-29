@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"net/http"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/restore"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/restore"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 // uploadParseMaxMemory bounds how much of an uploaded restore ZIP
@@ -18,7 +18,7 @@ import (
 // the (much larger) MaxUploadSizeBytes limit: reusing that limit here would
 // let ParseMultipartForm hold an entire near-max-size upload in RAM, which on
 // a resource-constrained deployment (e.g. a Raspberry Pi, an explicit
-// LeafWiki deployment target) risks OOM.
+// LeafDoc deployment target) risks OOM.
 const uploadParseMaxMemory = 32 << 20 // 32 MiB, matching net/http's own default
 
 // Routes is the RouteRegistrar for the live restore admin endpoints.
@@ -77,7 +77,7 @@ func (r *Routes) handleTrigger(c *gin.Context) {
 
 // handleTriggerUpload starts a restore from an uploaded backup ZIP and
 // returns 202 Accepted. Progress and any validation failure (e.g. a
-// malformed or non-LeafWiki ZIP) surface asynchronously via handleStatus,
+// malformed or non-LeafDoc ZIP) surface asynchronously via handleStatus,
 // exactly as they do for handleTrigger.
 func (r *Routes) handleTriggerUpload(c *gin.Context) {
 	if r.manager == nil {

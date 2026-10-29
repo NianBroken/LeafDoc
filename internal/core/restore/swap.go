@@ -12,7 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/defaultdocs"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
@@ -57,7 +58,7 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 		}
 	}
 
-	stagingDir, err = os.MkdirTemp(dataDir, ".leafwiki-restore-*")
+	stagingDir, err = os.MkdirTemp(dataDir, ".leafdoc-restore-*")
 	if err != nil {
 		return "", backupMeta{}, fmt.Errorf("failed to create staging directory: %w", err)
 	}
@@ -220,7 +221,7 @@ func sanityCheckSQLiteDB(path, table string, columns []string) error {
 // of being restored. "avatars" is a plain per-user-avatar asset directory
 // (like "assets"/"branding") — no hot-swappable service owns it, so it
 // carries no reload/rollback step of its own.
-var swapNames = append([]string{"root", "assets", "branding", "avatars", "branding.json", "public-access.json", "toc-display.json", "preferences.json", "snapshot-settings.json", "schema.json", "users.db"}, StateDBFiles()...)
+var swapNames = append([]string{defaultdocs.StateFile, "root", "assets", "branding", "avatars", "branding.json", "public-access.json", "toc-display.json", "preferences.json", "snapshot-settings.json", "schema.json", "users.db"}, StateDBFiles()...)
 
 // walSidecarDBNames lists every WAL-mode database whose stale -wal/-shm
 // sidecars may need cleaning up before a swap — derived from swapNames

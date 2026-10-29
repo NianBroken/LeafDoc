@@ -97,24 +97,24 @@ stop_docker() {
 }
 
 start_local() {
-  echo "🟢 Starting local LeafWiki process..."
+  echo "🟢 Starting local LeafDoc process..."
   build_frontend_for_local_e2e
 
-  local_data_dir="$(mktemp -d /tmp/leafwiki-e2e-data.XXXXXX)"
-  server_log="$(mktemp /tmp/leafwiki-e2e-server.XXXXXX.log)"
-  server_bin="$(mktemp /tmp/leafwiki-e2e-bin.XXXXXX)"
+  local_data_dir="$(mktemp -d /tmp/leafdoc-e2e-data.XXXXXX)"
+  server_log="$(mktemp /tmp/leafdoc-e2e-server.XXXXXX.log)"
+  server_bin="$(mktemp /tmp/leafdoc-e2e-bin.XXXXXX)"
 
   # Build the binary first, then run it directly in the background. Using
   # `go run` here would make `$!` the PID of the `go run` wrapper, not of the
   # compiled server it execs as a child — so `stop_local`'s `kill` would leave
   # the real server orphaned, holding the port after the script exits.
-  echo "🔨 Building leafwiki binary for local E2E run..."
+  echo "🔨 Building leafdoc binary for local E2E run..."
   (
     cd "$repo_root"
     go build \
-      -ldflags="-X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production -X github.com/perber/wiki/internal/wiki/auth.DisableRefreshTokenRateLimit=true" \
+      -ldflags="-X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production -X github.com/NianBroken/LeafDoc/internal/wiki/auth.DisableRefreshTokenRateLimit=true" \
       -o "$server_bin" \
-      ./cmd/leafwiki
+      ./cmd/leafdoc
   )
 
   (
@@ -136,7 +136,7 @@ start_local() {
 }
 
 stop_local() {
-  echo "🛑 Stopping local LeafWiki process..."
+  echo "🛑 Stopping local LeafDoc process..."
   if [ -n "$server_pid" ] && kill -0 "$server_pid" >/dev/null 2>&1; then
     kill "$server_pid" >/dev/null 2>&1 || true
     wait "$server_pid" >/dev/null 2>&1 || true
@@ -206,7 +206,7 @@ wait_until_reachable() {
     attempt=$((attempt + 1))
     if [ "$attempt" -ge "$max_attempts" ]; then
       echo
-      echo "❌ LeafWiki is not reachable after 2 minutes."
+      echo "❌ LeafDoc is not reachable after 2 minutes."
       if [ "$run_mode" = "local" ] && [ -f "$server_log" ]; then
         echo "--- local server log ---"
         tail -n 200 "$server_log" || true
@@ -216,7 +216,7 @@ wait_until_reachable() {
   done
 
   echo
-  echo "✅ LeafWiki is reachable."
+  echo "✅ LeafDoc is reachable."
 }
 
 if nc -z localhost "$app_port" >/dev/null 2>&1; then

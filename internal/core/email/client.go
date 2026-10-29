@@ -97,7 +97,7 @@ func (c *Client) dial(ctx context.Context, addr string) (net.Conn, error) {
 	return d.DialContext(ctx, "tcp", addr)
 }
 
-const mimeBoundary = "leafwiki-boundary-9f3a2c1e"
+const mimeBoundary = "leafdoc-boundary-9f3a2c1e"
 
 // buildRawMessage renders msg (plus From/FromName from cfg) as an RFC 5322
 // message. Header values are stripped of CR/LF before use — msg.To is a

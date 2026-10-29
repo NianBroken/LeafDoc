@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/gin-gonic/gin"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 )
 
 func TestRespondWithLinkError_PageNotFound(t *testing.T) {

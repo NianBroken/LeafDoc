@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/perber/wiki/internal/core/shared"
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
 	_ "modernc.org/sqlite"
 )
 
@@ -71,7 +71,7 @@ func (s *PropertiesStore) ensureSchema() error {
 }
 
 // SetPropertiesForPage replaces all properties for the given page atomically.
-// Keys and values are stored as-is — filtering of reserved keys (tags, title, leafwiki_*)
+// Keys and values are stored as-is — filtering of reserved keys (tags, title, leafdoc_*)
 // and type coercion are the caller's responsibility. All write paths go through
 // PropertiesService.SetPropertiesForPage or ExtractPropertiesFromContent, which enforce this.
 func (s *PropertiesStore) SetPropertiesForPage(pageID string, props map[string]PropertyEntry) error {

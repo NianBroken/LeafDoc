@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"net/http"
 
-	httpinternal "github.com/perber/wiki/internal/http"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 )
 
 const (

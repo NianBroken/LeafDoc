@@ -3,7 +3,7 @@ package pagesave
 import (
 	"time"
 
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // PageSideEffect is implemented by any component that reacts to a page mutation.

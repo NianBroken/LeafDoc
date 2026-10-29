@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 )
 
 // isCaseSensitive reports whether the filesystem at t.TempDir() is case-sensitive.
@@ -79,22 +79,22 @@ func TestNodeStore_ReconstructTreeFromFS_BuildsSectionsAndPages_SkipsIndexMdAsPa
 	mustMkdir(t, filepath.Join(tmp, "root", "docs"))
 
 	secIndex := `---
-leafwiki_id: sec-docs
-leafwiki_title: Documentation
+leafdoc_id: sec-docs
+leafdoc_title: Documentation
 ---
 # Section`
 	mustWriteFile(t, filepath.Join(tmp, "root", "docs", "index.md"), secIndex, 0o644)
 
 	pageIntro := `---
-leafwiki_id: page-intro
-leafwiki_title: Introduction
+leafdoc_id: page-intro
+leafdoc_title: Introduction
 ---
 # Intro`
 	mustWriteFile(t, filepath.Join(tmp, "root", "docs", "intro.md"), pageIntro, 0o644)
 
 	rootPage := `---
-leafwiki_id: page-readme
-leafwiki_title: Readme
+leafdoc_id: page-readme
+leafdoc_title: Readme
 ---
 # Readme`
 	mustWriteFile(t, filepath.Join(tmp, "root", "readme.md"), rootPage, 0o644)
@@ -190,7 +190,7 @@ func TestNodeStore_ReconstructTreeFromFS_SectionWithoutIndex_UsesDirNameAsTitleA
 	if !has {
 		t.Fatalf("expected frontmatter in materialized index")
 	}
-	if fm.LeafWikiID != sec.ID || fm.LeafWikiTitle != sec.Title {
+	if fm.LeafDocID != sec.ID || fm.LeafDocTitle != sec.Title {
 		t.Fatalf("unexpected frontmatter in materialized index: %#v", fm)
 	}
 	if strings.TrimSpace(body) != "" {
@@ -256,9 +256,9 @@ func TestNodeStore_ReconstructTreeFromFS_OrderFileOverridesDefaultOrder(t *testi
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", "a.md"), "---\nleafwiki_id: id-a\n---\n# A", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", "b.md"), "---\nleafwiki_id: id-b\n---\n# B", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", "c.md"), "---\nleafwiki_id: id-c\n---\n# C", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "a.md"), "---\nleafdoc_id: id-a\n---\n# A", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "b.md"), "---\nleafdoc_id: id-b\n---\n# B", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "c.md"), "---\nleafdoc_id: id-c\n---\n# C", 0o644)
 
 	orderRaw, err := json.Marshal(map[string][]string{
 		"ordered_ids": {"id-c", "id-a"},
@@ -290,9 +290,9 @@ func TestNodeStore_ReconstructTreeFromFS_OrderFileIgnoresUnknownIDsAndKeepsRemai
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", "a.md"), "---\nleafwiki_id: id-a\n---\n# A", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", "b.md"), "---\nleafwiki_id: id-b\n---\n# B", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", "c.md"), "---\nleafwiki_id: id-c\n---\n# C", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "a.md"), "---\nleafdoc_id: id-a\n---\n# A", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "b.md"), "---\nleafdoc_id: id-b\n---\n# B", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "c.md"), "---\nleafdoc_id: id-c\n---\n# C", 0o644)
 
 	orderRaw, err := json.Marshal(map[string][]string{
 		"ordered_ids": {"missing-id", "id-b"},
@@ -314,26 +314,26 @@ func TestNodeStore_ReconstructTreeFromFS_OrderFileIgnoresUnknownIDsAndKeepsRemai
 	}
 }
 
-func TestNodeStore_ReconstructTreeFromFS_SkipsSectionSubtreeOnDuplicateLeafWikiID(t *testing.T) {
+func TestNodeStore_ReconstructTreeFromFS_SkipsSectionSubtreeOnDuplicateLeafDocID(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
 	mustMkdir(t, filepath.Join(tmp, "root", "first"))
 	mustWriteFile(t, filepath.Join(tmp, "root", "first", "index.md"), `---
-leafwiki_id: dup-section-id
-leafwiki_title: First
+leafdoc_id: dup-section-id
+leafdoc_title: First
 ---
 # First`, 0o644)
 
 	mustMkdir(t, filepath.Join(tmp, "root", "second"))
 	mustWriteFile(t, filepath.Join(tmp, "root", "second", "index.md"), `---
-leafwiki_id: dup-section-id
-leafwiki_title: Second
+leafdoc_id: dup-section-id
+leafdoc_title: Second
 ---
 # Second`, 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "second", "nested.md"), `---
-leafwiki_id: nested-id
-leafwiki_title: Nested
+leafdoc_id: nested-id
+leafdoc_title: Nested
 ---
 # Nested`, 0o644)
 
@@ -345,27 +345,27 @@ leafwiki_title: Nested
 	got := slugs(tree.Children)
 	want := []string{"first"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Fatalf("unexpected children: got %v want %v (second section with a duplicate leafwiki_id, including its subtree, should be skipped)", got, want)
+		t.Fatalf("unexpected children: got %v want %v (second section with a duplicate leafdoc_id, including its subtree, should be skipped)", got, want)
 	}
 }
 
-func TestNodeStore_ReconstructTreeFromFS_ContinuesPastDuplicateLeafWikiID(t *testing.T) {
+func TestNodeStore_ReconstructTreeFromFS_ContinuesPastDuplicateLeafDocID(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
 	mustWriteFile(t, filepath.Join(tmp, "root", "a.md"), `---
-leafwiki_id: dup-id
-leafwiki_title: A
+leafdoc_id: dup-id
+leafdoc_title: A
 ---
 # A`, 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "b.md"), `---
-leafwiki_id: dup-id
-leafwiki_title: B
+leafdoc_id: dup-id
+leafdoc_title: B
 ---
 # B`, 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "c.md"), `---
-leafwiki_id: unique-id
-leafwiki_title: C
+leafdoc_id: unique-id
+leafdoc_title: C
 ---
 # C`, 0o644)
 
@@ -432,7 +432,7 @@ func TestNodeStore_ReconstructTreeFromFS_WritesIDsBackToFiles(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	// Create files without leafwiki_id in frontmatter
+	// Create files without leafdoc_id in frontmatter
 	mustWriteFile(t, filepath.Join(tmp, "root", "no-id.md"), "# No ID", 0o644)
 	mustMkdir(t, filepath.Join(tmp, "root", "section"))
 	mustWriteFile(t, filepath.Join(tmp, "root", "section", "index.md"), "# Section No ID", 0o644)
@@ -460,16 +460,16 @@ func TestNodeStore_ReconstructTreeFromFS_WritesIDsBackToFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to reload page: %v", err)
 	}
-	if pageMd.GetFrontmatter().LeafWikiID != page.ID {
-		t.Fatalf("expected page frontmatter ID=%q, got %q", page.ID, pageMd.GetFrontmatter().LeafWikiID)
+	if pageMd.GetFrontmatter().LeafDocID != page.ID {
+		t.Fatalf("expected page frontmatter ID=%q, got %q", page.ID, pageMd.GetFrontmatter().LeafDocID)
 	}
 
 	sectionMd, err := markdown.LoadMarkdownFile(filepath.Join(tmp, "root", "section", "index.md"))
 	if err != nil {
 		t.Fatalf("failed to reload section index: %v", err)
 	}
-	if sectionMd.GetFrontmatter().LeafWikiID != section.ID {
-		t.Fatalf("expected section frontmatter ID=%q, got %q", section.ID, sectionMd.GetFrontmatter().LeafWikiID)
+	if sectionMd.GetFrontmatter().LeafDocID != section.ID {
+		t.Fatalf("expected section frontmatter ID=%q, got %q", section.ID, sectionMd.GetFrontmatter().LeafDocID)
 	}
 
 	// Run reconstruction again and verify IDs are stable (deterministic)
@@ -535,12 +535,12 @@ func TestNodeStore_ReconstructTreeFromFS_ReadsMetadataFromFrontmatter(t *testing
 	store := NewNodeStore(tmp)
 
 	mustWriteFile(t, filepath.Join(tmp, "root", "page.md"), `---
-leafwiki_id: page-1
-leafwiki_title: Page One
-leafwiki_created_at: 2026-03-21T10:15:30Z
-leafwiki_updated_at: 2026-03-21T11:16:31Z
-leafwiki_creator_id: alice
-leafwiki_last_author_id: bob
+leafdoc_id: page-1
+leafdoc_title: Page One
+leafdoc_created_at: 2026-03-21T10:15:30Z
+leafdoc_updated_at: 2026-03-21T11:16:31Z
+leafdoc_creator_id: alice
+leafdoc_last_author_id: bob
 ---
 # Page One`, 0o644)
 
@@ -600,16 +600,16 @@ func TestNodeStore_ReconstructTreeFromFS_MissingMetadataFallsBackToMtimeAndSyste
 		t.Fatalf("LoadMarkdownFile: %v", err)
 	}
 	fm := mdFile.GetFrontmatter()
-	if fm.LeafWikiID != page.ID {
-		t.Fatalf("expected generated ID to be written back, got %q want %q", fm.LeafWikiID, page.ID)
+	if fm.LeafDocID != page.ID {
+		t.Fatalf("expected generated ID to be written back, got %q want %q", fm.LeafDocID, page.ID)
 	}
-	if fm.LeafWikiCreatedAt != wantTime.Format(time.RFC3339) {
-		t.Fatalf("expected created_at fallback to be written back, got %q", fm.LeafWikiCreatedAt)
+	if fm.LeafDocCreatedAt != wantTime.Format(time.RFC3339) {
+		t.Fatalf("expected created_at fallback to be written back, got %q", fm.LeafDocCreatedAt)
 	}
-	if fm.LeafWikiUpdatedAt != wantTime.Format(time.RFC3339) {
-		t.Fatalf("expected updated_at fallback to be written back, got %q", fm.LeafWikiUpdatedAt)
+	if fm.LeafDocUpdatedAt != wantTime.Format(time.RFC3339) {
+		t.Fatalf("expected updated_at fallback to be written back, got %q", fm.LeafDocUpdatedAt)
 	}
-	if fm.LeafWikiCreatorID != reconstructSystemUserID || fm.LeafWikiLastAuthorID != reconstructSystemUserID {
+	if fm.LeafDocCreatorID != reconstructSystemUserID || fm.LeafDocLastAuthorID != reconstructSystemUserID {
 		t.Fatalf("expected system metadata fallback to be written back, got %#v", fm)
 	}
 }
@@ -620,12 +620,12 @@ func TestNodeStore_ReconstructTreeFromFS_InvalidMetadataTimestampFallsBackToMtim
 
 	pagePath := filepath.Join(tmp, "root", "page.md")
 	mustWriteFile(t, pagePath, `---
-leafwiki_id: page-1
-leafwiki_title: Page One
-leafwiki_created_at: not-a-timestamp
-leafwiki_updated_at: 2026-03-21T11:16:31Z
-leafwiki_creator_id: alice
-leafwiki_last_author_id: bob
+leafdoc_id: page-1
+leafdoc_title: Page One
+leafdoc_created_at: not-a-timestamp
+leafdoc_updated_at: 2026-03-21T11:16:31Z
+leafdoc_creator_id: alice
+leafdoc_last_author_id: bob
 ---
 # Page One`, 0o644)
 
@@ -657,7 +657,7 @@ func TestNodeStore_ReconstructTreeFromFS_IgnoresMatchingFile(t *testing.T) {
 
 	mustWriteFile(t, filepath.Join(tmp, "root", "page1.md"), "# Page 1", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "secret.md"), "# Secret", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "secret.md", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "secret.md", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -685,7 +685,7 @@ func TestNodeStore_ReconstructTreeFromFS_IgnoresDirectory(t *testing.T) {
 	mustMkdir(t, filepath.Join(tmp, "root", "private"))
 	mustWriteFile(t, filepath.Join(tmp, "root", "public", "a.md"), "# A", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "private", "b.md"), "# B", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "private/", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "private/", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -710,7 +710,7 @@ func TestNodeStore_ReconstructTreeFromFS_NegationUnignores(t *testing.T) {
 	mustWriteFile(t, filepath.Join(tmp, "root", "a.md"), "# A", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "b.md"), "# B", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "important.md"), "# Important", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "*.md\n!important.md", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "*.md\n!important.md", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -739,7 +739,7 @@ func TestNodeStore_ReconstructTreeFromFS_NestedIgnoredPath(t *testing.T) {
 	mustMkdir(t, filepath.Join(tmp, "root", "docs", "archive"))
 	mustWriteFile(t, filepath.Join(tmp, "root", "docs", "index.md"), "# Docs", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "docs", "archive", "old.md"), "# Old", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "docs/archive/", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "docs/archive/", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -771,8 +771,8 @@ func TestReconstructTreeFromFS_MultiLevelIgnore(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "draft*", 0o644)
-	mustWriteFile(t, filepath.Join(tmp, "root", "docs", ".leafwikiignore"), "!draft-important.md", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "draft*", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "docs", ".leafdocignore"), "!draft-important.md", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "draft-me.md"), "# Draft Me", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "docs", "draft-important.md"), "# Important Draft", 0o644)
 	mustWriteFile(t, filepath.Join(tmp, "root", "docs", "keep.md"), "# Keep", 0o644)
@@ -807,7 +807,7 @@ func TestCreatePage_MultiLevelIgnore(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -819,7 +819,7 @@ func TestCreatePage_MultiLevelIgnore(t *testing.T) {
 		t.Fatalf("expected CreateSection to succeed for drafts: %v", err)
 	}
 
-	mustWriteFile(t, filepath.Join(tmp, "root", "drafts", ".leafwikiignore"), "secret", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", "drafts", ".leafdocignore"), "secret", 0o644)
 
 	entry := &PageNode{ID: "p1", Slug: "secret", Title: "Secret", Kind: NodeKindPage, Parent: draftsSection}
 	err := store.CreatePage(draftsSection, entry)
@@ -830,8 +830,8 @@ func TestCreatePage_MultiLevelIgnore(t *testing.T) {
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected InvalidOpError, got %T: %v", err, err)
 	}
-	if !strings.Contains(opErr.Reason, "leafwikiignore") {
-		t.Fatalf("expected reason mentioning leafwikiignore, got %q", opErr.Reason)
+	if !strings.Contains(opErr.Reason, "leafdocignore") {
+		t.Fatalf("expected reason mentioning leafdocignore, got %q", opErr.Reason)
 	}
 
 	entry2 := &PageNode{ID: "p2", Slug: "notes", Title: "Notes", Kind: NodeKindPage, Parent: draftsSection}
@@ -845,8 +845,8 @@ func TestNodeStore_ReconstructTreeFromFS_PageWithUnquotedColonInFrontmatterTitle
 	store := NewNodeStore(tmp)
 
 	page := `---
-leafwiki_id: page-adr
-leafwiki_title: ADR-0001: Filesystem as Source of Truth
+leafdoc_id: page-adr
+leafdoc_title: ADR-0001: Filesystem as Source of Truth
 ---
 # ADR-0001`
 	mustWriteFile(t, filepath.Join(tmp, "root", "adr-0001.md"), page, 0o644)
@@ -868,8 +868,8 @@ leafwiki_title: ADR-0001: Filesystem as Source of Truth
 // TestNodeStore_ReconstructTreeFromFS_ColonFixupDoesNotCorruptUnrelatedBlockScalar
 // pins down a regression found in code review: the frontmatter colon-fixup
 // must not touch an unrelated block-scalar ("notes: |") field just because
-// one of its indented content lines happens to start with "leafwiki_title:"
-// after left-trim. The page is also missing leafwiki_created_at/updated_at,
+// one of its indented content lines happens to start with "leafdoc_title:"
+// after left-trim. The page is also missing leafdoc_created_at/updated_at,
 // so it goes through the writeback path (needsWriteback) on the same
 // resync -- if the fixup corrupted the in-memory ExtraFields, that
 // corruption would get permanently persisted back to the file on disk.
@@ -879,11 +879,11 @@ func TestNodeStore_ReconstructTreeFromFS_ColonFixupDoesNotCorruptUnrelatedBlockS
 
 	filePath := filepath.Join(tmp, "root", "adr-0001.md")
 	page := `---
-leafwiki_id: page-adr
-leafwiki_title: ADR-0001: Filesystem as Source of Truth
+leafdoc_id: page-adr
+leafdoc_title: ADR-0001: Filesystem as Source of Truth
 notes: |
   Meeting notes.
-  leafwiki_title: v2: draft notes not real metadata
+  leafdoc_title: v2: draft notes not real metadata
 ---
 # ADR-0001`
 	mustWriteFile(t, filePath, page, 0o644)
@@ -903,7 +903,7 @@ notes: |
 		t.Fatalf("LoadMarkdownFile after reconstruct: %v", err)
 	}
 	fm := mdFile.GetFrontmatter()
-	wantNotes := "Meeting notes.\nleafwiki_title: v2: draft notes not real metadata"
+	wantNotes := "Meeting notes.\nleafdoc_title: v2: draft notes not real metadata"
 	if got, _ := fm.ExtraFields["notes"].(string); got != wantNotes {
 		t.Fatalf("notes field was corrupted by the colon fixup and/or writeback: got %q, want %q", got, wantNotes)
 	}

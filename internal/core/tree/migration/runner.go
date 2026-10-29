@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perber/wiki/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 )
 
 const (
@@ -319,17 +319,17 @@ func addFrontmatter(deps Dependencies, node Node) error {
 	fm := mdFile.GetFrontmatter()
 	changed := false
 
-	if strings.TrimSpace(fm.LeafWikiID) == "" {
-		fm.LeafWikiID = node.ID()
+	if strings.TrimSpace(fm.LeafDocID) == "" {
+		fm.LeafDocID = node.ID()
 		changed = true
 	}
-	if strings.TrimSpace(fm.LeafWikiTitle) == "" {
-		fm.LeafWikiTitle = node.Title()
+	if strings.TrimSpace(fm.LeafDocTitle) == "" {
+		fm.LeafDocTitle = node.Title()
 		changed = true
 	}
 
 	if changed {
-		mdFile.SetLeafWikiFrontmatter(fm.LeafWikiID, fm.LeafWikiTitle)
+		mdFile.SetLeafDocFrontmatter(fm.LeafDocID, fm.LeafDocTitle)
 		if err := mdFile.WriteToFile(); err != nil {
 			deps.Log.Error("could not write updated page content", "nodeID", node.ID(), "filePath", filePath, "error", err)
 			return fmt.Errorf("could not write updated page content for node %s: %w", node.ID(), err)
@@ -369,7 +369,7 @@ func backfillMetadataFrontmatter(deps Dependencies, node Node) error {
 		}
 
 		metadata := node.Metadata()
-		mdFile.SetLeafWikiMetadata(
+		mdFile.SetLeafDocMetadata(
 			formatMetadataTime(metadata.CreatedAt),
 			formatMetadataTime(metadata.UpdatedAt),
 			strings.TrimSpace(metadata.CreatorID),

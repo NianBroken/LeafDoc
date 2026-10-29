@@ -5,10 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	wikiauth "github.com/NianBroken/LeafDoc/internal/wiki/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	wikiauth "github.com/perber/wiki/internal/wiki/auth"
 )
 
 func TestRespondWithAPIKeyError_StoreUnavailable(t *testing.T) {

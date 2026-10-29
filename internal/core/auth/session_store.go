@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
 	_ "modernc.org/sqlite"
 )
 

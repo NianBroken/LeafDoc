@@ -5,7 +5,7 @@ import (
 	"html"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/localization"
+	"github.com/NianBroken/LeafDoc/internal/core/localization"
 )
 
 // Service is the mail-sending façade used by internal/core/auth's

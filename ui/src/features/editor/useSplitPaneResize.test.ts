@@ -3,7 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useSplitPaneResize } from '@/features/editor/useSplitPaneResize'
 
-const STORAGE_KEY = 'leafwiki-editor-pane-width'
+const STORAGE_KEY = 'leafdoc-editor-pane-width'
 
 function mouseDown(clientX: number, clientY: number) {
   return {

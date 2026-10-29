@@ -27,8 +27,8 @@ async function seedPages(page: import('@playwright/test').Page, pages: SeedPage[
   const result = await page.evaluate(async (seedPagesInput) => {
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -97,8 +97,8 @@ async function cleanupPages(page: import('@playwright/test').Page, createdPages:
   await page.evaluate(async (pagesToDelete) => {
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 

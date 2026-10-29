@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/NianBroken/LeafDoc/internal/core/restore"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/restore"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 )
 
 var exemptPathSegmentSequences = [][]string{

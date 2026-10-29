@@ -3,7 +3,7 @@ package importer
 import (
 	"mime/multipart"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 type ImporterWiki interface {

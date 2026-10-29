@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/auth"
 )
 
 func TestInjectPublicEditor_AuthDisabled(t *testing.T) {

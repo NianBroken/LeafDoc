@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 )
 
 func fileExists(p string) bool {
@@ -73,8 +73,8 @@ func formatMetadataTime(ts time.Time) string {
 }
 
 func (f *NodeStore) syncManagedFrontmatter(mdFile *markdown.MarkdownFile, entry *PageNode) {
-	mdFile.SetLeafWikiFrontmatter(strings.TrimSpace(entry.ID), strings.TrimSpace(entry.Title))
-	mdFile.SetLeafWikiMetadata(
+	mdFile.SetLeafDocFrontmatter(strings.TrimSpace(entry.ID), strings.TrimSpace(entry.Title))
+	mdFile.SetLeafDocMetadata(
 		formatMetadataTime(entry.Metadata.CreatedAt),
 		formatMetadataTime(entry.Metadata.UpdatedAt),
 		strings.TrimSpace(entry.Metadata.CreatorID),
@@ -148,10 +148,10 @@ func (f *NodeStore) parseMetadataTime(value string, fallback time.Time, field st
 func (f *NodeStore) metadataFromFrontmatter(fm markdown.Frontmatter, fallbackNow time.Time, filePath string) PageMetadata {
 	fallbackTime := f.metadataFallbackTime(filePath, fallbackNow)
 	return PageMetadata{
-		CreatedAt:    f.parseMetadataTime(fm.LeafWikiCreatedAt, fallbackTime, "leafwiki_created_at", filePath),
-		UpdatedAt:    f.parseMetadataTime(fm.LeafWikiUpdatedAt, fallbackTime, "leafwiki_updated_at", filePath),
-		CreatorID:    fallbackMetadataString(fm.LeafWikiCreatorID),
-		LastAuthorID: fallbackMetadataString(fm.LeafWikiLastAuthorID),
+		CreatedAt:    f.parseMetadataTime(fm.LeafDocCreatedAt, fallbackTime, "leafdoc_created_at", filePath),
+		UpdatedAt:    f.parseMetadataTime(fm.LeafDocUpdatedAt, fallbackTime, "leafdoc_updated_at", filePath),
+		CreatorID:    fallbackMetadataString(fm.LeafDocCreatorID),
+		LastAuthorID: fallbackMetadataString(fm.LeafDocLastAuthorID),
 	}
 }
 
@@ -232,7 +232,7 @@ func (f *NodeStore) getIgnoreForDir(dir string) *ignore.IgnoreFile {
 }
 
 // isPathIgnored checks if a relative path matches the ignore rules
-// governed by the nearest .leafwikiignore file.
+// governed by the nearest .leafdocignore file.
 func (f *NodeStore) isPathIgnored(relPath string, isDir bool) bool {
 	if relPath == "" {
 		return false

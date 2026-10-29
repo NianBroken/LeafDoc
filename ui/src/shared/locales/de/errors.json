@@ -43,7 +43,7 @@
   "file is too large": "Die Datei ist zu groß",
   "file too large": "Datei zu groß",
   "https required for auth cookies": "HTTPS für Authentifizierungs-Cookies erforderlich",
-  "https required for auth cookies use allow insecure": "Für Authentifizierungs-Cookies ist HTTPS erforderlich. Verwenden Sie HTTPS, oder starten Sie LeafWiki mit --allow-insecure für vertrauenswürdige reine HTTP-Umgebungen.",
+  "https required for auth cookies use allow insecure": "Für Authentifizierungs-Cookies ist HTTPS erforderlich. Verwenden Sie HTTPS, oder starten Sie LeafDoc mit --allow-insecure für vertrauenswürdige reine HTTP-Umgebungen.",
   "import is already running": "Es läuft bereits ein Import",
   "import state is unavailable": "Der Importstatus ist nicht verfügbar",
   "importer request failed": "Import-Anfrage fehlgeschlagen",

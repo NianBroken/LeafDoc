@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/tree/migration"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/tree/migration"
 )
 
 // --- helpers ---
@@ -106,18 +106,18 @@ func TestTreeService_LoadTree_MigratesLegacyTreeOrderIntoOrderFiles(t *testing.T
 	tmpDir := t.TempDir()
 
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "a.md"), `---
-leafwiki_id: id-a
-leafwiki_title: A
+leafdoc_id: id-a
+leafdoc_title: A
 ---
 # A`, 0o644)
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "b.md"), `---
-leafwiki_id: id-b
-leafwiki_title: B
+leafdoc_id: id-b
+leafdoc_title: B
 ---
 # B`, 0o644)
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "c.md"), `---
-leafwiki_id: id-c
-leafwiki_title: C
+leafdoc_id: id-c
+leafdoc_title: C
 ---
 # C`, 0o644)
 
@@ -152,13 +152,13 @@ func TestTreeService_LoadTree_RemovesLegacyTreeSnapshotAfterSuccessfulMigration(
 	tmpDir := t.TempDir()
 
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "a.md"), `---
-leafwiki_id: id-a
-leafwiki_title: A
+leafdoc_id: id-a
+leafdoc_title: A
 ---
 # A`, 0o644)
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "b.md"), `---
-leafwiki_id: id-b
-leafwiki_title: B
+leafdoc_id: id-b
+leafdoc_title: B
 ---
 # B`, 0o644)
 
@@ -434,13 +434,13 @@ func TestTreeService_CreateNode_Page_Root_CreatesFileAndFrontmatter(t *testing.T
 	if !has {
 		t.Fatalf("expected frontmatter to exist")
 	}
-	if strings.TrimSpace(fm.LeafWikiID) != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if strings.TrimSpace(fm.LeafDocID) != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if fm.LeafWikiCreatedAt == "" || fm.LeafWikiUpdatedAt == "" {
-		t.Fatalf("expected leafwiki timestamps to be set, got %#v", fm)
+	if fm.LeafDocCreatedAt == "" || fm.LeafDocUpdatedAt == "" {
+		t.Fatalf("expected leafdoc timestamps to be set, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "system" || fm.LeafWikiLastAuthorID != "system" {
+	if fm.LeafDocCreatorID != "system" || fm.LeafDocLastAuthorID != "system" {
 		t.Fatalf("expected creator metadata to be set, got %#v", fm)
 	}
 }
@@ -497,16 +497,16 @@ func TestTreeService_CreateNode_Section_CreatesIndexWithFrontmatter(t *testing.T
 	if !has {
 		t.Fatalf("expected frontmatter to exist")
 	}
-	if strings.TrimSpace(fm.LeafWikiID) != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if strings.TrimSpace(fm.LeafDocID) != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "Docs" {
-		t.Fatalf("expected leafwiki_title Docs, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Docs" {
+		t.Fatalf("expected leafdoc_title Docs, got %q", fm.LeafDocTitle)
 	}
-	if fm.LeafWikiCreatedAt == "" || fm.LeafWikiUpdatedAt == "" {
-		t.Fatalf("expected leafwiki timestamps to be set, got %#v", fm)
+	if fm.LeafDocCreatedAt == "" || fm.LeafDocUpdatedAt == "" {
+		t.Fatalf("expected leafdoc timestamps to be set, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "system" || fm.LeafWikiLastAuthorID != "system" {
+	if fm.LeafDocCreatorID != "system" || fm.LeafDocLastAuthorID != "system" {
 		t.Fatalf("expected creator metadata to be set, got %#v", fm)
 	}
 	if strings.TrimSpace(body) != "" {
@@ -583,8 +583,8 @@ func TestTreeService_UpdateNode_TitleOnly_SyncsFrontmatterIfFileExists(t *testin
 	if !has {
 		t.Fatalf("expected frontmatter")
 	}
-	if fm.LeafWikiTitle != "Documentation" {
-		t.Fatalf("expected leafwiki_title to be updated, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Documentation" {
+		t.Fatalf("expected leafdoc_title to be updated, got %q", fm.LeafDocTitle)
 	}
 }
 
@@ -979,10 +979,10 @@ func TestTreeService_MoveNode_PersistsMovedNodeMetadataToFrontmatter(t *testing.
 	if !has {
 		t.Fatal("expected frontmatter on moved page")
 	}
-	if fm.LeafWikiLastAuthorID != "alice" {
+	if fm.LeafDocLastAuthorID != "alice" {
 		t.Fatalf("expected moved page last author to persist, got %#v", fm)
 	}
-	if fm.LeafWikiUpdatedAt == "" {
+	if fm.LeafDocUpdatedAt == "" {
 		t.Fatalf("expected moved page updated timestamp to persist, got %#v", fm)
 	}
 
@@ -997,7 +997,7 @@ func TestTreeService_MoveNode_PersistsMovedNodeMetadataToFrontmatter(t *testing.
 	if reloadedNode.Metadata.LastAuthorID != "alice" {
 		t.Fatalf("expected persisted last author after reload, got %#v", reloadedNode.Metadata)
 	}
-	persistedUpdatedAt, err := time.Parse(time.RFC3339, fm.LeafWikiUpdatedAt)
+	persistedUpdatedAt, err := time.Parse(time.RFC3339, fm.LeafDocUpdatedAt)
 	if err != nil {
 		t.Fatalf("parse persisted updated_at failed: %v", err)
 	}
@@ -1310,16 +1310,16 @@ func TestTreeService_ConvertNode_PageToSection_MaterializesIndexWithNodeMetadata
 	if !has {
 		t.Fatalf("expected frontmatter after conversion")
 	}
-	if fm.LeafWikiID != *id || fm.LeafWikiTitle != "Docs" {
+	if fm.LeafDocID != *id || fm.LeafDocTitle != "Docs" {
 		t.Fatalf("unexpected converted frontmatter: %#v", fm)
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-22T10:15:30Z" {
+	if fm.LeafDocCreatedAt != "2026-03-22T10:15:30Z" {
 		t.Fatalf("expected created_at to be preserved after conversion, got %#v", fm)
 	}
-	if fm.LeafWikiUpdatedAt == "" {
+	if fm.LeafDocUpdatedAt == "" {
 		t.Fatalf("expected updated_at after conversion, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "carol" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "carol" {
 		t.Fatalf("expected metadata to be carried over and updated for actor, got %#v", fm)
 	}
 	if !strings.Contains(body, "# Docs") {
@@ -1804,13 +1804,13 @@ func TestTreeService_LoadTree_MigratesToV4_MaterializesMissingSectionIndex(t *te
 	if !has {
 		t.Fatalf("expected frontmatter after migration")
 	}
-	if fm.LeafWikiID != *id || fm.LeafWikiTitle != "Docs" {
+	if fm.LeafDocID != *id || fm.LeafDocTitle != "Docs" {
 		t.Fatalf("expected section frontmatter to be materialized, got %#v", fm)
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafWikiUpdatedAt != "2026-03-22T11:16:31Z" {
+	if fm.LeafDocCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafDocUpdatedAt != "2026-03-22T11:16:31Z" {
 		t.Fatalf("expected timestamps to be materialized, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "bob" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "bob" {
 		t.Fatalf("expected author metadata to be materialized, got %#v", fm)
 	}
 	if strings.TrimSpace(body) != "" {
@@ -1912,7 +1912,7 @@ func TestTreeService_LoadTree_ResumesInterruptedMigrationWithPersistedLegacySnap
 	if !has {
 		t.Fatalf("expected frontmatter after resumed migration")
 	}
-	if fm.LeafWikiCreatedAt != originalModTime.Format(time.RFC3339) || fm.LeafWikiUpdatedAt != originalModTime.Format(time.RFC3339) {
+	if fm.LeafDocCreatedAt != originalModTime.Format(time.RFC3339) || fm.LeafDocUpdatedAt != originalModTime.Format(time.RFC3339) {
 		t.Fatalf("expected resumed migration to preserve v1 metadata via persisted legacy snapshot, got %#v", fm)
 	}
 }
@@ -1952,7 +1952,7 @@ func TestTreeService_LoadTree_MigratesToV3_BackfillsMetadataFrontmatter(t *testi
 	persistLegacyTreeSnapshot(t, tmpDir, svc.GetTree())
 
 	pagePath := filepath.Join(tmpDir, "root", "page1.md")
-	legacyContent := "---\nleafwiki_id: " + *id + "\nleafwiki_title: Page1\n---\n# Page 1 Content\nHello World\n"
+	legacyContent := "---\nleafdoc_id: " + *id + "\nleafdoc_title: Page1\n---\n# Page 1 Content\nHello World\n"
 	if err := os.WriteFile(pagePath, []byte(legacyContent), 0o644); err != nil {
 		t.Fatalf("write legacy content failed: %v", err)
 	}
@@ -1978,10 +1978,10 @@ func TestTreeService_LoadTree_MigratesToV3_BackfillsMetadataFrontmatter(t *testi
 	if !has {
 		t.Fatalf("expected frontmatter after migration")
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-21T10:15:30Z" || fm.LeafWikiUpdatedAt != "2026-03-21T11:16:31Z" {
+	if fm.LeafDocCreatedAt != "2026-03-21T10:15:30Z" || fm.LeafDocUpdatedAt != "2026-03-21T11:16:31Z" {
 		t.Fatalf("expected metadata timestamps to be backfilled, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "bob" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "bob" {
 		t.Fatalf("expected metadata authors to be backfilled, got %#v", fm)
 	}
 	wantBody := "# Page 1 Content\nHello World\n"
@@ -2045,11 +2045,11 @@ func TestTreeService_LoadTree_MigratesToV2_AddsFrontmatterAndPreservesBody(t *te
 	if !has {
 		t.Fatalf("expected frontmatter after migration, got:\n%s", string(raw))
 	}
-	if fm.LeafWikiID != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if fm.LeafDocID != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if strings.TrimSpace(fm.LeafWikiTitle) == "" {
-		t.Fatalf("expected leafwiki_title to be set")
+	if strings.TrimSpace(fm.LeafDocTitle) == "" {
+		t.Fatalf("expected leafdoc_title to be set")
 	}
 	if migratedBody != body {
 		t.Fatalf("expected body preserved exactly.\nGot:\n%q\nWant:\n%q", migratedBody, body)
@@ -2124,11 +2124,11 @@ Hello World
 		t.Fatalf(`expected frontmatter after migration, got:
 %s`, migrated)
 	}
-	if fm.LeafWikiID != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if fm.LeafDocID != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if strings.TrimSpace(fm.LeafWikiTitle) == "" {
-		t.Fatalf("expected leafwiki_title to be set")
+	if strings.TrimSpace(fm.LeafDocTitle) == "" {
+		t.Fatalf("expected leafdoc_title to be set")
 	}
 	wantBody := `# Page 1 Content
 Hello World
@@ -2138,7 +2138,7 @@ Hello World
 	}
 }
 
-func TestTreeService_LoadTree_MigratesToV2_PreservesExistingLeafWikiTitle(t *testing.T) {
+func TestTreeService_LoadTree_MigratesToV2_PreservesExistingLeafDocTitle(t *testing.T) {
 	if CurrentSchemaVersion < 2 {
 		t.Skip("requires schema v2+")
 	}
@@ -2163,7 +2163,7 @@ func TestTreeService_LoadTree_MigratesToV2_PreservesExistingLeafWikiTitle(t *tes
 
 	pagePath := filepath.Join(tmpDir, "root", "page1.md")
 	legacyContent := `---
-leafwiki_title: Existing Title
+leafdoc_title: Existing Title
 ---
 # Page 1 Content
 Hello World
@@ -2193,11 +2193,11 @@ Hello World
 	if !has {
 		t.Fatalf("expected frontmatter after migration")
 	}
-	if fm.LeafWikiID != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if fm.LeafDocID != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "Existing Title" {
-		t.Fatalf("expected existing leafwiki_title to be preserved, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Existing Title" {
+		t.Fatalf("expected existing leafdoc_title to be preserved, got %q", fm.LeafDocTitle)
 	}
 	wantBody := `# Page 1 Content
 Hello World
@@ -2273,11 +2273,11 @@ Hello World
 	if !has {
 		t.Fatalf("expected frontmatter after migration")
 	}
-	if fm.LeafWikiID != *id {
-		t.Fatalf("expected leafwiki_id=%q, got %q", *id, fm.LeafWikiID)
+	if fm.LeafDocID != *id {
+		t.Fatalf("expected leafdoc_id=%q, got %q", *id, fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "Alias Title" {
-		t.Fatalf("expected title alias to remain effective, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Alias Title" {
+		t.Fatalf("expected title alias to remain effective, got %q", fm.LeafDocTitle)
 	}
 	wantBody := `# Page 1 Content
 Hello World
@@ -2325,21 +2325,21 @@ func TestTreeService_ReconstructTreeFromFS_BackfillsMetadata(t *testing.T) {
 
 	// Create some files on disk manually (simulating external changes)
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "page1.md"), `---
-leafwiki_id: page-1
-leafwiki_title: Page One
+leafdoc_id: page-1
+leafdoc_title: Page One
 ---
 # Page One`, 0o644)
 
 	mustMkdir(t, filepath.Join(tmpDir, "root", "section1"))
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "section1", "index.md"), `---
-leafwiki_id: sec-1
-leafwiki_title: Section One
+leafdoc_id: sec-1
+leafdoc_title: Section One
 ---
 # Section One`, 0o644)
 
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "section1", "page2.md"), `---
-leafwiki_id: page-2
-leafwiki_title: Page Two
+leafdoc_id: page-2
+leafdoc_title: Page Two
 ---
 # Page Two`, 0o644)
 
@@ -2393,8 +2393,8 @@ func TestTreeService_ReconstructTreeFromFS_ReloadsFromFilesystem(t *testing.T) {
 
 	// Create some files on disk manually
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "readme.md"), `---
-leafwiki_id: readme-page
-leafwiki_title: README
+leafdoc_id: readme-page
+leafdoc_title: README
 ---
 # README`, 0o644)
 
@@ -2438,12 +2438,12 @@ func TestTreeService_ReconstructTreeFromFS_ReloadsMetadataFromFrontmatter(t *tes
 	svc, tmpDir := newLoadedService(t)
 
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "readme.md"), `---
-leafwiki_id: readme-page
-leafwiki_title: README
-leafwiki_created_at: 2026-03-21T10:15:30Z
-leafwiki_updated_at: 2026-03-21T11:16:31Z
-leafwiki_creator_id: alice
-leafwiki_last_author_id: bob
+leafdoc_id: readme-page
+leafdoc_title: README
+leafdoc_created_at: 2026-03-21T10:15:30Z
+leafdoc_updated_at: 2026-03-21T11:16:31Z
+leafdoc_creator_id: alice
+leafdoc_last_author_id: bob
 ---
 # README`, 0o644)
 
@@ -2508,34 +2508,34 @@ func TestTreeService_ReconstructTreeFromFS_ComplexTree_PreservesStructure(t *tes
 
 	// Create a complex tree structure on disk
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "intro.md"), `---
-leafwiki_id: intro
-leafwiki_title: Introduction
+leafdoc_id: intro
+leafdoc_title: Introduction
 ---
 # Introduction`, 0o644)
 
 	mustMkdir(t, filepath.Join(tmpDir, "root", "docs"))
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "docs", "index.md"), `---
-leafwiki_id: docs-section
-leafwiki_title: Documentation
+leafdoc_id: docs-section
+leafdoc_title: Documentation
 ---
 # Documentation`, 0o644)
 
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "docs", "getting-started.md"), `---
-leafwiki_id: getting-started
-leafwiki_title: Getting Started
+leafdoc_id: getting-started
+leafdoc_title: Getting Started
 ---
 # Getting Started`, 0o644)
 
 	mustMkdir(t, filepath.Join(tmpDir, "root", "docs", "guides"))
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "docs", "guides", "index.md"), `---
-leafwiki_id: guides-section
-leafwiki_title: Guides
+leafdoc_id: guides-section
+leafdoc_title: Guides
 ---
 # Guides`, 0o644)
 
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "docs", "guides", "basic.md"), `---
-leafwiki_id: basic-guide
-leafwiki_title: Basic Guide
+leafdoc_id: basic-guide
+leafdoc_title: Basic Guide
 ---
 # Basic Guide`, 0o644)
 
@@ -2655,8 +2655,8 @@ func TestTreeService_ReconstructTreeFromFS_RevertsOnMetadataBackfillError(t *tes
 
 	// Create a new file on disk
 	mustWriteFile(t, filepath.Join(tmpDir, "root", "new-page.md"), `---
-leafwiki_id: new-page
-leafwiki_title: New Page
+leafdoc_id: new-page
+leafdoc_title: New Page
 ---
 # New Page`, 0o644)
 

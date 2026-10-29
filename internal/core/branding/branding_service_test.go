@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // helper: create a service with temp storage dir

@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-const modulePath = "github.com/perber/wiki/"
+const modulePath = "github.com/NianBroken/LeafDoc/"
 
 // allowedSliceImports lists the internal/wiki slices other slices may import.
 // pagesave is the shared page-mutation pipeline every mutating slice uses.

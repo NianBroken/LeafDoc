@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 type AuthService struct {
@@ -97,7 +97,7 @@ func (a *AuthService) InvalidateAllSessions() error {
 func NewAuthService(userService *UserService, sessions *SessionManager) *AuthService {
 	// Pre-compute a dummy hash to equalize Login() timing for non-existent users,
 	// preventing username enumeration via response-time differences.
-	dummyHash, _ := bcrypt.GenerateFromPassword([]byte("leafwiki-dummy-password"), bcrypt.DefaultCost)
+	dummyHash, _ := bcrypt.GenerateFromPassword([]byte("leafdoc-dummy-password"), bcrypt.DefaultCost)
 	a := &AuthService{
 		userService: userService,
 		sessions:    sessions,

@@ -14,20 +14,20 @@ import time
 import urllib.error
 import urllib.request
 
-parser = argparse.ArgumentParser(description='Validate global settings against an isolated LeafWiki process.')
+parser = argparse.ArgumentParser(description='Validate global settings against an isolated LeafDoc process.')
 parser.add_argument('--binary', required=True, type=Path)
 parser.add_argument('--report', type=Path, default=Path('acceptance-results.json'))
 arguments = parser.parse_args()
 BINARY = arguments.binary.resolve(strict=True)
 REPORT = arguments.report.resolve()
 checks = []
-with tempfile.TemporaryDirectory(prefix='leafwiki-acceptance-') as data:
+with tempfile.TemporaryDirectory(prefix='leafdoc-acceptance-') as data:
     with socket.socket() as s:
         s.bind(('127.0.0.1',0)); port=s.getsockname()[1]
-    env=os.environ.copy(); env['LEAFWIKI_JWT_SECRET']=secrets.token_urlsafe(64)
+    env=os.environ.copy(); env['LEAFDOC_JWT_SECRET']=secrets.token_urlsafe(64)
     output=(Path(data)/'acceptance-server.log').open('wb')
-    env['LEAFWIKI_ADMIN_USERNAME']='NianBroken'
-    env['LEAFWIKI_ADMIN_PASSWORD']='Nian123456'
+    env['LEAFDOC_ADMIN_USERNAME']='NianBroken'
+    env['LEAFDOC_ADMIN_PASSWORD']='Nian123456'
     process=subprocess.Popen([str(BINARY),'--host','127.0.0.1','--port',str(port),'--data-dir',data,'--allow-insecure','--enable-revision'],env=env,stdout=output,stderr=output)
     base=f'http://127.0.0.1:{port}'
     jars=[http.cookiejar.CookieJar() for _ in range(3)]
@@ -102,7 +102,7 @@ with tempfile.TemporaryDirectory(prefix='leafwiki-acceptance-') as data:
         check(status==200 and page['content']==content,'实际保存文档',page)
         check(request('/api/pages/'+page_id,client=1)[1]['content']==content,'匿名实际读取文档')
         check(request('/api/pages/'+page_id,'PUT',{'version':page['version'],'title':'禁止修改','slug':'acceptance-document','content':'blocked'},client=2)[0]==403,'只读用户不能编辑文档')
-        boundary='leafwiki-'+secrets.token_hex(10)
+        boundary='leafdoc-'+secrets.token_hex(10)
         body=(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="acceptance.txt"\r\nContent-Type: text/plain\r\n\r\nattachment acceptance\r\n--{boundary}--\r\n').encode()
         headers={'Content-Type':f'multipart/form-data; boundary={boundary}'}
         for cookie in jars[0]:

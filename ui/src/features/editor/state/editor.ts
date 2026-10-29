@@ -29,7 +29,7 @@ export const useEditorStore = create<EditorStore>()(
       setAutoSaveStatus: (status) => set({ autoSaveStatus: status }),
     }),
     {
-      name: 'leafwiki-editor-settings',
+      name: 'leafdoc-editor-settings',
       partialize: (state) => ({
         previewVisible: state.previewVisible,
         previewStacked: state.previewStacked,

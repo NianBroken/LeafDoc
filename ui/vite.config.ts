@@ -2,10 +2,18 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
+import { execFileSync } from 'node:child_process'
 import { defineConfig, type ConfigEnv } from 'vite'
 
 const backendTarget =
-  process.env.LEAFWIKI_BACKEND_URL?.trim() || 'http://localhost:8080'
+  process.env.LEAFDOC_BACKEND_URL?.trim() || 'http://localhost:8080'
+
+// The shared resolver supplies identical release metadata on every platform.
+const appVersion = execFileSync(
+  process.execPath,
+  [path.resolve(import.meta.dirname, '../scripts/resolve-version.mjs')],
+  { encoding: 'utf8' },
+).trim()
 
 // Mermaid's published ESM distribution retains its own lazy diagram modules.
 // Serving those modules intact avoids rebundling large generated layout engines.
@@ -75,9 +83,26 @@ export default defineConfig(({ command }: ConfigEnv) => ({
   // when index.html is served for deep SPA routes. Lazy chunks resolve via import.meta.url
   // and therefore work correctly under any sub-path without further server-side patching.
   base: command === 'build' ? './' : '/',
-  plugins: [react(), mermaidDistribution()],
+  plugins: [
+    react(),
+    mermaidDistribution(),
+    {
+      name: 'release-metadata',
+      transformIndexHtml() {
+        return [
+          {
+            tag: 'meta',
+            attrs: { name: 'app-version', content: appVersion },
+            injectTo: 'head',
+          },
+        ]
+      },
+    },
+  ],
   server: {
     proxy: {
+      '/defaults': { target: backendTarget, changeOrigin: true, secure: false },
+      '/avatars': { target: backendTarget, changeOrigin: true, secure: false },
       '/assets': {
         target: backendTarget,
         changeOrigin: true,

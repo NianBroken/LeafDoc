@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/perber/wiki/internal/wiki/pagesave"
-	wikiresync "github.com/perber/wiki/internal/wiki/resync"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
+	wikiresync "github.com/NianBroken/LeafDoc/internal/wiki/resync"
 )
 
 // launchReloadWithProgress adds to reloadWG and starts reloadWithProgress in a goroutine.

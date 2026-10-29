@@ -4,10 +4,10 @@
 param(
     [switch]$Build,
     [switch]$Stop,
-    [string]$DataDirectory = $env:LEAFWIKI_DATA_DIR,
-    [string]$CertificatePath = $env:LEAFWIKI_TLS_CERT,
-    [string]$KeyPath = $env:LEAFWIKI_TLS_KEY,
-    [string]$BasePath = $env:LEAFWIKI_BASE_PATH,
+    [string]$DataDirectory = $env:LEAFDOC_DATA_DIR,
+    [string]$CertificatePath = $env:LEAFDOC_TLS_CERT,
+    [string]$KeyPath = $env:LEAFDOC_TLS_KEY,
+    [string]$BasePath = $env:LEAFDOC_BASE_PATH,
     [int]$Port = 0
 )
 
@@ -17,11 +17,15 @@ $readinessIntervalMilliseconds = 500
 $requestTimeoutSeconds = 5
 $portDiscoveryAttempts = 64
 $root = Split-Path $PSScriptRoot -Parent
+# Machine-wide certificate files are discovered without requiring registry writes.
+$systemTlsDirectory = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'LeafDoc/tls'
+if (-not $CertificatePath) { $CertificatePath = Join-Path $systemTlsDirectory 'server.crt' }
+if (-not $KeyPath) { $KeyPath = Join-Path $systemTlsDirectory 'server.key' }
 if (-not $DataDirectory) { $DataDirectory = Join-Path $root 'data' }
 $DataDirectory = [IO.Path]::GetFullPath($DataDirectory)
 $runtime = Join-Path $DataDirectory '.runtime'
 $statePath = Join-Path $runtime 'processes.json'
-$binary = Join-Path $runtime 'leafwiki.exe'
+$binary = Join-Path $runtime 'leafdoc.exe'
 $BasePath = '/' + ([string]$BasePath).Trim().Trim('/')
 if ($BasePath -eq '/') { $BasePath = '' }
 if ($BasePath -match '[?#\s]') { throw 'The base path must be a URL path without query, fragment or whitespace.' }
@@ -32,7 +36,7 @@ function Stop-SavedProcesses($state) {
         $process = Get-Process -Id $entry.id -ErrorAction SilentlyContinue
         # JSON readers can return timestamps as either strings or DateTime values.
         if ($process -and $process.Path -eq $entry.path -and
-            $process.StartTime.ToUniversalTime() -eq ([DateTime]$entry.started).ToUniversalTime()) {
+            [Math]::Abs(($process.StartTime.ToUniversalTime() - ([DateTime]$entry.started).ToUniversalTime()).TotalSeconds) -lt 1) {
             Stop-Process -Id $process.Id
             $process.WaitForExit()
         }
@@ -42,6 +46,13 @@ function Stop-SavedProcesses($state) {
 if ($Stop) {
     if (Test-Path -LiteralPath $statePath) {
         Stop-SavedProcesses (Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json)
+        $remaining = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($entry in $remaining.processes) {
+            $process = Get-Process -Id $entry.id -ErrorAction SilentlyContinue
+            if ($process -and $process.Path -eq $entry.path) {
+                throw 'A saved service is still running. Its process record was retained.'
+            }
+        }
         Remove-Item -LiteralPath $statePath
     }
     return
@@ -65,7 +76,7 @@ $go = Resolve-Executable 'go.exe'
 $caddy = Resolve-Executable 'caddy.exe'
 foreach ($file in @($CertificatePath, $KeyPath)) {
     if (-not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
-        throw 'Set LEAFWIKI_TLS_CERT and LEAFWIKI_TLS_KEY to a trusted localhost certificate and its private key.'
+        throw 'Set LEAFDOC_TLS_CERT and LEAFDOC_TLS_KEY to a trusted localhost certificate and its private key.'
     }
 }
 $CertificatePath = (Resolve-Path -LiteralPath $CertificatePath).Path
@@ -124,7 +135,10 @@ if ($Build -or -not (Test-Path -LiteralPath $binary)) {
     Copy-Item -Path (Join-Path $root 'ui/dist/*') -Destination $destination -Recurse
     Push-Location $root
     try {
-        & $go build -ldflags '-X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production' -o $binary ./cmd/leafwiki
+        $node = Resolve-Executable 'node.exe'
+        $version = (& $node (Join-Path $root 'scripts/resolve-version.mjs')).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $version) { throw 'Release version resolution failed.' }
+        & $go build -ldflags "-X main.Version=$version -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production" -o $binary ./cmd/leafdoc
         if ($LASTEXITCODE -ne 0) { throw 'Backend build failed.' }
     } finally { Pop-Location }
 }
@@ -152,7 +166,7 @@ https://localhost:$Port {
 & $caddy fmt --overwrite $gatewayConfig
 if ($LASTEXITCODE -ne 0) { throw 'Gateway configuration formatting failed.' }
 
-$savedSecret = $env:LEAFWIKI_JWT_SECRET
+$savedSecret = $env:LEAFDOC_JWT_SECRET
 $processes = @()
 $handler = [Net.Http.HttpClientHandler]::new()
 $handler.UseProxy = $false
@@ -181,7 +195,7 @@ function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
 }
 
 try {
-    $env:LEAFWIKI_JWT_SECRET = Get-Content -LiteralPath $secretPath -Raw -Encoding UTF8
+    $env:LEAFDOC_JWT_SECRET = Get-Content -LiteralPath $secretPath -Raw -Encoding UTF8
     $backendArguments = @('--host', '127.0.0.1', '--port', "$backendPort", '--data-dir', "`"$DataDirectory`"", '--enable-revision')
     if ($BasePath) { $backendArguments += @('--base-path', $BasePath) }
     $backend = Start-Process -FilePath $binary -ArgumentList $backendArguments -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'backend.stdout.log') -RedirectStandardError (Join-Path $runtime 'backend.stderr.log') -PassThru
@@ -204,7 +218,7 @@ try {
     }
     throw
 } finally {
-    $env:LEAFWIKI_JWT_SECRET = $savedSecret
+    $env:LEAFDOC_JWT_SECRET = $savedSecret
     foreach ($process in $processes) { $process.Dispose() }
     $client.Dispose()
     $handler.Dispose()

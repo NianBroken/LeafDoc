@@ -1,5 +1,5 @@
 {
-  "name": "leafwiki-ui",
+  "name": "leafdoc-ui",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -103,7 +103,7 @@
     "katex": "$katex",
     "brace-expansion": "^5.0.12"
   },
-  "description": "leafwiki",
+  "description": "leafdoc",
   "main": "eslint.config.js",
   "keywords": [],
   "author": "",

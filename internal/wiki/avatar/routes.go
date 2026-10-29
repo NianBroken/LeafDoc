@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	coreavatar "github.com/NianBroken/LeafDoc/internal/core/avatar"
+	"github.com/NianBroken/LeafDoc/internal/core/brandassets"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	coreavatar "github.com/perber/wiki/internal/core/avatar"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 // Routes is the RouteRegistrar for the avatar domain.
@@ -19,6 +20,7 @@ type Routes struct {
 	deleteAvatar  *DeleteAvatarUseCase
 	avatarService *coreavatar.AvatarService
 	authService   *coreauth.AuthService
+	userService   func() *coreauth.UserService
 }
 
 // RoutesConfig holds the dependencies required to build a Routes instance.
@@ -27,6 +29,7 @@ type RoutesConfig struct {
 	DeleteAvatar  *DeleteAvatarUseCase
 	AvatarService *coreavatar.AvatarService
 	AuthService   *coreauth.AuthService
+	UserService   func() *coreauth.UserService
 }
 
 // NewRoutes constructs the avatar RouteRegistrar.
@@ -36,6 +39,7 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 		deleteAvatar:  cfg.DeleteAvatar,
 		avatarService: cfg.AvatarService,
 		authService:   cfg.AuthService,
+		userService:   cfg.UserService,
 	}
 }
 
@@ -45,8 +49,7 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	base := ctx.Base
 
 	// Public avatar static file server — unauthenticated, path-traversal
-	// protected. A missing avatar returns a bare 404 so the frontend's
-	// AvatarImage -> AvatarFallback degrades to initials automatically.
+	// protected. Existing accounts without uploads receive the built-in avatar.
 	base.GET("/avatars/:userId", r.handleServeAvatar)
 
 	authGroup := ctx.APIAuthGroup(r.authService)
@@ -102,9 +105,19 @@ func (r *Routes) handleServeAvatar(c *gin.Context) {
 		return
 	}
 
+	if _, err := r.userService().GetUserByID(userID); err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
 	path, found := r.avatarService.AvatarPath(userID)
 	if !found {
-		c.Status(http.StatusNotFound)
+		data, err := brandassets.Read(brandassets.AvatarFile)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		disableClientCache(c)
+		c.Data(http.StatusOK, "image/webp", data)
 		return
 	}
 

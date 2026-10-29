@@ -3,10 +3,10 @@ package pagesave
 import (
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/perber/wiki/internal/core/properties"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/properties"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func setupPropertiesEffectTest(t *testing.T) (*tree.TreeService, *properties.PropertiesService, *PropertiesSideEffect) {

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 type proxyFixture struct {

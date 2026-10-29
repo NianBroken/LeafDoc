@@ -4,7 +4,7 @@ type NavigationVisitLocation = {
   state: unknown
 }
 
-const NAVIGATION_VISIT_ID_KEY = 'leafwikiVisitId'
+const NAVIGATION_VISIT_ID_KEY = 'leafdocVisitId'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null

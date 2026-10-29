@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/branding"
+	"github.com/NianBroken/LeafDoc/internal/core/restore"
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
+	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/branding"
-	"github.com/perber/wiki/internal/core/restore"
-	"github.com/perber/wiki/internal/core/settings"
-	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
 
 	_ "modernc.org/sqlite" // Import SQLite driver
 )

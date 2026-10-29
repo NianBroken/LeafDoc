@@ -14,7 +14,7 @@ describe('useLastWikiLocationStore', () => {
     const loc = {
       pathname: '/docs/getting-started',
       search: '?x=1',
-      state: { leafwikiVisitId: 'abc-123' },
+      state: { leafdocVisitId: 'abc-123' },
     }
 
     useLastWikiLocationStore.getState().setLocation(loc)

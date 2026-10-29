@@ -1,17 +1,18 @@
 import { withBasePath } from '@/shared/lib/routePath'
 
-// All branding surfaces resolve custom files and built-in assets through this rule.
-export const BUILTIN_LOGO = '🌿'
+// Every branding surface uses the same built-in resources and base-path resolution.
+const BUILTIN_FILES = {
+  logo: 'leafdoc-logo.webp',
+  favicon: 'leafdoc-favicon.ico',
+}
 
 export function brandingAssetUrl(
   kind: 'logo' | 'favicon',
   file: string,
   version: number,
-): string | null {
-  const path = file
-    ? withBasePath(`/branding/${file}`)
-    : kind === 'favicon'
-      ? withBasePath('/favicon.svg')
-      : null
-  return path ? `${path}?v=${version}` : null
+): string {
+  const path = withBasePath(
+    file ? `/branding/${file}` : `/defaults/${BUILTIN_FILES[kind]}`,
+  )
+  return `${path}?v=${version}`
 }

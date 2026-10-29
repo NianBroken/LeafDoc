@@ -39,14 +39,14 @@ type HTTPMetrics struct {
 }
 
 // NewHTTPMetrics creates the Prometheus registry and metrics. version is
-// reported via the leafwiki_build_info gauge so it can be scraped alongside
+// reported via the leafdoc_build_info gauge so it can be scraped alongside
 // runtime metrics.
 func NewHTTPMetrics(version string) *HTTPMetrics {
 	registry := prometheus.NewRegistry()
 
 	buildInfo := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "build_info",
 			Help:      "Build information, constant 1, labeled by version.",
 		},
@@ -56,7 +56,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	requestsTotal := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "http_requests_total",
 			Help:      "Total number of HTTP requests by method, route, and status code.",
 		},
@@ -65,7 +65,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	requestDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "http_request_duration_seconds",
 			Help:      "HTTP request duration in seconds by method, route, and status code.",
 			Buckets:   []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
@@ -75,7 +75,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	requestsInFlight := prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "http_requests_in_flight",
 			Help:      "Current number of in-flight HTTP requests.",
 		},
@@ -83,7 +83,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	pagesaveDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "pagesave_duration_seconds",
 			Help:      "Page save workflow duration in seconds by operation and result.",
 			Buckets:   []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
@@ -93,7 +93,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	pagesaveOpsTotal := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "pagesave_operations_total",
 			Help:      "Total number of page save workflows by operation and result.",
 		},
@@ -102,7 +102,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	pagesaveFailures := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "pagesave_failures_total",
 			Help:      "Total number of failed page save workflows by operation and result.",
 		},
@@ -111,7 +111,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	sideEffectDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "pagesave_sideeffect_duration_seconds",
 			Help:      "Page save side-effect duration in seconds by operation and side effect.",
 			Buckets:   []float64{0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1},
@@ -121,7 +121,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	sideEffectFailures := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "pagesave_sideeffect_failures_total",
 			Help:      "Total number of swallowed page save side-effect failures by operation and side effect.",
 		},
@@ -130,7 +130,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	refactorAffectedPages := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "refactor_affected_pages",
 			Help:      "Distribution of affected page counts for rename and move refactors.",
 			Buckets:   []float64{0, 1, 2, 5, 10, 25, 50, 100, 250},
@@ -140,7 +140,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	refactorMatchedLinks := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "refactor_matched_links",
 			Help:      "Distribution of matched link counts for rename and move refactors.",
 			Buckets:   []float64{0, 1, 2, 5, 10, 25, 50, 100, 250, 500},
@@ -150,7 +150,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	refactorDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "refactor_duration_seconds",
 			Help:      "Rename and move refactor duration in seconds.",
 			Buckets:   []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
@@ -160,7 +160,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	refactorStepDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "refactor_step_duration_seconds",
 			Help:      "Rename and move refactor duration in seconds, broken down by internal step.",
 			Buckets:   []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
@@ -170,7 +170,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	resyncDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "resync_duration_seconds",
 			Help:      "Filesystem resync duration in seconds by result.",
 			Buckets:   []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60},
@@ -180,7 +180,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	resyncRuns := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "resync_runs_total",
 			Help:      "Total number of filesystem resync runs by result.",
 		},
@@ -189,7 +189,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	resyncFailures := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "resync_failures_total",
 			Help:      "Total number of failed filesystem resync runs by result.",
 		},
@@ -198,7 +198,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	authLoginAttempts := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "auth_login_attempts_total",
 			Help:      "Total number of login attempts by outcome.",
 		},
@@ -207,7 +207,7 @@ func NewHTTPMetrics(version string) *HTTPMetrics {
 
 	authSessions := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "leafwiki",
+			Namespace: "leafdoc",
 			Name:      "auth_sessions_total",
 			Help:      "Total number of session lifecycle events by event type.",
 		},

@@ -12,7 +12,7 @@
     "title": "Nom du site",
     "description": "Le nom affiché dans l'en-tête, les titres de page et l'écran de connexion.",
     "label": "Nom du site",
-    "placeholder": "LeafWiki"
+    "placeholder": "LeafDoc"
   },
   "logo": {
     "title": "Logo",

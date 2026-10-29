@@ -20,7 +20,7 @@ problem() {
 }
 
 # `go env` inside the module switches to (and if needed downloads) the
-# toolchain from go.mod, so this shows the Go that builds LeafWiki.
+# toolchain from go.mod, so this shows the Go that builds LeafDoc.
 if command -v go >/dev/null 2>&1; then
     echo "checking Go (may download the go.mod toolchain)..."
     if have_go="$(go env GOVERSION 2>/dev/null)"; then

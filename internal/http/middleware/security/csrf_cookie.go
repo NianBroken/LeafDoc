@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/http/middleware/utils"
 )
 
 type CSRFCookie struct {
@@ -26,9 +26,9 @@ func NewCSRFCookie(allowInsecure bool, ttl time.Duration) *CSRFCookie {
 
 func (c *CSRFCookie) cookieName(secure bool) string {
 	if secure {
-		return "__Host-leafwiki_csrf"
+		return "__Host-leafdoc_csrf"
 	}
-	return "leafwiki_csrf"
+	return "leafdoc_csrf"
 }
 
 func (c *CSRFCookie) generateToken() (string, error) {

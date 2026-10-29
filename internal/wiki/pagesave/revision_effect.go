@@ -3,8 +3,8 @@ package pagesave
 import (
 	"log/slog"
 
-	"github.com/perber/wiki/internal/core/revision"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // RevisionSideEffect records revision history entries after page mutations.

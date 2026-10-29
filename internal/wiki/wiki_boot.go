@@ -1,25 +1,22 @@
 package wiki
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 
-	"github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/avatar"
-	"github.com/perber/wiki/internal/core/branding"
-	"github.com/perber/wiki/internal/core/email"
-	"github.com/perber/wiki/internal/core/favorites"
-	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/links"
-	"github.com/perber/wiki/internal/core/localization"
-	"github.com/perber/wiki/internal/core/properties"
-	"github.com/perber/wiki/internal/core/search"
-	"github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
-	wikipages "github.com/perber/wiki/internal/wiki/pages"
-	"github.com/perber/wiki/internal/wiki/pagesave"
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/avatar"
+	"github.com/NianBroken/LeafDoc/internal/core/branding"
+	"github.com/NianBroken/LeafDoc/internal/core/email"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/links"
+	"github.com/NianBroken/LeafDoc/internal/core/properties"
+	"github.com/NianBroken/LeafDoc/internal/core/search"
+	"github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
 // ─── Subsystem initializers ───────────────────────────────────────────────────
@@ -98,7 +95,7 @@ func (w *Wiki) initEmail(options *WikiOptions) error {
 }
 
 func (w *Wiki) initCoreServices(options *WikiOptions) error {
-	// Create a shared ignore cache for multi-level .leafwikiignore resolution.
+	// Create a shared ignore cache for multi-level .leafdocignore resolution.
 	rootDir := filepath.Join(w.storageDir, "root")
 	w.ignoreCache = ignore.NewCache(rootDir)
 
@@ -262,35 +259,4 @@ func (w *Wiki) ensureBaselineRevisions() {
 			w.log.Warn("baseline revision failed", "pageID", valid[i].ID, "error", err)
 		}
 	}
-}
-
-func (w *Wiki) EnsureWelcomePage() error {
-	if w.tree.HasPages() {
-		w.log.Info("Welcome page already exists, skipping creation")
-		return nil
-	}
-	title, content := localization.Welcome()
-	o := w.newPageOrchestrator()
-	k := tree.NodeKindPage
-	createOut, err := wikipages.NewCreatePageUseCase(w.tree, w.slug, o, w.log, w.metrics).Execute(
-		context.Background(),
-		wikipages.CreatePageInput{UserID: SYSTEM_USER_ID, Title: title, Slug: "welcome-to-leafwiki", Kind: &k},
-	)
-	if err != nil {
-		return err
-	}
-	p := createOut.Page
-
-	current, err := w.tree.GetPage(p.ID)
-	if err != nil {
-		return err
-	}
-	if _, err := wikipages.NewUpdatePageUseCase(w.tree, w.slug, o, w.log, w.metrics).Execute(
-		context.Background(),
-		wikipages.UpdatePageInput{UserID: SYSTEM_USER_ID, ID: p.ID, Version: current.Version(), Title: p.Title, Slug: p.Slug, Content: &content, Kind: &k},
-	); err != nil {
-		return err
-	}
-
-	return nil
 }

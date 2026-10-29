@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/perber/wiki/internal/core/shared"
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
 	_ "modernc.org/sqlite"
 )
 
@@ -34,7 +34,7 @@ const (
 // does the same amount of work whether or not the id exists — mirrors
 // dummySecretHash in apikey_service.go; see that comment for the full timing
 // rationale.
-var dummyEmailTokenHash = hashSecret("leafwiki-dummy-email-token-secret-for-timing-equalization")
+var dummyEmailTokenHash = hashSecret("leafdoc-dummy-email-token-secret-for-timing-equalization")
 
 // EmailToken is the persisted representation of a password-reset or invite
 // token. The plaintext secret half is never stored — only tokenHash (a

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/localization"
+	"github.com/NianBroken/LeafDoc/internal/core/localization"
 )
 
 // Notification bodies retain links, escape HTML, and use the global language.

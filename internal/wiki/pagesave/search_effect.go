@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/search"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/search"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // SearchIndexSideEffect updates the search index after every page mutation.

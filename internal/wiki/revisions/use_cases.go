@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"time"
 
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/revision"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/wiki/pagesave"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
 // ─── DTO types ───────────────────────────────────────────────────────────────

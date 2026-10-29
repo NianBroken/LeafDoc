@@ -1,9 +1,9 @@
 package restore
 
 import (
-	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/settings"
-	"github.com/perber/wiki/internal/core/snapshot"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
+	"github.com/NianBroken/LeafDoc/internal/core/snapshot"
 )
 
 // SwappableStore is a SQLite store holding real state (ADR-0013) that a live

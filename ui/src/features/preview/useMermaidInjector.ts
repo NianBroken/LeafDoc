@@ -28,7 +28,7 @@ async function ensureMermaidInitialized(
       securityLevel: 'antiscript',
       theme,
       deterministicIds: true,
-      deterministicIDSeed: 'leafwiki',
+      deterministicIDSeed: 'leafdoc',
     })
     mermaid.setParseErrorHandler((err) => {
       console.warn('Mermaid parse error:', err)

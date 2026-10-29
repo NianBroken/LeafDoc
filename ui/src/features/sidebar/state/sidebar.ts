@@ -52,7 +52,7 @@ export const useSidebarStore = create<SidebarStore>()(
         })),
     }),
     {
-      name: 'leafwiki-sidebar', // localStorage key
+      name: 'leafdoc-sidebar', // localStorage key
       partialize: (state) => ({
         sidebarVisible: state.sidebarVisible,
         sidebarMode: state.sidebarMode,

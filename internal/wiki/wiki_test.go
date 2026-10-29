@@ -12,15 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/perber/wiki/internal/core/restore"
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/restore"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 
-	wikipages "github.com/perber/wiki/internal/wiki/pages"
-	wikiresync "github.com/perber/wiki/internal/wiki/resync"
+	wikipages "github.com/NianBroken/LeafDoc/internal/wiki/pages"
+	wikiresync "github.com/NianBroken/LeafDoc/internal/wiki/resync"
 )
 
 func createWikiTestInstance(t *testing.T) *Wiki {
@@ -167,10 +167,10 @@ func TestWiki_TriggerResyncAsync_EmitsMetrics(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_resync_runs_total{result="success"} 1`) {
+	if !strings.Contains(body, `leafdoc_resync_runs_total{result="success"} 1`) {
 		t.Fatalf("expected resync run metric, got: %s", body)
 	}
-	if !strings.Contains(body, `leafwiki_resync_duration_seconds_bucket{result="success"`) {
+	if !strings.Contains(body, `leafdoc_resync_duration_seconds_bucket{result="success"`) {
 		t.Fatalf("expected resync duration metric, got: %s", body)
 	}
 }
@@ -557,7 +557,7 @@ func TestWiki_EnsureBaselineRevisions_SkipsUnreadablePages(t *testing.T) {
 	}
 }
 
-func TestWiki_ResyncRespectsLeafwikiignore(t *testing.T) {
+func TestWiki_ResyncRespectsLeafdocignore(t *testing.T) {
 	tmp := t.TempDir()
 
 	rootDir := filepath.Join(tmp, "root")
@@ -565,8 +565,8 @@ func TestWiki_ResyncRespectsLeafwikiignore(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	// .leafwikiignore goes in root/ alongside the markdown files
-	testutil.WriteFile(t, tmp, "root/.leafwikiignore", "secret.md")
+	// .leafdocignore goes in root/ alongside the markdown files
+	testutil.WriteFile(t, tmp, "root/.leafdocignore", "secret.md")
 	testutil.WriteFile(t, tmp, "root/public.md", "# Public Page")
 	testutil.WriteFile(t, tmp, "root/secret.md", "# Secret Page")
 
@@ -658,8 +658,8 @@ func TestWiki_ReloadWithProgress_CanceledContext_FinishesWithErrorAndFailureMetr
 	}
 	body := metricsBody(t, metrics)
 	for _, metric := range []string{
-		`leafwiki_resync_runs_total{result="error"} 1`,
-		`leafwiki_resync_failures_total{result="error"} 1`,
+		`leafdoc_resync_runs_total{result="error"} 1`,
+		`leafdoc_resync_failures_total{result="error"} 1`,
 	} {
 		if !strings.Contains(body, metric) {
 			t.Fatalf("expected %s in metrics, got: %s", metric, body)
@@ -679,7 +679,7 @@ func newWikiOnDir(dir string) (*Wiki, error) {
 
 // seedWikiWithUser boots a wiki on dir, adds the user alice with a favorite
 // and closes it again, as a previous run of the server would. Like
-// cmd/leafwiki, it creates the data dir first.
+// cmd/leafdoc, it creates the data dir first.
 func seedWikiWithUser(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

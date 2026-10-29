@@ -51,7 +51,7 @@ export const rehypeLineNumber: Plugin = () => {
 
       node.properties.id =
         duplicateCount === 0 ? baseSlug : `${baseSlug}-${duplicateCount}`
-      node.properties['data-leafwiki-generated-id'] = 'true'
+      node.properties['data-leafdoc-generated-id'] = 'true'
     })
   }
 }

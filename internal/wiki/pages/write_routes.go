@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 )
 
 func (r *Routes) handleRemoveFavorite(c *gin.Context) {

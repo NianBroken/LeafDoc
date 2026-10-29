@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"

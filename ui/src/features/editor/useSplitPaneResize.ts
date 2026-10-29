@@ -8,7 +8,7 @@ import {
 const DEFAULT_EDITOR_PANE_WIDTH = 50
 export const MIN_EDITOR_PANE_WIDTH = 25
 export const MAX_EDITOR_PANE_WIDTH = 75
-const EDITOR_PANE_WIDTH_STORAGE_KEY = 'leafwiki-editor-pane-width'
+const EDITOR_PANE_WIDTH_STORAGE_KEY = 'leafdoc-editor-pane-width'
 
 function clampEditorPaneWidth(value: number) {
   return Math.min(MAX_EDITOR_PANE_WIDTH, Math.max(MIN_EDITOR_PANE_WIDTH, value))

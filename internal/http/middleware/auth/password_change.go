@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/localization"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/localization"
 )
 
 // passwordChangeAllowed is the small set of routes required to finish or end a restricted session.

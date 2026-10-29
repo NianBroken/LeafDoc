@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/perber/wiki/internal/core/shared"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // dummySecretHash is compared against on an unknown-prefix lookup so Resolve
@@ -20,7 +20,7 @@ import (
 // secret, letting a caller enumerate which prefixes are registered purely by
 // timing responses. Mirrors AuthService's dummyHash for the same reason (see
 // auth_service.go).
-var dummySecretHash = hashSecret("leafwiki-dummy-api-key-secret-for-timing-equalization")
+var dummySecretHash = hashSecret("leafdoc-dummy-api-key-secret-for-timing-equalization")
 
 // hashSecret computes the stored form of an API key secret. The secret is a
 // 32-byte cryptographically random value (see generateSecret), not a human
@@ -323,7 +323,7 @@ func generateKeyToken() (prefix string, secret string, err error) {
 	return prefix, secret, nil
 }
 
-// LooksLikeAPIKeyToken reports whether raw is shaped like a LeafWiki API key
+// LooksLikeAPIKeyToken reports whether raw is shaped like a LeafDoc API key
 // token, without validating it. Used by the Bearer middleware to decide
 // whether an Authorization header is meant for API-key auth at all, so other
 // (or malformed) Bearer credentials fall through to normal auth untouched.

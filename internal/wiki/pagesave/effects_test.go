@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/links"
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/search"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/links"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/search"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 func TestNewLinkIndexSideEffect_DefaultsLogger(t *testing.T) {
@@ -117,10 +117,10 @@ func TestPageSaveOrchestrator_RecordsSideEffectDurationAndFailures(t *testing.T)
 	orchestrator.Run(PageSaveEvent{Operation: PageOperationUpdate})
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_pagesave_sideeffect_duration_seconds_bucket{operation="update",side_effect="search"`) {
+	if !strings.Contains(body, `leafdoc_pagesave_sideeffect_duration_seconds_bucket{operation="update",side_effect="search"`) {
 		t.Fatalf("expected side-effect duration metric, got: %s", body)
 	}
-	expectedFailure := `leafwiki_pagesave_sideeffect_failures_total{operation="update",side_effect="search"} 1`
+	expectedFailure := `leafdoc_pagesave_sideeffect_failures_total{operation="update",side_effect="search"} 1`
 	if !strings.Contains(body, expectedFailure) {
 		t.Fatalf("expected side-effect failure metric %q, got: %s", expectedFailure, body)
 	}

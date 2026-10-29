@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/auth"
-	coreprop "github.com/perber/wiki/internal/core/properties"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/http/dto"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	coreprop "github.com/NianBroken/LeafDoc/internal/core/properties"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/http/dto"
 )
 
 // ─── Sentinel errors ─────────────────────────────────────────────────────────

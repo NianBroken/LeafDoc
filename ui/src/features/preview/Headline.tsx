@@ -27,7 +27,7 @@ export type HeadlineProps = HTMLAttributes<HTMLHeadingElement> & {
   level: number
   children: ReactNode
   'data-line'?: string
-  'data-leafwiki-generated-id'?: string
+  'data-leafdoc-generated-id'?: string
   node?: unknown
 }
 
@@ -37,7 +37,7 @@ export default function Headline({
   className,
   id,
   'data-line': dataLine,
-  'data-leafwiki-generated-id': hasGeneratedId,
+  'data-leafdoc-generated-id': hasGeneratedId,
   node,
   ...props
 }: HeadlineProps) {

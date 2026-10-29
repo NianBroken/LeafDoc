@@ -323,7 +323,7 @@ test.describe('Editor', () => {
       title: `Editor Remove Tags ${stamp}`,
       slug,
       content: 'Page with tags.',
-      tags: ['leafwiki', 'andere'],
+      tags: ['leafdoc', 'andere'],
     });
 
     const viewPage = new ViewPage(page);
@@ -332,7 +332,7 @@ test.describe('Editor', () => {
 
     const editPage = new EditPage(page);
     await editPage.openFrontmatterPanel();
-    await removeTag(page, 'leafwiki');
+    await removeTag(page, 'leafdoc');
     await removeTag(page, 'andere');
 
     await editPage.savePage();
@@ -785,7 +785,7 @@ test.describe('Editor line wrap', () => {
     });
 
     // Reset stored editor settings so the test always starts with the default (lineWrap: true)
-    await page.evaluate(() => localStorage.removeItem('leafwiki-editor-settings'));
+    await page.evaluate(() => localStorage.removeItem('leafdoc-editor-settings'));
 
     const viewPage = new ViewPage(page);
     await viewPage.goto(`/${slug}`);

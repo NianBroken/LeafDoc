@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"strings"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/wiki/pagesave"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
 // EnsurePathInput is the input for EnsurePathUseCase.

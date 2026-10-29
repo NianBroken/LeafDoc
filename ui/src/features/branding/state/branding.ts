@@ -1,6 +1,7 @@
 import * as brandingAPI from '@/shared/lib/api/branding'
 import i18next from '@/shared/lib/i18n'
 import { brandingAssetUrl } from '../assets'
+import { DEFAULT_SITE_NAME } from '@/shared/lib/brandDefaults'
 import { create } from 'zustand'
 
 const t = (key: string) => i18next.t(key, { ns: 'branding' })
@@ -28,7 +29,7 @@ type BrandingStore = {
 }
 
 export const useBrandingStore = create<BrandingStore>((set) => ({
-  siteName: 'LeafWiki',
+  siteName: DEFAULT_SITE_NAME,
   logoFile: '',
   faviconFile: '',
   logoVersion: 0,

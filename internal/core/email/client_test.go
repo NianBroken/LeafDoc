@@ -107,7 +107,7 @@ func TestClient_Send_PlaintextRoundTrip_DeliversMessage(t *testing.T) {
 		Host:     host,
 		Port:     port,
 		From:     "wiki@example.com",
-		FromName: "LeafWiki",
+		FromName: "LeafDoc",
 		Security: SecurityNone,
 	})
 
@@ -116,7 +116,7 @@ func TestClient_Send_PlaintextRoundTrip_DeliversMessage(t *testing.T) {
 
 	err := client.Send(ctx, Message{
 		To:      "user@example.com",
-		Subject: "Reset your LeafWiki password",
+		Subject: "Reset your LeafDoc password",
 		HTML:    "<p>link</p>",
 		Text:    "link",
 	})
@@ -135,16 +135,16 @@ func TestClient_Send_PlaintextRoundTrip_DeliversMessage(t *testing.T) {
 	if !strings.Contains(srv.rcptTo, "user@example.com") {
 		t.Errorf("expected RCPT TO to contain recipient, got %q", srv.rcptTo)
 	}
-	if !strings.Contains(srv.data, "Subject: Reset your LeafWiki password") {
+	if !strings.Contains(srv.data, "Subject: Reset your LeafDoc password") {
 		t.Errorf("expected message data to contain subject header, got: %s", srv.data)
 	}
-	if !strings.Contains(srv.data, "From: LeafWiki <wiki@example.com>") {
+	if !strings.Contains(srv.data, "From: LeafDoc <wiki@example.com>") {
 		t.Errorf("expected message data to contain From header with display name, got: %s", srv.data)
 	}
 }
 
 func TestClient_BuildRawMessage_StripsCRLFFromHeaderValues(t *testing.T) {
-	client := NewClient(Config{From: "wiki@example.com", FromName: "LeafWiki"})
+	client := NewClient(Config{From: "wiki@example.com", FromName: "LeafDoc"})
 
 	raw := client.buildRawMessage(Message{
 		To:      "attacker@example.com\r\nBcc: victim@example.com",

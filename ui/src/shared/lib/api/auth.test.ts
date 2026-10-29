@@ -381,7 +381,7 @@ describe('API error decoding', () => {
     })
 
     it('sends JSON content type, credentials and the CSRF header on writes', async () => {
-      document.cookie = 'leafwiki_csrf=csrf-token-value'
+      document.cookie = 'leafdoc_csrf=csrf-token-value'
       const fetchMock = stubRawResponse(200, '{}')
       await fetchWithAuth('/api/x', { method: 'POST', body: '{"a":1}' })
       const [url, init] = fetchMock.mock.calls[0] as unknown as [
@@ -394,14 +394,14 @@ describe('API error decoding', () => {
       expect(headers.get('Content-Type')).toBe('application/json')
       expect(headers.get('X-CSRF-Token')).toBe('csrf-token-value')
       expect(init.body).toBe('{"a":1}')
-      document.cookie = 'leafwiki_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      document.cookie = 'leafdoc_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
     })
 
     it('uses the HTTP cookie when a stale HTTPS cookie also exists on localhost', async () => {
       const cookie = vi
         .spyOn(document, 'cookie', 'get')
         .mockReturnValue(
-          '__Host-leafwiki_csrf=https-token; leafwiki_csrf=http-token',
+          '__Host-leafdoc_csrf=https-token; leafdoc_csrf=http-token',
         )
       const fetchMock = stubRawResponse(200, '{}')
       await fetchWithAuth('/api/x', { method: 'PUT', body: '{}' })

@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/links"
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/tree"
-	wikipages "github.com/perber/wiki/internal/wiki/pages"
-	"github.com/perber/wiki/internal/wiki/pagesave"
-	wikirevisions "github.com/perber/wiki/internal/wiki/revisions"
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/links"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	wikipages "github.com/NianBroken/LeafDoc/internal/wiki/pages"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
+	wikirevisions "github.com/NianBroken/LeafDoc/internal/wiki/revisions"
 )
 
 type testDeps struct {

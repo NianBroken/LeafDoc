@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 type createNodeResult struct {
@@ -752,7 +752,7 @@ func (t *TreeService) rollbackMovedNodeLocked(node *PageNode, oldParent *PageNod
 	return rollbackErr
 }
 
-// SetPinned updates the leafwiki_pinned frontmatter field and in-memory Pinned flag.
+// SetPinned updates the leafdoc_pinned frontmatter field and in-memory Pinned flag.
 func (t *TreeService) SetPinned(id string, version string, pinned bool) (*Page, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

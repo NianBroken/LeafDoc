@@ -4,12 +4,12 @@ import (
 	"log/slog"
 	"net/http"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	coreimporter "github.com/NianBroken/LeafDoc/internal/core/importer"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	coreimporter "github.com/perber/wiki/internal/core/importer"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 const (

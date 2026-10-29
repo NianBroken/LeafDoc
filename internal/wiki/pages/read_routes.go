@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/perber/wiki/internal/http/dto"
+	"github.com/NianBroken/LeafDoc/internal/http/dto"
 )
 
 func (r *Routes) handleGetTree(c *gin.Context) {

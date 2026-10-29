@@ -10,7 +10,7 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 )
 
-const IgnoreFilename = ".leafwikiignore"
+const IgnoreFilename = ".leafdocignore"
 
 type IgnoreFile struct {
 	matcher      *gitignore.GitIgnore

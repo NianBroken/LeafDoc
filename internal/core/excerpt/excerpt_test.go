@@ -132,12 +132,12 @@ func TestFromContent_StripsHTMLTags(t *testing.T) {
 }
 
 func TestFromContent_StripsMarkdownEmphasisMarkers(t *testing.T) {
-	raw := "---\ntitle: T\n---\n\nLeafWiki **fett** und _kursiv_."
+	raw := "---\ntitle: T\n---\n\nLeafDoc **fett** und _kursiv_."
 	got := FromContent(raw)
 	if strings.Contains(got, "**") || strings.Contains(got, "_") {
 		t.Errorf("markdown emphasis markers should be stripped, got %q", got)
 	}
-	if !strings.Contains(got, "LeafWiki fett und kursiv.") {
+	if !strings.Contains(got, "LeafDoc fett und kursiv.") {
 		t.Errorf("expected plain text excerpt, got %q", got)
 	}
 }

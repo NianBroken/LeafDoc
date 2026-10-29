@@ -1,7 +1,11 @@
 import * as React from 'react'
 import * as AvatarPrimitive from '@radix-ui/react-avatar'
 
+import { withBasePath } from '@/shared/lib/routePath'
+
 import { cn } from '@/shared/lib/utils'
+
+import { DEFAULT_AVATAR_PATH } from '@/shared/lib/brandDefaults'
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
@@ -33,7 +37,7 @@ AvatarImage.displayName = AvatarPrimitive.Image.displayName
 const AvatarFallback = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Fallback>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
+>(({ className, children: _children, ...props }, ref) => (
   <AvatarPrimitive.Fallback
     ref={ref}
     className={cn(
@@ -41,7 +45,13 @@ const AvatarFallback = React.forwardRef<
       className,
     )}
     {...props}
-  />
+  >
+    <img
+      src={withBasePath(DEFAULT_AVATAR_PATH)}
+      alt=""
+      className="h-full w-full object-contain"
+    />
+  </AvatarPrimitive.Fallback>
 ))
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 

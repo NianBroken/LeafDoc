@@ -10,11 +10,11 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/perber/wiki/internal/core/excerpt"
-	"github.com/perber/wiki/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/excerpt"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"

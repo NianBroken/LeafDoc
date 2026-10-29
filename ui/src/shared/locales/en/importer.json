@@ -57,7 +57,7 @@
   },
   "beforeYouStart": {
     "title": "Before You Start",
-    "description": "Import a zip archive with Markdown files. LeafWiki first creates a review plan, and only imports pages after you explicitly start the execution step.",
+    "description": "Import a zip archive with Markdown files. LeafDoc first creates a review plan, and only imports pages after you explicitly start the execution step.",
     "whatHappensNext": "What happens next?",
     "stepPrefix": "Step {{number}}",
     "safeReviewTitle": "Safe review first",
@@ -82,7 +82,7 @@
   },
   "plan": {
     "title": "Import Plan",
-    "description": "Review what LeafWiki is about to create, update, or skip before you start the import.",
+    "description": "Review what LeafDoc is about to create, update, or skip before you start the import.",
     "currentStatus": "Current Status",
     "planId": "Plan ID: {{id}}",
     "progress": "Progress: {{progress}}",
@@ -104,7 +104,7 @@
   },
   "plannedItems": {
     "title": "Planned Items ({{count}})",
-    "description": "These are the individual files LeafWiki detected in the package and how they map to target pages.",
+    "description": "These are the individual files LeafDoc detected in the package and how they map to target pages.",
     "importFile": "Import File",
     "targetPage": "Target Page",
     "titleColumn": "Title",

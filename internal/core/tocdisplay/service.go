@@ -12,8 +12,8 @@ package tocdisplay
 import (
 	"fmt"
 
-	"github.com/perber/wiki/internal/core/settings"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // fileConfig is the on-disk shape of toc-display.json.

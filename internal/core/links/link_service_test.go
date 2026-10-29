@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func pageNodeKind() *tree.NodeKind {

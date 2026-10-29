@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // NodeMetadata contains authorship and timestamp information for a page node.

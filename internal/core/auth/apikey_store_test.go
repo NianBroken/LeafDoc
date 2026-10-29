@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/testutil"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func setupTestAPIKeyStore(t *testing.T) *APIKeyStore {

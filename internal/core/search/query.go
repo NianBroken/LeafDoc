@@ -7,9 +7,9 @@ import (
 
 	"strings"
 
-	"github.com/perber/wiki/internal/core/excerpt"
+	"github.com/NianBroken/LeafDoc/internal/core/excerpt"
 
-	"github.com/perber/wiki/internal/core/shared/htmlutil"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/htmlutil"
 
 	_ "modernc.org/sqlite"
 )

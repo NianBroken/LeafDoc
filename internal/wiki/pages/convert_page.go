@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // ConvertPageInput is the input for ConvertPageUseCase.

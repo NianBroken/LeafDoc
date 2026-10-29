@@ -5,12 +5,12 @@ import (
 	"sort"
 	"strings"
 
-	coresearch "github.com/perber/wiki/internal/core/search"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/shared/htmlutil"
-	coretags "github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/http/dto"
+	coresearch "github.com/NianBroken/LeafDoc/internal/core/search"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/htmlutil"
+	coretags "github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/http/dto"
 )
 
 var ErrSearchUnavailable = sharederrors.NewLocalizedError(

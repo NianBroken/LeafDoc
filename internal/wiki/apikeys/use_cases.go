@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // ErrAPIKeysDisabled is returned when an api-key operation is called while

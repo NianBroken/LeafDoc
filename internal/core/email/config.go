@@ -16,7 +16,7 @@ const (
 const defaultTimeout = 10 * time.Second
 
 // Config describes an optional SMTP integration. The zero value is a valid,
-// disabled configuration — LeafWiki keeps working with zero email
+// disabled configuration — LeafDoc keeps working with zero email
 // configuration for self-hosters who don't want it (see Enabled).
 type Config struct {
 	Host               string
@@ -33,7 +33,7 @@ type Config struct {
 
 // Enabled reports whether SMTP has been configured at all. Host is the single
 // source of truth for this, matching how the CLI/ENV layer decides
-// SMTPEnabled (see cmd/leafwiki/main.go's validateSMTPConfig).
+// SMTPEnabled (see cmd/leafdoc/main.go's validateSMTPConfig).
 func (c Config) Enabled() bool {
 	return c.Host != ""
 }

@@ -10,7 +10,7 @@ import (
 func loadIgnore(t *testing.T, tmpDir string, content string) *IgnoreFile {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(tmpDir, IgnoreFilename), []byte(content), 0o644); err != nil {
-		t.Fatalf("write .leafwikiignore: %v", err)
+		t.Fatalf("write .leafdocignore: %v", err)
 	}
 	ig, err := LoadFromDir(tmpDir)
 	if err != nil {
@@ -23,7 +23,7 @@ func TestLoadFromDir_MissingFile_ReturnsNil(t *testing.T) {
 	tmp := t.TempDir()
 	ig, err := LoadFromDir(tmp)
 	if err != nil {
-		t.Fatalf("LoadFromDir with no .leafwikiignore: %v", err)
+		t.Fatalf("LoadFromDir with no .leafdocignore: %v", err)
 	}
 	if ig != nil {
 		t.Fatalf("expected nil, got %v", ig)
@@ -202,7 +202,7 @@ func TestCache_RootOnly(t *testing.T) {
 	}
 
 	if err := os.WriteFile(filepath.Join(root, IgnoreFilename), []byte("*.log"), 0o644); err != nil {
-		t.Fatalf("write root .leafwikiignore: %v", err)
+		t.Fatalf("write root .leafdocignore: %v", err)
 	}
 
 	c := NewCache(root)
@@ -239,10 +239,10 @@ func TestCache_MultiLevel(t *testing.T) {
 	}
 
 	if err := os.WriteFile(filepath.Join(root, IgnoreFilename), []byte("*.md"), 0o644); err != nil {
-		t.Fatalf("write root .leafwikiignore: %v", err)
+		t.Fatalf("write root .leafdocignore: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(subdir, IgnoreFilename), []byte("!important.md"), 0o644); err != nil {
-		t.Fatalf("write docs .leafwikiignore: %v", err)
+		t.Fatalf("write docs .leafdocignore: %v", err)
 	}
 
 	c := NewCache(root)
@@ -274,7 +274,7 @@ func TestCache_ChildOnly(t *testing.T) {
 	}
 
 	if err := os.WriteFile(filepath.Join(subdir, IgnoreFilename), []byte("*.log"), 0o644); err != nil {
-		t.Fatalf("write docs .leafwikiignore: %v", err)
+		t.Fatalf("write docs .leafdocignore: %v", err)
 	}
 
 	c := NewCache(root)
@@ -308,7 +308,7 @@ func TestCache_Caching(t *testing.T) {
 	}
 
 	if err := os.WriteFile(filepath.Join(root, IgnoreFilename), []byte("*.log"), 0o644); err != nil {
-		t.Fatalf("write root .leafwikiignore: %v", err)
+		t.Fatalf("write root .leafdocignore: %v", err)
 	}
 
 	c := NewCache(root)

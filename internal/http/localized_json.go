@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/NianBroken/LeafDoc/internal/core/localization"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/localization"
 )
 
 // localizedWriter buffers JSON only; static files, downloads and event streams pass through.

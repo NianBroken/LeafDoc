@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/perber/wiki/internal/core/markdown"
 	"github.com/yuin/goldmark"
 	gmhtml "github.com/yuin/goldmark/renderer/html"
 )

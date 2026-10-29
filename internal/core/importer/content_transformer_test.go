@@ -3,7 +3,7 @@ package importer
 import (
 	"testing"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func TestContentTransformer_TransformContent_TableDriven(t *testing.T) {

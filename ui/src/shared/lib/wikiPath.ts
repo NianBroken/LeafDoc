@@ -66,7 +66,7 @@ export function resolveWikiLinkPath(currentPath: string, href: string): string {
     ? normalizedCurrentPath
     : `${normalizedCurrentPath}/`
 
-  const base = new URL(folderBase, 'https://leafwiki.local')
+  const base = new URL(folderBase, 'https://leafdoc.local')
   const url = new URL(href, base)
 
   return normalizeWikiRoutePath(url.pathname)

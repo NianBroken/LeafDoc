@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the reverse-proxy auth E2E test suite.
-# Builds the LeafWiki image, starts the Docker Compose stack, runs Go tests,
+# Builds the LeafDoc image, starts the Docker Compose stack, runs Go tests,
 # and tears everything down regardless of the outcome.
 set -euo pipefail
 

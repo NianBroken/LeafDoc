@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/tree/migration"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/tree/migration"
 )
 
 // TreeService is our main component for handling tree operations

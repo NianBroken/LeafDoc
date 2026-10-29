@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	httpinternal "github.com/perber/wiki/internal/http"
-	"github.com/perber/wiki/internal/testutil"
-	"github.com/perber/wiki/internal/wiki"
-	wikirestore "github.com/perber/wiki/internal/wiki/restore"
-	wikisnapshot "github.com/perber/wiki/internal/wiki/snapshot"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/wiki"
+	wikirestore "github.com/NianBroken/LeafDoc/internal/wiki/restore"
+	wikisnapshot "github.com/NianBroken/LeafDoc/internal/wiki/snapshot"
 )
 
 // newAPIKeyRouterTest builds a Wiki + router pair mirroring createRouterTestInstance,

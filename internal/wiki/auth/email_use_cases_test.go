@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/email"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/email"
 )
 
 // fakeInviteSMTPServer is a minimal single-connection plaintext SMTP server

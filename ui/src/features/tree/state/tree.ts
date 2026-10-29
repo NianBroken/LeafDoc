@@ -299,7 +299,7 @@ export const useTreeStore = create<TreeStore>()(
       },
     }),
     {
-      name: 'leafwiki-tree-open-node-ids',
+      name: 'leafdoc-tree-open-node-ids',
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         openNodeIds: state.openNodeIds,

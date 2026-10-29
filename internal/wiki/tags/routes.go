@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	httpinternal "github.com/perber/wiki/internal/http"
 )
 
 // Routes is the RouteRegistrar for the tags domain.

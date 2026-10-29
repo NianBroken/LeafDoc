@@ -254,13 +254,13 @@ describe('validateEditorFrontmatterMetadata – reserved keys', () => {
     expect(errors['properties.0.key']).toMatch(/reserved/i)
   })
 
-  it('rejects leafwiki_ prefix', () => {
-    const errors = validateEditorFrontmatterMetadata([], [field('leafwiki_id')])
+  it('rejects leafdoc_ prefix', () => {
+    const errors = validateEditorFrontmatterMetadata([], [field('leafdoc_id')])
     expect(errors['properties.0.key']).toMatch(/reserved/i)
   })
 
   it('allows "title" as a custom property key', () => {
-    // "title" may coexist with leafwiki_title and must not be rejected.
+    // "title" may coexist with leafdoc_title and must not be rejected.
     const errors = validateEditorFrontmatterMetadata(
       [],
       [field('title', 'My Custom Title')],

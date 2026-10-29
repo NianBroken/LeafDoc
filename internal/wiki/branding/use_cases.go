@@ -4,8 +4,8 @@ import (
 	"context"
 	"mime/multipart"
 
-	corebanding "github.com/perber/wiki/internal/core/branding"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	corebanding "github.com/NianBroken/LeafDoc/internal/core/branding"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // ─── GetBrandingUseCase ──────────────────────────────────────────────────────

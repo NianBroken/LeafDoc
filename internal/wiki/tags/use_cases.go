@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/auth"
-	coretags "github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/http/dto"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	coretags "github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/http/dto"
 )
 
 // ─── GetTagsUseCase ──────────────────────────────────────────────────────────

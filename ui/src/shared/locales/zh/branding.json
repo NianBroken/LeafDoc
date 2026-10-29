@@ -12,7 +12,7 @@
     "title": "站点名称",
     "description": "显示在页眉、页面标题和登录界面中的名称。",
     "label": "站点名称",
-    "placeholder": "LeafWiki"
+    "placeholder": "LeafDoc"
   },
   "logo": {
     "title": "Logo",

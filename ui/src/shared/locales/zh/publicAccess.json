@@ -15,5 +15,5 @@
   "disabledToast": "公开模式已关闭",
   "updateError": "无法更新公开访问设置",
   "envManagedTitle": "由环境配置设定",
-  "envManagedDescription": "本实例的公开模式由 LEAFWIKI_PUBLIC_ACCESS / --public-access 设置（或 --disable-auth）控制，只能在该处修改。"
+  "envManagedDescription": "本实例的公开模式由 LEAFDOC_PUBLIC_ACCESS / --public-access 设置（或 --disable-auth）控制，只能在该处修改。"
 }

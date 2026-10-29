@@ -3,9 +3,9 @@ package auth
 import (
 	"net/http"
 
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/http/middleware/security"
 )
 
 // MustGetUser returns the authenticated user from context or aborts the request.

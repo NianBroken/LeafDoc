@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/http/middleware/security"
 )
 
 // APIKeyConfig holds the configuration for Bearer API-key authentication.
@@ -20,7 +20,7 @@ type APIKeyConfig struct {
 }
 
 // InjectAPIKeyUser reads an "Authorization: Bearer <token>" header carrying a
-// LeafWiki API key and, on success, stores the resolved user in the Gin
+// LeafDoc API key and, on success, stores the resolved user in the Gin
 // context so that RequireAuth can short-circuit JWT/cookie validation — the
 // same contract InjectRemoteUser uses for reverse-proxy header auth.
 //
@@ -28,11 +28,11 @@ type APIKeyConfig struct {
 //   - service not configured (feature unused)      → no-op, normal auth applies
 //   - user already set upstream                     → no-op, don't override
 //   - no Authorization header, or the bearer value
-//     isn't shaped like a LeafWiki key               → no-op (cookie/proxy auth still works)
-//   - LeafWiki-shaped token, rate limited            → 429
-//   - LeafWiki-shaped token, valid                   → user set in context
-//   - LeafWiki-shaped token, invalid/revoked/expired → 401
-//   - LeafWiki-shaped token, store suspended for a
+//     isn't shaped like a LeafDoc key               → no-op (cookie/proxy auth still works)
+//   - LeafDoc-shaped token, rate limited            → 429
+//   - LeafDoc-shaped token, valid                   → user set in context
+//   - LeafDoc-shaped token, invalid/revoked/expired → 401
+//   - LeafDoc-shaped token, store suspended for a
 //     live restore                                   → 503, not counted as a failed attempt
 //
 // Note on writes: a successfully resolved key sets security.APIKeyAuthContextKey,

@@ -13,7 +13,7 @@ export function expectDiagnostics(
     .mockImplementation((...args: unknown[]) => {
       expect(args).toEqual(expected[received])
       received++
-      const recordPath = process.env.LEAFWIKI_TEST_DIAGNOSTICS
+      const recordPath = process.env.LEAFDOC_TEST_DIAGNOSTICS
       if (recordPath) {
         appendFileSync(
           recordPath,

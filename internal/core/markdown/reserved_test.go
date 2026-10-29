@@ -10,12 +10,12 @@ func TestIsSystemKey(t *testing.T) {
 		{"tags", true},
 		{"Tags", true},
 		{"TAGS", true},
-		{"leafwiki_id", true},
-		{"leafwiki_title", true},
-		{"leafwiki_created_at", true},
-		{"LEAFWIKI_ANYTHING", true},
+		{"leafdoc_id", true},
+		{"leafdoc_title", true},
+		{"leafdoc_created_at", true},
+		{"LEAFDOC_ANYTHING", true},
 		// title is NOT a system key — it is a user-defined custom property
-		// that may coexist alongside leafwiki_title.
+		// that may coexist alongside leafdoc_title.
 		{"title", false},
 		{"Title", false},
 		{"status", false},

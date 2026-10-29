@@ -2,7 +2,7 @@ import '@/app/registrations'
 import ForcePasswordChange from '@/features/auth/ForcePasswordChange'
 import { startSettingsSync } from '@/app/settingsSync'
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
-import { createLeafWikiRouter } from '@/app/router/router'
+import { createLeafDocRouter } from '@/app/router/router'
 import { useBootstrapAuth } from '@/app/bootstrapAuth'
 import { BASE_PATH } from '@/shared/lib/config'
 import { useFavoritesStore } from '@/features/favorites/state/favorites'
@@ -72,12 +72,12 @@ function App() {
   }, [configError])
 
   const [router, setRouter] = useState<ReturnType<
-    typeof createLeafWikiRouter
+    typeof createLeafDocRouter
   > | null>(null)
   // Router ownership follows configuration readiness and releases history listeners on cleanup.
   useEffect(() => {
     if (!configHasLoaded) return
-    const instance = createLeafWikiRouter(
+    const instance = createLeafDocRouter(
       authDisabled,
       enableRevision,
       loginUrl,

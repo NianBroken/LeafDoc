@@ -3,7 +3,7 @@ package properties
 import (
 	"strings"
 
-	"github.com/perber/wiki/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 )
 
 type PropertiesService struct {
@@ -48,7 +48,7 @@ func (s *PropertiesService) GetPropertiesForPages(pageIDs []string) (map[string]
 }
 
 // ExtractPropertiesFromContent parses frontmatter and returns scalar properties.
-// Skips system keys (tags, leafwiki_*), lists, and nil values.
+// Skips system keys (tags, leafdoc_*), lists, and nil values.
 // Nested YAML maps are flattened using dot notation (e.g. a.b: value).
 func ExtractPropertiesFromContent(content string) map[string]PropertyEntry {
 	fm, _, has, err := markdown.ParseFrontmatter(content)
@@ -99,8 +99,8 @@ func extractFlatEntryDepth(prefix string, value interface{}, result map[string]P
 				continue
 			}
 			// Skip child segments that use the system-reserved prefix so that
-			// e.g. {"meta": {"leafwiki_id": "x"}} cannot pollute the index.
-			if strings.HasPrefix(strings.ToLower(childKey), "leafwiki_") {
+			// e.g. {"meta": {"leafdoc_id": "x"}} cannot pollute the index.
+			if strings.HasPrefix(strings.ToLower(childKey), "leafdoc_") {
 				continue
 			}
 			extractFlatEntryDepth(prefix+"."+childKey, childValue, result, depth+1)

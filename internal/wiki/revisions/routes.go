@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	"github.com/NianBroken/LeafDoc/internal/http/dto"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	httpinternal "github.com/perber/wiki/internal/http"
-	"github.com/perber/wiki/internal/http/dto"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/http/middleware/security"
 )
 
 // Routes is the RouteRegistrar for the revisions domain.

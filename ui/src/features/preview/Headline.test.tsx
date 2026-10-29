@@ -12,7 +12,7 @@ describe('Headline anchor icon scoping', () => {
       <Headline
         level={2}
         id="heading-with-code"
-        data-leafwiki-generated-id="true"
+        data-leafdoc-generated-id="true"
       >
         {'Heading with '}
         <span className="markdown-inline-code" data-testid="content-span">
@@ -41,7 +41,7 @@ describe('Headline anchor icon scoping', () => {
       <Headline
         level={2}
         id="heading-with-link"
-        data-leafwiki-generated-id="true"
+        data-leafdoc-generated-id="true"
       >
         <a href="https://example.com">a link</a>
       </Headline>,

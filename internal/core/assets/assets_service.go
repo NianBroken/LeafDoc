@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/perber/wiki/internal/core/shared"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 
-	"github.com/perber/wiki/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
 )
 
 const (
@@ -51,7 +51,7 @@ func (s *AssetService) getIgnoreForDir(dir string) *ignore.IgnoreFile {
 	return s.ignoreCache.Get(dir)
 }
 
-// isPageIgnored checks if the page's path is ignored by .leafwikiignore.
+// isPageIgnored checks if the page's path is ignored by .leafdocignore.
 func (s *AssetService) isPageIgnored(page *tree.PageNode) bool {
 	if page == nil {
 		return false
@@ -150,7 +150,7 @@ func (s *AssetService) SaveAssetForPage(page *tree.PageNode, file multipart.File
 
 	// Guard against ignored pages
 	if s.isPageIgnored(page) {
-		return "", sharederrors.NewLocalizedError("asset_upload_failed", "Failed to upload asset", "page is excluded by .leafwikiignore", nil)
+		return "", sharederrors.NewLocalizedError("asset_upload_failed", "Failed to upload asset", "page is excluded by .leafdocignore", nil)
 	}
 
 	uploadPath, err := s.ensureAssetPagePathExists(page)
@@ -211,7 +211,7 @@ func (s *AssetService) DeleteAsset(page *tree.PageNode, filename string) error {
 
 	// Guard against ignored pages
 	if s.isPageIgnored(page) {
-		return sharederrors.NewLocalizedError("asset_delete_failed", "Failed to delete asset", "page is excluded by .leafwikiignore", nil)
+		return sharederrors.NewLocalizedError("asset_delete_failed", "Failed to delete asset", "page is excluded by .leafdocignore", nil)
 	}
 
 	if err := validateFilename(filename); err != nil {
@@ -268,7 +268,7 @@ func (s *AssetService) RenameAsset(page *tree.PageNode, oldFilename, newFilename
 
 	// Guard against ignored pages
 	if s.isPageIgnored(page) {
-		return "", sharederrors.NewLocalizedError("asset_rename_failed", "Failed to rename asset", "page is excluded by .leafwikiignore", nil)
+		return "", sharederrors.NewLocalizedError("asset_rename_failed", "Failed to rename asset", "page is excluded by .leafdocignore", nil)
 	}
 
 	if err := validateFilename(oldFilename); err != nil {

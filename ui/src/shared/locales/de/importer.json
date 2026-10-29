@@ -57,7 +57,7 @@
   },
   "beforeYouStart": {
     "title": "Bevor Sie beginnen",
-    "description": "Importieren Sie ein ZIP-Archiv mit Markdown-Dateien. LeafWiki erstellt zunächst einen Prüfplan und importiert Seiten erst, nachdem Sie den Ausführungsschritt explizit gestartet haben.",
+    "description": "Importieren Sie ein ZIP-Archiv mit Markdown-Dateien. LeafDoc erstellt zunächst einen Prüfplan und importiert Seiten erst, nachdem Sie den Ausführungsschritt explizit gestartet haben.",
     "whatHappensNext": "Was passiert als Nächstes?",
     "stepPrefix": "Schritt {{number}}",
     "safeReviewTitle": "Erst sicher prüfen",
@@ -82,7 +82,7 @@
   },
   "plan": {
     "title": "Importplan",
-    "description": "Überprüfen Sie, was LeafWiki vor dem Start des Imports erstellen, aktualisieren oder überspringen wird.",
+    "description": "Überprüfen Sie, was LeafDoc vor dem Start des Imports erstellen, aktualisieren oder überspringen wird.",
     "currentStatus": "Aktueller Status",
     "planId": "Plan-ID: {{id}}",
     "progress": "Fortschritt: {{progress}}",
@@ -104,7 +104,7 @@
   },
   "plannedItems": {
     "title": "Geplante Elemente ({{count}})",
-    "description": "Dies sind die einzelnen Dateien, die LeafWiki im Paket erkannt hat, und wie sie auf Zielseiten abgebildet werden.",
+    "description": "Dies sind die einzelnen Dateien, die LeafDoc im Paket erkannt hat, und wie sie auf Zielseiten abgebildet werden.",
     "importFile": "Importdatei",
     "targetPage": "Zielseite",
     "titleColumn": "Titel",

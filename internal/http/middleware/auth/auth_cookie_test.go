@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/http/middleware/utils"
 )
 
 func Test_RequireSecure_TLS(t *testing.T) {
@@ -231,12 +231,12 @@ func TestAuthCookies_CookieNames_Secure(t *testing.T) {
 
 	accessName, refreshName := auth.cookieNames(true)
 
-	if accessName != "__Host-leafwiki_at" {
-		t.Errorf("Expected access cookie name '__Host-leafwiki_at', got '%s'", accessName)
+	if accessName != "__Host-leafdoc_at" {
+		t.Errorf("Expected access cookie name '__Host-leafdoc_at', got '%s'", accessName)
 	}
 
-	if refreshName != "__Host-leafwiki_rt" {
-		t.Errorf("Expected refresh cookie name '__Host-leafwiki_rt', got '%s'", refreshName)
+	if refreshName != "__Host-leafdoc_rt" {
+		t.Errorf("Expected refresh cookie name '__Host-leafdoc_rt', got '%s'", refreshName)
 	}
 }
 
@@ -245,12 +245,12 @@ func TestAuthCookies_CookieNames_Insecure(t *testing.T) {
 
 	accessName, refreshName := auth.cookieNames(false)
 
-	if accessName != "leafwiki_at" {
-		t.Errorf("Expected access cookie name 'leafwiki_at', got '%s'", accessName)
+	if accessName != "leafdoc_at" {
+		t.Errorf("Expected access cookie name 'leafdoc_at', got '%s'", accessName)
 	}
 
-	if refreshName != "leafwiki_rt" {
-		t.Errorf("Expected refresh cookie name 'leafwiki_rt', got '%s'", refreshName)
+	if refreshName != "leafdoc_rt" {
+		t.Errorf("Expected refresh cookie name 'leafdoc_rt', got '%s'", refreshName)
 	}
 }
 
@@ -288,9 +288,9 @@ func TestAuthCookies_Set_Secure(t *testing.T) {
 	var accessCookie, refreshCookie *http.Cookie
 	for _, cookie := range cookies {
 		switch cookie.Name {
-		case "__Host-leafwiki_at":
+		case "__Host-leafdoc_at":
 			accessCookie = cookie
-		case "__Host-leafwiki_rt":
+		case "__Host-leafdoc_rt":
 			refreshCookie = cookie
 		}
 	}
@@ -376,9 +376,9 @@ func TestAuthCookies_Set_Insecure(t *testing.T) {
 	var accessCookie, refreshCookie *http.Cookie
 	for _, cookie := range cookies {
 		switch cookie.Name {
-		case "leafwiki_at":
+		case "leafdoc_at":
 			accessCookie = cookie
-		case "leafwiki_rt":
+		case "leafdoc_rt":
 			refreshCookie = cookie
 		}
 	}
@@ -391,16 +391,16 @@ func TestAuthCookies_Set_Insecure(t *testing.T) {
 	}
 
 	// Verify access cookie doesn't have __Host- prefix
-	if accessCookie.Name != "leafwiki_at" {
-		t.Errorf("Expected cookie name 'leafwiki_at', got '%s'", accessCookie.Name)
+	if accessCookie.Name != "leafdoc_at" {
+		t.Errorf("Expected cookie name 'leafdoc_at', got '%s'", accessCookie.Name)
 	}
 	if accessCookie.Secure {
 		t.Error("Expected access cookie to NOT be Secure in insecure mode")
 	}
 
 	// Verify refresh cookie doesn't have __Host- prefix
-	if refreshCookie.Name != "leafwiki_rt" {
-		t.Errorf("Expected cookie name 'leafwiki_rt', got '%s'", refreshCookie.Name)
+	if refreshCookie.Name != "leafdoc_rt" {
+		t.Errorf("Expected cookie name 'leafdoc_rt', got '%s'", refreshCookie.Name)
 	}
 	if refreshCookie.Secure {
 		t.Error("Expected refresh cookie to NOT be Secure in insecure mode")
@@ -465,9 +465,9 @@ func TestAuthCookies_Clear_Secure(t *testing.T) {
 	var accessCookie, refreshCookie *http.Cookie
 	for _, cookie := range cookies {
 		switch cookie.Name {
-		case "__Host-leafwiki_at":
+		case "__Host-leafdoc_at":
 			accessCookie = cookie
-		case "__Host-leafwiki_rt":
+		case "__Host-leafdoc_rt":
 			refreshCookie = cookie
 		}
 	}
@@ -526,7 +526,7 @@ func TestAuthCookies_Clear_Insecure(t *testing.T) {
 
 	// Verify cookie names don't have __Host- prefix
 	for _, cookie := range cookies {
-		if cookie.Name != "leafwiki_at" && cookie.Name != "leafwiki_rt" {
+		if cookie.Name != "leafdoc_at" && cookie.Name != "leafdoc_rt" {
 			t.Errorf("Unexpected cookie name: %s", cookie.Name)
 		}
 		if cookie.MaxAge != -1 {
@@ -552,7 +552,7 @@ func TestAuthCookies_ReadAccess_Secure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.TLS = &tls.ConnectionState{}
 	req.AddCookie(&http.Cookie{
-		Name:  "__Host-leafwiki_at",
+		Name:  "__Host-leafdoc_at",
 		Value: "test-access-token",
 	})
 	w := httptest.NewRecorder()
@@ -580,7 +580,7 @@ func TestAuthCookies_ReadAccess_Insecure(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "leafwiki_at",
+		Name:  "leafdoc_at",
 		Value: "test-access-token-insecure",
 	})
 	w := httptest.NewRecorder()
@@ -634,7 +634,7 @@ func TestAuthCookies_ReadRefresh_Secure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.TLS = &tls.ConnectionState{}
 	req.AddCookie(&http.Cookie{
-		Name:  "__Host-leafwiki_rt",
+		Name:  "__Host-leafdoc_rt",
 		Value: "test-refresh-token",
 	})
 	w := httptest.NewRecorder()
@@ -662,7 +662,7 @@ func TestAuthCookies_ReadRefresh_Insecure(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "leafwiki_rt",
+		Name:  "leafdoc_rt",
 		Value: "test-refresh-token-insecure",
 	})
 	w := httptest.NewRecorder()
@@ -729,13 +729,13 @@ func TestAuthCookies_CustomTTL(t *testing.T) {
 	cookies := w.Result().Cookies()
 	for _, cookie := range cookies {
 		switch cookie.Name {
-		case "__Host-leafwiki_at":
+		case "__Host-leafdoc_at":
 			expectedMaxAge := int(accessTTL.Seconds())
 			if cookie.MaxAge != expectedMaxAge {
 				t.Errorf("Expected access cookie MaxAge %d, got %d", expectedMaxAge, cookie.MaxAge)
 			}
 
-		case "__Host-leafwiki_rt":
+		case "__Host-leafdoc_rt":
 			expectedMaxAge := int(refreshTTL.Seconds())
 			if cookie.MaxAge != expectedMaxAge {
 				t.Errorf("Expected refresh cookie MaxAge %d, got %d", expectedMaxAge, cookie.MaxAge)

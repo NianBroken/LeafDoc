@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/perber/wiki/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
 )
 
 // ResetAdminPassword updates an administrator and revokes that account's sessions.

@@ -1,8 +1,8 @@
 package assets
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/http/middleware/security"
 )
 
 // assetServeHeaders hardens the static /assets responses; see

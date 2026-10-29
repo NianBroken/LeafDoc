@@ -14,8 +14,8 @@ export async function browserFetch<T = unknown>(
   return page.evaluate(
     async ({ path, method, body, hasBody }) => {
       const match =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
       if (!match) throw new Error('Missing CSRF token cookie');
       let csrfToken: string;
       try {

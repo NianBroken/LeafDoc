@@ -62,14 +62,14 @@ func TestFlattenMetadataEntry_SkipsNonStringLeaf(t *testing.T) {
 	}
 }
 
-func TestFlattenMetadataEntry_SkipsLeafwikiChildSegment(t *testing.T) {
+func TestFlattenMetadataEntry_SkipsLeafdocChildSegment(t *testing.T) {
 	result := map[string]string{}
 	flattenMetadataEntry("meta", map[string]interface{}{
-		"leafwiki_id": "secret",
-		"visible":     "yes",
+		"leafdoc_id": "secret",
+		"visible":    "yes",
 	}, result)
-	if _, ok := result["meta.leafwiki_id"]; ok {
-		t.Error("expected leafwiki_ child segment to be skipped")
+	if _, ok := result["meta.leafdoc_id"]; ok {
+		t.Error("expected leafdoc_ child segment to be skipped")
 	}
 	if result["meta.visible"] != "yes" {
 		t.Errorf("expected meta.visible = yes, got %q", result["meta.visible"])
@@ -122,14 +122,14 @@ func TestExtractPageMetadata_TitleInExtraFieldsIsAlwaysCustomProperty(t *testing
 	}
 }
 
-func TestExtractPageMetadata_SkipsLeafwikiPrefixAlways(t *testing.T) {
+func TestExtractPageMetadata_SkipsLeafdocPrefixAlways(t *testing.T) {
 	fields := map[string]interface{}{
-		"leafwiki_id": "abc",
-		"status":      "draft",
+		"leafdoc_id": "abc",
+		"status":     "draft",
 	}
 	_, props := extractPageMetadata(fields)
-	if _, ok := props["leafwiki_id"]; ok {
-		t.Error("leafwiki_ keys must never appear in properties")
+	if _, ok := props["leafdoc_id"]; ok {
+		t.Error("leafdoc_ keys must never appear in properties")
 	}
 }
 

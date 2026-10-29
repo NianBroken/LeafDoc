@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 const (

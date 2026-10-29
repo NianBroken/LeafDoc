@@ -35,8 +35,8 @@ export function getCsrfTokenFromCookie(): string | null {
   // Local HTTP and HTTPS deployments can coexist on one host with distinct cookies.
   const hostMatch =
     globalThis.location?.protocol === 'https:'
-      ? document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/)
-      : document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/)
+      ? document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/)
+      : document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/)
 
   if (!hostMatch) return null
   try {
@@ -190,11 +190,11 @@ export async function fetchWithAuth<T = unknown>(
 }
 
 declare global {
-  var __leafwikiRefreshPromise: Promise<void> | null
+  var __leafdocRefreshPromise: Promise<void> | null
 }
 
-if (typeof globalThis.__leafwikiRefreshPromise === 'undefined') {
-  globalThis.__leafwikiRefreshPromise = null
+if (typeof globalThis.__leafdocRefreshPromise === 'undefined') {
+  globalThis.__leafdocRefreshPromise = null
 }
 
 function shouldRefreshBeforeRequest(
@@ -239,12 +239,12 @@ export function ensureRefresh(): Promise<void> {
     return Promise.resolve()
   }
 
-  if (!globalThis.__leafwikiRefreshPromise) {
-    globalThis.__leafwikiRefreshPromise = refreshAccessToken().finally(() => {
-      globalThis.__leafwikiRefreshPromise = null
+  if (!globalThis.__leafdocRefreshPromise) {
+    globalThis.__leafdocRefreshPromise = refreshAccessToken().finally(() => {
+      globalThis.__leafdocRefreshPromise = null
     })
   }
-  return globalThis.__leafwikiRefreshPromise
+  return globalThis.__leafdocRefreshPromise
 }
 
 async function refreshAccessToken() {

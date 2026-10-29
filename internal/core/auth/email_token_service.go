@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/perber/wiki/internal/core/email"
+	"github.com/NianBroken/LeafDoc/internal/core/email"
 )
 
 // EmailTokenService issues and consumes password-reset and invite tokens. It

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	httpinternal "github.com/perber/wiki/internal/http"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/gin-gonic/gin"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 )
 
 const (

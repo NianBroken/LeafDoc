@@ -11,13 +11,13 @@ test-results/
 # Pre-built artefacts that the Dockerfile rebuilds from scratch
 dist/
 releases/
-leafwiki
+leafdoc
 internal/http/dist/*
 !internal/http/dist/.gitkeep
 
 # Runtime / local data
 data/
-cmd/leafwiki/data/
+cmd/leafdoc/data/
 
 # Debug binaries dropped by dlv / GoLand
 **/__debug_bin*

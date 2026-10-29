@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"mime/multipart"
 
-	coreassets "github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/revision"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
+	coreassets "github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // ─── UploadAssetUseCase ──────────────────────────────────────────────────────

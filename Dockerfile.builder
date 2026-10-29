@@ -19,7 +19,7 @@ ARG APP_VERSION
 ARG GOOS
 ARG GOARCH
 ARG CGO_ENABLED=0
-ARG OUTPUT=leafwiki
+ARG OUTPUT=leafdoc
 
 ENV GOOS=${GOOS}
 ENV GOARCH=${GOARCH}
@@ -36,5 +36,5 @@ COPY . .
 COPY --from=frontend /app/ui/dist ./internal/http/dist
 
 RUN go build \
-  -ldflags="-s -w -X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production -X main.Version=${APP_VERSION}" \
-  -o /out/${OUTPUT} ./cmd/leafwiki
+  -ldflags="-s -w -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production -X main.Version=${APP_VERSION}" \
+  -o /out/${OUTPUT} ./cmd/leafdoc

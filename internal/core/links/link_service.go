@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 type LinkService struct {

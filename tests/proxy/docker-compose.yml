@@ -2,7 +2,7 @@ services:
   # Default config: reverse-proxy auth enabled, auto-create OFF (the documented
   # default). Exercises the original "unknown proxy-asserted user is rejected"
   # behavior end-to-end through the real CLI-flag -> router -> middleware wiring.
-  leafwiki:
+  leafdoc:
     build:
       context: ../..
       dockerfile: Dockerfile
@@ -31,7 +31,7 @@ services:
     ports:
       - "8095:80"
     depends_on:
-      leafwiki:
+      leafdoc:
         condition: service_healthy
     networks:
       proxy-net:
@@ -41,7 +41,7 @@ services:
   # and the email header set, for tests specific to that feature. Kept as a
   # separate stack (rather than flipping the default one) so the default's
   # "unknown user -> 401" behavior stays covered end-to-end too.
-  leafwiki-autocreate:
+  leafdoc-autocreate:
     build:
       context: ../..
       dockerfile: Dockerfile
@@ -72,7 +72,7 @@ services:
     ports:
       - "8096:80"
     depends_on:
-      leafwiki-autocreate:
+      leafdoc-autocreate:
         condition: service_healthy
     networks:
       proxy-net:

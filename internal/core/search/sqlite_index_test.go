@@ -9,9 +9,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
@@ -209,7 +209,7 @@ func TestSQLiteIndex_IndexPages_SkipsUnparsableInputOthersStillCommit(t *testing
 	// reading internal/core/markdown/frontmatter.go's
 	// sanitizeFrontmatterYAML, which only special-cases template
 	// placeholders and unquoted colons, neither of which apply here.
-	const badFrontmatter = "---\nleafwiki_title: [unclosed\n---\nbody\n"
+	const badFrontmatter = "---\nleafdoc_title: [unclosed\n---\nbody\n"
 	inputs := []IndexPageInput{
 		{Path: "good-1", FilePath: "good-1.md", PageID: "good-1", Title: "Good 1", Kind: tree.NodeKindPage, Raw: "fine content"},
 		{Path: "bad", FilePath: "bad.md", PageID: "bad", Title: "Bad", Kind: tree.NodeKindPage, Raw: badFrontmatter},
@@ -795,7 +795,7 @@ func TestSQLiteIndex_IndexPage_StripsMarkdownFormattingFromIndexedContent(t *tes
 		"markdown1",
 		"Markdown Page",
 		tree.NodeKindPage,
-		"LeafWiki **fett** und _kursiv_.",
+		"LeafDoc **fett** und _kursiv_.",
 	)
 	if err != nil {
 		t.Fatalf("IndexPage failed: %v", err)

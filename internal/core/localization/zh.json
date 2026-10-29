@@ -43,7 +43,7 @@
   "file is too large": "文件过大",
   "file too large": "文件过大",
   "https required for auth cookies": "认证 Cookie 需要 HTTPS",
-  "https required for auth cookies use allow insecure": "认证 Cookie 需要 HTTPS。请使用 HTTPS，或以 --allow-insecure 启动 LeafWiki 以用于受信任的纯 HTTP 环境。",
+  "https required for auth cookies use allow insecure": "认证 Cookie 需要 HTTPS。请使用 HTTPS，或以 --allow-insecure 启动 LeafDoc 以用于受信任的纯 HTTP 环境。",
   "import is already running": "导入已在进行中",
   "import state is unavailable": "导入状态不可用",
   "importer request failed": "导入器请求失败",

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/settings"
 )
 
 // settingsEvents broadcasts committed writes without disclosing account or credential data.

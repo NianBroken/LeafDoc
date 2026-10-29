@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 // ─── ExtractPropertiesFromContent ────────────────────────────────────────────
@@ -107,7 +107,7 @@ func TestExtractPropertiesFromContent_SkipsTagsKeyCaseInsensitive(t *testing.T) 
 
 func TestExtractPropertiesFromContent_IndexesTitleAlone(t *testing.T) {
 	// "title" is always a custom property — it lands in ExtraFields and is indexed
-	// regardless of whether leafwiki_title is also present.
+	// regardless of whether leafdoc_title is also present.
 	content := "---\ntitle: My Page\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["title"]; !ok {
@@ -124,16 +124,16 @@ func TestExtractPropertiesFromContent_IndexesMixedCaseTitleAsCustomProperty(t *t
 	}
 }
 
-func TestExtractPropertiesFromContent_IndexesTitleWhenLeafwikiTitleAlsoPresent(t *testing.T) {
-	// Both "title" and "leafwiki_title" present: "title" is a custom property.
-	content := "---\ntitle: My Custom Title\nleafwiki_title: My Title\nstatus: draft\n---\n"
+func TestExtractPropertiesFromContent_IndexesTitleWhenLeafdocTitleAlsoPresent(t *testing.T) {
+	// Both "title" and "leafdoc_title" present: "title" is a custom property.
+	content := "---\ntitle: My Custom Title\nleafdoc_title: My Title\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	assertEntry(t, got, "title", PropertyEntry{Value: "My Custom Title", Type: "text"})
 	assertEntry(t, got, "status", PropertyEntry{Value: "draft", Type: "text"})
 }
 
 func TestExtractPropertiesFromContent_IndexesTitleAloneAsCustomProperty(t *testing.T) {
-	// "title" alone is always a custom property — no leafwiki_title required.
+	// "title" alone is always a custom property — no leafdoc_title required.
 	content := "---\ntitle: My Page\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["title"]; !ok {
@@ -141,22 +141,22 @@ func TestExtractPropertiesFromContent_IndexesTitleAloneAsCustomProperty(t *testi
 	}
 }
 
-func TestExtractPropertiesFromContent_SkipsLeafwikiPrefix(t *testing.T) {
-	content := "---\nleafwiki_id: abc123\nleafwiki_created: 2024-01-01\nstatus: draft\n---\n"
+func TestExtractPropertiesFromContent_SkipsLeafdocPrefix(t *testing.T) {
+	content := "---\nleafdoc_id: abc123\nleafdoc_created: 2024-01-01\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	for key := range got {
-		if len(key) >= 9 && key[:9] == "leafwiki_" {
-			t.Errorf("key %q with leafwiki_ prefix must not be stored", key)
+		if len(key) >= 9 && key[:9] == "leafdoc_" {
+			t.Errorf("key %q with leafdoc_ prefix must not be stored", key)
 		}
 	}
 	assertEntry(t, got, "status", PropertyEntry{Value: "draft", Type: "text"})
 }
 
-func TestExtractPropertiesFromContent_SkipsLeafwikiPrefixCaseInsensitive(t *testing.T) {
-	content := "---\nLeafwiki_ID: abc\nstatus: ok\n---\n"
+func TestExtractPropertiesFromContent_SkipsLeafdocPrefixCaseInsensitive(t *testing.T) {
+	content := "---\nLeafdoc_ID: abc\nstatus: ok\n---\n"
 	got := ExtractPropertiesFromContent(content)
-	if _, ok := got["Leafwiki_ID"]; ok {
-		t.Error("'Leafwiki_ID' must not be stored (reserved prefix, any case)")
+	if _, ok := got["Leafdoc_ID"]; ok {
+		t.Error("'Leafdoc_ID' must not be stored (reserved prefix, any case)")
 	}
 }
 
@@ -204,7 +204,7 @@ func TestExtractPropertiesFromContent_EmptyContentReturnsNil(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_OnlyReservedKeysReturnsNil(t *testing.T) {
-	content := "---\ntags:\n  - go\nleafwiki_id: abc\n---\n"
+	content := "---\ntags:\n  - go\nleafdoc_id: abc\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if got != nil {
 		t.Errorf("expected nil when all keys are reserved, got %v", got)
@@ -274,13 +274,13 @@ func TestExtractPropertiesFromContent_NestedMapSkipsEmptyStringLeaves(t *testing
 	assertEntry(t, got, "a.c", PropertyEntry{Value: "value", Type: "text"})
 }
 
-func TestExtractPropertiesFromContent_NestedMapSkipsLeafwikiChildSegment(t *testing.T) {
-	// A nested child key that starts with leafwiki_ must not be indexed even
+func TestExtractPropertiesFromContent_NestedMapSkipsLeafdocChildSegment(t *testing.T) {
+	// A nested child key that starts with leafdoc_ must not be indexed even
 	// when the top-level key is a normal user key.
-	content := "---\nmeta:\n  leafwiki_id: spoofed\n  status: active\n---\n"
+	content := "---\nmeta:\n  leafdoc_id: spoofed\n  status: active\n---\n"
 	got := ExtractPropertiesFromContent(content)
-	if _, ok := got["meta.leafwiki_id"]; ok {
-		t.Error("nested leafwiki_ child segment must not be stored as a property")
+	if _, ok := got["meta.leafdoc_id"]; ok {
+		t.Error("nested leafdoc_ child segment must not be stored as a property")
 	}
 	assertEntry(t, got, "meta.status", PropertyEntry{Value: "active", Type: "text"})
 }
@@ -413,11 +413,11 @@ func TestPropertiesService_IndexAllPages_IsIdempotent(t *testing.T) {
 }
 
 func TestPropertiesService_IndexAllPages_SkipsSystemKeys(t *testing.T) {
-	// System keys: "tags" and any "leafwiki_*" prefix must never be indexed.
+	// System keys: "tags" and any "leafdoc_*" prefix must never be indexed.
 	// "title" is always a custom property and will appear in the index when set.
 	svc, ts := setupPropertiesService(t)
 	createPageWithContent(t, ts, "Page A", "page-a",
-		"---\ntags:\n  - go\nleafwiki_id: abc\nstatus: draft\n---\n# A")
+		"---\ntags:\n  - go\nleafdoc_id: abc\nstatus: draft\n---\n# A")
 
 	indexAllPages(t, svc, ts)
 
@@ -430,7 +430,7 @@ func TestPropertiesService_IndexAllPages_SkipsSystemKeys(t *testing.T) {
 		if kc.Key == "tags" {
 			t.Errorf("system key %q must not be indexed", kc.Key)
 		}
-		if len(kc.Key) >= 9 && kc.Key[:9] == "leafwiki_" {
+		if len(kc.Key) >= 9 && kc.Key[:9] == "leafdoc_" {
 			t.Errorf("reserved prefix key %q must not be indexed", kc.Key)
 		}
 	}

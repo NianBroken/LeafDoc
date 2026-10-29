@@ -2,7 +2,7 @@
 // Remembers the last non-Settings route the user was on, so leaving the
 // Settings page can return there instead of redirecting to `/` (which
 // RootRedirect turns into "the first wiki entry"). `state` is kept because it
-// carries the `leafwikiVisitId` used by useScrollRestoration — re-supplying it
+// carries the `leafdocVisitId` used by useScrollRestoration — re-supplying it
 // on exit lets the previous scroll position be restored too.
 
 import { create } from 'zustand'

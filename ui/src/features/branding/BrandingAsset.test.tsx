@@ -7,7 +7,10 @@ import { BrandingAsset } from './BrandingAsset'
 describe('BrandingAsset', () => {
   it('shows the built-in logo when no custom file exists', () => {
     render(<BrandingAsset kind="logo" file="" version={1} alt="Logo" />)
-    expect(screen.getByRole('img', { name: 'Logo' })).toHaveTextContent('🌿')
+    expect(screen.getByRole('img', { name: 'Logo' })).toHaveAttribute(
+      'src',
+      '/defaults/leafdoc-logo.webp?v=1',
+    )
     expect(screen.queryByText('Built-in logo')).not.toBeInTheDocument()
   })
 
@@ -16,7 +19,10 @@ describe('BrandingAsset', () => {
       <BrandingAsset kind="logo" file="logo.png" version={1} alt="Logo" />,
     )
     fireEvent.error(screen.getByRole('img'))
-    expect(screen.getByRole('img')).toHaveTextContent('🌿')
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'src',
+      '/defaults/leafdoc-logo.webp?v=1',
+    )
     rerender(
       <BrandingAsset kind="logo" file="logo.png" version={2} alt="Logo" />,
     )
@@ -40,7 +46,10 @@ describe('BrandingAsset', () => {
       '/branding/favicon.png?v=1',
     )
     rerender(<BrandingAsset kind="favicon" file="" version={2} alt="Icon" />)
-    expect(screen.getByRole('img')).toHaveAttribute('src', '/favicon.svg?v=2')
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'src',
+      '/defaults/leafdoc-favicon.ico?v=2',
+    )
     expect(screen.queryByText('Built-in favicon')).not.toBeInTheDocument()
   })
 
@@ -54,7 +63,10 @@ describe('BrandingAsset', () => {
       />,
     )
     fireEvent.error(screen.getByRole('img'))
-    expect(screen.getByRole('img')).toHaveAttribute('src', '/favicon.svg?v=1')
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'src',
+      '/defaults/leafdoc-favicon.ico?v=1',
+    )
     fireEvent.error(screen.getByRole('img'))
     expect(screen.getByRole('status')).toHaveTextContent('No available favicon')
   })

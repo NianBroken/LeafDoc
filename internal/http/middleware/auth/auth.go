@@ -3,8 +3,8 @@ package auth
 import (
 	"net/http"
 
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/auth"
 )
 
 const errUserNotAuthenticated = "User not authenticated"

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	wikiresync "github.com/perber/wiki/internal/wiki/resync"
+	wikiresync "github.com/NianBroken/LeafDoc/internal/wiki/resync"
 )
 
 func TestResyncJob_NewJobIsIdle(t *testing.T) {

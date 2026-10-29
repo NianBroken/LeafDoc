@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 type ImporterService struct {

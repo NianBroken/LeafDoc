@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	coresearch "github.com/perber/wiki/internal/core/search"
-	coretags "github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
+	coresearch "github.com/NianBroken/LeafDoc/internal/core/search"
+	coretags "github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func setupSearchUseCaseForTags(t *testing.T) (*SearchUseCase, *coretags.TagsService, *tree.TreeService) {

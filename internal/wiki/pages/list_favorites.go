@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/perber/wiki/internal/core/favorites"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 type ListFavoritesInput struct {

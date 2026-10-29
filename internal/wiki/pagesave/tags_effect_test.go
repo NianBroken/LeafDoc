@@ -3,10 +3,10 @@ package pagesave
 import (
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func setupTagsEffectTest(t *testing.T) (*tree.TreeService, *tags.TagsService, *TagsSideEffect) {

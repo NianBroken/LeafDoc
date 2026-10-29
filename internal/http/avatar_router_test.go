@@ -12,10 +12,34 @@ import (
 	"strings"
 	"testing"
 
-	coreavatar "github.com/perber/wiki/internal/core/avatar"
-	"github.com/perber/wiki/internal/testutil"
-	"github.com/perber/wiki/internal/wiki"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	coreavatar "github.com/NianBroken/LeafDoc/internal/core/avatar"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/wiki"
 )
+
+// Disabling login does not remove the public avatar service or its account validation.
+func TestAvatarRoutes_DefaultWithAuthDisabled(t *testing.T) {
+	w, err := wiki.NewWiki(&wiki.WikiOptions{StorageDir: t.TempDir(), AuthDisabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := w.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	user, err := w.UserService().CreateUser("reader", "reader@example.com", "testpassword", coreauth.RoleViewer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := newTestRouter(w, func(o *httpinternal.RouterOptions) { o.AuthDisabled = true })
+	rec := sendAvatarRequest(t, router, false, http.MethodGet, "/avatars/"+user.ID, nil, "")
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/webp" {
+		t.Fatalf("default avatar: status=%d type=%s", rec.Code, rec.Header().Get("Content-Type"))
+	}
+}
 
 // newAvatarRouterTest builds a fresh Wiki + router and returns the admin user's ID,
 // which is whose avatar the admin session uploads and deletes.
@@ -140,8 +164,8 @@ func TestAvatarRoutes_UploadRejections_ReturnStatusAndCode(t *testing.T) {
 			if got := avatarErrorCode(t, rec); got != tc.wantCode {
 				t.Errorf("error code: got %q, want %q", got, tc.wantCode)
 			}
-			if get := sendAvatarRequest(t, router, false, http.MethodGet, "/avatars/"+adminID, nil, ""); get.Code != http.StatusNotFound {
-				t.Errorf("GET avatar after rejected upload: got %d, want 404", get.Code)
+			if get := sendAvatarRequest(t, router, false, http.MethodGet, "/avatars/"+adminID, nil, ""); get.Code != http.StatusOK {
+				t.Errorf("GET default avatar after rejected upload: got %d, want 200", get.Code)
 			}
 		})
 	}
@@ -195,8 +219,8 @@ func TestAvatarRoutes_UploadServeDelete_RoundTrip(t *testing.T) {
 	if rec := sendAvatarRequest(t, router, true, http.MethodDelete, "/api/user/avatar", nil, ""); rec.Code != http.StatusOK {
 		t.Fatalf("delete: got %d, want 200 (body %s)", rec.Code, rec.Body.String())
 	}
-	if rec := sendAvatarRequest(t, router, false, http.MethodGet, avatarURL, nil, ""); rec.Code != http.StatusNotFound {
-		t.Errorf("serve after delete: got %d, want 404", rec.Code)
+	if rec := sendAvatarRequest(t, router, false, http.MethodGet, avatarURL, nil, ""); rec.Code != http.StatusOK {
+		t.Errorf("serve default after delete: got %d, want 200", rec.Code)
 	}
 	if rec := sendAvatarRequest(t, router, true, http.MethodDelete, "/api/user/avatar", nil, ""); rec.Code != http.StatusOK {
 		t.Errorf("second delete (nothing left): got %d, want 200", rec.Code)

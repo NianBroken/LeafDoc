@@ -5,7 +5,7 @@ import (
 
 	"strings"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // rewriteWikiLinks handles Obsidian-style wiki links and converts them to plain Markdown links.
@@ -96,14 +96,14 @@ func (t *contentTransformer) rewriteWikiLinks(
 			continue
 		}
 
-		// Plain page WikiLink (no anchor, no asset): keep as [[...]] so LeafWiki's
+		// Plain page WikiLink (no anchor, no asset): keep as [[...]] so LeafDoc's
 		// native title-based resolution handles it — rename-aware and self-healing.
 		//
 		// Path-hinted links ([[Folder/Page]]) use the plan's resolved slug path so the
 		// refactoring engine's path-hint regex matches exactly on rename. Unresolved
 		// path-hinted links are slugified so the link indexer and heal mechanism can
 		// match them when the target page is later created.
-		// Obsidian page-embeds (![[Page]]) are kept as plain [[...]] because LeafWiki
+		// Obsidian page-embeds (![[Page]]) are kept as plain [[...]] because LeafDoc
 		// has no page-transclusion support.
 		target := targetPart
 		if strings.Contains(targetPart, "/") {

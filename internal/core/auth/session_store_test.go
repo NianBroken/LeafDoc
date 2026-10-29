@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestSessionStore_UsesWALJournalMode(t *testing.T) {

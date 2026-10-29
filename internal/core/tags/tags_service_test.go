@@ -3,8 +3,8 @@ package tags
 import (
 	"testing"
 
-	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 // ─── ExtractTagsFromContent ──────────────────────────────────────────────────

@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 // Routes is the RouteRegistrar for the full-backup (snapshot) admin endpoints.

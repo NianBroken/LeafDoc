@@ -23,7 +23,7 @@ const markdownItSamplePath = join(currentDir, '..', 'assets', 'markdown-it-sampl
 
 // Default content follows the instance language, while its stable path remains unchanged.
 async function welcomePageTitle(page: import('@playwright/test').Page): Promise<string> {
-  const response = await page.request.get(toAppPath('/api/pages/by-path?path=welcome-to-leafwiki'));
+  const response = await page.request.get(toAppPath('/api/pages/by-path?path=welcome-to-leafdoc'));
   expect(response.ok()).toBe(true);
   return (await response.json()).title;
 }
@@ -81,8 +81,8 @@ async function createPageWithContent(
   await page.evaluate(async ({ title, slug, content }) => {
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -157,8 +157,8 @@ async function createPageWithMetadata(
   await page.evaluate(async ({ title, slug, content, tags, properties }) => {
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -264,8 +264,8 @@ async function createTopLevelNode(
   await page.evaluate(async ({ title, slug, kind }) => {
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -311,8 +311,8 @@ async function updatePageByPath(
 
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -379,8 +379,8 @@ async function createChildPagesByPath(
 
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -502,8 +502,8 @@ async function sortChildPagesByPath(
 
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -594,8 +594,8 @@ async function movePageByPath(
 
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -683,8 +683,8 @@ async function movePageWithRefactorByPath(
 
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -822,8 +822,8 @@ async function deletePageByPath(
 
     function getCsrfTokenFromCookie(): string | null {
       const hostMatch =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
       if (!hostMatch) return null;
 
@@ -991,7 +991,7 @@ async function expectMarkdownLinkAutocompleteWorks(page: import('@playwright/tes
   await editPage.savePage();
   await editPage.closeEditor();
 
-  const welcomeLink = page.locator(`article a[href="${toAppPath('/welcome-to-leafwiki')}"]`);
+  const welcomeLink = page.locator(`article a[href="${toAppPath('/welcome-to-leafdoc')}"]`);
   await welcomeLink.getByText('Welcome').waitFor({ state: 'visible' });
 }
 
@@ -1051,7 +1051,7 @@ async function expectOpenedPageMarkedInNavigationDuringEditMode(
 ) {
   const title = await welcomePageTitle(page);
   const viewPage = new ViewPage(page);
-  await viewPage.goto('/welcome-to-leafwiki');
+  await viewPage.goto('/welcome-to-leafdoc');
 
   const treeView = new TreeView(page);
   await treeView.expectPageHighlighted(title);
@@ -1951,11 +1951,11 @@ Content.`;
     const title = `Footnotes Navigation Repro ${timestamp}`;
     const content = `# Repro
 
-This paragraph creates a footnote reference.[^leafwiki]
+This paragraph creates a footnote reference.[^leafdoc]
 
 ### [Footnotes](https://github.com/markdown-it/markdown-it-footnote)
 
-[^leafwiki]: This is the matching footnote definition.`;
+[^leafdoc]: This is the matching footnote definition.`;
 
     await createPageWithContent(page, { title, slug, content });
 
@@ -2012,9 +2012,9 @@ This paragraph creates a footnote reference.[^leafwiki]
     const title = `Footnotes Links ${timestamp}`;
     const content = `# Footnotes
 
-This paragraph creates a footnote reference.[^leafwiki]
+This paragraph creates a footnote reference.[^leafdoc]
 
-[^leafwiki]: This is the matching footnote definition.`;
+[^leafdoc]: This is the matching footnote definition.`;
 
     await createPageWithContent(page, { title, slug, content });
 
@@ -2024,26 +2024,26 @@ This paragraph creates a footnote reference.[^leafwiki]
     const footnoteReference = page.locator('article sup a[data-footnote-ref]');
     await footnoteReference.waitFor({ state: 'visible' });
     await test.expect(footnoteReference).not.toHaveAttribute('node', /.+/);
-    await test.expect(footnoteReference).toHaveAttribute('href', /#user-content-fn-leafwiki$/);
+    await test.expect(footnoteReference).toHaveAttribute('href', /#user-content-fn-leafdoc$/);
     await footnoteReference.click();
 
     await test.expect
       .poll(async () => page.evaluate(() => decodeURIComponent(window.location.hash)), {
         timeout: 5000,
       })
-      .toBe('#user-content-fn-leafwiki');
+      .toBe('#user-content-fn-leafdoc');
 
     const footnoteBacklink = page.locator('article a[data-footnote-backref]');
     await footnoteBacklink.waitFor({ state: 'visible' });
     await test.expect(footnoteBacklink).not.toHaveAttribute('node', /.+/);
-    await test.expect(footnoteBacklink).toHaveAttribute('href', /#user-content-fnref-leafwiki$/);
+    await test.expect(footnoteBacklink).toHaveAttribute('href', /#user-content-fnref-leafdoc$/);
     await footnoteBacklink.click();
 
     await test.expect
       .poll(async () => page.evaluate(() => decodeURIComponent(window.location.hash)), {
         timeout: 5000,
       })
-      .toBe('#user-content-fnref-leafwiki');
+      .toBe('#user-content-fnref-leafdoc');
 
     await test.expect(page.locator('article .footnotes')).not.toHaveAttribute('node', /.+/);
 
@@ -2350,9 +2350,9 @@ This paragraph creates a footnote reference.[^leafwiki]
     const title = `Footnotes Duplicate Links ${timestamp}`;
     const content = `# Footnotes
 
-First reference[^leafwiki] and second reference[^leafwiki]
+First reference[^leafdoc] and second reference[^leafdoc]
 
-[^leafwiki]: This is the matching footnote definition.`;
+[^leafdoc]: This is the matching footnote definition.`;
 
     await createPageWithContent(page, { title, slug, content });
 
@@ -2365,19 +2365,19 @@ First reference[^leafwiki] and second reference[^leafwiki]
     await test.expect(footnoteReferences.nth(1)).not.toHaveAttribute('node', /.+/);
     await test
       .expect(footnoteReferences.nth(0))
-      .toHaveAttribute('href', /#user-content-fn-leafwiki$/);
+      .toHaveAttribute('href', /#user-content-fn-leafdoc$/);
     await test
       .expect(footnoteReferences.nth(1))
-      .toHaveAttribute('href', /#user-content-fn-leafwiki$/);
+      .toHaveAttribute('href', /#user-content-fn-leafdoc$/);
 
     const footnoteBacklinks = page.locator('article a[data-footnote-backref]');
     await test.expect(footnoteBacklinks).toHaveCount(2);
     await test
       .expect(footnoteBacklinks.nth(0))
-      .toHaveAttribute('href', /#user-content-fnref-leafwiki$/);
+      .toHaveAttribute('href', /#user-content-fnref-leafdoc$/);
     await test
       .expect(footnoteBacklinks.nth(1))
-      .toHaveAttribute('href', /#user-content-fnref-leafwiki-2$/);
+      .toHaveAttribute('href', /#user-content-fnref-leafdoc-2$/);
     await test.expect(footnoteBacklinks.nth(1)).not.toHaveAttribute('node', /.+/);
 
     await footnoteBacklinks.nth(1).click();
@@ -2386,7 +2386,7 @@ First reference[^leafwiki] and second reference[^leafwiki]
       .poll(async () => page.evaluate(() => decodeURIComponent(window.location.hash)), {
         timeout: 5000,
       })
-      .toBe('#user-content-fnref-leafwiki-2');
+      .toBe('#user-content-fnref-leafdoc-2');
   });
 
   // Regression for #1579: remark-gfm marks task-list items with a
@@ -3007,7 +3007,7 @@ Paragraph outside the list.
     const notfoundPage = new NotFoundPage(page);
     const viewPage = new ViewPage(page);
 
-    await viewPage.goto('/welcome-to-leafwiki');
+    await viewPage.goto('/welcome-to-leafdoc');
     await navigateWithinApp(page, `/e/${slug}`);
 
     await notfoundPage.expectVisible();
@@ -3019,7 +3019,7 @@ Paragraph outside the list.
     const notfoundPage = new NotFoundPage(page);
     const viewPage = new ViewPage(page);
 
-    await viewPage.goto('/welcome-to-leafwiki');
+    await viewPage.goto('/welcome-to-leafdoc');
     await navigateWithinApp(page, `/history/${slug}`);
 
     await notfoundPage.expectVisible();
@@ -3039,7 +3039,7 @@ Paragraph outside the list.
 
   test('not-found-for-reserved-slug-hides-create-page-cta', async ({ page }) => {
     const notfoundPage = new NotFoundPage(page);
-    const reservedChildPath = '/welcome-to-leafwiki/settings';
+    const reservedChildPath = '/welcome-to-leafdoc/settings';
 
     await notfoundPage.goto(reservedChildPath);
 
@@ -3237,8 +3237,8 @@ Paragraph outside the list.
             async ({ parentTitle, targetTitle }) => {
               function getCsrfTokenFromCookie(): string | null {
                 const hostMatch =
-                  document.cookie.match(/(?:^|;\\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-                  document.cookie.match(/(?:^|;\\s*)leafwiki_csrf=([^;]+)/);
+                  document.cookie.match(/(?:^|;\\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+                  document.cookie.match(/(?:^|;\\s*)leafdoc_csrf=([^;]+)/);
 
                 if (!hostMatch) return null;
 
@@ -3782,7 +3782,7 @@ Paragraph outside the list.
     const initialQuery = 'alpha-query';
     const updatedQuery = 'beta-query';
 
-    await page.goto(toAppPath(`/welcome-to-leafwiki?q=${initialQuery}`));
+    await page.goto(toAppPath(`/welcome-to-leafdoc?q=${initialQuery}`));
 
     const viewPage = new ViewPage(page);
     await viewPage.switchToSearchTab();

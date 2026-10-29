@@ -11,17 +11,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/brandassets"
+	"github.com/NianBroken/LeafDoc/internal/core/preferences"
+	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
+	"github.com/NianBroken/LeafDoc/internal/core/restore"
+	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	auth_middleware "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/maintenance"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/assets"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/preferences"
-	"github.com/perber/wiki/internal/core/publicaccess"
-	"github.com/perber/wiki/internal/core/restore"
-	"github.com/perber/wiki/internal/core/tocdisplay"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	auth_middleware "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/http/middleware/maintenance"
-	"github.com/perber/wiki/internal/http/middleware/security"
 )
 
 //go:embed dist/**
@@ -33,8 +34,6 @@ var EmbedFrontend = "false"
 
 // Environment controls gin's run mode ("production" → ReleaseMode).
 var Environment = "development"
-
-const DefaultFaviconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌿</text></svg>`
 
 // slogWriter forwards gin debug output (e.g. route registration) to slog at Debug level.
 type slogWriter struct{ logger *slog.Logger }
@@ -82,7 +81,7 @@ func disableClientCache(c *gin.Context) {
 type HTTPRemoteUserConfig struct {
 	Enabled         bool
 	HeaderName      string
-	AutoCreate      bool   // Whether to auto-provision users asserted by the proxy but unknown to LeafWiki
+	AutoCreate      bool   // Whether to auto-provision users asserted by the proxy but unknown to LeafDoc
 	EmailHeaderName string // Optional header supplying the email for auto-created users
 	DefaultRole     string // Role assigned to auto-created users
 	TrustedProxies  *auth_middleware.TrustedProxies
@@ -181,6 +180,14 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 	}
 	engine.Use(gin.RecoveryWithWriter(gin.DefaultErrorWriter))
 	base := engine.Group(opts.BasePath)
+	// Built-in assets are available independently of the frontend build and authentication.
+	builtinFS, err := fs.Sub(brandassets.Files, "files")
+	if err != nil {
+		panic(err)
+	}
+	defaults := base.Group("/defaults")
+	defaults.Use(func(c *gin.Context) { disableClientCache(c); c.Next() })
+	defaults.StaticFS("", http.FS(builtinFS))
 	events := newSettingsEvents()
 	opts.SettingsInstance = events.instance
 	opts.SettingsVersion = events.current
@@ -282,13 +289,6 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 
 		base.StaticFS("/static", http.FS(staticFS))
 
-		base.GET("/favicon.svg", func(c *gin.Context) {
-			disableClientCache(c)
-			// favicon is served by the branding registrar if a custom one exists;
-			// fall back to the default leaf SVG.
-			c.Data(http.StatusOK, "image/svg+xml", []byte(DefaultFaviconSVG))
-		})
-
 		indexData, indexErr := fs.ReadFile(fsys, "index.html")
 		indexTemplate := string(indexData)
 
@@ -317,7 +317,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 					return
 				}
 
-				siteName := "LeafWiki"
+				siteName := "LeafDoc"
 				if frontendCfg.GetSiteName != nil {
 					if name := frontendCfg.GetSiteName(); name != "" {
 						siteName = name
@@ -358,7 +358,7 @@ func BuildFrontendFaviconHref(basePath, faviconFile string) string {
 		return basePath + "/branding/" + faviconFile
 	}
 
-	return basePath + "/favicon.svg"
+	return basePath + "/defaults/" + brandassets.FaviconFile
 }
 
 // NormalizeCustomStylesheetPath resolves and validates a CSS path relative to storageDir.

@@ -12,20 +12,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/favorites"
-	"github.com/perber/wiki/internal/core/links"
-	"github.com/perber/wiki/internal/core/revision"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	"github.com/NianBroken/LeafDoc/internal/core/links"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 
-	wikiassets "github.com/perber/wiki/internal/wiki/assets"
-	"github.com/perber/wiki/internal/wiki/pages"
-	"github.com/perber/wiki/internal/wiki/pagesave"
-	wikirevisions "github.com/perber/wiki/internal/wiki/revisions"
+	wikiassets "github.com/NianBroken/LeafDoc/internal/wiki/assets"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pages"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
+	wikirevisions "github.com/NianBroken/LeafDoc/internal/wiki/revisions"
 )
 
 // testDeps holds real services backed by a temporary directory.
@@ -2947,7 +2947,7 @@ func TestCheckIntegrityUseCase_Passthrough(t *testing.T) {
 	if err != nil || rev == nil {
 		t.Fatalf("GetLatestRevision failed: %#v %v", rev, err)
 	}
-	contentBlobPath := filepath.Join(deps.storageDir, ".leafwiki", "blobs", "content", pageOut.Page.ID, "sha256", rev.ContentHash[:2], rev.ContentHash)
+	contentBlobPath := filepath.Join(deps.storageDir, ".leafdoc", "blobs", "content", pageOut.Page.ID, "sha256", rev.ContentHash[:2], rev.ContentHash)
 	if err := os.Remove(contentBlobPath); err != nil {
 		t.Fatalf("Remove content blob failed: %v", err)
 	}
@@ -3437,10 +3437,10 @@ func TestUpdatePageUseCase_EmitsSuccessMetrics(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_pagesave_operations_total{operation="update",result="success"} 1`) {
+	if !strings.Contains(body, `leafdoc_pagesave_operations_total{operation="update",result="success"} 1`) {
 		t.Fatalf("expected success workflow metric, got: %s", body)
 	}
-	if !strings.Contains(body, `leafwiki_pagesave_duration_seconds_bucket{operation="update",result="success"`) {
+	if !strings.Contains(body, `leafdoc_pagesave_duration_seconds_bucket{operation="update",result="success"`) {
 		t.Fatalf("expected success duration metric, got: %s", body)
 	}
 }
@@ -3463,10 +3463,10 @@ func TestUpdatePageUseCase_EmitsFailureMetrics(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_pagesave_operations_total{operation="update",result="error"} 1`) {
+	if !strings.Contains(body, `leafdoc_pagesave_operations_total{operation="update",result="error"} 1`) {
 		t.Fatalf("expected failure workflow metric, got: %s", body)
 	}
-	if !strings.Contains(body, `leafwiki_pagesave_failures_total{operation="update",result="error"} 1`) {
+	if !strings.Contains(body, `leafdoc_pagesave_failures_total{operation="update",result="error"} 1`) {
 		t.Fatalf("expected failure counter, got: %s", body)
 	}
 }
@@ -3531,17 +3531,17 @@ func TestApplyPageRefactorUseCase_EmitsRenameMetrics(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_refactor_affected_pages_bucket{kind="rename",rewrite_links="true"`) {
+	if !strings.Contains(body, `leafdoc_refactor_affected_pages_bucket{kind="rename",rewrite_links="true"`) {
 		t.Fatalf("expected refactor affected pages metric, got: %s", body)
 	}
-	if !strings.Contains(body, `leafwiki_refactor_matched_links_bucket{kind="rename",rewrite_links="true"`) {
+	if !strings.Contains(body, `leafdoc_refactor_matched_links_bucket{kind="rename",rewrite_links="true"`) {
 		t.Fatalf("expected refactor matched links metric, got: %s", body)
 	}
-	if !strings.Contains(body, `leafwiki_refactor_duration_seconds_bucket{kind="rename",rewrite_links="true"`) {
+	if !strings.Contains(body, `leafdoc_refactor_duration_seconds_bucket{kind="rename",rewrite_links="true"`) {
 		t.Fatalf("expected refactor duration metric, got: %s", body)
 	}
 	for _, step := range []string{"rewrite_affected_pages", "update_target_page", "rewrite_path_changed_subtree", "refresh_affected_links"} {
-		want := `leafwiki_refactor_step_duration_seconds_bucket{kind="rename",step="` + step + `"`
+		want := `leafdoc_refactor_step_duration_seconds_bucket{kind="rename",step="` + step + `"`
 		if !strings.Contains(body, want) {
 			t.Errorf("expected refactor step duration metric for step %q, got: %s", step, body)
 		}
@@ -3592,14 +3592,14 @@ func TestApplyPageRefactorUseCase_EmitsMoveMetrics(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_refactor_duration_seconds_bucket{kind="move",rewrite_links="false"`) {
+	if !strings.Contains(body, `leafdoc_refactor_duration_seconds_bucket{kind="move",rewrite_links="false"`) {
 		t.Fatalf("expected move refactor duration metric, got: %s", body)
 	}
 	// RewriteLinks is false here, so only the two steps outside the
 	// RewriteLinks-gated blocks (rewrite_affected_pages, refresh_affected_links)
 	// fire unconditionally.
 	for _, step := range []string{"move_target_page", "rewrite_path_changed_subtree"} {
-		want := `leafwiki_refactor_step_duration_seconds_bucket{kind="move",step="` + step + `"`
+		want := `leafdoc_refactor_step_duration_seconds_bucket{kind="move",step="` + step + `"`
 		if !strings.Contains(body, want) {
 			t.Errorf("expected refactor step duration metric for step %q, got: %s", step, body)
 		}

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 func setupAPIKeyUseCases(t *testing.T) (*CreateAPIKeyUseCase, *ListAPIKeysUseCase, *RevokeAPIKeyUseCase, *coreauth.UserService) {

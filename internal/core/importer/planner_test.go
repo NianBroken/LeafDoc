@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 type fakeWiki struct {
@@ -175,9 +175,9 @@ func TestPlanner_CreatePlan_CreateNewSection_IndexMd(t *testing.T) {
 	}
 }
 
-func TestPlanner_CreatePlan_PrefersLeafWikiTitleOverTitle(t *testing.T) {
+func TestPlanner_CreatePlan_PrefersLeafDocTitleOverTitle(t *testing.T) {
 	tmp := t.TempDir()
-	testutil.WriteFile(t, tmp, "Guide.md", "---\nleafwiki_title: Preferred Title\ntitle: Fallback Title\n---\n\n# Heading")
+	testutil.WriteFile(t, tmp, "Guide.md", "---\nleafdoc_title: Preferred Title\ntitle: Fallback Title\n---\n\n# Heading")
 
 	wiki := &fakeWiki{treeHash: "h", lookups: map[string]*tree.PathLookup{}}
 	p := newPlannerWithFake(wiki)
@@ -206,7 +206,7 @@ func TestPlanner_CreatePlan_TitleFallbackPriority_WindowsPathFilenameFallback(t 
 	}{
 		{
 			name:    "frontmatter wins",
-			content: "---\nleafwiki_title: Frontmatter Title\n---\n\n# Heading Title",
+			content: "---\nleafdoc_title: Frontmatter Title\n---\n\n# Heading Title",
 			want:    "Frontmatter Title",
 		},
 		{
@@ -623,8 +623,8 @@ func TestPlanner_CreatePlan_SkipsIgnoredPaths(t *testing.T) {
 	testutil.WriteFile(t, tmp, "root/readme.md", "# Readme")
 	testutil.WriteFile(t, tmp, "root/drafts/note.md", "# Draft Note")
 
-	// Create .leafwikiignore inside root/
-	mustWriteLeafwikiIgnore(t, filepath.Join(tmp, "root"), "drafts/")
+	// Create .leafdocignore inside root/
+	mustWriteLeafdocIgnore(t, filepath.Join(tmp, "root"), "drafts/")
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 
 	wiki := &fakeWiki{treeHash: "h", lookups: map[string]*tree.PathLookup{}}
@@ -659,8 +659,8 @@ func TestPlanner_CreatePlan_IncludesNonIgnoredPaths(t *testing.T) {
 	testutil.WriteFile(t, tmp, "root/readme.md", "# Readme")
 	testutil.WriteFile(t, tmp, "root/notes/note.md", "# Note")
 
-	// Create .leafwikiignore that doesn't match any of our files
-	mustWriteLeafwikiIgnore(t, filepath.Join(tmp, "root"), "*.log")
+	// Create .leafdocignore that doesn't match any of our files
+	mustWriteLeafdocIgnore(t, filepath.Join(tmp, "root"), "*.log")
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 
 	wiki := &fakeWiki{treeHash: "h", lookups: map[string]*tree.PathLookup{}}
@@ -683,10 +683,10 @@ func TestPlanner_CreatePlan_IncludesNonIgnoredPaths(t *testing.T) {
 	}
 }
 
-// mustWriteLeafwikiIgnore writes a .leafwikiignore file to dir with the given content.
-func mustWriteLeafwikiIgnore(t *testing.T, dir, content string) {
+// mustWriteLeafdocIgnore writes a .leafdocignore file to dir with the given content.
+func mustWriteLeafdocIgnore(t *testing.T, dir, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, ".leafwikiignore"), []byte(content), 0o644); err != nil {
-		t.Fatalf("write .leafwikiignore: %v", err)
+	if err := os.WriteFile(filepath.Join(dir, ".leafdocignore"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write .leafdocignore: %v", err)
 	}
 }

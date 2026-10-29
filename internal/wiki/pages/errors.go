@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 
-	httpinternal "github.com/perber/wiki/internal/http"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/favorites"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
 )
 
 // Error codes for the pages domain.

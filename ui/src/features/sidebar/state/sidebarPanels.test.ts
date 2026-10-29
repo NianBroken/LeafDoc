@@ -44,7 +44,7 @@ describe('useSidebarPanelsStore', () => {
     { openSections: ['pages', 1] },
   ])('restores defaults for invalid persisted state %#', async (state) => {
     localStorage.setItem(
-      'leafwiki-sidebar-panels',
+      'leafdoc-sidebar-panels',
       JSON.stringify({ state, version: 0 }),
     )
 
@@ -62,7 +62,7 @@ describe('useSidebarPanelsStore', () => {
 
   it('preserves an empty persisted section list', async () => {
     localStorage.setItem(
-      'leafwiki-sidebar-panels',
+      'leafdoc-sidebar-panels',
       JSON.stringify({ state: { openSections: [] }, version: 0 }),
     )
 

@@ -3,9 +3,9 @@ package health
 import (
 	"net/http"
 
+	"github.com/NianBroken/LeafDoc/internal/core/search"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/search"
-	httpinternal "github.com/perber/wiki/internal/http"
 )
 
 type Routes struct {

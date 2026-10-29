@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 type FSStore struct {
@@ -584,7 +584,7 @@ func (s *FSStore) DeletePageRevisions(pageID string) error {
 }
 
 func (s *FSStore) baseDir() string {
-	return filepath.Join(s.storageDir, ".leafwiki")
+	return filepath.Join(s.storageDir, ".leafdoc")
 }
 
 func (s *FSStore) revisionsDir() string {

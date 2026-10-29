@@ -5,7 +5,7 @@ describe('isDynamicImportChunkError', () => {
   it('matches the Chromium/V8 message (reproduced from a live redeploy)', () => {
     expect(
       isDynamicImportChunkError(
-        'Failed to fetch dynamically imported module: https://stuart.cloud.leafwiki.com/static/flowDiagram-HODETNUW-DScmEErP.js',
+        'Failed to fetch dynamically imported module: https://stuart.cloud.leafdoc.com/static/flowDiagram-HODETNUW-DScmEErP.js',
       ),
     ).toBe(true)
   })

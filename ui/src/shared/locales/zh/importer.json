@@ -57,7 +57,7 @@
   },
   "beforeYouStart": {
     "title": "开始之前",
-    "description": "导入包含 Markdown 文件的 ZIP 压缩包。LeafWiki 会先生成审阅计划，只有在你明确开始执行步骤后才真正导入页面。",
+    "description": "导入包含 Markdown 文件的 ZIP 压缩包。LeafDoc 会先生成审阅计划，只有在你明确开始执行步骤后才真正导入页面。",
     "whatHappensNext": "接下来会发生什么？",
     "stepPrefix": "第 {{number}} 步",
     "safeReviewTitle": "先安全审阅",
@@ -82,7 +82,7 @@
   },
   "plan": {
     "title": "导入计划",
-    "description": "开始导入前，审阅 LeafWiki 将要创建、更新或跳过的内容。",
+    "description": "开始导入前，审阅 LeafDoc 将要创建、更新或跳过的内容。",
     "currentStatus": "当前状态",
     "planId": "计划 ID：{{id}}",
     "progress": "进度：{{progress}}",
@@ -104,7 +104,7 @@
   },
   "plannedItems": {
     "title": "计划项（{{count}}）",
-    "description": "这些是 LeafWiki 在压缩包中检测到的单个文件，以及它们映射到的目标页面。",
+    "description": "这些是 LeafDoc 在压缩包中检测到的单个文件，以及它们映射到的目标页面。",
     "importFile": "导入文件",
     "targetPage": "目标页面",
     "titleColumn": "标题",

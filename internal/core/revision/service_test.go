@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/markdown"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 func newRevisionTestService(t *testing.T) (*Service, *tree.TreeService, string) {
@@ -793,20 +793,20 @@ func TestRestoreRevision_RestoresHistoricalCustomFrontmatterAndKeepsManagedField
 	if !has {
 		t.Fatalf("expected restored page to have frontmatter")
 	}
-	if fm.LeafWikiID != managedID {
-		t.Fatalf("expected leafwiki_id to remain stable, got %q want %q", fm.LeafWikiID, managedID)
+	if fm.LeafDocID != managedID {
+		t.Fatalf("expected leafdoc_id to remain stable, got %q want %q", fm.LeafDocID, managedID)
 	}
-	if fm.LeafWikiTitle != page.Title {
-		t.Fatalf("expected leafwiki_title to stay managed by the restored page title, got %q want %q", fm.LeafWikiTitle, page.Title)
+	if fm.LeafDocTitle != page.Title {
+		t.Fatalf("expected leafdoc_title to stay managed by the restored page title, got %q want %q", fm.LeafDocTitle, page.Title)
 	}
-	if fm.LeafWikiCreatorID != managedCreatorID {
-		t.Fatalf("expected leafwiki_creator_id to remain stable, got %q want %q", fm.LeafWikiCreatorID, managedCreatorID)
+	if fm.LeafDocCreatorID != managedCreatorID {
+		t.Fatalf("expected leafdoc_creator_id to remain stable, got %q want %q", fm.LeafDocCreatorID, managedCreatorID)
 	}
-	if fm.LeafWikiLastAuthorID != "restorer" {
-		t.Fatalf("expected leafwiki_last_author_id to be restore actor, got %q", fm.LeafWikiLastAuthorID)
+	if fm.LeafDocLastAuthorID != "restorer" {
+		t.Fatalf("expected leafdoc_last_author_id to be restore actor, got %q", fm.LeafDocLastAuthorID)
 	}
-	if fm.LeafWikiUpdatedAt == "" {
-		t.Fatalf("expected leafwiki_updated_at to be set on restore")
+	if fm.LeafDocUpdatedAt == "" {
+		t.Fatalf("expected leafdoc_updated_at to be set on restore")
 	}
 	if got := fm.ExtraFields["customKey"]; got != "first" {
 		t.Fatalf("expected restored custom frontmatter, got %#v", fm.ExtraFields)

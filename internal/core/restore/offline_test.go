@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestRestoreOffline_SwapsFilesWithoutAnyLiveMachinery(t *testing.T) {

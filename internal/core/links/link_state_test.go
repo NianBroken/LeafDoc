@@ -3,7 +3,7 @@ package links
 import (
 	"testing"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // An ambiguous [[Title]] resolves to every matching page and remains a normal

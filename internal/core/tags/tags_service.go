@@ -3,7 +3,7 @@ package tags
 import (
 	"strings"
 
-	"github.com/perber/wiki/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 )
 
 type TagsService struct {

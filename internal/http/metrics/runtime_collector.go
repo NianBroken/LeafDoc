@@ -48,17 +48,17 @@ func newRuntimeCollector(src RuntimeStatsSource) *runtimeCollector {
 		src: src,
 		log: slog.Default().With("component", "metrics.runtime"),
 		pages: prometheus.NewDesc(
-			"leafwiki_pages",
+			"leafdoc_pages",
 			"Current number of nodes in the page tree by kind (page or section).",
 			[]string{"kind"}, nil,
 		),
 		users: prometheus.NewDesc(
-			"leafwiki_users",
+			"leafdoc_users",
 			"Current number of user accounts by role.",
 			[]string{"role"}, nil,
 		),
 		usersPending: prometheus.NewDesc(
-			"leafwiki_users_pending_invite",
+			"leafdoc_users_pending_invite",
 			"Current number of invited user accounts that have not yet completed sign-up.",
 			nil, nil,
 		),

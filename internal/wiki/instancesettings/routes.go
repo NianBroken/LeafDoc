@@ -6,13 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/localization"
+	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
+	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/localization"
-	"github.com/perber/wiki/internal/core/publicaccess"
-	"github.com/perber/wiki/internal/core/tocdisplay"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 // Routes is the RouteRegistrar for runtime instance settings.

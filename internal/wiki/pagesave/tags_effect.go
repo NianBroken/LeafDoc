@@ -3,9 +3,9 @@ package pagesave
 import (
 	"log/slog"
 
-	"github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // TagsSideEffect updates the tag index after every page mutation.

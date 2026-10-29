@@ -34,8 +34,8 @@ async function createSpacingPage(
     async ({ pageTitle, pageSlug, content }) => {
       function getCsrfTokenFromCookie(): string | null {
         const hostMatch =
-          document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-          document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+          document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+          document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
 
         if (!hostMatch) return null;
 

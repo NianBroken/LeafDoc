@@ -3,8 +3,8 @@ package http
 import (
 	"net/http"
 
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/gin-gonic/gin"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
 )
 
 // ErrorDetail is the localization-ready error contract shared by all endpoints.

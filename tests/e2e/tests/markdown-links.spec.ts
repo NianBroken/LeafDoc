@@ -37,7 +37,7 @@ test.describe('Markdown web link navigation', () => {
         await createPage(page, {
           title: `Markdown source ${stamp}`,
           slug: sourceSlug,
-          content: `[Same origin](${href})\n\n[External](https://example.com/leafwiki-link-test)\n\n[Asset](assets/test.txt)\n\n[Relative](/${targetSlug})`,
+          content: `[Same origin](${href})\n\n[External](https://example.com/leafdoc-link-test)\n\n[Asset](assets/test.txt)\n\n[Relative](/${targetSlug})`,
         });
         const treeResponse = page.waitForResponse((response) =>
           response.url().endsWith('/api/tree'),
@@ -58,7 +58,7 @@ test.describe('Markdown web link navigation', () => {
           'target',
         );
 
-        await context.route('https://example.com/leafwiki-link-test', (route) =>
+        await context.route('https://example.com/leafdoc-link-test', (route) =>
           route.fulfill({ contentType: 'text/html', body: '<title>External fixture</title>' }),
         );
         const external = page.getByRole('link', { name: 'External', exact: true });

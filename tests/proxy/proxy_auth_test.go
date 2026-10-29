@@ -87,7 +87,7 @@ func loginAdminAt(t *testing.T, baseURL string) *http.Cookie {
 	}
 	for _, c := range resp.Cookies() {
 		// Preserve the server's secure cookie name for HTTPS deployments.
-		if strings.TrimPrefix(c.Name, "__Host-") == "leafwiki_at" {
+		if strings.TrimPrefix(c.Name, "__Host-") == "leafdoc_at" {
 			return c
 		}
 	}
@@ -104,7 +104,7 @@ func TestProxyAuth_ValidUser_Admin(t *testing.T) {
 }
 
 // TestProxyAuth_UnknownUser verifies that a proxy-provided username that does
-// not exist in LeafWiki results in 401 against the default (auto-create off)
+// not exist in LeafDoc results in 401 against the default (auto-create off)
 // stack — this is the shipped default and the behavior ADR-0010 promises stays
 // unchanged unless an operator opts in to auto-create.
 func TestProxyAuth_UnknownUser(t *testing.T) {
@@ -114,7 +114,7 @@ func TestProxyAuth_UnknownUser(t *testing.T) {
 
 // TestProxyAuth_AutoCreate_ProvisionsUnknownUser verifies that an unknown
 // proxy-asserted identity is auto-provisioned end-to-end through the real
-// nginx + LeafWiki stack (auto-create stack, port 8096), with the configured
+// nginx + LeafDoc stack (auto-create stack, port 8096), with the configured
 // default role and, when no email is forwarded, the synthesized placeholder
 // email.
 func TestProxyAuth_AutoCreate_ProvisionsUnknownUser(t *testing.T) {
@@ -297,11 +297,11 @@ func TestRefreshToken_NoSession_Returns422(t *testing.T) {
 // proxy auth by sending Remote-User directly without going through nginx.
 // Because nginx strips and re-sets the header, a client sending Remote-User
 // directly to nginx will have it overwritten by the value of X-Test-User
-// (which is empty here), so LeafWiki receives an empty Remote-User and falls
+// (which is empty here), so LeafDoc receives an empty Remote-User and falls
 // back to requiring JWT — which we don't provide.
 func TestProxyAuth_DirectRemoteUserInjection(t *testing.T) {
 	// Send Remote-User directly without X-Test-User. nginx will replace it
-	// with the (empty) X-Test-User value, so LeafWiki sees Remote-User: "".
+	// with the (empty) X-Test-User value, so LeafDoc sees Remote-User: "".
 	resp := doProxy(t, "/api/users", "", map[string]string{
 		"Remote-User": "admin",
 	})

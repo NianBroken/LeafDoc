@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/http/middleware/security"
 )
 
 type apiKeyFixture struct {
@@ -123,7 +123,7 @@ func TestInjectAPIKeyUser_NoAuthorizationHeader(t *testing.T) {
 	}
 }
 
-func TestInjectAPIKeyUser_NonLeafWikiBearerPassesThrough(t *testing.T) {
+func TestInjectAPIKeyUser_NonLeafDocBearerPassesThrough(t *testing.T) {
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -133,9 +133,9 @@ func TestInjectAPIKeyUser_NonLeafWikiBearerPassesThrough(t *testing.T) {
 
 	apiKeyRouter(authmw.APIKeyConfig{Service: f.keyService}, nil).ServeHTTP(w, req)
 
-	// Not shaped like a LeafWiki key → middleware no-ops, downstream sees no user.
+	// Not shaped like a LeafDoc key → middleware no-ops, downstream sees no user.
 	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401 (pass-through, no user) for non-LeafWiki bearer, got %d", w.Code)
+		t.Errorf("expected 401 (pass-through, no user) for non-LeafDoc bearer, got %d", w.Code)
 	}
 }
 

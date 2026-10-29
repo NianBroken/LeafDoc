@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/favorites"
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/tree"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/wiki/pagesave"
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
 // DeletePageInput is the input for DeletePageUseCase.

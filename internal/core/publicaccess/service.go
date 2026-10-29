@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/perber/wiki/internal/core/settings"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // fileConfig is the on-disk shape of public-access.json. Deliberately a
@@ -23,7 +23,7 @@ type Service struct {
 }
 
 // NewEnvManaged returns a Service pinned to enabled; SetEnabled/Reload are
-// inert. Used when --public-access / LEAFWIKI_PUBLIC_ACCESS is set or
+// inert. Used when --public-access / LEAFDOC_PUBLIC_ACCESS is set or
 // --disable-auth forces public mode on.
 func NewEnvManaged(enabled bool) *Service {
 	return &Service{val: settings.NewFixed(fileConfig{Enabled: enabled})}

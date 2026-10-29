@@ -12,7 +12,7 @@
     "title": "Seitenname",
     "description": "Der Name, der in der Kopfzeile, den Seitentiteln und dem Anmeldebildschirm angezeigt wird.",
     "label": "Seitenname",
-    "placeholder": "LeafWiki"
+    "placeholder": "LeafDoc"
   },
   "logo": {
     "title": "Logo",

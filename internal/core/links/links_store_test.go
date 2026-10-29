@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestLinksStore_CreatesDatabaseInStorageDir(t *testing.T) {

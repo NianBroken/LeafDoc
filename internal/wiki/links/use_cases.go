@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	corelinks "github.com/perber/wiki/internal/core/links"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
+	corelinks "github.com/NianBroken/LeafDoc/internal/core/links"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 var ErrLinkServiceUnavailable = sharederrors.NewLocalizedError(

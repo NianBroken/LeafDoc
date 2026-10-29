@@ -5,14 +5,14 @@ import (
 	"strconv"
 	"strings"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	"github.com/NianBroken/LeafDoc/internal/http/dto"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/markdown"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
-	httpinternal "github.com/perber/wiki/internal/http"
-	"github.com/perber/wiki/internal/http/dto"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 const (
@@ -608,7 +608,7 @@ func flattenMetadataEntryDepth(prefix string, value interface{}, properties map[
 			if childKey == "" {
 				continue
 			}
-			if strings.HasPrefix(strings.ToLower(childKey), "leafwiki_") {
+			if strings.HasPrefix(strings.ToLower(childKey), "leafdoc_") {
 				continue
 			}
 			flattenMetadataEntryDepth(prefix+"."+childKey, childValue, properties, depth+1)

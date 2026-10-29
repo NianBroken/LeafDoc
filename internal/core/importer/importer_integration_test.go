@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/perber/wiki/internal/core/importer"
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/properties"
-	"github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/importer"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/properties"
+	"github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 
-	"github.com/perber/wiki/internal/wiki"
+	"github.com/NianBroken/LeafDoc/internal/wiki"
 )
 
 func integMustWrite(t *testing.T, base, rel, content string) string {
@@ -100,7 +100,7 @@ func newImporterProbe(w *wiki.Wiki) *wiki.WikiImportAdapter {
 
 func TestImporterService_ExecuteCurrentPlan_WritesPreservedFrontmatterToDisk(t *testing.T) {
 	ws := t.TempDir()
-	integMustWrite(t, ws, "Imported.md", "---\naliases:\n  - alpha\ncustom_key: keep-me\nleafwiki_id: source-id\ntitle: Imported Title\n---\n\n# Imported Title\nBody")
+	integMustWrite(t, ws, "Imported.md", "---\naliases:\n  - alpha\ncustom_key: keep-me\nleafdoc_id: source-id\ntitle: Imported Title\n---\n\n# Imported Title\nBody")
 
 	w := newTestWiki(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
@@ -148,14 +148,14 @@ func TestImporterService_ExecuteCurrentPlan_WritesPreservedFrontmatterToDisk(t *
 	if !ok || len(aliases) != 1 || aliases[0] != "alpha" {
 		t.Fatalf("expected aliases to be preserved, got %#v", fm.ExtraFields["aliases"])
 	}
-	if strings.Contains(raw, "leafwiki_id: source-id") {
-		t.Fatalf("expected source leafwiki_id to be dropped, got: %q", raw)
+	if strings.Contains(raw, "leafdoc_id: source-id") {
+		t.Fatalf("expected source leafdoc_id to be dropped, got: %q", raw)
 	}
-	if fm.LeafWikiID == "" {
-		t.Fatalf("expected written file to contain generated leafwiki_id")
+	if fm.LeafDocID == "" {
+		t.Fatalf("expected written file to contain generated leafdoc_id")
 	}
-	if fm.LeafWikiTitle != "Imported Title" {
-		t.Fatalf("expected written file to contain effective leafwiki_title, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Imported Title" {
+		t.Fatalf("expected written file to contain effective leafdoc_title, got %q", fm.LeafDocTitle)
 	}
 }
 
@@ -372,8 +372,8 @@ func TestImporterService_ExecuteCurrentPlan_ImportsFixturePackage(t *testing.T) 
 	}
 }
 
-func TestImporterService_ExecuteCurrentPlan_ImportsLeafWikiNestedFixture(t *testing.T) {
-	ws := integCopyFixtureToTemp(t, "leafwiki-nested-package")
+func TestImporterService_ExecuteCurrentPlan_ImportsLeafDocNestedFixture(t *testing.T) {
+	ws := integCopyFixtureToTemp(t, "leafdoc-nested-package")
 
 	w := newTestWiki(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
@@ -451,25 +451,25 @@ func TestImporterService_ExecuteCurrentPlan_ImportsLeafWikiNestedFixture(t *test
 	if !has {
 		t.Fatalf("expected intro frontmatter, got %q", rawIntro)
 	}
-	if strings.Contains(rawIntro, "leafwiki_id: intro-source") {
-		t.Fatalf("expected source leafwiki_id to be replaced, got: %q", rawIntro)
+	if strings.Contains(rawIntro, "leafdoc_id: intro-source") {
+		t.Fatalf("expected source leafdoc_id to be replaced, got: %q", rawIntro)
 	}
-	if fm.LeafWikiID == "" {
-		t.Fatalf("expected regenerated leafwiki_id")
+	if fm.LeafDocID == "" {
+		t.Fatalf("expected regenerated leafdoc_id")
 	}
-	if fm.LeafWikiTitle != "Introduction" {
-		t.Fatalf("expected leafwiki_title Introduction, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Introduction" {
+		t.Fatalf("expected leafdoc_title Introduction, got %q", fm.LeafDocTitle)
 	}
-	if fm.LeafWikiCreatorID != "system" {
-		t.Fatalf("expected creator to reflect imported page ownership, got %q", fm.LeafWikiCreatorID)
+	if fm.LeafDocCreatorID != "system" {
+		t.Fatalf("expected creator to reflect imported page ownership, got %q", fm.LeafDocCreatorID)
 	}
-	if fm.LeafWikiLastAuthorID != "system" {
-		t.Fatalf("expected last author to reflect import execution user, got %q", fm.LeafWikiLastAuthorID)
+	if fm.LeafDocLastAuthorID != "system" {
+		t.Fatalf("expected last author to reflect import execution user, got %q", fm.LeafDocLastAuthorID)
 	}
-	if fm.LeafWikiCreatedAt == "" {
+	if fm.LeafDocCreatedAt == "" {
 		t.Fatalf("expected created_at to be written")
 	}
-	if fm.LeafWikiUpdatedAt == "" {
+	if fm.LeafDocUpdatedAt == "" {
 		t.Fatalf("expected updated_at to be written")
 	}
 	if got := fm.ExtraFields["category"]; got != "onboarding" {

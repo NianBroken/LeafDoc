@@ -12,7 +12,7 @@
     "title": "Site Name",
     "description": "The name displayed in the header, page titles, and login screen.",
     "label": "Site Name",
-    "placeholder": "LeafWiki"
+    "placeholder": "LeafDoc"
   },
   "logo": {
     "title": "Logo",

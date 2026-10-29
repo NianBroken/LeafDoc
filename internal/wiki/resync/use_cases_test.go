@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	. "github.com/perber/wiki/internal/wiki/resync"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	. "github.com/NianBroken/LeafDoc/internal/wiki/resync"
 )
 
 func TestTriggerResyncUseCase_Execute_LaunchesTrigger(t *testing.T) {

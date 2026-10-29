@@ -7,7 +7,7 @@ export const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'admin';
 
 export async function csrfHeader(ctx: APIRequestContext) {
   const { cookies } = await ctx.storageState();
-  const csrf = cookies.find((c) => c.name.endsWith('leafwiki_csrf'));
+  const csrf = cookies.find((c) => c.name.endsWith('leafdoc_csrf'));
   return { 'X-CSRF-Token': csrf ? decodeURIComponent(csrf.value) : '' };
 }
 

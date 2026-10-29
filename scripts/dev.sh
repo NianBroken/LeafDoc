@@ -2,7 +2,7 @@
 # Runs the backend (:8080) and the Vite dev server (:5173) together; Ctrl-C
 # stops both. Open http://localhost:5173, Vite proxies /api, /assets and
 # /branding to the backend. Login: admin / devpassword. Wiki data lands in
-# cmd/leafwiki/data (gitignored). Arguments go to the backend, e.g.
+# cmd/leafdoc/data (gitignored). Arguments go to the backend, e.g.
 # `make dev ARGS=--enable-revision=true`. bash, not sh: dash turns job
 # control (set -m below) off without a terminal and would leave Vite running.
 set -eu
@@ -26,9 +26,9 @@ fi
 # the server it starts (see tests/e2e/run.sh), and compile errors show up before
 # Vite starts.
 tmp="$(mktemp -d)"
-bin="$tmp/leafwiki$(cd "$ROOT" && go env GOEXE)"
+bin="$tmp/leafdoc$(cd "$ROOT" && go env GOEXE)"
 echo "Building the backend..."
-if ! (cd "$ROOT" && go build -o "$bin" ./cmd/leafwiki); then
+if ! (cd "$ROOT" && go build -o "$bin" ./cmd/leafdoc); then
     rm -rf "$tmp"
     exit 1
 fi
@@ -55,7 +55,7 @@ trap 'exit 143' TERM
 # the loop's foreground `sleep` would get the terminal and with it Ctrl-C.
 # Both read /dev/null, a background process group reading the terminal stops.
 set -m
-(cd "$ROOT/cmd/leafwiki" && exec "$bin" --jwt-secret=dev --admin-password=devpassword --public-access=true --allow-insecure=true "$@") </dev/null &
+(cd "$ROOT/cmd/leafdoc" && exec "$bin" --jwt-secret=dev --admin-password=devpassword --public-access=true --allow-insecure=true "$@") </dev/null &
 backend=$!
 (cd "$UI_DIR" && exec npm run dev) </dev/null &
 frontend=$!

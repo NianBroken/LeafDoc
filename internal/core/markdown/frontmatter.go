@@ -20,14 +20,14 @@ func invalidYAMLKeyRune(r rune) bool {
 }
 
 type Frontmatter struct {
-	LeafWikiID           string                 `yaml:"leafwiki_id,omitempty" json:"id,omitempty"`
-	LeafWikiTitle        string                 `yaml:"leafwiki_title,omitempty" json:"title,omitempty"`
-	LeafWikiCreatedAt    string                 `yaml:"leafwiki_created_at,omitempty" json:"createdAt,omitempty"`
-	LeafWikiUpdatedAt    string                 `yaml:"leafwiki_updated_at,omitempty" json:"updatedAt,omitempty"`
-	LeafWikiCreatorID    string                 `yaml:"leafwiki_creator_id,omitempty" json:"creatorId,omitempty"`
-	LeafWikiLastAuthorID string                 `yaml:"leafwiki_last_author_id,omitempty" json:"lastAuthorId,omitempty"`
-	LeafWikiPinned       bool                   `yaml:"leafwiki_pinned,omitempty" json:"pinned,omitempty"`
-	ExtraFields          map[string]interface{} `yaml:"-" json:"-"`
+	LeafDocID           string                 `yaml:"leafdoc_id,omitempty" json:"id,omitempty"`
+	LeafDocTitle        string                 `yaml:"leafdoc_title,omitempty" json:"title,omitempty"`
+	LeafDocCreatedAt    string                 `yaml:"leafdoc_created_at,omitempty" json:"createdAt,omitempty"`
+	LeafDocUpdatedAt    string                 `yaml:"leafdoc_updated_at,omitempty" json:"updatedAt,omitempty"`
+	LeafDocCreatorID    string                 `yaml:"leafdoc_creator_id,omitempty" json:"creatorId,omitempty"`
+	LeafDocLastAuthorID string                 `yaml:"leafdoc_last_author_id,omitempty" json:"lastAuthorId,omitempty"`
+	LeafDocPinned       bool                   `yaml:"leafdoc_pinned,omitempty" json:"pinned,omitempty"`
+	ExtraFields         map[string]interface{} `yaml:"-" json:"-"`
 
 	// repaired records whether parsing this frontmatter block required the
 	// sanitize-and-retry fallback (see sanitizeFrontmatterYAML): the file's
@@ -64,36 +64,36 @@ func parseFrontmatterYAML(yamlPart string) (Frontmatter, error) {
 
 	fm := Frontmatter{ExtraFields: map[string]interface{}{}, repaired: repaired}
 
-	if value, ok := raw["leafwiki_id"]; ok {
-		fm.LeafWikiID = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
+	if value, ok := raw["leafdoc_id"]; ok {
+		fm.LeafDocID = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
 	}
 
-	if value, ok := raw["leafwiki_title"]; ok {
-		fm.LeafWikiTitle = fm.stripSingleAndDoubleQuotes(valueToString(value))
+	if value, ok := raw["leafdoc_title"]; ok {
+		fm.LeafDocTitle = fm.stripSingleAndDoubleQuotes(valueToString(value))
 	} else if value, ok := raw["title"]; ok {
-		fm.LeafWikiTitle = fm.stripSingleAndDoubleQuotes(valueToString(value))
+		fm.LeafDocTitle = fm.stripSingleAndDoubleQuotes(valueToString(value))
 	}
-	if value, ok := raw["leafwiki_created_at"]; ok {
-		fm.LeafWikiCreatedAt = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
+	if value, ok := raw["leafdoc_created_at"]; ok {
+		fm.LeafDocCreatedAt = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
 	}
-	if value, ok := raw["leafwiki_updated_at"]; ok {
-		fm.LeafWikiUpdatedAt = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
+	if value, ok := raw["leafdoc_updated_at"]; ok {
+		fm.LeafDocUpdatedAt = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
 	}
-	if value, ok := raw["leafwiki_creator_id"]; ok {
-		fm.LeafWikiCreatorID = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
+	if value, ok := raw["leafdoc_creator_id"]; ok {
+		fm.LeafDocCreatorID = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
 	}
-	if value, ok := raw["leafwiki_last_author_id"]; ok {
-		fm.LeafWikiLastAuthorID = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
+	if value, ok := raw["leafdoc_last_author_id"]; ok {
+		fm.LeafDocLastAuthorID = fm.stripSingleAndDoubleQuotes(strings.TrimSpace(valueToString(value)))
 	}
-	if value, ok := raw["leafwiki_pinned"]; ok {
+	if value, ok := raw["leafdoc_pinned"]; ok {
 		if b, ok := value.(bool); ok {
-			fm.LeafWikiPinned = b
+			fm.LeafDocPinned = b
 		}
 	}
 
 	for key, value := range raw {
 		switch key {
-		case "leafwiki_id", "leafwiki_title", "leafwiki_created_at", "leafwiki_updated_at", "leafwiki_creator_id", "leafwiki_last_author_id", "leafwiki_pinned":
+		case "leafdoc_id", "leafdoc_title", "leafdoc_created_at", "leafdoc_updated_at", "leafdoc_creator_id", "leafdoc_last_author_id", "leafdoc_pinned":
 			continue
 		default:
 			fm.ExtraFields[key] = value
@@ -135,26 +135,26 @@ func sanitizeTemplatePlaceholderFrontmatter(yamlPart string) (string, bool) {
 	})
 }
 
-// knownLeafWikiStringFrontmatterKeys are the leafwiki_* keys that are always
-// plain string scalars. leafwiki_pinned is deliberately excluded: it's a
+// knownLeafDocStringFrontmatterKeys are the leafdoc_* keys that are always
+// plain string scalars. leafdoc_pinned is deliberately excluded: it's a
 // bool, and quoting "true"/"false" would break its type assertion.
-var knownLeafWikiStringFrontmatterKeys = []string{
-	"leafwiki_id",
-	"leafwiki_title",
-	"leafwiki_created_at",
-	"leafwiki_updated_at",
-	"leafwiki_creator_id",
-	"leafwiki_last_author_id",
+var knownLeafDocStringFrontmatterKeys = []string{
+	"leafdoc_id",
+	"leafdoc_title",
+	"leafdoc_created_at",
+	"leafdoc_updated_at",
+	"leafdoc_creator_id",
+	"leafdoc_last_author_id",
 }
 
-// unquotedLeafWikiStringFieldLine matches a leafwiki_* string key together
+// unquotedLeafDocStringFieldLine matches a leafdoc_* string key together
 // with the rest of its line as a raw value. Anchored at column 0
 // (no leading \s*) deliberately: these keys always live at the top level of
 // the frontmatter map, so requiring zero indentation means this can never
 // match an indented continuation line inside an unrelated field's block
 // scalar (e.g. "notes: |") content, which would otherwise get corrupted.
-var unquotedLeafWikiStringFieldLine = regexp.MustCompile(
-	`^((?:` + strings.Join(knownLeafWikiStringFrontmatterKeys, "|") + `)\s*:\s*)(\S.*)$`,
+var unquotedLeafDocStringFieldLine = regexp.MustCompile(
+	`^((?:` + strings.Join(knownLeafDocStringFrontmatterKeys, "|") + `)\s*:\s*)(\S.*)$`,
 )
 
 // lineIsValidYAML reports whether a single "key: value" line parses on its
@@ -164,12 +164,12 @@ func lineIsValidYAML(line string) bool {
 	return yaml.Unmarshal([]byte(line), &probe) == nil
 }
 
-// sanitizeUnquotedColonInLeafWikiStringFields quotes leafwiki_* string field
+// sanitizeUnquotedColonInLeafDocStringFields quotes leafdoc_* string field
 // values that don't parse as valid YAML on their own -- most commonly an
-// unquoted colon (e.g. "leafwiki_title: ADR-0001: Filesystem as Source of
+// unquoted colon (e.g. "leafdoc_title: ADR-0001: Filesystem as Source of
 // Truth", which yaml.v3 otherwise misparses as a nested mapping key), but
 // also other YAML-hostile leading characters (a stray backtick or "@").
-// Scoped to known leafwiki_* keys only, since arbitrary user-defined
+// Scoped to known leafdoc_* keys only, since arbitrary user-defined
 // frontmatter keys may legitimately hold nested YAML. Values that look like
 // deliberate YAML constructs (flow-collections, anchors, aliases, tags,
 // block scalars, directives) are left alone regardless of validity, so a
@@ -183,9 +183,9 @@ func lineIsValidYAML(line string) bool {
 // always left untouched, while anything that truly fails to parse on its
 // own gets the same quote-and-retry treatment, regardless of
 // which specific character caused the failure.
-func sanitizeUnquotedColonInLeafWikiStringFields(yamlPart string) (string, bool) {
+func sanitizeUnquotedColonInLeafDocStringFields(yamlPart string) (string, bool) {
 	return sanitizeLines(yamlPart, func(line string) (string, bool) {
-		matches := unquotedLeafWikiStringFieldLine.FindStringSubmatch(line)
+		matches := unquotedLeafDocStringFieldLine.FindStringSubmatch(line)
 		if matches == nil {
 			return "", false
 		}
@@ -221,7 +221,7 @@ func sanitizeUnquotedColonInLeafWikiStringFields(yamlPart string) (string, bool)
 
 // sanitizeFrontmatterYAML chains the frontmatter recovery fixups, feeding
 // each one's output into the next. Safe to chain rather than retry
-// independently: sanitizeUnquotedColonInLeafWikiStringFields re-validates
+// independently: sanitizeUnquotedColonInLeafDocStringFields re-validates
 // each candidate line with the real YAML parser before touching it, so a
 // line the template-placeholder fixup already rewrote (and thus already
 // parses fine on its own) is correctly recognized as done and left alone --
@@ -233,7 +233,7 @@ func sanitizeFrontmatterYAML(yamlPart string) (string, bool) {
 	if sanitized, changed := sanitizeTemplatePlaceholderFrontmatter(out); changed {
 		out, changedAny = sanitized, true
 	}
-	if sanitized, changed := sanitizeUnquotedColonInLeafWikiStringFields(out); changed {
+	if sanitized, changed := sanitizeUnquotedColonInLeafDocStringFields(out); changed {
 		out, changedAny = sanitized, true
 	}
 
@@ -426,7 +426,7 @@ func BuildMarkdownWithExtraFrontmatter(extraFields map[string]interface{}, body 
 // and a markdown body. It preserves additional frontmatter keys and emits them
 // in deterministic order to keep rewrites stable.
 func BuildMarkdownWithFrontmatter(fm Frontmatter, body string) (string, error) {
-	if strings.TrimSpace(fm.LeafWikiID) == "" {
+	if strings.TrimSpace(fm.LeafDocID) == "" {
 		return BuildMarkdownWithExtraFrontmatter(fm.ExtraFields, body)
 	}
 
@@ -436,42 +436,42 @@ func BuildMarkdownWithFrontmatter(fm Frontmatter, body string) (string, error) {
 	}
 
 	mapping.Content = append(mapping.Content,
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafwiki_id"},
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafWikiID)},
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafdoc_id"},
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafDocID)},
 	)
-	if strings.TrimSpace(fm.LeafWikiTitle) != "" {
+	if strings.TrimSpace(fm.LeafDocTitle) != "" {
 		mapping.Content = append(mapping.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafwiki_title"},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafWikiTitle)},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafdoc_title"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafDocTitle)},
 		)
 	}
-	if strings.TrimSpace(fm.LeafWikiCreatedAt) != "" {
+	if strings.TrimSpace(fm.LeafDocCreatedAt) != "" {
 		mapping.Content = append(mapping.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafwiki_created_at"},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafWikiCreatedAt)},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafdoc_created_at"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafDocCreatedAt)},
 		)
 	}
-	if strings.TrimSpace(fm.LeafWikiUpdatedAt) != "" {
+	if strings.TrimSpace(fm.LeafDocUpdatedAt) != "" {
 		mapping.Content = append(mapping.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafwiki_updated_at"},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafWikiUpdatedAt)},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafdoc_updated_at"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafDocUpdatedAt)},
 		)
 	}
-	if strings.TrimSpace(fm.LeafWikiCreatorID) != "" {
+	if strings.TrimSpace(fm.LeafDocCreatorID) != "" {
 		mapping.Content = append(mapping.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafwiki_creator_id"},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafWikiCreatorID)},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafdoc_creator_id"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafDocCreatorID)},
 		)
 	}
-	if strings.TrimSpace(fm.LeafWikiLastAuthorID) != "" {
+	if strings.TrimSpace(fm.LeafDocLastAuthorID) != "" {
 		mapping.Content = append(mapping.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafwiki_last_author_id"},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafWikiLastAuthorID)},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafdoc_last_author_id"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: strings.TrimSpace(fm.LeafDocLastAuthorID)},
 		)
 	}
-	if fm.LeafWikiPinned {
+	if fm.LeafDocPinned {
 		mapping.Content = append(mapping.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafwiki_pinned"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "leafdoc_pinned"},
 			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"},
 		)
 	}

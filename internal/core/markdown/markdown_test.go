@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestPlanner_extractTitleFromMDFile_FrontmatterTitleWins(t *testing.T) {
@@ -25,9 +25,9 @@ func TestPlanner_extractTitleFromMDFile_FrontmatterTitleWins(t *testing.T) {
 	}
 }
 
-func TestPlanner_extractTitleFromMDFile_LeafwikiTitle(t *testing.T) {
+func TestPlanner_extractTitleFromMDFile_LeafdocTitle(t *testing.T) {
 	tmp := t.TempDir()
-	abs := testutil.WriteFile(t, tmp, "t.md", "---\nleafwiki_title: Leaf\n---\n\n# Heading")
+	abs := testutil.WriteFile(t, tmp, "t.md", "---\nleafdoc_title: Leaf\n---\n\n# Heading")
 
 	mdFile, err := LoadMarkdownFile(abs)
 	if err != nil {
@@ -97,8 +97,8 @@ func TestMarkdownFile_WriteToFile_PreservesCustomFrontmatter(t *testing.T) {
 custom_key: keep-me
 aliases:
   - one
-leafwiki_id: old-id
-leafwiki_title: Old Title
+leafdoc_id: old-id
+leafdoc_title: Old Title
 ---
 
 # Heading`)
@@ -132,11 +132,11 @@ leafwiki_title: Old Title
 	if !has {
 		t.Fatalf("expected frontmatter after write")
 	}
-	if fm.LeafWikiID != "new-id" {
-		t.Fatalf("expected id 'new-id', got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "new-id" {
+		t.Fatalf("expected id 'new-id', got %q", fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "Old Title" {
-		t.Fatalf("expected title 'Old Title', got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Old Title" {
+		t.Fatalf("expected title 'Old Title', got %q", fm.LeafDocTitle)
 	}
 	if body != "\n# Heading" {
 		t.Fatalf("unexpected body: %q", body)
@@ -163,8 +163,8 @@ func TestLoadMarkdownFile_UppercaseExtension(t *testing.T) {
 func TestNewMarkdownFileFromRaw_PreservesCustomFrontmatter(t *testing.T) {
 	mdFile, err := NewMarkdownFileFromRaw("/tmp/test.md", `---
 custom_key: keep-me
-leafwiki_id: p1
-leafwiki_title: Existing Title
+leafdoc_id: p1
+leafdoc_title: Existing Title
 ---
 # Body
 Hello
@@ -173,11 +173,11 @@ Hello
 		t.Fatalf("err: %v", err)
 	}
 
-	if mdFile.GetFrontmatter().LeafWikiID != "p1" {
-		t.Fatalf("expected id p1, got %q", mdFile.GetFrontmatter().LeafWikiID)
+	if mdFile.GetFrontmatter().LeafDocID != "p1" {
+		t.Fatalf("expected id p1, got %q", mdFile.GetFrontmatter().LeafDocID)
 	}
-	if mdFile.GetFrontmatter().LeafWikiTitle != "Existing Title" {
-		t.Fatalf("expected title 'Existing Title', got %q", mdFile.GetFrontmatter().LeafWikiTitle)
+	if mdFile.GetFrontmatter().LeafDocTitle != "Existing Title" {
+		t.Fatalf("expected title 'Existing Title', got %q", mdFile.GetFrontmatter().LeafDocTitle)
 	}
 	if got := mdFile.GetContent(); got != "# Body\nHello\n" {
 		t.Fatalf("unexpected content: %q", got)
@@ -189,7 +189,7 @@ Hello
 
 func TestNewMarkdownFileFromRaw_InvalidFrontmatter(t *testing.T) {
 	_, err := NewMarkdownFileFromRaw("/tmp/test.md", `---
-leafwiki_id: [broken
+leafdoc_id: [broken
 ---
 # Body
 `)

@@ -13,8 +13,8 @@ async function createPageWithTags(
   await page.evaluate(async ({ title, slug, content, tags }) => {
     function getCsrf(): string | null {
       const m =
-        document.cookie.match(/(?:^|;\s*)__Host-leafwiki_csrf=([^;]+)/) ??
-        document.cookie.match(/(?:^|;\s*)leafwiki_csrf=([^;]+)/);
+        document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/) ??
+        document.cookie.match(/(?:^|;\s*)leafdoc_csrf=([^;]+)/);
       if (!m) return null;
       try {
         return decodeURIComponent(m[1]);

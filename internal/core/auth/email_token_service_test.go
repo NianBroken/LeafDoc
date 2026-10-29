@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/email"
+	"github.com/NianBroken/LeafDoc/internal/core/email"
 )
 
 // fakeSMTPServer is a minimal single-connection plaintext SMTP server, just

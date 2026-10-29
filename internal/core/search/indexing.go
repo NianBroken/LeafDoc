@@ -3,7 +3,7 @@ package search
 import (
 	"database/sql"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 
 	_ "modernc.org/sqlite"
 )

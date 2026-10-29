@@ -1,6 +1,7 @@
 package branding
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/core/brandassets"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -108,7 +109,7 @@ type BrandingConstraintsResponse struct {
 // DefaultBrandingConfig returns the default branding configuration
 func DefaultBrandingConfig() *BrandingConfig {
 	return &BrandingConfig{
-		SiteName:    "LeafWiki",
+		SiteName:    brandassets.SiteName,
 		LogoFile:    "",
 		FaviconFile: "",
 		BrandingConstraints: BrandingConstraints{

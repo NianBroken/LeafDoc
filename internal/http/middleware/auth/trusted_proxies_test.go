@@ -3,7 +3,7 @@ package auth_test
 import (
 	"testing"
 
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 )
 
 func TestParseTrustedProxies_Empty(t *testing.T) {

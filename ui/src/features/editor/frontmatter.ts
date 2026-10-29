@@ -2,7 +2,7 @@ import i18next from '@/shared/lib/i18n'
 
 const TAGS_KEY_PATTERN = /^tags\s*:\s*(.*)$/
 const FRONTMATTER_KEY_PATTERN = /^([^:\n][^:\n]*?)\s*:\s*(.*)$/
-const INTERNAL_FIELD_PREFIX = 'leafwiki_'
+const INTERNAL_FIELD_PREFIX = 'leafdoc_'
 const MAX_FRONTMATTER_NESTING_DEPTH = 20
 
 export type EditorFrontmatterFieldType = 'text' | 'number' | 'boolean' | 'list'

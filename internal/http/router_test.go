@@ -16,17 +16,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/defaultdocs"
+	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/wiki"
+	wikiinstancesettings "github.com/NianBroken/LeafDoc/internal/wiki/instancesettings"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/publicaccess"
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/tocdisplay"
-	"github.com/perber/wiki/internal/core/tree"
-	httpinternal "github.com/perber/wiki/internal/http"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
-	"github.com/perber/wiki/internal/testutil"
-	"github.com/perber/wiki/internal/wiki"
-	wikiinstancesettings "github.com/perber/wiki/internal/wiki/instancesettings"
 )
 
 func pageNodeKind() *tree.NodeKind {
@@ -282,7 +283,7 @@ func uploadAssetViaAPI(t *testing.T, router http.Handler, pageID, filename, cont
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -1372,7 +1373,7 @@ func TestRefactorApply_DoesNotPersistRevisionsWhenRevisionDisabled(t *testing.T)
 		t.Fatalf("Expected 404 on revisions endpoint when revision is disabled, got %d - %s", revisionsRec.Code, revisionsRec.Body.String())
 	}
 
-	revisionsDir := filepath.Join(w.GetStorageDir(), ".leafwiki", "revisions")
+	revisionsDir := filepath.Join(w.GetStorageDir(), ".leafdoc", "revisions")
 	if _, err := os.Stat(revisionsDir); !os.IsNotExist(err) {
 		t.Fatalf("Expected no revision storage directory, got err=%v", err)
 	}
@@ -1402,7 +1403,7 @@ func TestUploadAssetEndpoint_RejectsFilesExceedingConfiguredLimit(t *testing.T) 
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -1523,7 +1524,7 @@ func TestCancelImportPlanEndpoint(t *testing.T) {
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -1610,7 +1611,7 @@ func TestImportExecuteEndpoint_WithZipUpload_ImportsPagesLinksAndAssets(t *testi
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -1791,7 +1792,7 @@ func TestImportExecuteEndpoint_UsesConfiguredAssetUploadLimit(t *testing.T) {
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -2732,7 +2733,7 @@ func TestUpdatePage_InvalidProperties(t *testing.T) {
 		"slug":    "updated-title",
 		"content": "Updated content",
 		"properties": map[string]string{
-			"leafwiki_hidden": "forbidden",
+			"leafdoc_hidden": "forbidden",
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -2762,7 +2763,7 @@ func TestUpdatePage_InvalidProperties(t *testing.T) {
 		gotFields[field.Field] = field.Message
 	}
 
-	if gotFields["properties.leafwiki_hidden"] != "Property key is reserved" {
+	if gotFields["properties.leafdoc_hidden"] != "Property key is reserved" {
 		t.Fatalf("expected reserved key validation error, got %#v", gotFields)
 	}
 }
@@ -2775,8 +2776,8 @@ func TestGetPageEndpoint(t *testing.T) {
 	// Create a page
 	page := createPageViaAPI(t, router, "Welcome", "welcome", nil, pageNodeKind())
 	writePageMarkdownForTest(t, w, page, `---
-leafwiki_id: `+page.ID+`
-leafwiki_title: Welcome
+leafdoc_id: `+page.ID+`
+leafdoc_title: Welcome
 tags:
   - alpha
   - beta
@@ -3504,8 +3505,14 @@ func TestSortPagesEndpoint(t *testing.T) {
 	page1 := createPageViaAPI(t, router, "Page 1", "page-1", nil, pageNodeKind())
 	page2 := createPageViaAPI(t, router, "Page 2", "page-2", nil, pageNodeKind())
 	page3 := createPageViaAPI(t, router, "Page 3", "page-3", nil, pageNodeKind())
-	welcomePage := getPageByPathViaAPI(t, router, "welcome-to-leafwiki")
-	deletePageViaAPI(t, router, welcomePage.ID, welcomePage.Version, false)
+	documents, err := defaultdocs.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range documents {
+		page := getPageByPathViaAPI(t, router, document.Slug)
+		deletePageViaAPI(t, router, page.ID, page.Version, false)
+	}
 
 	// Sort pages
 	payload := map[string]interface{}{
@@ -3626,7 +3633,7 @@ func TestAuthRefreshToken(t *testing.T) {
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -4019,7 +4026,7 @@ func loginSession(t *testing.T, router http.Handler, identifier, password string
 	}
 	if sess.csrf == "" {
 		for _, c := range sess.cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				sess.csrf = c.Value
 				break
 			}
@@ -4336,7 +4343,7 @@ func TestAssetEndpoints(t *testing.T) {
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -4471,7 +4478,7 @@ func TestAssetMutationRevisionsUseAuthenticatedUser(t *testing.T) {
 	csrfToken := loginRec.Header().Get("X-CSRF-Token")
 	if csrfToken == "" {
 		for _, c := range cookies {
-			if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+			if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 				csrfToken = c.Value
 				break
 			}
@@ -4650,7 +4657,7 @@ func uploadTestAsset(t *testing.T, router *gin.Engine, w *wiki.Wiki, content str
 		csrfToken = loginRec.Header().Get("X-CSRF-Token")
 		if csrfToken == "" {
 			for _, c := range cookies {
-				if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+				if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 					csrfToken = c.Value
 					break
 				}
@@ -4670,7 +4677,7 @@ func uploadTestAsset(t *testing.T, router *gin.Engine, w *wiki.Wiki, content str
 		csrfToken = configRec.Header().Get("X-CSRF-Token")
 		if csrfToken == "" {
 			for _, c := range cookies {
-				if c.Name == "leafwiki_csrf" || c.Name == "__Host-leafwiki_csrf" {
+				if c.Name == "leafdoc_csrf" || c.Name == "__Host-leafdoc_csrf" {
 					csrfToken = c.Value
 					break
 				}
@@ -4870,13 +4877,13 @@ func TestBuildFrontendFaviconHref(t *testing.T) {
 	}{
 		{
 			name:     "default favicon without base path",
-			want:     "/favicon.svg",
+			want:     "/defaults/leafdoc-favicon.ico",
 			basePath: "",
 		},
 		{
 			name:     "default favicon with base path",
 			basePath: "/wiki",
-			want:     "/wiki/favicon.svg",
+			want:     "/wiki/defaults/leafdoc-favicon.ico",
 		},
 		{
 			name:        "custom favicon without base path",
@@ -5007,7 +5014,7 @@ func TestFaviconRoute_DisablesClientCache(t *testing.T) {
 
 	router := newTestRouter(w, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/favicon.svg", nil)
+	req := httptest.NewRequest(http.MethodGet, "/defaults/leafdoc-favicon.ico", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -5044,7 +5051,7 @@ func TestFaviconICORoute_ServesCustomBrandingFavicon(t *testing.T) {
 	}
 }
 
-func TestFaviconICORoute_FallsBackToDefaultSVG(t *testing.T) {
+func TestFaviconICORoute_FallsBackToDefaultICO(t *testing.T) {
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -5062,8 +5069,8 @@ func TestFaviconICORoute_FallsBackToDefaultSVG(t *testing.T) {
 		t.Fatalf("expected Cache-Control no-store, got %q", got)
 	}
 
-	if got := rec.Body.String(); !strings.Contains(got, "<svg") {
-		t.Fatalf("expected default svg favicon response, got %q", got)
+	if got := rec.Body.Bytes(); len(got) < 4 || !bytes.Equal(got[:4], []byte{0, 0, 1, 0}) {
+		t.Fatal("expected default ICO favicon response")
 	}
 }
 

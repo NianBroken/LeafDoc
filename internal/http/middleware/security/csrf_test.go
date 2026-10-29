@@ -76,7 +76,7 @@ func TestCSRFMiddleware_BlocksPostWithCookieButNoHeader(t *testing.T) {
 	req.TLS = &tls.ConnectionState{}
 	// Cookie vorhanden, aber kein Header/Form-Token
 	req.AddCookie(&http.Cookie{
-		Name:  "__Host-leafwiki_csrf",
+		Name:  "__Host-leafdoc_csrf",
 		Value: "test-token",
 	})
 
@@ -109,7 +109,7 @@ func TestCSRFMiddleware_BlocksPostWithMismatchingTokens(t *testing.T) {
 	req := httptest.NewRequest("POST", "/protected", body)
 	req.TLS = &tls.ConnectionState{}
 	req.AddCookie(&http.Cookie{
-		Name:  "__Host-leafwiki_csrf",
+		Name:  "__Host-leafdoc_csrf",
 		Value: "cookie-token",
 	})
 	req.Header.Set("X-CSRF-Token", "different-header-token")
@@ -144,7 +144,7 @@ func TestCSRFMiddleware_AllowsPostWithMatchingTokens(t *testing.T) {
 	req := httptest.NewRequest("POST", "/protected", body)
 	req.TLS = &tls.ConnectionState{}
 	req.AddCookie(&http.Cookie{
-		Name:  "__Host-leafwiki_csrf",
+		Name:  "__Host-leafdoc_csrf",
 		Value: token,
 	})
 	req.Header.Set("X-CSRF-Token", token)

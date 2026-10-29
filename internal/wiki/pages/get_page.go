@@ -3,7 +3,7 @@ package pages
 import (
 	"context"
 
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // PageQueries bundles the read-only page lookups that have no policy of

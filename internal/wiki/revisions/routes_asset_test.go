@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/tree"
 )
 
 // newRevisionAssetRouter records one revision for a page whose asset folder

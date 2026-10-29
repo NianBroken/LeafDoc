@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/excerpt"
+	"github.com/NianBroken/LeafDoc/internal/core/excerpt"
 )
 
 func TestExtractExcerptFromContent_PlainText(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // --- Helpers ----------------------------------------------------------------
@@ -466,7 +466,7 @@ func TestImporterService_ResumeRunningImport_FailsWhenTreeHashChanged(t *testing
 
 func TestImporterService_ExecuteCurrentPlan_HappyPath_PreservesNonInternalFrontmatter(t *testing.T) {
 	ws := t.TempDir()
-	mustWrite(t, ws, "a.md", "---\naliases:\n  - x\ncustom_key: keep-me\nleafwiki_id: source-id\nleafwiki_title: Source Title\ntitle: X\n---\n\n# Heading\nBody")
+	mustWrite(t, ws, "a.md", "---\naliases:\n  - x\ncustom_key: keep-me\nleafdoc_id: source-id\nleafdoc_title: Source Title\ntitle: X\n---\n\n# Heading\nBody")
 
 	w := &fakeWiki{treeHash: "h1", lookups: map[string]*tree.PathLookup{}}
 	is := newServiceWithFakeWiki(t, w)
@@ -517,8 +517,8 @@ func TestImporterService_ExecuteCurrentPlan_HappyPath_PreservesNonInternalFrontm
 	if !ok || len(aliases) != 1 || aliases[0] != "x" {
 		t.Fatalf("expected aliases to be preserved, got %#v", fm.ExtraFields["aliases"])
 	}
-	if strings.Contains(*w.lastUpdatedContent, "leafwiki_id: source-id") {
-		t.Fatalf("expected source leafwiki_id to be dropped, got: %q", *w.lastUpdatedContent)
+	if strings.Contains(*w.lastUpdatedContent, "leafdoc_id: source-id") {
+		t.Fatalf("expected source leafdoc_id to be dropped, got: %q", *w.lastUpdatedContent)
 	}
 }
 

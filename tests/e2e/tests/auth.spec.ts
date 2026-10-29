@@ -65,7 +65,7 @@ test('config error shows allow-insecure message instead of object text', async (
         error: {
           code: 'auth_cookie_failed',
           message:
-            'HTTPS is required for auth cookies. Use HTTPS or start LeafWiki with --allow-insecure for trusted plain HTTP setups.',
+            'HTTPS is required for auth cookies. Use HTTPS or start LeafDoc with --allow-insecure for trusted plain HTTP setups.',
           template: 'https required for auth cookies use allow insecure',
         },
       }),

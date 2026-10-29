@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestResetAdminPassword(t *testing.T) {

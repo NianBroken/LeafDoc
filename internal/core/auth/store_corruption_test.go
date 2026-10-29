@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 // Regression test for the startup path that replaced an unreadable users.db

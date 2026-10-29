@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	coreshared "github.com/perber/wiki/internal/core/shared"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // ErrRestoreAlreadyRunning is returned by TriggerRestore when a restore is
@@ -116,8 +116,10 @@ func (m *Manager) TriggerRestoreFromUpload(r io.Reader) error {
 	}
 
 	m.wg.Go(func() {
-		defer cleanup()
-		m.runGuarded(func() { m.runFromZipPath(zipPath, coreshared.DefaultZipExtractionLimits) })
+		m.runGuarded(func() {
+			defer cleanup()
+			m.runFromZipPath(zipPath, coreshared.DefaultZipExtractionLimits, cleanup)
+		})
 	})
 	return nil
 }
@@ -128,11 +130,12 @@ func (m *Manager) TriggerRestoreFromUpload(r io.Reader) error {
 // returned cleanup func removes the temp file; callers must invoke it
 // exactly once, whether or not the restore that follows succeeds.
 func (m *Manager) stageUpload(r io.Reader) (zipPath string, cleanup func(), err error) {
-	f, err := os.CreateTemp(m.cfg.DataDir, ".leafwiki-restore-upload-*.zip")
+	f, err := os.CreateTemp(m.cfg.DataDir, ".leafdoc-restore-upload-*.zip")
 	if err != nil {
 		return "", nil, errStageUploadFailed(err)
 	}
-	cleanup = func() { _ = os.Remove(f.Name()) }
+	var release sync.Once
+	cleanup = func() { release.Do(func() { _ = os.Remove(f.Name()) }) }
 
 	if _, err := io.Copy(f, r); err != nil {
 		_ = f.Close()
@@ -183,7 +186,7 @@ func (m *Manager) MaxUploadSizeBytes() int64 {
 // Wait blocks until any in-flight restore triggered via TriggerRestore has
 // fully finished. Intended to be called during process shutdown, before
 // closing services (AuthService, BrandingService) a running restore depends
-// on — see cmd/leafwiki/main.go.
+// on — see cmd/leafdoc/main.go.
 func (m *Manager) Wait() {
 	m.wg.Wait()
 }
@@ -208,7 +211,7 @@ func (m *Manager) runLocked(id string) {
 			m.job.Finish(err)
 			return
 		}
-		m.runFromZipPath(zipPath, coreshared.UnrestrictedExtractionLimits)
+		m.runFromZipPath(zipPath, coreshared.UnrestrictedExtractionLimits, nil)
 	})
 }
 
@@ -234,9 +237,13 @@ func (m *Manager) runGuarded(fn func()) {
 // coreshared.DefaultZipExtractionLimits for the by-upload path (untrusted
 // input) and coreshared.UnrestrictedExtractionLimits for the by-id path
 // (the server's own snapshot).
-func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLimits) {
+func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLimits, releaseUpload func()) {
 	m.job.SetPhase(PhaseValidating)
 	stagingDir, meta, err := extractAndValidateWithLimits(zipPath, m.cfg.DataDir, limits)
+	// Extraction closes the ZIP before upload cleanup and before any completion status.
+	if releaseUpload != nil {
+		releaseUpload()
+	}
 	if err != nil {
 		m.job.Finish(fmt.Errorf("snapshot validation failed: %w", err))
 		return

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 type authFixture struct {
@@ -249,7 +249,7 @@ func TestRequireAuth_WithAuthEnabled_ValidToken(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "leafwiki_at",
+		Name:  "leafdoc_at",
 		Value: authToken.Token,
 	})
 	w := httptest.NewRecorder()
@@ -316,7 +316,7 @@ func TestRequireAuth_WithAuthEnabled_NilAuthService(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "leafwiki_at",
+		Name:  "leafdoc_at",
 		Value: "some-token",
 	})
 	w := httptest.NewRecorder()
@@ -356,7 +356,7 @@ func TestRequireAuth_WithAuthEnabled_InvalidToken(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "leafwiki_at",
+		Name:  "leafdoc_at",
 		Value: "invalid-token-123",
 	})
 	w := httptest.NewRecorder()
@@ -408,7 +408,7 @@ func TestRequireAuth_WithAuthEnabled_UserSetInContext(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "leafwiki_at",
+		Name:  "leafdoc_at",
 		Value: authToken.Token,
 	})
 	w := httptest.NewRecorder()
@@ -570,7 +570,7 @@ func TestRequireAuth_ComprehensiveScenarios(t *testing.T) {
 					token = "invalid-token"
 				}
 				req.AddCookie(&http.Cookie{
-					Name:  "leafwiki_at",
+					Name:  "leafdoc_at",
 					Value: token,
 				})
 			}
@@ -647,7 +647,7 @@ func TestOptionalAuth_ValidToken_SetsUser(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(&http.Cookie{Name: "leafwiki_at", Value: authToken.Token})
+	req.AddCookie(&http.Cookie{Name: "leafdoc_at", Value: authToken.Token})
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -681,7 +681,7 @@ func TestOptionalAuth_InvalidToken_PassesThrough(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(&http.Cookie{Name: "leafwiki_at", Value: "invalid-token"})
+	req.AddCookie(&http.Cookie{Name: "leafdoc_at", Value: "invalid-token"})
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -700,7 +700,7 @@ func TestOptionalAuth_NilAuthService_WithToken_Returns500(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.AddCookie(&http.Cookie{Name: "leafwiki_at", Value: "some-token"})
+	req.AddCookie(&http.Cookie{Name: "leafdoc_at", Value: "some-token"})
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

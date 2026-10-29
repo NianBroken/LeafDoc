@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { brandingAssetUrl, BUILTIN_LOGO } from './assets'
+import { brandingAssetUrl } from './assets'
 
 type BrandingAssetProps = {
   kind: 'logo' | 'favicon'
@@ -29,15 +29,7 @@ export function BrandingAsset({
 
   return (
     <>
-      {kind === 'logo' && source === null ? (
-        <span
-          role="img"
-          aria-label={alt}
-          className={`${className ?? ''} inline-flex items-center justify-center text-xl leading-none`}
-        >
-          {BUILTIN_LOGO}
-        </span>
-      ) : unavailable ? (
+      {unavailable ? (
         <span role="status">{t(`${kind}.unavailable`)}</span>
       ) : (
         <img

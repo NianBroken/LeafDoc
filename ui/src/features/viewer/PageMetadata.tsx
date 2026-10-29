@@ -14,7 +14,7 @@ function getEditableProperties(
   properties: Record<string, unknown>,
 ): [string, string][] {
   return Object.entries(properties)
-    .filter(([key]) => !key.toLowerCase().startsWith('leafwiki_'))
+    .filter(([key]) => !key.toLowerCase().startsWith('leafdoc_'))
     .map(([key, value]) => [key, String(value ?? '')])
 }
 

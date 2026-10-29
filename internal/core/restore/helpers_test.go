@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/favorites"
-	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
 

@@ -1,7 +1,7 @@
 import { defaultSchema } from 'rehype-sanitize'
 
 // Sanitizer schema for rendered markdown: the default GitHub schema plus the
-// wikilink protocols, media tags and the attributes LeafWiki's own plugins add.
+// wikilink protocols, media tags and the attributes LeafDoc's own plugins add.
 // Only MarkdownPreview passes it to rehype-sanitize. Never mutate it: its nested
 // arrays are shared with rehype-sanitize's defaultSchema.
 export const previewSanitizeSchema = {
@@ -23,7 +23,7 @@ export const previewSanitizeSchema = {
       ...(defaultSchema.attributes?.['*'] || []),
       'class',
       'className',
-      'data-leafwiki-generated-id',
+      'data-leafdoc-generated-id',
       'data-line',
       'data-line-numbers',
       'style',

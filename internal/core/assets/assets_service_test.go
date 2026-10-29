@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/shared"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/tree"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 const testAssetMaxBytes int64 = 1024

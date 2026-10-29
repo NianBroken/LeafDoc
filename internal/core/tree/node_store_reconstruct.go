@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 // ensureUniqueReconstructedID records id as seen for this reconstruct walk.
@@ -23,7 +23,7 @@ import (
 func ensureUniqueReconstructedID(seenIDs map[string]string, id string, path string) (conflictPath string, err error) {
 	trimmedID := strings.TrimSpace(id)
 	if trimmedID == "" {
-		return "", fmt.Errorf("reconstruct tree from fs: empty leafwiki_id at %s", path)
+		return "", fmt.Errorf("reconstruct tree from fs: empty leafdoc_id at %s", path)
 	}
 	if existingPath, exists := seenIDs[trimmedID]; exists {
 		return existingPath, nil
@@ -186,7 +186,7 @@ func (f *NodeStore) reconstructTreeRecursive(ctx context.Context, currentPath st
 			continue
 		}
 
-		// Check .leafwikiignore
+		// Check .leafdocignore
 		if ig := f.getIgnoreForDir(currentPath); ig != nil {
 			relPath, _ := filepath.Rel(filepath.Join(f.storageDir, "root"), filepath.Join(currentPath, name))
 			if relPath != "" && ig.Matches(filepath.ToSlash(relPath), entry.IsDir()) {
@@ -228,14 +228,14 @@ func (f *NodeStore) reconstructTreeRecursive(ctx context.Context, currentPath st
 						f.log.Error("could not extract title from index.md", "path", indexPath, "error", err)
 						// keep default title; still add the section and recurse
 					}
-					if fm.LeafWikiID != "" {
-						id = fm.LeafWikiID
+					if fm.LeafDocID != "" {
+						id = fm.LeafDocID
 					}
-					if fm.LeafWikiID == "" || fm.LeafWikiUpdatedAt == "" || fm.LeafWikiCreatedAt == "" {
+					if fm.LeafDocID == "" || fm.LeafDocUpdatedAt == "" || fm.LeafDocCreatedAt == "" {
 						sectionMdFile = mdFile
 						needsWriteback = true
 					}
-					sectionPinned = fm.LeafWikiPinned
+					sectionPinned = fm.LeafDocPinned
 				}
 			}
 
@@ -258,8 +258,8 @@ func (f *NodeStore) reconstructTreeRecursive(ctx context.Context, currentPath st
 				return err
 			}
 			if conflictPath != "" {
-				f.log.Warn("skipping section: duplicate leafwiki_id, keeping first occurrence",
-					"leafwikiID", child.ID, "path", indexPath, "conflictingPath", conflictPath)
+				f.log.Warn("skipping section: duplicate leafdoc_id, keeping first occurrence",
+					"leafdocID", child.ID, "path", indexPath, "conflictingPath", conflictPath)
 				continue
 			}
 			parent.Children = append(parent.Children, child)
@@ -313,10 +313,10 @@ func (f *NodeStore) reconstructTreeRecursive(ctx context.Context, currentPath st
 			f.log.Error("could not extract title from file", "path", filePath, "error", err)
 			continue
 		}
-		if fm.LeafWikiID != "" {
-			id = fm.LeafWikiID
+		if fm.LeafDocID != "" {
+			id = fm.LeafDocID
 		}
-		needsWriteback := fm.LeafWikiID == "" || fm.LeafWikiUpdatedAt == "" || fm.LeafWikiCreatedAt == ""
+		needsWriteback := fm.LeafDocID == "" || fm.LeafDocUpdatedAt == "" || fm.LeafDocCreatedAt == ""
 
 		child := &PageNode{
 			ID:       id,
@@ -327,7 +327,7 @@ func (f *NodeStore) reconstructTreeRecursive(ctx context.Context, currentPath st
 			Children: nil,
 			Kind:     NodeKindPage,
 			Metadata: metadata,
-			Pinned:   fm.LeafWikiPinned,
+			Pinned:   fm.LeafDocPinned,
 		}
 		if err := ensureUniqueReconstructedSlug(seenSlugs, child.Slug, filePath); err != nil {
 			return err
@@ -337,8 +337,8 @@ func (f *NodeStore) reconstructTreeRecursive(ctx context.Context, currentPath st
 			return err
 		}
 		if conflictPath != "" {
-			f.log.Warn("skipping page: duplicate leafwiki_id, keeping first occurrence",
-				"leafwikiID", child.ID, "path", filePath, "conflictingPath", conflictPath)
+			f.log.Warn("skipping page: duplicate leafdoc_id, keeping first occurrence",
+				"leafdocID", child.ID, "path", filePath, "conflictingPath", conflictPath)
 			continue
 		}
 		if needsWriteback {

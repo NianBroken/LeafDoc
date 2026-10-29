@@ -77,7 +77,7 @@ const MAX_HISTORY_LIST_WIDTH = 800
 function getInitialHistoryListWidth() {
   if (typeof window === 'undefined') return DEFAULT_HISTORY_LIST_WIDTH
 
-  const storedValue = window.localStorage.getItem('leafwiki-history-list-width')
+  const storedValue = window.localStorage.getItem('leafdoc-history-list-width')
   const parsed = Number.parseInt(storedValue ?? '', 10)
 
   if (Number.isNaN(parsed)) return DEFAULT_HISTORY_LIST_WIDTH
@@ -275,10 +275,7 @@ export function PageHistoryContent({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(
-      'leafwiki-history-list-width',
-      String(listWidth),
-    )
+    window.localStorage.setItem('leafdoc-history-list-width', String(listWidth))
   }, [listWidth])
 
   useEffect(() => {

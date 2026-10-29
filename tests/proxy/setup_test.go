@@ -1,6 +1,6 @@
 // Package e2eproxy contains integration tests that verify reverse-proxy
 // authentication works end-to-end with a real nginx container in front of
-// LeafWiki.  The tests expect the Docker Compose stack in this directory to
+// LeafDoc.  The tests expect the Docker Compose stack in this directory to
 // be running before they are executed.
 //
 // Run with:
@@ -21,12 +21,12 @@ import (
 var proxyURL string
 
 // autoCreateProxyURL is the nginx entry point for the second stack, which runs
-// LeafWiki with --enable-http-remote-user-auto-create=true. Kept as a separate
+// LeafDoc with --enable-http-remote-user-auto-create=true. Kept as a separate
 // stack/port so the default stack's "unknown user -> 401" behavior stays
 // covered end-to-end, rather than being replaced by the auto-create behavior.
 var autoCreateProxyURL string
 
-// directURL is the LeafWiki port exposed directly, used to verify that the
+// directURL is the LeafDoc port exposed directly, used to verify that the
 // same Remote-User header is rejected when it does not come from nginx.
 // NOTE: the direct port is intentionally not exposed in docker-compose so
 // that test #4 (bypass attempt) must go through the proxy.  We test the
@@ -39,12 +39,12 @@ func TestMain(m *testing.M) {
 	directURL = envOr("E2E_DIRECT_URL", "")
 
 	if err := waitReachable(proxyURL+"/api/config", 60*time.Second); err != nil {
-		fmt.Fprintf(os.Stderr, "LeafWiki proxy stack not reachable at %s: %v\n", proxyURL, err)
+		fmt.Fprintf(os.Stderr, "LeafDoc proxy stack not reachable at %s: %v\n", proxyURL, err)
 		fmt.Fprintln(os.Stderr, "Start the stack first:  docker compose up -d --wait")
 		os.Exit(1)
 	}
 	if err := waitReachable(autoCreateProxyURL+"/api/config", 60*time.Second); err != nil {
-		fmt.Fprintf(os.Stderr, "LeafWiki auto-create proxy stack not reachable at %s: %v\n", autoCreateProxyURL, err)
+		fmt.Fprintf(os.Stderr, "LeafDoc auto-create proxy stack not reachable at %s: %v\n", autoCreateProxyURL, err)
 		fmt.Fprintln(os.Stderr, "Start the stack first:  docker compose up -d --wait")
 		os.Exit(1)
 	}

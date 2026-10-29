@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 func TestService_SettingsManagedNoFile_EnabledByDefault(t *testing.T) {

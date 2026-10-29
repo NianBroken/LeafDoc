@@ -63,7 +63,7 @@ test('user management reflects a live restore without a server restart', async (
 test('a live restore brings back branding, public access and TOC settings', async ({ page }) => {
   const csrf = async () => {
     const cookies = await page.context().cookies();
-    const c = cookies.find((x) => x.name.endsWith('leafwiki_csrf'));
+    const c = cookies.find((x) => x.name.endsWith('leafdoc_csrf'));
     return { 'X-CSRF-Token': c ? decodeURIComponent(c.value) : '' };
   };
   const setSettings = async (siteName: string, enabled: boolean) => {

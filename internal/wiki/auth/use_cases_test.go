@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/favorites"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
@@ -250,10 +250,10 @@ func TestLoginUseCase_EmitsSuccessMetric(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_auth_login_attempts_total{outcome="success"} 1`) {
+	if !strings.Contains(body, `leafdoc_auth_login_attempts_total{outcome="success"} 1`) {
 		t.Fatalf("expected login success metric, got: %s", body)
 	}
-	if !strings.Contains(body, `leafwiki_auth_sessions_total{event="issued"} 1`) {
+	if !strings.Contains(body, `leafdoc_auth_sessions_total{event="issued"} 1`) {
 		t.Fatalf("expected session issued metric, got: %s", body)
 	}
 }
@@ -282,10 +282,10 @@ func TestLoginUseCase_EmitsLockedMetric(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_auth_login_attempts_total{outcome="locked"} 1`) {
+	if !strings.Contains(body, `leafdoc_auth_login_attempts_total{outcome="locked"} 1`) {
 		t.Fatalf("expected locked outcome metric, got: %s", body)
 	}
-	if !strings.Contains(body, `leafwiki_auth_login_attempts_total{outcome="invalid_credentials"} 5`) {
+	if !strings.Contains(body, `leafdoc_auth_login_attempts_total{outcome="invalid_credentials"} 5`) {
 		t.Fatalf("expected 5 invalid_credentials attempts before the lock, got: %s", body)
 	}
 }
@@ -310,7 +310,7 @@ func TestLogoutUseCase_EmitsSessionRevokedMetric(t *testing.T) {
 	}
 
 	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafwiki_auth_sessions_total{event="revoked"} 1`) {
+	if !strings.Contains(body, `leafdoc_auth_sessions_total{event="revoked"} 1`) {
 		t.Fatalf("expected session revoked metric, got: %s", body)
 	}
 }

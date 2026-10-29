@@ -3,9 +3,9 @@ package properties
 import (
 	"net/http"
 
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	"github.com/gin-gonic/gin"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	httpinternal "github.com/perber/wiki/internal/http"
 )
 
 const (

@@ -25,22 +25,22 @@ func TestSplitFrontmatter(t *testing.T) {
 		},
 		{
 			name:     "simple frontmatter",
-			input:    "---\nleafwiki_id: abc123\n---\n# Title\n",
-			wantFM:   "leafwiki_id: abc123",
+			input:    "---\nleafdoc_id: abc123\n---\n# Title\n",
+			wantFM:   "leafdoc_id: abc123",
 			wantBody: "# Title\n",
 			wantHas:  true,
 		},
 		{
 			name:     "frontmatter with blank line",
-			input:    "---\nleafwiki_id: abc123\n\n---\nBody\n",
-			wantFM:   "leafwiki_id: abc123\n",
+			input:    "---\nleafdoc_id: abc123\n\n---\nBody\n",
+			wantFM:   "leafdoc_id: abc123\n",
 			wantBody: "Body\n",
 			wantHas:  true,
 		},
 		{
 			name:     "frontmatter with comments",
-			input:    "---\n# comment\nleafwiki_id: abc123\n---\nBody\n",
-			wantFM:   "# comment\nleafwiki_id: abc123",
+			input:    "---\n# comment\nleafdoc_id: abc123\n---\nBody\n",
+			wantFM:   "# comment\nleafdoc_id: abc123",
 			wantBody: "Body\n",
 			wantHas:  true,
 		},
@@ -60,9 +60,9 @@ func TestSplitFrontmatter(t *testing.T) {
 		},
 		{
 			name:     "unclosed frontmatter",
-			input:    "---\nleafwiki_id: abc123\nBody\n",
+			input:    "---\nleafdoc_id: abc123\nBody\n",
 			wantFM:   "",
-			wantBody: "---\nleafwiki_id: abc123\nBody\n",
+			wantBody: "---\nleafdoc_id: abc123\nBody\n",
 			wantHas:  false,
 		},
 		{
@@ -74,15 +74,15 @@ func TestSplitFrontmatter(t *testing.T) {
 		},
 		{
 			name:     "frontmatter with windows line endings",
-			input:    "---\r\nleafwiki_id: abc123\r\n---\r\nBody\r\n",
-			wantFM:   "leafwiki_id: abc123",
+			input:    "---\r\nleafdoc_id: abc123\r\n---\r\nBody\r\n",
+			wantFM:   "leafdoc_id: abc123",
 			wantBody: "Body\n",
 			wantHas:  true,
 		},
 		{
 			name:     "frontmatter with BOM",
-			input:    "\ufeff---\nleafwiki_id: abc123\n---\nBody\n",
-			wantFM:   "leafwiki_id: abc123",
+			input:    "\ufeff---\nleafdoc_id: abc123\n---\nBody\n",
+			wantFM:   "leafdoc_id: abc123",
 			wantBody: "Body\n",
 			wantHas:  true,
 		},
@@ -146,19 +146,19 @@ func TestParseFrontmatter(t *testing.T) {
 		},
 		{
 			name:  "valid frontmatter with ID only",
-			input: "---\nleafwiki_id: abc123\n---\n# Title\nContent",
+			input: "---\nleafdoc_id: abc123\n---\n# Title\nContent",
 			wantFM: Frontmatter{
-				LeafWikiID: "abc123",
+				LeafDocID: "abc123",
 			},
 			wantBody: "# Title\nContent",
 			wantHas:  true,
 			wantErr:  false,
 		},
 		{
-			name:  "valid frontmatter with leafwiki_title only",
-			input: "---\nleafwiki_title: My Title\n---\n# Title\nContent",
+			name:  "valid frontmatter with leafdoc_title only",
+			input: "---\nleafdoc_title: My Title\n---\n# Title\nContent",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "My Title",
+				LeafDocTitle: "My Title",
 			},
 			wantBody: "# Title\nContent",
 			wantHas:  true,
@@ -168,7 +168,7 @@ func TestParseFrontmatter(t *testing.T) {
 			name:  "title as page-title alias: preserved in ExtraFields",
 			input: "---\ntitle: My Title\n---\n# Title\nContent",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "My Title",
+				LeafDocTitle: "My Title",
 				ExtraFields: map[string]interface{}{
 					"title": "My Title",
 				},
@@ -178,10 +178,10 @@ func TestParseFrontmatter(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:  "both title and leafwiki_title: title preserved as custom property in ExtraFields",
-			input: "---\ntitle: My Custom Title\nleafwiki_title: My Title\n---\n# Title\nContent",
+			name:  "both title and leafdoc_title: title preserved as custom property in ExtraFields",
+			input: "---\ntitle: My Custom Title\nleafdoc_title: My Title\n---\n# Title\nContent",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "My Title",
+				LeafDocTitle: "My Title",
 				ExtraFields: map[string]interface{}{
 					"title": "My Custom Title",
 				},
@@ -192,24 +192,24 @@ func TestParseFrontmatter(t *testing.T) {
 		},
 		{
 			name:  "valid frontmatter with both ID and title",
-			input: "---\nleafwiki_id: abc123\nleafwiki_title: My Title\n---\n# Title\nContent",
+			input: "---\nleafdoc_id: abc123\nleafdoc_title: My Title\n---\n# Title\nContent",
 			wantFM: Frontmatter{
-				LeafWikiID:    "abc123",
-				LeafWikiTitle: "My Title",
+				LeafDocID:    "abc123",
+				LeafDocTitle: "My Title",
 			},
 			wantBody: "# Title\nContent",
 			wantHas:  true,
 			wantErr:  false,
 		},
 		{
-			name:  "valid frontmatter with leafwiki metadata",
-			input: "---\nleafwiki_id: abc123\nleafwiki_created_at: 2026-03-21T10:15:30Z\nleafwiki_updated_at: 2026-03-21T11:16:31Z\nleafwiki_creator_id: alice\nleafwiki_last_author_id: bob\n---\nBody",
+			name:  "valid frontmatter with leafdoc metadata",
+			input: "---\nleafdoc_id: abc123\nleafdoc_created_at: 2026-03-21T10:15:30Z\nleafdoc_updated_at: 2026-03-21T11:16:31Z\nleafdoc_creator_id: alice\nleafdoc_last_author_id: bob\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiID:           "abc123",
-				LeafWikiCreatedAt:    "2026-03-21T10:15:30Z",
-				LeafWikiUpdatedAt:    "2026-03-21T11:16:31Z",
-				LeafWikiCreatorID:    "alice",
-				LeafWikiLastAuthorID: "bob",
+				LeafDocID:           "abc123",
+				LeafDocCreatedAt:    "2026-03-21T10:15:30Z",
+				LeafDocUpdatedAt:    "2026-03-21T11:16:31Z",
+				LeafDocCreatorID:    "alice",
+				LeafDocLastAuthorID: "bob",
 			},
 			wantBody: "Body",
 			wantHas:  true,
@@ -229,27 +229,27 @@ func TestParseFrontmatter(t *testing.T) {
 		},
 		{
 			name:        "invalid YAML in frontmatter",
-			input:       "---\nleafwiki_id: [invalid: yaml: structure\n---\nBody",
+			input:       "---\nleafdoc_id: [invalid: yaml: structure\n---\nBody",
 			wantFM:      Frontmatter{},
-			wantBody:    "---\nleafwiki_id: [invalid: yaml: structure\n---\nBody",
+			wantBody:    "---\nleafdoc_id: [invalid: yaml: structure\n---\nBody",
 			wantHas:     true,
 			wantErr:     true,
 			wantErrType: ErrFrontmatterParse,
 		},
 		{
 			name:        "malformed YAML - unclosed brackets",
-			input:       "---\nleafwiki_id: {unclosed\n---\nBody",
+			input:       "---\nleafdoc_id: {unclosed\n---\nBody",
 			wantFM:      Frontmatter{},
-			wantBody:    "---\nleafwiki_id: {unclosed\n---\nBody",
+			wantBody:    "---\nleafdoc_id: {unclosed\n---\nBody",
 			wantHas:     true,
 			wantErr:     true,
 			wantErrType: ErrFrontmatterParse,
 		},
 		{
 			name:  "frontmatter with extra fields",
-			input: "---\nleafwiki_id: abc123\nextra_field: ignored\n---\nBody",
+			input: "---\nleafdoc_id: abc123\nextra_field: ignored\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiID: "abc123",
+				LeafDocID: "abc123",
 				ExtraFields: map[string]interface{}{
 					"extra_field": "ignored",
 				},
@@ -271,22 +271,22 @@ func TestParseFrontmatter(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:  "leafwiki_title with unquoted colon is auto-quoted and parses successfully",
-			input: "---\nleafwiki_id: abc123\nleafwiki_title: ADR-0001: Filesystem as Source of Truth\n---\nBody",
+			name:  "leafdoc_title with unquoted colon is auto-quoted and parses successfully",
+			input: "---\nleafdoc_id: abc123\nleafdoc_title: ADR-0001: Filesystem as Source of Truth\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiID:    "abc123",
-				LeafWikiTitle: "ADR-0001: Filesystem as Source of Truth",
+				LeafDocID:    "abc123",
+				LeafDocTitle: "ADR-0001: Filesystem as Source of Truth",
 			},
 			wantBody: "Body",
 			wantHas:  true,
 			wantErr:  false,
 		},
 		{
-			name:  "leafwiki_pinned bool is unaffected when leafwiki_title in the same file needs colon-quoting",
-			input: "---\nleafwiki_title: ADR-0001: Filesystem as Source of Truth\nleafwiki_pinned: true\n---\nBody",
+			name:  "leafdoc_pinned bool is unaffected when leafdoc_title in the same file needs colon-quoting",
+			input: "---\nleafdoc_title: ADR-0001: Filesystem as Source of Truth\nleafdoc_pinned: true\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiTitle:  "ADR-0001: Filesystem as Source of Truth",
-				LeafWikiPinned: true,
+				LeafDocTitle:  "ADR-0001: Filesystem as Source of Truth",
+				LeafDocPinned: true,
 			},
 			wantBody: "Body",
 			wantHas:  true,
@@ -294,9 +294,9 @@ func TestParseFrontmatter(t *testing.T) {
 		},
 		{
 			name:  "unquoted colon fixup and template placeholder fixup both apply in one document",
-			input: "---\nleafwiki_title: ADR-0001: Filesystem as Source of Truth\nDatum: {{date}}\n---\nBody",
+			input: "---\nleafdoc_title: ADR-0001: Filesystem as Source of Truth\nDatum: {{date}}\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "ADR-0001: Filesystem as Source of Truth",
+				LeafDocTitle: "ADR-0001: Filesystem as Source of Truth",
 				ExtraFields: map[string]interface{}{
 					"Datum": "{{date}}",
 				},
@@ -307,48 +307,48 @@ func TestParseFrontmatter(t *testing.T) {
 		},
 		{
 			name:        "unquoted colon in arbitrary ExtraFields key remains a parse error (scope guard)",
-			input:       "---\nleafwiki_id: abc123\ncustom_note: Some: Value\n---\nBody",
+			input:       "---\nleafdoc_id: abc123\ncustom_note: Some: Value\n---\nBody",
 			wantFM:      Frontmatter{},
-			wantBody:    "---\nleafwiki_id: abc123\ncustom_note: Some: Value\n---\nBody",
+			wantBody:    "---\nleafdoc_id: abc123\ncustom_note: Some: Value\n---\nBody",
 			wantHas:     true,
 			wantErr:     true,
 			wantErrType: ErrFrontmatterParse,
 		},
 		{
-			name:  "leafwiki_title with a quoted substring followed by more unquoted colon text is fixed",
-			input: "---\nleafwiki_title: \"Start\" middle: end\"\n---\nBody",
+			name:  "leafdoc_title with a quoted substring followed by more unquoted colon text is fixed",
+			input: "---\nleafdoc_title: \"Start\" middle: end\"\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "Start\" middle: end",
+				LeafDocTitle: "Start\" middle: end",
 			},
 			wantBody: "Body",
 			wantHas:  true,
 			wantErr:  false,
 		},
 		{
-			name:  "leafwiki_title starting with a backtick is fixed",
-			input: "---\nleafwiki_title: `code`: an explanation\n---\nBody",
+			name:  "leafdoc_title starting with a backtick is fixed",
+			input: "---\nleafdoc_title: `code`: an explanation\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "`code`: an explanation",
+				LeafDocTitle: "`code`: an explanation",
 			},
 			wantBody: "Body",
 			wantHas:  true,
 			wantErr:  false,
 		},
 		{
-			name:  "leafwiki_title starting with @ is fixed",
-			input: "---\nleafwiki_title: @mentions: how they work\n---\nBody",
+			name:  "leafdoc_title starting with @ is fixed",
+			input: "---\nleafdoc_title: @mentions: how they work\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "@mentions: how they work",
+				LeafDocTitle: "@mentions: how they work",
 			},
 			wantBody: "Body",
 			wantHas:  true,
 			wantErr:  false,
 		},
 		{
-			name:  "an unrelated leafwiki_title YAML comment is not corrupted when another field needs colon-fixing",
-			input: "---\nleafwiki_id: something: else\nleafwiki_title: #comment: oops\n---\nBody",
+			name:  "an unrelated leafdoc_title YAML comment is not corrupted when another field needs colon-fixing",
+			input: "---\nleafdoc_id: something: else\nleafdoc_title: #comment: oops\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiID: "something: else",
+				LeafDocID: "something: else",
 			},
 			wantBody: "Body",
 			wantHas:  true,
@@ -356,11 +356,11 @@ func TestParseFrontmatter(t *testing.T) {
 		},
 		{
 			name:  "an indented line inside an unrelated block-scalar field is not corrupted by the colon fixup",
-			input: "---\nleafwiki_title: ADR-0001: Filesystem as Source of Truth\nnotes: |\n  Meeting notes.\n  leafwiki_title: v2: draft notes not real metadata\n---\nBody",
+			input: "---\nleafdoc_title: ADR-0001: Filesystem as Source of Truth\nnotes: |\n  Meeting notes.\n  leafdoc_title: v2: draft notes not real metadata\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "ADR-0001: Filesystem as Source of Truth",
+				LeafDocTitle: "ADR-0001: Filesystem as Source of Truth",
 				ExtraFields: map[string]interface{}{
-					"notes": "Meeting notes.\nleafwiki_title: v2: draft notes not real metadata",
+					"notes": "Meeting notes.\nleafdoc_title: v2: draft notes not real metadata",
 				},
 			},
 			wantBody: "Body",
@@ -368,10 +368,10 @@ func TestParseFrontmatter(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:  "leafwiki_title with an unquoted template placeholder followed by more colon text is fixed",
-			input: "---\nleafwiki_title: {{date}}: draft\n---\nBody",
+			name:  "leafdoc_title with an unquoted template placeholder followed by more colon text is fixed",
+			input: "---\nleafdoc_title: {{date}}: draft\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiTitle: "{{date}}: draft",
+				LeafDocTitle: "{{date}}: draft",
 			},
 			wantBody: "Body",
 			wantHas:  true,
@@ -379,10 +379,10 @@ func TestParseFrontmatter(t *testing.T) {
 		},
 		{
 			name:  "frontmatter with whitespace in values",
-			input: "---\nleafwiki_id: \"  abc123  \"\nleafwiki_title: \"  My Title  \"\n---\nBody",
+			input: "---\nleafdoc_id: \"  abc123  \"\nleafdoc_title: \"  My Title  \"\n---\nBody",
 			wantFM: Frontmatter{
-				LeafWikiID:    "abc123",
-				LeafWikiTitle: "  My Title  ",
+				LeafDocID:    "abc123",
+				LeafDocTitle: "  My Title  ",
 			},
 			wantBody: "Body",
 			wantHas:  true,
@@ -440,7 +440,7 @@ func TestBuildMarkdownWithFrontmatter(t *testing.T) {
 		{
 			name: "frontmatter with empty ID",
 			fm: Frontmatter{
-				LeafWikiID: "",
+				LeafDocID: "",
 			},
 			body: "# Title\nContent",
 			want: "# Title\nContent",
@@ -448,7 +448,7 @@ func TestBuildMarkdownWithFrontmatter(t *testing.T) {
 		{
 			name: "frontmatter with whitespace-only ID",
 			fm: Frontmatter{
-				LeafWikiID: "   ",
+				LeafDocID: "   ",
 			},
 			body: "# Title\nContent",
 			want: "# Title\nContent",
@@ -456,15 +456,15 @@ func TestBuildMarkdownWithFrontmatter(t *testing.T) {
 		{
 			name: "frontmatter with ID only",
 			fm: Frontmatter{
-				LeafWikiID: "abc123",
+				LeafDocID: "abc123",
 			},
 			body: "# Title\nContent",
-			want: "---\nleafwiki_id: abc123\n---\n# Title\nContent",
+			want: "---\nleafdoc_id: abc123\n---\n# Title\nContent",
 		},
 		{
 			name: "frontmatter with title only",
 			fm: Frontmatter{
-				LeafWikiTitle: "My Title",
+				LeafDocTitle: "My Title",
 			},
 			body: "# Title\nContent",
 			want: "# Title\nContent",
@@ -472,61 +472,61 @@ func TestBuildMarkdownWithFrontmatter(t *testing.T) {
 		{
 			name: "frontmatter with both ID and title",
 			fm: Frontmatter{
-				LeafWikiID:    "abc123",
-				LeafWikiTitle: "My Title",
+				LeafDocID:    "abc123",
+				LeafDocTitle: "My Title",
 			},
 			body: "# Title\nContent",
-			want: "---\nleafwiki_id: abc123\nleafwiki_title: My Title\n---\n# Title\nContent",
+			want: "---\nleafdoc_id: abc123\nleafdoc_title: My Title\n---\n# Title\nContent",
 		},
 		{
 			name: "frontmatter with metadata fields",
 			fm: Frontmatter{
-				LeafWikiID:           "abc123",
-				LeafWikiTitle:        "My Title",
-				LeafWikiCreatedAt:    "2026-03-21T10:15:30Z",
-				LeafWikiUpdatedAt:    "2026-03-21T11:16:31Z",
-				LeafWikiCreatorID:    "alice",
-				LeafWikiLastAuthorID: "bob",
+				LeafDocID:           "abc123",
+				LeafDocTitle:        "My Title",
+				LeafDocCreatedAt:    "2026-03-21T10:15:30Z",
+				LeafDocUpdatedAt:    "2026-03-21T11:16:31Z",
+				LeafDocCreatorID:    "alice",
+				LeafDocLastAuthorID: "bob",
 			},
 			body: "Content",
-			want: "---\nleafwiki_id: abc123\nleafwiki_title: My Title\nleafwiki_created_at: \"2026-03-21T10:15:30Z\"\nleafwiki_updated_at: \"2026-03-21T11:16:31Z\"\nleafwiki_creator_id: alice\nleafwiki_last_author_id: bob\n---\nContent",
+			want: "---\nleafdoc_id: abc123\nleafdoc_title: My Title\nleafdoc_created_at: \"2026-03-21T10:15:30Z\"\nleafdoc_updated_at: \"2026-03-21T11:16:31Z\"\nleafdoc_creator_id: alice\nleafdoc_last_author_id: bob\n---\nContent",
 		},
 		{
 			name: "frontmatter preserves unknown fields",
 			fm: Frontmatter{
-				LeafWikiID:    "abc123",
-				LeafWikiTitle: "My Title",
+				LeafDocID:    "abc123",
+				LeafDocTitle: "My Title",
 				ExtraFields: map[string]interface{}{
 					"custom_key": "keep-me",
 				},
 			},
 			body: "Content",
-			want: "---\ncustom_key: keep-me\nleafwiki_id: abc123\nleafwiki_title: My Title\n---\nContent",
+			want: "---\ncustom_key: keep-me\nleafdoc_id: abc123\nleafdoc_title: My Title\n---\nContent",
 		},
 		{
 			name: "empty body",
 			fm: Frontmatter{
-				LeafWikiID: "abc123",
+				LeafDocID: "abc123",
 			},
 			body: "",
-			want: "---\nleafwiki_id: abc123\n---\n",
+			want: "---\nleafdoc_id: abc123\n---\n",
 		},
 		{
 			name: "body with newlines",
 			fm: Frontmatter{
-				LeafWikiID: "abc123",
+				LeafDocID: "abc123",
 			},
 			body: "# Title\n\nParagraph 1\n\nParagraph 2\n",
-			want: "---\nleafwiki_id: abc123\n---\n# Title\n\nParagraph 1\n\nParagraph 2\n",
+			want: "---\nleafdoc_id: abc123\n---\n# Title\n\nParagraph 1\n\nParagraph 2\n",
 		},
 		{
 			name: "frontmatter with special characters in values",
 			fm: Frontmatter{
-				LeafWikiID:    "abc-123_xyz",
-				LeafWikiTitle: "Title: With Special & Characters",
+				LeafDocID:    "abc-123_xyz",
+				LeafDocTitle: "Title: With Special & Characters",
 			},
 			body: "Content",
-			want: "---\nleafwiki_id: abc-123_xyz\nleafwiki_title: 'Title: With Special & Characters'\n---\nContent",
+			want: "---\nleafdoc_id: abc-123_xyz\nleafdoc_title: 'Title: With Special & Characters'\n---\nContent",
 		},
 	}
 
@@ -558,17 +558,17 @@ func TestParseFrontmatterAndBuildRoundtrip(t *testing.T) {
 		},
 		{
 			name:     "with ID only",
-			input:    "---\nleafwiki_id: abc123\n---\n# Title\nContent",
+			input:    "---\nleafdoc_id: abc123\n---\n# Title\nContent",
 			wantBody: "# Title\nContent",
 		},
 		{
 			name:     "with ID and title",
-			input:    "---\nleafwiki_id: abc123\nleafwiki_title: My Title\n---\n# Title\nContent",
+			input:    "---\nleafdoc_id: abc123\nleafdoc_title: My Title\n---\n# Title\nContent",
 			wantBody: "# Title\nContent",
 		},
 		{
 			name:     "with unknown fields",
-			input:    "---\nleafwiki_id: abc123\ncustom_key: keep-me\n---\n# Title\nContent",
+			input:    "---\nleafdoc_id: abc123\ncustom_key: keep-me\n---\n# Title\nContent",
 			wantBody: "# Title\nContent",
 		},
 	}
@@ -609,10 +609,10 @@ func TestParseFrontmatterAndBuildRoundtrip(t *testing.T) {
 	}
 }
 
-func TestParseFrontmatter_ScalarLeafWikiValuesArePreserved(t *testing.T) {
+func TestParseFrontmatter_ScalarLeafDocValuesArePreserved(t *testing.T) {
 	fm, body, has, err := ParseFrontmatter(`---
-leafwiki_id: 123
-leafwiki_title: true
+leafdoc_id: 123
+leafdoc_title: true
 ---
 Body`)
 	if err != nil {
@@ -621,11 +621,11 @@ Body`)
 	if !has {
 		t.Fatalf("expected frontmatter")
 	}
-	if fm.LeafWikiID != "123" {
-		t.Fatalf("expected numeric id to be preserved, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "123" {
+		t.Fatalf("expected numeric id to be preserved, got %q", fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "true" {
-		t.Fatalf("expected bool title to be preserved, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "true" {
+		t.Fatalf("expected bool title to be preserved, got %q", fm.LeafDocTitle)
 	}
 	if body != "Body" {
 		t.Fatalf("unexpected body %q", body)
@@ -634,8 +634,8 @@ Body`)
 
 func TestBuildMarkdownWithFrontmatter_SortsExtraFieldsDeterministically(t *testing.T) {
 	fm := Frontmatter{
-		LeafWikiID:    "abc123",
-		LeafWikiTitle: "My Title",
+		LeafDocID:    "abc123",
+		LeafDocTitle: "My Title",
 		ExtraFields: map[string]interface{}{
 			"z_key": "last",
 			"a_key": "first",
@@ -650,8 +650,8 @@ func TestBuildMarkdownWithFrontmatter_SortsExtraFieldsDeterministically(t *testi
 	want := `---
 a_key: first
 z_key: last
-leafwiki_id: abc123
-leafwiki_title: My Title
+leafdoc_id: abc123
+leafdoc_title: My Title
 ---
 Content`
 	if got != want {
@@ -683,12 +683,12 @@ func TestFrontmatter_MetadataRoundtripRFC3339(t *testing.T) {
 	updatedAt := time.Date(2026, time.March, 21, 11, 16, 31, 0, time.UTC).Format(time.RFC3339)
 
 	input := Frontmatter{
-		LeafWikiID:           "abc123",
-		LeafWikiTitle:        "My Title",
-		LeafWikiCreatedAt:    createdAt,
-		LeafWikiUpdatedAt:    updatedAt,
-		LeafWikiCreatorID:    "alice",
-		LeafWikiLastAuthorID: "bob",
+		LeafDocID:           "abc123",
+		LeafDocTitle:        "My Title",
+		LeafDocCreatedAt:    createdAt,
+		LeafDocUpdatedAt:    updatedAt,
+		LeafDocCreatorID:    "alice",
+		LeafDocLastAuthorID: "bob",
 	}
 
 	raw, err := BuildMarkdownWithFrontmatter(input, "Body")
@@ -713,7 +713,7 @@ func TestFrontmatter_MetadataRoundtripRFC3339(t *testing.T) {
 
 func TestParseFrontmatter_WasRepaired(t *testing.T) {
 	t.Run("clean frontmatter is not marked as repaired", func(t *testing.T) {
-		fm, _, has, err := ParseFrontmatter("---\nleafwiki_id: abc123\nleafwiki_title: My Title\n---\nBody")
+		fm, _, has, err := ParseFrontmatter("---\nleafdoc_id: abc123\nleafdoc_title: My Title\n---\nBody")
 		if err != nil || !has {
 			t.Fatalf("unexpected has=%v err=%v", has, err)
 		}
@@ -723,7 +723,7 @@ func TestParseFrontmatter_WasRepaired(t *testing.T) {
 	})
 
 	t.Run("frontmatter needing the colon fixup is marked as repaired", func(t *testing.T) {
-		fm, _, has, err := ParseFrontmatter("---\nleafwiki_title: ADR-0001: Filesystem as Source of Truth\n---\nBody")
+		fm, _, has, err := ParseFrontmatter("---\nleafdoc_title: ADR-0001: Filesystem as Source of Truth\n---\nBody")
 		if err != nil || !has {
 			t.Fatalf("unexpected has=%v err=%v", has, err)
 		}
@@ -733,7 +733,7 @@ func TestParseFrontmatter_WasRepaired(t *testing.T) {
 	})
 
 	t.Run("a genuine parse failure is not marked as repaired", func(t *testing.T) {
-		fm, _, has, err := ParseFrontmatter("---\nleafwiki_id: [invalid: yaml: structure\n---\nBody")
+		fm, _, has, err := ParseFrontmatter("---\nleafdoc_id: [invalid: yaml: structure\n---\nBody")
 		if err == nil || !has {
 			t.Fatalf("expected a parse error, got has=%v err=%v", has, err)
 		}
@@ -743,14 +743,14 @@ func TestParseFrontmatter_WasRepaired(t *testing.T) {
 	})
 }
 
-// TestKnownLeafWikiStringFrontmatterKeys_MatchesFrontmatterStruct guards
-// against knownLeafWikiStringFrontmatterKeys silently drifting out of sync
-// with the Frontmatter struct: every string field with a "leafwiki_*" yaml
-// tag (other than the bool leafwiki_pinned) must appear in the whitelist, or
+// TestKnownLeafDocStringFrontmatterKeys_MatchesFrontmatterStruct guards
+// against knownLeafDocStringFrontmatterKeys silently drifting out of sync
+// with the Frontmatter struct: every string field with a "leafdoc_*" yaml
+// tag (other than the bool leafdoc_pinned) must appear in the whitelist, or
 // that field silently loses unquoted-colon recovery with no compiler error.
-func TestKnownLeafWikiStringFrontmatterKeys_MatchesFrontmatterStruct(t *testing.T) {
-	whitelisted := make(map[string]bool, len(knownLeafWikiStringFrontmatterKeys))
-	for _, key := range knownLeafWikiStringFrontmatterKeys {
+func TestKnownLeafDocStringFrontmatterKeys_MatchesFrontmatterStruct(t *testing.T) {
+	whitelisted := make(map[string]bool, len(knownLeafDocStringFrontmatterKeys))
+	for _, key := range knownLeafDocStringFrontmatterKeys {
 		whitelisted[key] = true
 	}
 
@@ -765,11 +765,11 @@ func TestKnownLeafWikiStringFrontmatterKeys_MatchesFrontmatterStruct(t *testing.
 			continue
 		}
 		key := strings.Split(tag, ",")[0]
-		if !strings.HasPrefix(key, "leafwiki_") {
+		if !strings.HasPrefix(key, "leafdoc_") {
 			continue
 		}
 		if !whitelisted[key] {
-			t.Errorf("Frontmatter field %s (yaml key %q) is a leafwiki_* string field but missing from knownLeafWikiStringFrontmatterKeys", field.Name, key)
+			t.Errorf("Frontmatter field %s (yaml key %q) is a leafdoc_* string field but missing from knownLeafDocStringFrontmatterKeys", field.Name, key)
 		}
 	}
 }

@@ -13,22 +13,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/auth"
-	"github.com/perber/wiki/internal/core/branding"
-	"github.com/perber/wiki/internal/core/favorites"
-	"github.com/perber/wiki/internal/core/publicaccess"
-	"github.com/perber/wiki/internal/core/settings"
-	coreshared "github.com/perber/wiki/internal/core/shared"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	"github.com/perber/wiki/internal/core/shared/sqliteutil"
-	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
-	"github.com/perber/wiki/internal/core/tocdisplay"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/branding"
+	"github.com/NianBroken/LeafDoc/internal/core/favorites"
+	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
+	"github.com/NianBroken/LeafDoc/internal/core/settings"
+	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
+	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
+	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 // managerFixture wires a restore.Manager against a real live dataDir, a real
 // AuthService/BrandingService pointed at that same dataDir, and a real
-// snapshot to restore from — mirroring how cmd/leafwiki/main.go wires these
+// snapshot to restore from — mirroring how cmd/leafdoc/main.go wires these
 // together, so the test exercises the same integration points production does.
 type managerFixture struct {
 	manager      *Manager
@@ -926,7 +926,7 @@ func TestManager_RestoreFromUpload_RejectsWhileNeedsIntervention(t *testing.T) {
 // retain.
 func TestManager_RestoreFromUpload_CleansUpTempFileAfterCompletion(t *testing.T) {
 	tempGlob := func(dataDir string) []string {
-		matches, err := filepath.Glob(filepath.Join(dataDir, ".leafwiki-restore-upload-*.zip"))
+		matches, err := filepath.Glob(filepath.Join(dataDir, ".leafdoc-restore-upload-*.zip"))
 		if err != nil {
 			t.Fatalf("Glob failed: %v", err)
 		}

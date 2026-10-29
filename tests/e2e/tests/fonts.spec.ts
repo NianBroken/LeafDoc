@@ -31,7 +31,7 @@ test.describe('Self-hosted typography', () => {
           const family = getComputedStyle(document.body).fontFamily.split(',')[0].trim();
           const matching = await document.fonts.load(
             `${style} ${weight} 16px ${family}`,
-            'LeafWiki',
+            'LeafDoc',
           );
           return matching.map((face) => ({
             family: face.family.replaceAll('"', '').replaceAll("'", ''),
@@ -56,7 +56,7 @@ test.describe('Self-hosted typography', () => {
       for (const [index, { weight, style }] of faces.entries()) {
         const paragraph = document.createElement('p');
         paragraph.id = `font-regression-text-${index}`;
-        paragraph.textContent = 'LeafWiki typography';
+        paragraph.textContent = 'LeafDoc typography';
         paragraph.style.fontWeight = weight;
         paragraph.style.fontStyle = style;
         document.body.append(paragraph);

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func newTestStore(t *testing.T) *TagsStore {

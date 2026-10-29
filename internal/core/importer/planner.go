@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/markdown"
-	"github.com/perber/wiki/internal/core/shared"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 type PlanAction string
@@ -118,7 +118,7 @@ func (p *Planner) CreatePlan(entries []ImportMDFile, options PlanOptions) (*Plan
 		dir := filepath.Join(p.storageDir, "root", filepath.Dir(targetRel))
 		if ig := p.getIgnoreForDir(dir); ig != nil {
 			if ig.Matches(targetRel, isDir) {
-				p.log.Debug("skipping import entry matching .leafwikiignore", "target", targetRel, "source", entry.SourcePath)
+				p.log.Debug("skipping import entry matching .leafdocignore", "target", targetRel, "source", entry.SourcePath)
 				continue
 			}
 		}

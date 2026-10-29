@@ -1,8 +1,8 @@
 package pages
 
 import (
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // sanitizeClientVersion rejects the internal VersionUnchecked sentinel so

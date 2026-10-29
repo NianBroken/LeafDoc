@@ -23,10 +23,10 @@ func TestHTTPMetrics_RegisterRuntimeStats_SkipsGaugesWhenSourceErrors(t *testing
 	// A source error must not break the whole endpoint: /metrics still
 	// serves 200 with the other metrics, just without the runtime gauges.
 	body := getMetricsBody(t, m.HTTPHandler())
-	if !strings.Contains(body, "leafwiki_build_info") {
+	if !strings.Contains(body, "leafdoc_build_info") {
 		t.Fatalf("expected the rest of /metrics to keep working, got:\n%s", body)
 	}
-	if strings.Contains(body, "leafwiki_pages{") || strings.Contains(body, "leafwiki_users{") {
+	if strings.Contains(body, "leafdoc_pages{") || strings.Contains(body, "leafdoc_users{") {
 		t.Errorf("expected no runtime gauge samples when source errors, got:\n%s", body)
 	}
 }

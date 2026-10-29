@@ -5,16 +5,16 @@ import (
 	"log/slog"
 	"mime/multipart"
 
-	"github.com/perber/wiki/internal/core/assets"
-	"github.com/perber/wiki/internal/core/links"
-	"github.com/perber/wiki/internal/core/properties"
-	"github.com/perber/wiki/internal/core/revision"
-	"github.com/perber/wiki/internal/core/search"
-	"github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
-	wikiassets "github.com/perber/wiki/internal/wiki/assets"
-	wikipages "github.com/perber/wiki/internal/wiki/pages"
-	"github.com/perber/wiki/internal/wiki/pagesave"
+	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/links"
+	"github.com/NianBroken/LeafDoc/internal/core/properties"
+	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/search"
+	"github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	wikiassets "github.com/NianBroken/LeafDoc/internal/wiki/assets"
+	wikipages "github.com/NianBroken/LeafDoc/internal/wiki/pages"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
 // WikiImportAdapter implements the importer.ImporterWiki interface using

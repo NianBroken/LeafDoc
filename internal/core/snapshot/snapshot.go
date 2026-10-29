@@ -56,7 +56,7 @@ func createSnapshot(ctx context.Context, cfg Config) (string, error) {
 		return "", fmt.Errorf("failed to allocate snapshot id: %w", err)
 	}
 
-	tmpDir, err := os.MkdirTemp("", "leafwiki-snapshot-*")
+	tmpDir, err := os.MkdirTemp("", "leafdoc-snapshot-*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}

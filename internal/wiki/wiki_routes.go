@@ -3,26 +3,26 @@ package wiki
 import (
 	"path/filepath"
 
-	coreimporter "github.com/perber/wiki/internal/core/importer"
-	httpinternal "github.com/perber/wiki/internal/http"
-	wikiapikeys "github.com/perber/wiki/internal/wiki/apikeys"
-	wikiassets "github.com/perber/wiki/internal/wiki/assets"
-	wikiauth "github.com/perber/wiki/internal/wiki/auth"
-	wikiavatar "github.com/perber/wiki/internal/wiki/avatar"
-	wikibranding "github.com/perber/wiki/internal/wiki/branding"
-	wikihealth "github.com/perber/wiki/internal/wiki/health"
-	wikiimporter "github.com/perber/wiki/internal/wiki/importer"
-	wikiinstancesettings "github.com/perber/wiki/internal/wiki/instancesettings"
-	wikilinks "github.com/perber/wiki/internal/wiki/links"
-	wikipages "github.com/perber/wiki/internal/wiki/pages"
-	"github.com/perber/wiki/internal/wiki/pagesave"
-	wikiproperties "github.com/perber/wiki/internal/wiki/properties"
-	wikirestore "github.com/perber/wiki/internal/wiki/restore"
-	wikiresync "github.com/perber/wiki/internal/wiki/resync"
-	wikirevisions "github.com/perber/wiki/internal/wiki/revisions"
-	wikisearch "github.com/perber/wiki/internal/wiki/search"
-	wikisnapshot "github.com/perber/wiki/internal/wiki/snapshot"
-	wikitags "github.com/perber/wiki/internal/wiki/tags"
+	coreimporter "github.com/NianBroken/LeafDoc/internal/core/importer"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	wikiapikeys "github.com/NianBroken/LeafDoc/internal/wiki/apikeys"
+	wikiassets "github.com/NianBroken/LeafDoc/internal/wiki/assets"
+	wikiauth "github.com/NianBroken/LeafDoc/internal/wiki/auth"
+	wikiavatar "github.com/NianBroken/LeafDoc/internal/wiki/avatar"
+	wikibranding "github.com/NianBroken/LeafDoc/internal/wiki/branding"
+	wikihealth "github.com/NianBroken/LeafDoc/internal/wiki/health"
+	wikiimporter "github.com/NianBroken/LeafDoc/internal/wiki/importer"
+	wikiinstancesettings "github.com/NianBroken/LeafDoc/internal/wiki/instancesettings"
+	wikilinks "github.com/NianBroken/LeafDoc/internal/wiki/links"
+	wikipages "github.com/NianBroken/LeafDoc/internal/wiki/pages"
+	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
+	wikiproperties "github.com/NianBroken/LeafDoc/internal/wiki/properties"
+	wikirestore "github.com/NianBroken/LeafDoc/internal/wiki/restore"
+	wikiresync "github.com/NianBroken/LeafDoc/internal/wiki/resync"
+	wikirevisions "github.com/NianBroken/LeafDoc/internal/wiki/revisions"
+	wikisearch "github.com/NianBroken/LeafDoc/internal/wiki/search"
+	wikisnapshot "github.com/NianBroken/LeafDoc/internal/wiki/snapshot"
+	wikitags "github.com/NianBroken/LeafDoc/internal/wiki/tags"
 )
 
 func (w *Wiki) buildRoutes(options *WikiOptions) {
@@ -184,6 +184,7 @@ func (w *Wiki) buildBrandingRoutes() *wikibranding.Routes {
 
 func (w *Wiki) buildAvatarRoutes() *wikiavatar.Routes {
 	return wikiavatar.NewRoutes(wikiavatar.RoutesConfig{
+		UserService:   w.UserService,
 		UploadAvatar:  wikiavatar.NewUploadAvatarUseCase(w.avatar),
 		DeleteAvatar:  wikiavatar.NewDeleteAvatarUseCase(w.avatar),
 		AvatarService: w.avatar,

@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/perber/wiki/internal/core/shared"
-	"github.com/perber/wiki/internal/core/tree/migration"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/tree/migration"
 )
 
 type migrationNodeAdapter struct {

@@ -241,7 +241,7 @@ func sqliteCode(err error) int {
 
 // CorruptDatabaseError reports a database that could not be opened because of
 // a SQLite I/O or corruption error and was not replaced (ADR-0013). The edge
-// (cmd/leafwiki) finds it with errors.As and tells the operator the path, the
+// (cmd/leafdoc) finds it with errors.As and tells the operator the path, the
 // SQLite code and the ways out.
 type CorruptDatabaseError struct {
 	Path string

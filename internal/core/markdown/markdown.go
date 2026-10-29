@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/perber/wiki/internal/core/shared"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 // MarkdownFile is the path-aware abstraction for markdown files that may need
@@ -79,11 +79,11 @@ func (mf *MarkdownFile) WriteToFile() error {
 	return shared.WriteFileAtomic(mf.path, []byte(fmContent), mode)
 }
 
-// GetTitle resolves the effective title from leafwiki_title first, then from
+// GetTitle resolves the effective title from leafdoc_title first, then from
 // the first markdown heading, and finally from the file name.
 func (mf *MarkdownFile) GetTitle() (string, error) {
-	if mf.fm.LeafWikiTitle != "" {
-		return strings.TrimSpace(mf.fm.LeafWikiTitle), nil
+	if mf.fm.LeafDocTitle != "" {
+		return strings.TrimSpace(mf.fm.LeafDocTitle), nil
 	}
 
 	title, err := mf.extractTitleFromFirstHeading()
@@ -144,25 +144,25 @@ func (mf *MarkdownFile) GetFrontmatter() Frontmatter {
 }
 
 func (mf *MarkdownFile) setFrontmatterID(id string) {
-	mf.fm.LeafWikiID = id
+	mf.fm.LeafDocID = id
 }
 
 func (mf *MarkdownFile) setFrontmatterTitle(title string) {
-	mf.fm.LeafWikiTitle = title
+	mf.fm.LeafDocTitle = title
 }
 
-func (mf *MarkdownFile) SetLeafWikiFrontmatter(id string, title string) {
+func (mf *MarkdownFile) SetLeafDocFrontmatter(id string, title string) {
 	mf.setFrontmatterID(id)
 	mf.setFrontmatterTitle(title)
 }
 
-func (mf *MarkdownFile) SetLeafWikiMetadata(createdAt string, updatedAt string, creatorID string, lastAuthorID string) {
-	mf.fm.LeafWikiCreatedAt = strings.TrimSpace(createdAt)
-	mf.fm.LeafWikiUpdatedAt = strings.TrimSpace(updatedAt)
-	mf.fm.LeafWikiCreatorID = strings.TrimSpace(creatorID)
-	mf.fm.LeafWikiLastAuthorID = strings.TrimSpace(lastAuthorID)
+func (mf *MarkdownFile) SetLeafDocMetadata(createdAt string, updatedAt string, creatorID string, lastAuthorID string) {
+	mf.fm.LeafDocCreatedAt = strings.TrimSpace(createdAt)
+	mf.fm.LeafDocUpdatedAt = strings.TrimSpace(updatedAt)
+	mf.fm.LeafDocCreatorID = strings.TrimSpace(creatorID)
+	mf.fm.LeafDocLastAuthorID = strings.TrimSpace(lastAuthorID)
 }
 
-func (mf *MarkdownFile) SetLeafWikiPinned(pinned bool) {
-	mf.fm.LeafWikiPinned = pinned
+func (mf *MarkdownFile) SetLeafDocPinned(pinned bool) {
+	mf.fm.LeafDocPinned = pinned
 }

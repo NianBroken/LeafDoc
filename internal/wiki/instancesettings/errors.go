@@ -3,10 +3,10 @@ package instancesettings
 import (
 	"net/http"
 
+	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/core/publicaccess"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
-	httpinternal "github.com/perber/wiki/internal/http"
 )
 
 const (

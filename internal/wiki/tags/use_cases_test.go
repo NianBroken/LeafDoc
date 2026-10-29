@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	coretags "github.com/perber/wiki/internal/core/tags"
-	"github.com/perber/wiki/internal/core/tree"
+	coretags "github.com/NianBroken/LeafDoc/internal/core/tags"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // ─── test helpers ─────────────────────────────────────────────────────────────

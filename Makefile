@@ -1,5 +1,5 @@
-BINARY_NAME=leafwiki
-CMD_DIR=./cmd/leafwiki
+BINARY_NAME=leafdoc
+CMD_DIR=./cmd/leafdoc
 VERSION ?= $(shell ./scripts/resolve-version.sh)
 RELEASE_DIR := releases
 DOCKER_BUILDER := Dockerfile.builder
@@ -7,7 +7,7 @@ UI_DIR := ui
 HTTP_DIST := internal/http/dist
 # The lint target reads its tool version from one shared file.
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
-EMBED_LDFLAGS := -X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production
+EMBED_LDFLAGS := -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production
 LDFLAGS := -X main.Version=$(VERSION) $(EMBED_LDFLAGS)
 
 PLATFORMS := \
@@ -134,8 +134,8 @@ $(PLATFORMS):
 		--build-arg GOARCH=$$GOARCH \
 		--build-arg APP_VERSION=$(VERSION) \
 		--build-arg OUTPUT=$(BINARY_NAME) \
-		-t leafwiki-builder-$$GOOS-$$GOARCH . ; \
-	 ID=$$(docker create leafwiki-builder-$$GOOS-$$GOARCH) ; \
+		-t leafdoc-builder-$$GOOS-$$GOARCH . ; \
+	 ID=$$(docker create leafdoc-builder-$$GOOS-$$GOARCH) ; \
 	 docker cp $$ID:/out/$(BINARY_NAME) $(RELEASE_DIR)/$$OUTPUT ; \
 	 docker rm $$ID ; \
 	 echo "✅ Binary done: $(RELEASE_DIR)/$$OUTPUT" ; \

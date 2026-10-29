@@ -21,7 +21,7 @@ function Harness() {
       </button>
       <button
         onClick={() =>
-          navigate('/settings/account', { state: { leafwikiVisitId: 'nope' } })
+          navigate('/settings/account', { state: { leafdocVisitId: 'nope' } })
         }
       >
         go-settings

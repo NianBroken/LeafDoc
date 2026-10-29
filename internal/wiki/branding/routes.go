@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	"github.com/NianBroken/LeafDoc/internal/core/brandassets"
+	corebanding "github.com/NianBroken/LeafDoc/internal/core/branding"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	corebanding "github.com/perber/wiki/internal/core/branding"
-	httpinternal "github.com/perber/wiki/internal/http"
-	authmw "github.com/perber/wiki/internal/http/middleware/auth"
 )
 
 // Routes is the RouteRegistrar for the branding domain.
@@ -222,7 +223,12 @@ func (r *Routes) handleServeCurrentFavicon(c *gin.Context) {
 	}
 
 	disableClientCache(c)
-	c.Data(http.StatusOK, "image/svg+xml", []byte(httpinternal.DefaultFaviconSVG))
+	data, err := brandassets.Read(brandassets.FaviconFile)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Data(http.StatusOK, "image/x-icon", data)
 }
 
 func (r *Routes) resolveBrandingAssetPath(filename string, cfg *corebanding.BrandingConfigResponse) (string, int) {

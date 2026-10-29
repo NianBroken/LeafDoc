@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	_ "modernc.org/sqlite"
 )
 

@@ -3,7 +3,7 @@ package wikiresync
 import (
 	"context"
 
-	httpmetrics "github.com/perber/wiki/internal/http/metrics"
+	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
 // ─── TriggerResyncUseCase ─────────────────────────────────────────────────────

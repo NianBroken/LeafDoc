@@ -43,13 +43,13 @@ func TestHTTPMetrics_ExportsPrometheusMetrics(t *testing.T) {
 	}
 
 	body := getMetricsBody(t, metrics.HTTPHandler())
-	if !strings.Contains(body, "leafwiki_http_requests_total") {
+	if !strings.Contains(body, "leafdoc_http_requests_total") {
 		t.Fatalf("expected metrics output to contain request counter, got: %s", body)
 	}
-	if !strings.Contains(body, "leafwiki_http_request_duration_seconds") {
+	if !strings.Contains(body, "leafdoc_http_request_duration_seconds") {
 		t.Fatalf("expected metrics output to contain duration histogram, got: %s", body)
 	}
-	if !strings.Contains(body, "leafwiki_http_requests_in_flight") {
+	if !strings.Contains(body, "leafdoc_http_requests_in_flight") {
 		t.Fatalf("expected metrics output to contain in-flight gauge, got: %s", body)
 	}
 }
@@ -60,7 +60,7 @@ func TestHTTPMetrics_ExportsBuildInfoWithVersionLabel(t *testing.T) {
 	metrics := NewHTTPMetrics("v0.12.0")
 
 	body := getMetricsBody(t, metrics.HTTPHandler())
-	expected := `leafwiki_build_info{version="v0.12.0"} 1`
+	expected := `leafdoc_build_info{version="v0.12.0"} 1`
 	if !strings.Contains(body, expected) {
 		t.Fatalf("expected metrics output to contain %q, got: %s", expected, body)
 	}
@@ -106,7 +106,7 @@ func TestHTTPMetrics_UsesNormalizedRouteLabel(t *testing.T) {
 	}
 
 	body := getMetricsBody(t, metrics.HTTPHandler())
-	expected := `leafwiki_http_requests_total{method="GET",route="/api/health",status="200"} 1`
+	expected := `leafdoc_http_requests_total{method="GET",route="/api/health",status="200"} 1`
 	if !strings.Contains(body, expected) {
 		t.Fatalf("expected metrics output to contain %q, got: %s", expected, body)
 	}
@@ -131,7 +131,7 @@ func TestHTTPMetrics_UsesRoutePatternForPathParams(t *testing.T) {
 	}
 
 	body := getMetricsBody(t, metrics.HTTPHandler())
-	expected := `leafwiki_http_requests_total{method="GET",route="/api/pages/:id",status="200"} 1`
+	expected := `leafdoc_http_requests_total{method="GET",route="/api/pages/:id",status="200"} 1`
 	if !strings.Contains(body, expected) {
 		t.Fatalf("expected metrics output to contain %q, got: %s", expected, body)
 	}
@@ -156,7 +156,7 @@ func TestHTTPMetrics_UsesUnmatchedLabelForUnknownRoutes(t *testing.T) {
 	}
 
 	body := getMetricsBody(t, metrics.HTTPHandler())
-	expected := `leafwiki_http_requests_total{method="GET",route="unmatched",status="404"} 1`
+	expected := `leafdoc_http_requests_total{method="GET",route="unmatched",status="404"} 1`
 	if !strings.Contains(body, expected) {
 		t.Fatalf("expected metrics output to contain %q, got: %s", expected, body)
 	}

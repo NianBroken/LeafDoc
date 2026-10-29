@@ -11,7 +11,7 @@ import (
 // arguments and environment, then exits the current one. Windows has no
 // exec(3) equivalent that replaces the running process image in place, so
 // this uses spawn-then-exit instead — mirrors the
-// signals_unix.go/signals_windows.go OS split already used in cmd/leafwiki
+// signals_unix.go/signals_windows.go OS split already used in cmd/leafdoc
 // for other process-lifecycle code.
 func SelfRestart() error {
 	exe, err := os.Executable()

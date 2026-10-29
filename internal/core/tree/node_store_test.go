@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perber/wiki/internal/core/ignore"
-	"github.com/perber/wiki/internal/core/markdown"
+	"github.com/NianBroken/LeafDoc/internal/core/ignore"
+	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 )
 
 func mustWriteFile(t *testing.T, path string, data string, perm os.FileMode) {
@@ -193,13 +193,13 @@ func TestNodeStore_CreateSection_CreatesFolderAndIndexWithFrontmatter(t *testing
 	if !has {
 		t.Fatalf("expected frontmatter in section index")
 	}
-	if fm.LeafWikiID != "sec1" || fm.LeafWikiTitle != "Docs" {
+	if fm.LeafDocID != "sec1" || fm.LeafDocTitle != "Docs" {
 		t.Fatalf("unexpected section frontmatter: %#v", fm)
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafWikiUpdatedAt != "2026-03-22T11:16:31Z" {
+	if fm.LeafDocCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafDocUpdatedAt != "2026-03-22T11:16:31Z" {
 		t.Fatalf("unexpected section timestamp metadata: %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "bob" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "bob" {
 		t.Fatalf("unexpected section author metadata: %#v", fm)
 	}
 	if strings.TrimSpace(body) != "" {
@@ -249,18 +249,18 @@ func TestNodeStore_CreatePage_CreatesMarkdownWithFrontmatter(t *testing.T) {
 	if !has {
 		t.Fatalf("expected frontmatter")
 	}
-	if strings.TrimSpace(fm.LeafWikiID) != "p1" {
-		t.Fatalf("expected leafwiki_id p1, got %q", fm.LeafWikiID)
+	if strings.TrimSpace(fm.LeafDocID) != "p1" {
+		t.Fatalf("expected leafdoc_id p1, got %q", fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "Hello World" {
-		t.Fatalf("expected leafwiki_title 'Hello World', got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Hello World" {
+		t.Fatalf("expected leafdoc_title 'Hello World', got %q", fm.LeafDocTitle)
 	}
 	if !strings.Contains(body, "# Hello World") {
 		t.Fatalf("expected H1 title in body, got: %q", body)
 	}
 }
 
-func TestNodeStore_CreatePage_SetsLeafWikiTitleInitially(t *testing.T) {
+func TestNodeStore_CreatePage_SetsLeafDocTitleInitially(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
@@ -279,11 +279,11 @@ func TestNodeStore_CreatePage_SetsLeafWikiTitleInitially(t *testing.T) {
 	if !has {
 		t.Fatalf("expected frontmatter")
 	}
-	if fm.LeafWikiID != "p1" {
-		t.Fatalf("expected leafwiki_id p1, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "p1" {
+		t.Fatalf("expected leafdoc_id p1, got %q", fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "Hello World" {
-		t.Fatalf("expected CreatePage to set leafwiki_title, got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "Hello World" {
+		t.Fatalf("expected CreatePage to set leafdoc_title, got %q", fm.LeafDocTitle)
 	}
 }
 
@@ -342,11 +342,11 @@ func TestNodeStore_UpsertContent_Page_CreatesOrUpdates_PreservesMode(t *testing.
 	if !has {
 		t.Fatalf("expected FM to exist")
 	}
-	if fm.LeafWikiID != "p1" {
-		t.Fatalf("expected id p1, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "p1" {
+		t.Fatalf("expected id p1, got %q", fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "My Page" {
-		t.Fatalf("expected title 'My Page', got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "My Page" {
+		t.Fatalf("expected title 'My Page', got %q", fm.LeafDocTitle)
 	}
 	if strings.TrimSpace(body) != "# new" {
 		t.Fatalf("expected body '# new', got %q", body)
@@ -365,8 +365,8 @@ func TestNodeStore_UpsertContent_PreservesExistingCustomFrontmatter(t *testing.T
 custom_key: keep-me
 tags:
   - alpha
-leafwiki_id: old-id
-leafwiki_title: Old Title
+leafdoc_id: old-id
+leafdoc_title: Old Title
 ---
 # old
 `, 0o644)
@@ -390,11 +390,11 @@ leafwiki_title: Old Title
 	if !has {
 		t.Fatalf("expected FM to exist")
 	}
-	if fm.LeafWikiID != "p1" {
-		t.Fatalf("expected id p1, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "p1" {
+		t.Fatalf("expected id p1, got %q", fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "My Page" {
-		t.Fatalf("expected title 'My Page', got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "My Page" {
+		t.Fatalf("expected title 'My Page', got %q", fm.LeafDocTitle)
 	}
 	if strings.TrimSpace(body) != "# new" {
 		t.Fatalf("expected body '# new', got %q", body)
@@ -414,7 +414,7 @@ func TestNodeStore_UpsertContent_RawFrontmatter_TreatedAsPlainBody(t *testing.T)
 		t.Fatalf("CreatePage: %v", err)
 	}
 
-	rawContent := "---\naliases:\n  - alpha\ncustom_key: keep-me\nleafwiki_id: source-id\nleafwiki_title: Source Title\ntitle: Imported Title\n---\n\n# Imported Title\nBody"
+	rawContent := "---\naliases:\n  - alpha\ncustom_key: keep-me\nleafdoc_id: source-id\nleafdoc_title: Source Title\ntitle: Imported Title\n---\n\n# Imported Title\nBody"
 	if err := store.UpsertContent(page, rawContent); err != nil {
 		t.Fatalf("UpsertContent: %v", err)
 	}
@@ -440,11 +440,11 @@ func TestNodeStore_UpsertContent_RawFrontmatter_TreatedAsPlainBody(t *testing.T)
 		t.Fatalf("expected custom_key to stay as body, got ExtraField %#v", fm.ExtraFields["custom_key"])
 	}
 	// Managed fields must come from the page node, not from user content.
-	if fm.LeafWikiID != "p1" {
-		t.Fatalf("expected managed leafwiki_id p1, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "p1" {
+		t.Fatalf("expected managed leafdoc_id p1, got %q", fm.LeafDocID)
 	}
-	if fm.LeafWikiTitle != "My Page" {
-		t.Fatalf("expected managed leafwiki_title 'My Page', got %q", fm.LeafWikiTitle)
+	if fm.LeafDocTitle != "My Page" {
+		t.Fatalf("expected managed leafdoc_title 'My Page', got %q", fm.LeafDocTitle)
 	}
 }
 
@@ -476,8 +476,8 @@ func TestNodeStore_UpsertContent_TreatsLeadingFrontmatterAsPlainBody(t *testing.
 		t.Fatalf("expected system frontmatter in written file")
 	}
 	// System frontmatter must use the page's managed identity, not the user-supplied value.
-	if fm.LeafWikiID != "p1" {
-		t.Fatalf("expected managed leafwiki_id, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "p1" {
+		t.Fatalf("expected managed leafdoc_id, got %q", fm.LeafDocID)
 	}
 	// User-supplied keys must NOT be extracted into ExtraFields.
 	if fm.ExtraFields["custom"] != nil {
@@ -509,7 +509,7 @@ func TestNodeStore_UpsertContentPreservingFrontmatter_MergesExtrasIntoWrittenFro
 		t.Fatalf("CreatePage: %v", err)
 	}
 
-	rawContent := "---\naliases:\n  - alpha\ncustom_key: keep-me\nleafwiki_id: source-id\nleafwiki_title: Source Title\ntitle: Imported Title\n---\n\n# Imported Title\nBody"
+	rawContent := "---\naliases:\n  - alpha\ncustom_key: keep-me\nleafdoc_id: source-id\nleafdoc_title: Source Title\ntitle: Imported Title\n---\n\n# Imported Title\nBody"
 	if err := store.UpsertContentPreservingFrontmatter(page, rawContent); err != nil {
 		t.Fatalf("UpsertContentPreservingFrontmatter: %v", err)
 	}
@@ -536,11 +536,11 @@ func TestNodeStore_UpsertContentPreservingFrontmatter_MergesExtrasIntoWrittenFro
 	if !ok || len(aliases) != 1 || aliases[0] != "alpha" {
 		t.Fatalf("expected aliases to be preserved, got %#v", fm.ExtraFields["aliases"])
 	}
-	if strings.Contains(raw, "leafwiki_id: source-id") {
-		t.Fatalf("expected source leafwiki_id to be dropped, got: %q", raw)
+	if strings.Contains(raw, "leafdoc_id: source-id") {
+		t.Fatalf("expected source leafdoc_id to be dropped, got: %q", raw)
 	}
-	if fm.LeafWikiID != "p1" {
-		t.Fatalf("expected managed leafwiki_id, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "p1" {
+		t.Fatalf("expected managed leafdoc_id, got %q", fm.LeafDocID)
 	}
 }
 
@@ -549,7 +549,7 @@ func TestNodeStore_UpsertContentPreservingFrontmatter_MergesExtrasIntoWrittenFro
 // UpsertContentAndMetadata is the UI-edit path: it replaces the body and the
 // UI-managed frontmatter fields (tags + properties) while preserving any
 // pass-through ExtraFields that the UI never surfaced (e.g. "title" alongside
-// "leafwiki_title", "permalink", "aliases", etc.).
+// "leafdoc_title", "permalink", "aliases", etc.).
 
 func TestNodeStore_UpsertContentAndMetadata_UpdatesBodyAndTags(t *testing.T) {
 	tmp := t.TempDir()
@@ -559,7 +559,7 @@ func TestNodeStore_UpsertContentAndMetadata_UpdatesBodyAndTags(t *testing.T) {
 	page := &PageNode{ID: "p1", Slug: "p", Title: "My Page", Kind: NodeKindPage, Parent: root}
 
 	path := filepath.Join(tmp, "root", "p.md")
-	mustWriteFile(t, path, "---\nleafwiki_id: p1\nleafwiki_title: My Page\n---\n# old\n", 0o644)
+	mustWriteFile(t, path, "---\nleafdoc_id: p1\nleafdoc_title: My Page\n---\n# old\n", 0o644)
 
 	tags := []string{"go", "react"}
 	if err := store.UpsertContentAndMetadata(page, "# new", tags, nil); err != nil {
@@ -574,8 +574,8 @@ func TestNodeStore_UpsertContentAndMetadata_UpdatesBodyAndTags(t *testing.T) {
 	if strings.TrimSpace(body) != "# new" {
 		t.Fatalf("expected body '# new', got %q", body)
 	}
-	if fm.LeafWikiID != "p1" {
-		t.Fatalf("expected leafwiki_id p1, got %q", fm.LeafWikiID)
+	if fm.LeafDocID != "p1" {
+		t.Fatalf("expected leafdoc_id p1, got %q", fm.LeafDocID)
 	}
 	rawTags, _ := fm.ExtraFields["tags"].([]interface{})
 	if len(rawTags) != 2 {
@@ -591,7 +591,7 @@ func TestNodeStore_UpsertContentAndMetadata_UpdatesProperties(t *testing.T) {
 	page := &PageNode{ID: "p1", Slug: "p", Title: "My Page", Kind: NodeKindPage, Parent: root}
 
 	path := filepath.Join(tmp, "root", "p.md")
-	mustWriteFile(t, path, "---\nleafwiki_id: p1\nleafwiki_title: My Page\nstatus: draft\n---\n# old\n", 0o644)
+	mustWriteFile(t, path, "---\nleafdoc_id: p1\nleafdoc_title: My Page\nstatus: draft\n---\n# old\n", 0o644)
 
 	props := map[string]string{"status": "published", "author": "alice"}
 	if err := store.UpsertContentAndMetadata(page, "# updated", nil, props); err != nil {
@@ -612,7 +612,7 @@ func TestNodeStore_UpsertContentAndMetadata_UpdatesProperties(t *testing.T) {
 }
 
 func TestNodeStore_UpsertContentAndMetadata_TitleAsCustomPropertyRoundtrips(t *testing.T) {
-	// Regression test: after Phase 1, "title" alongside "leafwiki_title" is
+	// Regression test: after Phase 1, "title" alongside "leafdoc_title" is
 	// surfaced to the editor and included in incoming properties. It must be
 	// written back to disk.
 	tmp := t.TempDir()
@@ -622,7 +622,7 @@ func TestNodeStore_UpsertContentAndMetadata_TitleAsCustomPropertyRoundtrips(t *t
 	page := &PageNode{ID: "p1", Slug: "p", Title: "My Page", Kind: NodeKindPage, Parent: root}
 
 	path := filepath.Join(tmp, "root", "p.md")
-	mustWriteFile(t, path, "---\nleafwiki_id: p1\nleafwiki_title: My Page\ntitle: My Custom Title\nstatus: draft\n---\n# old\n", 0o644)
+	mustWriteFile(t, path, "---\nleafdoc_id: p1\nleafdoc_title: My Page\ntitle: My Custom Title\nstatus: draft\n---\n# old\n", 0o644)
 
 	// The editor sends title back in properties (because Phase 1 makes it visible).
 	props := map[string]string{"title": "My Custom Title", "status": "published"}
@@ -652,7 +652,7 @@ func TestNodeStore_UpsertContentAndMetadata_UnsentFieldsAreDropped(t *testing.T)
 	page := &PageNode{ID: "p1", Slug: "p", Title: "My Page", Kind: NodeKindPage, Parent: root}
 
 	path := filepath.Join(tmp, "root", "p.md")
-	mustWriteFile(t, path, "---\nleafwiki_id: p1\nleafwiki_title: My Page\nstatus: draft\npermalink: /my-page\n---\n# body\n", 0o644)
+	mustWriteFile(t, path, "---\nleafdoc_id: p1\nleafdoc_title: My Page\nstatus: draft\npermalink: /my-page\n---\n# body\n", 0o644)
 
 	// User saves without "permalink" — it was deleted in the editor.
 	if err := store.UpsertContentAndMetadata(page, "# body", nil, map[string]string{"status": "draft"}); err != nil {
@@ -678,7 +678,7 @@ func TestNodeStore_UpsertContentAndMetadata_RemovedPropertyDoesNotPersist(t *tes
 	page := &PageNode{ID: "p1", Slug: "p", Title: "My Page", Kind: NodeKindPage, Parent: root}
 
 	path := filepath.Join(tmp, "root", "p.md")
-	mustWriteFile(t, path, "---\nleafwiki_id: p1\nleafwiki_title: My Page\nstatus: draft\nauthor: alice\n---\n# body\n", 0o644)
+	mustWriteFile(t, path, "---\nleafdoc_id: p1\nleafdoc_title: My Page\nstatus: draft\nauthor: alice\n---\n# body\n", 0o644)
 
 	// User removed "author"; only "status" is sent back.
 	if err := store.UpsertContentAndMetadata(page, "# body", nil, map[string]string{"status": "draft"}); err != nil {
@@ -705,7 +705,7 @@ func TestNodeStore_UpsertContentAndMetadata_NilTagsPreservesExistingTags(t *test
 	page := &PageNode{ID: "p1", Slug: "p", Title: "My Page", Kind: NodeKindPage, Parent: root}
 
 	path := filepath.Join(tmp, "root", "p.md")
-	mustWriteFile(t, path, "---\nleafwiki_id: p1\nleafwiki_title: My Page\ntags:\n  - go\n  - wiki\nstatus: draft\n---\n# body\n", 0o644)
+	mustWriteFile(t, path, "---\nleafdoc_id: p1\nleafdoc_title: My Page\ntags:\n  - go\n  - wiki\nstatus: draft\n---\n# body\n", 0o644)
 
 	// Save with properties only — no tags field (nil means "leave unchanged").
 	if err := store.UpsertContentAndMetadata(page, "# body", nil, map[string]string{"status": "published"}); err != nil {
@@ -733,7 +733,7 @@ func TestNodeStore_UpsertContentAndMetadata_NonStringFieldsPreserved(t *testing.
 	page := &PageNode{ID: "p1", Slug: "p", Title: "My Page", Kind: NodeKindPage, Parent: root}
 
 	path := filepath.Join(tmp, "root", "p.md")
-	mustWriteFile(t, path, "---\nleafwiki_id: p1\nleafwiki_title: My Page\npublished: true\npriority: 42\naliases:\n  - /old-path\nstatus: draft\n---\n# body\n", 0o644)
+	mustWriteFile(t, path, "---\nleafdoc_id: p1\nleafdoc_title: My Page\npublished: true\npriority: 42\naliases:\n  - /old-path\nstatus: draft\n---\n# body\n", 0o644)
 
 	// Editor only sends back the string property; non-string fields are absent.
 	if err := store.UpsertContentAndMetadata(page, "# body", nil, map[string]string{"status": "published"}); err != nil {
@@ -1051,8 +1051,8 @@ func TestNodeStore_ReadPageContent_StripsFrontmatterAndPreservesBody(t *testing.
 	path := filepath.Join(tmp, "root", "p.md")
 	mustWriteFile(t, path, `---
 custom_key: keep-me
-leafwiki_id: p1
-leafwiki_title: Existing Title
+leafdoc_id: p1
+leafdoc_title: Existing Title
 ---
 # Body
 Hello
@@ -1078,7 +1078,7 @@ func TestNodeStore_ReadPageContent_InvalidFrontmatterReturnsRaw(t *testing.T) {
 
 	path := filepath.Join(tmp, "root", "p.md")
 	raw := `---
-leafwiki_id: [broken
+leafdoc_id: [broken
 ---
 # Body
 Hello
@@ -1130,13 +1130,13 @@ func TestNodeStore_SyncFrontmatterIfExists_Page_UpdatesOrAddsFM(t *testing.T) {
 	if !has {
 		t.Fatalf("expected fm after sync")
 	}
-	if fm.LeafWikiID != "p1" || fm.LeafWikiTitle != "Title A" {
+	if fm.LeafDocID != "p1" || fm.LeafDocTitle != "Title A" {
 		t.Fatalf("unexpected fm: %#v", fm)
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-21T10:15:30Z" || fm.LeafWikiUpdatedAt != "2026-03-21T11:16:31Z" {
+	if fm.LeafDocCreatedAt != "2026-03-21T10:15:30Z" || fm.LeafDocUpdatedAt != "2026-03-21T11:16:31Z" {
 		t.Fatalf("unexpected timestamp metadata: %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "bob" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "bob" {
 		t.Fatalf("unexpected author metadata: %#v", fm)
 	}
 	if strings.TrimSpace(body) != "# Body\nHello" {
@@ -1156,13 +1156,13 @@ func TestNodeStore_SyncFrontmatterIfExists_Page_UpdatesOrAddsFM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseFrontmatter: %v", err)
 	}
-	if !has2 || fm2.LeafWikiID != "p1b" || fm2.LeafWikiTitle != "Title B" {
+	if !has2 || fm2.LeafDocID != "p1b" || fm2.LeafDocTitle != "Title B" {
 		t.Fatalf("expected updated fm, got %#v", fm2)
 	}
-	if fm2.LeafWikiCreatedAt != "2026-03-21T10:15:30Z" || fm2.LeafWikiUpdatedAt != "2026-03-21T12:17:32Z" {
+	if fm2.LeafDocCreatedAt != "2026-03-21T10:15:30Z" || fm2.LeafDocUpdatedAt != "2026-03-21T12:17:32Z" {
 		t.Fatalf("expected updated timestamps in fm, got %#v", fm2)
 	}
-	if fm2.LeafWikiCreatorID != "alice" || fm2.LeafWikiLastAuthorID != "carol" {
+	if fm2.LeafDocCreatorID != "alice" || fm2.LeafDocLastAuthorID != "carol" {
 		t.Fatalf("expected updated author metadata in fm, got %#v", fm2)
 	}
 	if strings.TrimSpace(body2) != "# Body\nHello" {
@@ -1182,8 +1182,8 @@ func TestNodeStore_SyncFrontmatterIfExists_PreservesExistingCustomFrontmatter(t 
 custom_key: keep-me
 aliases:
   - one
-leafwiki_id: old-id
-leafwiki_title: Old Title
+leafdoc_id: old-id
+leafdoc_title: Old Title
 ---
 # Body
 Hello
@@ -1208,7 +1208,7 @@ Hello
 	if !has {
 		t.Fatalf("expected FM to exist")
 	}
-	if fm.LeafWikiID != "p1" || fm.LeafWikiTitle != "Title A" {
+	if fm.LeafDocID != "p1" || fm.LeafDocTitle != "Title A" {
 		t.Fatalf("unexpected fm: %#v", fm)
 	}
 	if strings.TrimSpace(body) != `# Body
@@ -1318,8 +1318,8 @@ func TestNodeStore_ConvertNode_PageToSection_PreservesExistingMetadataAndBody(t 
 	file := filepath.Join(tmp, "root", "p.md")
 	mustWriteFile(t, file, `---
 custom_key: keep-me
-leafwiki_id: legacy-id
-leafwiki_title: Legacy Title
+leafdoc_id: legacy-id
+leafdoc_title: Legacy Title
 ---
 # hi
 `, 0o644)
@@ -1341,13 +1341,13 @@ leafwiki_title: Legacy Title
 	if !has {
 		t.Fatalf("expected frontmatter after conversion")
 	}
-	if fm.LeafWikiID != "p1" || fm.LeafWikiTitle != "Section Title" {
+	if fm.LeafDocID != "p1" || fm.LeafDocTitle != "Section Title" {
 		t.Fatalf("expected managed frontmatter from tree metadata, got %#v", fm)
 	}
-	if fm.LeafWikiCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafWikiUpdatedAt != "2026-03-22T11:16:31Z" {
+	if fm.LeafDocCreatedAt != "2026-03-22T10:15:30Z" || fm.LeafDocUpdatedAt != "2026-03-22T11:16:31Z" {
 		t.Fatalf("expected timestamps from tree metadata, got %#v", fm)
 	}
-	if fm.LeafWikiCreatorID != "alice" || fm.LeafWikiLastAuthorID != "bob" {
+	if fm.LeafDocCreatorID != "alice" || fm.LeafDocLastAuthorID != "bob" {
 		t.Fatalf("expected author metadata from tree metadata, got %#v", fm)
 	}
 	if strings.TrimSpace(body) != "# hi" {
@@ -1422,7 +1422,7 @@ func TestNodeStore_ConvertNode_SectionToPage_NoIndex_CreatesEmptyPageWithFM(t *t
 	if err != nil {
 		t.Fatalf("ParseFrontmatter: %v", err)
 	}
-	if !has || fm.LeafWikiID != "s1" || fm.LeafWikiTitle != "Docs" {
+	if !has || fm.LeafDocID != "s1" || fm.LeafDocTitle != "Docs" {
 		t.Fatalf("unexpected fm: %#v", fm)
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
@@ -1441,8 +1441,8 @@ func TestNodeStore_ConvertNode_SectionToPage_WithOrderMetadata_PreservesIndexCon
 	mustMkdir(t, dir)
 	indexPath := filepath.Join(dir, "index.md")
 	mustWriteFile(t, indexPath, `---
-leafwiki_id: existing
-leafwiki_title: Existing
+leafdoc_id: existing
+leafdoc_title: Existing
 custom: keep
 ---
 # idx
@@ -1615,13 +1615,13 @@ func mustRead(t *testing.T, path string) []byte {
 	return b
 }
 
-// --- Phase 3: write operation guards for .leafwikiignore ---
+// --- Phase 3: write operation guards for .leafdocignore ---
 
 func TestNodeStore_CreatePage_RejectsIgnoredPath(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "drafts", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "drafts", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -1637,8 +1637,8 @@ func TestNodeStore_CreatePage_RejectsIgnoredPath(t *testing.T) {
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected InvalidOpError, got %T: %v", err, err)
 	}
-	if !strings.Contains(opErr.Reason, "leafwikiignore") {
-		t.Fatalf("expected reason mentioning leafwikiignore, got %q", opErr.Reason)
+	if !strings.Contains(opErr.Reason, "leafdocignore") {
+		t.Fatalf("expected reason mentioning leafdocignore, got %q", opErr.Reason)
 	}
 }
 
@@ -1646,7 +1646,7 @@ func TestNodeStore_CreateSection_RejectsIgnoredPath(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "archive", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "archive", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -1662,8 +1662,8 @@ func TestNodeStore_CreateSection_RejectsIgnoredPath(t *testing.T) {
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected InvalidOpError, got %T: %v", err, err)
 	}
-	if !strings.Contains(opErr.Reason, "leafwikiignore") {
-		t.Fatalf("expected reason mentioning leafwikiignore, got %q", opErr.Reason)
+	if !strings.Contains(opErr.Reason, "leafdocignore") {
+		t.Fatalf("expected reason mentioning leafdocignore, got %q", opErr.Reason)
 	}
 }
 
@@ -1671,7 +1671,7 @@ func TestNodeStore_MoveNode_RejectsIgnoredDestination(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "archive/", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "archive/", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -1695,8 +1695,8 @@ func TestNodeStore_MoveNode_RejectsIgnoredDestination(t *testing.T) {
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected InvalidOpError, got %T: %v", err, err)
 	}
-	if !strings.Contains(opErr.Reason, "leafwikiignore") {
-		t.Fatalf("expected reason mentioning leafwikiignore, got %q", opErr.Reason)
+	if !strings.Contains(opErr.Reason, "leafdocignore") {
+		t.Fatalf("expected reason mentioning leafdocignore, got %q", opErr.Reason)
 	}
 }
 
@@ -1704,7 +1704,7 @@ func TestNodeStore_RenameNode_RejectsIgnoredSlug(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "*.tmp", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "*.tmp", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)
@@ -1721,8 +1721,8 @@ func TestNodeStore_RenameNode_RejectsIgnoredSlug(t *testing.T) {
 	if !errors.As(err, &opErr) {
 		t.Fatalf("expected InvalidOpError, got %T: %v", err, err)
 	}
-	if !strings.Contains(opErr.Reason, "leafwikiignore") {
-		t.Fatalf("expected reason mentioning leafwikiignore, got %q", opErr.Reason)
+	if !strings.Contains(opErr.Reason, "leafdocignore") {
+		t.Fatalf("expected reason mentioning leafdocignore, got %q", opErr.Reason)
 	}
 }
 
@@ -1730,7 +1730,7 @@ func TestNodeStore_CreatePage_PassesThroughNonIgnoredPath(t *testing.T) {
 	tmp := t.TempDir()
 	store := NewNodeStore(tmp)
 
-	mustWriteFile(t, filepath.Join(tmp, "root", ".leafwikiignore"), "*.log", 0o644)
+	mustWriteFile(t, filepath.Join(tmp, "root", ".leafdocignore"), "*.log", 0o644)
 
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 	store.SetIgnoreCache(cache)

@@ -18,13 +18,13 @@ RUN go mod download
 COPY . .
 COPY --from=frontend-build /app/ui/dist ./internal/http/dist
 RUN CGO_ENABLED=0 go build \
-	-ldflags="-s -w -X github.com/perber/wiki/internal/http.EmbedFrontend=true -X github.com/perber/wiki/internal/http.Environment=production -X main.Version=${APP_VERSION} -X github.com/perber/wiki/internal/wiki/auth.DisableRefreshTokenRateLimit=${RATE_LIMIT_BYPASS}" \
-	-o /out/leafwiki ./cmd/leafwiki
+	-ldflags="-s -w -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production -X main.Version=${APP_VERSION} -X github.com/NianBroken/LeafDoc/internal/wiki/auth.DisableRefreshTokenRateLimit=${RATE_LIMIT_BYPASS}" \
+	-o /out/leafdoc ./cmd/leafdoc
 
 # Step 3: Final image (small)
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS final
 WORKDIR /app
-COPY --from=backend-build /out/leafwiki /app/leafwiki
+COPY --from=backend-build /out/leafdoc /app/leafdoc
 
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
@@ -33,9 +33,9 @@ EXPOSE 8080
 
 RUN mkdir -p /app/data && chmod 777 /app/data
 
-LABEL org.opencontainers.image.title="LeafWiki" \
-      org.opencontainers.image.description="LeafWiki – A fast wiki for people who think in folders, not feeds" \
-      org.opencontainers.image.url="https://demo.leafwiki.com" \
+LABEL org.opencontainers.image.title="LeafDoc" \
+      org.opencontainers.image.description="LeafDoc – A fast wiki for people who think in folders, not feeds" \
+      org.opencontainers.image.url="https://github.com/NianBroken/LeafDoc" \
       org.opencontainers.image.licenses="MIT"
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

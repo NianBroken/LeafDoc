@@ -1,10 +1,10 @@
 package http
 
 import (
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	authmiddleware "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
-	authmiddleware "github.com/perber/wiki/internal/http/middleware/auth"
-	"github.com/perber/wiki/internal/http/middleware/security"
 )
 
 // RouterContext holds the shared HTTP infrastructure passed to each RouteRegistrar.

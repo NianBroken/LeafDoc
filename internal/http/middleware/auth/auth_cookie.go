@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/perber/wiki/internal/http/middleware/utils"
 )
 
 type AuthCookies struct {
@@ -26,9 +26,9 @@ func NewAuthCookies(allowInsecure bool, accessTTL, refreshTTL time.Duration) *Au
 
 func (a *AuthCookies) cookieNames(secure bool) (access, refresh string) {
 	if secure {
-		return "__Host-leafwiki_at", "__Host-leafwiki_rt"
+		return "__Host-leafdoc_at", "__Host-leafdoc_rt"
 	}
-	return "leafwiki_at", "leafwiki_rt"
+	return "leafdoc_at", "leafdoc_rt"
 }
 
 func (a *AuthCookies) Set(c *gin.Context, accessToken, refreshToken string) error {

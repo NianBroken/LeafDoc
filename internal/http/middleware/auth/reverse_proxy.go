@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/gin-gonic/gin"
-	coreauth "github.com/perber/wiki/internal/core/auth"
 )
 
 // RemoteUserConfig holds the configuration for reverse-proxy-based authentication.

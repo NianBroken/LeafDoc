@@ -3,8 +3,8 @@ package pagesave
 import (
 	"testing"
 
-	"github.com/perber/wiki/internal/core/search"
-	"github.com/perber/wiki/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/core/search"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
 // setupSearchTest creates a temp-dir-backed tree, SQLiteIndex and SearchIndexSideEffect.

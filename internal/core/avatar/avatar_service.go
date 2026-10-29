@@ -26,9 +26,9 @@ import (
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp" // decode-only webp support (blank-imported like the stdlib formats above)
 
-	"github.com/perber/wiki/internal/core/branding"
-	"github.com/perber/wiki/internal/core/shared"
-	sharederrors "github.com/perber/wiki/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/core/branding"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
 // MaxUploadSize is the largest accepted avatar upload, in bytes.

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perber/wiki/internal/core/shared"
-	snapshotSvc "github.com/perber/wiki/internal/core/snapshot"
-	"github.com/perber/wiki/internal/testutil"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
+	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestExtractAndValidate_HappyPath(t *testing.T) {
@@ -591,7 +591,7 @@ func writeRawZip(t *testing.T, entries map[string]string) string {
 // in walSidecarDBNames, and in StateDBFiles — pinned so the table-derived
 // lists can't silently drop or reorder a database.
 func TestSwapNames_StateDBsDerivedInOrder(t *testing.T) {
-	wantSwap := []string{"root", "assets", "branding", "avatars", "branding.json", "public-access.json", "toc-display.json", "preferences.json", "snapshot-settings.json", "schema.json", "users.db", "api_keys.db", "favorites.db"}
+	wantSwap := []string{"default-documents.json", "root", "assets", "branding", "avatars", "branding.json", "public-access.json", "toc-display.json", "preferences.json", "snapshot-settings.json", "schema.json", "users.db", "api_keys.db", "favorites.db"}
 	if fmt.Sprint(swapNames) != fmt.Sprint(wantSwap) {
 		t.Errorf("swapNames = %v, want %v", swapNames, wantSwap)
 	}
