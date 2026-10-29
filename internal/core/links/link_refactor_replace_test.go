@@ -1,11 +1,13 @@
 package links
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"strings"
 	"testing"
 )
 
 func TestMarkdownRefactorEngine_Rewrite_KeepsQueryAndFragment(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `[Link](/docs/b?mode=1#intro)`
 
 	result := NewMarkdownRefactorEngine().Rewrite(content, "/docs/a", []RewriteRule{{
@@ -22,6 +24,7 @@ func TestMarkdownRefactorEngine_Rewrite_KeepsQueryAndFragment(t *testing.T) {
 }
 
 func TestMarkdownRefactorEngine_Rewrite_SupportsParenthesesInDestination(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `[Draft](../page_(draft))`
 
 	result := NewMarkdownRefactorEngine().Rewrite(content, "/docs/a", []RewriteRule{{
@@ -38,6 +41,7 @@ func TestMarkdownRefactorEngine_Rewrite_SupportsParenthesesInDestination(t *test
 }
 
 func TestMarkdownRefactorEngine_Rewrite_OnlyChangesDestinationSegment(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `[Label with (parens)](/docs/b "Title")`
 
 	result := NewMarkdownRefactorEngine().Rewrite(content, "/docs/a", []RewriteRule{{
@@ -54,6 +58,7 @@ func TestMarkdownRefactorEngine_Rewrite_OnlyChangesDestinationSegment(t *testing
 }
 
 func TestMarkdownRefactorEngine_RewriteRelativeLinksForPathChange_UsesFolderSemanticsForCrossTreeMove(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `[Target](../seite-a)`
 
 	result := NewMarkdownRefactorEngine().RewriteRelativeLinksForPathChange(
@@ -77,6 +82,7 @@ func TestMarkdownRefactorEngine_RewriteRelativeLinksForPathChange_UsesFolderSema
 }
 
 func TestMarkdownRefactorEngine_RewriteRelativeLinksForPathChange_IgnoresRelativeAssetLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `[Asset](assets/abc/manual.pdf)`
 
 	result := NewMarkdownRefactorEngine().RewriteRelativeLinksForPathChange(

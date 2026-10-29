@@ -7,12 +7,8 @@ vi.mock('@/shared/lib/api/restore', () => ({
   getRestoreStatus: vi.fn(),
   triggerSelfRestart: vi.fn(),
 }))
-vi.mock('@/shared/lib/api/resync', () => ({
-  getResyncStatus: vi.fn(),
-}))
 
 import * as restoreAPI from '@/shared/lib/api/restore'
-import * as resyncAPI from '@/shared/lib/api/resync'
 
 const initialState = useRestoreStore.getState()
 
@@ -22,47 +18,44 @@ describe('useRestoreStore', () => {
     vi.clearAllMocks()
   })
 
-  it('trigger(id) polls status until done, then the resync tail, and clears isLoading', async () => {
-    ;(restoreAPI.triggerRestore as ReturnType<typeof vi.fn>).mockResolvedValue(
-      undefined,
-    )
+  it('trigger(id) polls with its job receipt and requires login after complete', async () => {
+    ;(restoreAPI.triggerRestore as ReturnType<typeof vi.fn>).mockResolvedValue({
+      statusToken: 'job-token',
+    })
     ;(
       restoreAPI.getRestoreStatus as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce({ running: true, phase: 'swapping', done: false })
     ;(
       restoreAPI.getRestoreStatus as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce({ running: true, phase: null, done: true })
-    ;(
-      resyncAPI.getResyncStatus as ReturnType<typeof vi.fn>
-    ).mockResolvedValueOnce({ running: true, phase: 'search', done: true })
 
     await useRestoreStore.getState().trigger('snapshot-1')
 
     expect(restoreAPI.triggerRestore).toHaveBeenCalledWith('snapshot-1')
+    expect(restoreAPI.getRestoreStatus).toHaveBeenCalledWith('job-token')
     const state = useRestoreStore.getState()
     expect(state.isLoading).toBe(false)
     expect(state.needsIntervention).toBe(false)
     expect(state.resyncConfirmed).toBe(true)
+    expect(state.requiresLogin).toBe(true)
   })
 
   it('triggerUpload(file) drives the same phase/resync-tail transitions as trigger(id)', async () => {
     const file = new File(['zip-bytes'], 'backup.zip')
     ;(
       restoreAPI.triggerRestoreFromUpload as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(undefined)
+    ).mockResolvedValue({ statusToken: 'upload-token' })
     ;(
       restoreAPI.getRestoreStatus as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce({ running: true, phase: 'validating', done: false })
     ;(
       restoreAPI.getRestoreStatus as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce({ running: true, phase: null, done: true })
-    ;(
-      resyncAPI.getResyncStatus as ReturnType<typeof vi.fn>
-    ).mockResolvedValueOnce({ running: true, phase: 'search', done: true })
 
     await useRestoreStore.getState().triggerUpload(file)
 
     expect(restoreAPI.triggerRestoreFromUpload).toHaveBeenCalledWith(file)
+    expect(restoreAPI.getRestoreStatus).toHaveBeenCalledWith('upload-token')
     const state = useRestoreStore.getState()
     expect(state.isLoading).toBe(false)
     expect(state.needsIntervention).toBe(false)
@@ -73,7 +66,7 @@ describe('useRestoreStore', () => {
     const file = new File(['zip-bytes'], 'backup.zip')
     ;(
       restoreAPI.triggerRestoreFromUpload as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(undefined)
+    ).mockResolvedValue({ statusToken: 'upload-token' })
     ;(
       restoreAPI.getRestoreStatus as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce({

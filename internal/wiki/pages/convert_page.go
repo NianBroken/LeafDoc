@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 
 	"github.com/NianBroken/LeafDoc/internal/core/revision"
@@ -29,7 +30,16 @@ func NewConvertPageUseCase(t *tree.TreeService, r *revision.Service, log *slog.L
 }
 
 // Execute converts the node kind and records a structure revision.
-func (uc *ConvertPageUseCase) Execute(_ context.Context, in ConvertPageInput) error {
+func (uc *ConvertPageUseCase) Execute(ctx context.Context, in ConvertPageInput) error {
+	if !uc.tree.InUnitOfWork() {
+		return uc.tree.WithUnitOfWork(ctx, func(bound *tree.TreeService, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.revision = uc.revision.WithExecutor(exec, bound)
+			return copy.Execute(ctx, in)
+		})
+	}
+
 	if in.ID == "root" || in.ID == "" {
 		return newPageRootOperationError("convert")
 	}
@@ -39,7 +49,7 @@ func (uc *ConvertPageUseCase) Execute(_ context.Context, in ConvertPageInput) er
 	}
 	if uc.revision != nil {
 		if _, _, err := uc.revision.RecordStructureChange(in.ID, in.UserID, ""); err != nil {
-			uc.log.Warn("failed to record structure revision", "pageID", in.ID, "error", err)
+			return err
 		}
 	}
 	return nil

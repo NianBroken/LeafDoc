@@ -1,6 +1,7 @@
 package pagesave
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 )
 
 func TestNewLinkIndexSideEffect_DefaultsLogger(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeService := tree.NewTreeService(t.TempDir())
 	store, err := links.NewLinksStore(t.TempDir())
 	if err != nil {
@@ -35,6 +37,7 @@ func TestNewLinkIndexSideEffect_DefaultsLogger(t *testing.T) {
 }
 
 func TestNewRevisionSideEffect_DefaultsLogger(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeService := tree.NewTreeService(t.TempDir())
 	effect := NewRevisionSideEffect(revision.NewService(t.TempDir(), treeService, nil, revision.ServiceOptions{}), nil, nil)
 	if effect.log == nil {
@@ -46,10 +49,11 @@ func TestNewRevisionSideEffect_DefaultsLogger(t *testing.T) {
 }
 
 func TestNewSearchIndexSideEffect_DefaultsLogger(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeService := tree.NewTreeService(t.TempDir())
-	index, err := search.NewSQLiteIndex(t.TempDir())
+	index, err := search.NewMySQLIndex(t.TempDir())
 	if err != nil {
-		t.Fatalf("NewSQLiteIndex failed: %v", err)
+		t.Fatalf("NewMySQLIndex failed: %v", err)
 	}
 	defer func() {
 		if err := index.Close(); err != nil {
@@ -67,6 +71,7 @@ func TestNewSearchIndexSideEffect_DefaultsLogger(t *testing.T) {
 }
 
 func TestNewTagsSideEffect_DefaultsLogger(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect := NewTagsSideEffect(nil, nil, nil)
 	if effect.log == nil {
 		t.Fatal("expected default logger to be set")
@@ -77,6 +82,7 @@ func TestNewTagsSideEffect_DefaultsLogger(t *testing.T) {
 }
 
 func TestNewPropertiesSideEffect_DefaultsLogger(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect := NewPropertiesSideEffect(nil, nil, nil)
 	if effect.log == nil {
 		t.Fatal("expected default logger to be set")
@@ -111,6 +117,7 @@ func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
 }
 
 func TestPageSaveOrchestrator_RecordsSideEffectDurationAndFailures(t *testing.T) {
+	testutil.ResetMySQL(t)
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	orchestrator := NewPageSaveOrchestrator(metrics, metricTestEffect{metrics: metrics})
 

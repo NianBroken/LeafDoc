@@ -1,6 +1,5 @@
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
-import { Label } from '@/shared/components/ui/label'
 import { mapApiError } from '@/shared/lib/api/errors'
 import { BrandingAsset } from './BrandingAsset'
 import { useBrandingStore } from '@/features/branding/state/branding'
@@ -141,14 +140,16 @@ export default function BrandingSettings() {
           </p>
         )}
         <div className="settings__section">
-          <h2 className="settings__section-title">{t('siteName.title')}</h2>
+          <h2 id="site-name-heading" className="settings__section-title">
+            {t('siteName.title')}
+          </h2>
           <p className="settings__section-description">
             {t('siteName.description')}
           </p>
           <div className="settings__field">
-            <Label htmlFor="siteName">{t('siteName.label')}</Label>
             <Input
               id="siteName"
+              aria-labelledby="site-name-heading"
               value={localSiteName}
               onChange={(e) => setLocalSiteName(e.target.value)}
               placeholder={t('siteName.placeholder')}

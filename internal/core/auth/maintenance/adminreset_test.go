@@ -2,16 +2,15 @@ package maintenance
 
 import (
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/NianBroken/LeafDoc/internal/core/auth"
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestResetAdminPassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
 
@@ -77,6 +76,7 @@ func TestResetAdminPassword(t *testing.T) {
 }
 
 func TestResetAdminPassword_NoAdmin(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a temporary directory for the test (no admin user exists)
 	tempDir := t.TempDir()
 
@@ -122,6 +122,7 @@ func TestResetAdminPassword_NoAdmin(t *testing.T) {
 }
 
 func TestResetAdminPassword_NoAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a temporary directory for the test (no admin user exists)
 	tempDir := t.TempDir()
 
@@ -139,26 +140,11 @@ func TestResetAdminPassword_NoAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
 	}
 }
 
-// A corrupt users.db must stop the reset instead of being replaced by an
-// empty one with a freshly created admin (ADR-0013).
-func TestResetAdminPassword_CorruptUsersDB_FailsAndCreatesNoAdmin(t *testing.T) {
-	dir := t.TempDir()
-	files := testutil.WriteCorruptSQLiteDB(t, filepath.Join(dir, "users.db"))
-
-	user, err := ResetAdminPassword(dir, "", "")
-
-	if err == nil {
-		t.Fatalf("ResetAdminPassword: expected an error, got user %+v", user)
-	}
-	var corrupt *sqliteutil.CorruptDatabaseError
-	if !errors.As(err, &corrupt) {
-		t.Fatalf("ResetAdminPassword error = %v (%T), want it to wrap *sqliteutil.CorruptDatabaseError", err, err)
-	}
-	testutil.AssertFilesUnchanged(t, files)
-}
+// Account and session records persist in MySQL across store reopening.
 
 // Recovery preserves account ownership and invalidates credentials issued before it.
 func TestResetAdminPassword_ExplicitSecretPreservesIDAndRevokesSessions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := auth.NewUserStore(dir)
 	if err != nil {
@@ -208,6 +194,7 @@ func TestResetAdminPassword_ExplicitSecretPreservesIDAndRevokesSessions(t *testi
 
 // A conflicting username leaves the existing administrator unchanged.
 func TestResetAdminPassword_UsernameConflictPreservesPassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := auth.NewUserStore(dir)
 	if err != nil {

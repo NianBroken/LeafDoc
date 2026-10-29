@@ -22,11 +22,11 @@ type Document struct {
 // Load reads the five ordered documents from embedded UTF-8 sources.
 func Load() ([]Document, error) {
 	documents := []Document{
-		{Slug: "markdown-getting-started", Title: "Markdown 入门与写作流程"},
-		{Slug: "markdown-text-and-code", Title: "文本格式与代码表达"},
+		{Slug: "markdown-getting-started", Title: "Markdown 入门与完整写作流程"},
+		{Slug: "markdown-text-and-code", Title: "标题、文本格式与代码"},
 		{Slug: "markdown-lists-and-structure", Title: "列表、引用与内容组织"},
 		{Slug: "markdown-links-images-and-tables", Title: "链接、图片与表格"},
-		{Slug: "markdown-extensions-and-troubleshooting", Title: "扩展语法、兼容性与排错"},
+		{Slug: "markdown-extensions-and-troubleshooting", Title: "扩展语法、实际示例与排错"},
 	}
 	for i := range documents {
 		body, err := content.ReadFile("content/" + documents[i].Slug + ".md")

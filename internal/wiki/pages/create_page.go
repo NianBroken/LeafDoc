@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"time"
 
@@ -46,7 +47,20 @@ func NewCreatePageUseCase(
 }
 
 // Execute validates input, creates the page node, and fires post-save side effects.
-func (uc *CreatePageUseCase) Execute(_ context.Context, in CreatePageInput) (out *CreatePageOutput, err error) {
+func (uc *CreatePageUseCase) Execute(ctx context.Context, in CreatePageInput) (out *CreatePageOutput, err error) {
+	if !uc.tree.InUnitOfWork() {
+		var result *CreatePageOutput
+		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.orchestrator = o
+			var inner error
+			result, inner = copy.Execute(ctx, in)
+			return inner
+		})
+		return result, err
+	}
+
 	started := time.Now()
 	defer func() {
 		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationCreate), err, started)
@@ -86,12 +100,14 @@ func (uc *CreatePageUseCase) Execute(_ context.Context, in CreatePageInput) (out
 		return nil, err
 	}
 
-	uc.orchestrator.Run(pagesave.PageSaveEvent{
+	if err := uc.orchestrator.Run(pagesave.PageSaveEvent{
 		Operation: pagesave.PageOperationCreate,
 		UserID:    in.UserID,
 		After:     page,
 		Summary:   "page created",
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	return &CreatePageOutput{Page: page}, nil
 }

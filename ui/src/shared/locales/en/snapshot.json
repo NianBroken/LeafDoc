@@ -50,7 +50,7 @@
   "createNow": "Create backup now",
   "creating": "Creating…",
   "listSectionTitle": "Available Backups",
-  "listSectionDescription": "Download a backup to restore it manually: stop the server, extract the ZIP over your data directory, then restart.",
+  "listSectionDescription": "Download backups for safekeeping, or restore the database and resources from a backup.",
   "listEmpty": "No backups yet.",
   "columnDate": "Created",
   "columnSize": "Size",
@@ -66,5 +66,7 @@
     "backupTriggerFailed": "Failed to trigger backup",
     "deleteSuccess": "Backup deleted",
     "deleteFailed": "Failed to delete backup"
-  }
+  },
+  "columnName": "Backup name",
+  "columnActions": "Actions"
 }

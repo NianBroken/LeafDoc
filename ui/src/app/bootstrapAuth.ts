@@ -20,12 +20,18 @@ export function useBootstrapAuth(enabled = true) {
     ;(async () => {
       setRefreshing(true)
       try {
-        if (httpRemoteUserEnabled || !configLoadSucceeded) {
-          // Proxy manages the session — resolve the current user via /api/auth/me.
-          // Token refresh does not apply in this mode. Also used when the auth
-          // mode isn't confirmed yet (config failed to load): /api/auth/me
-          // works regardless of mode, so it's a safe way to check identity
-          // without risking a wrong-mode refresh-token call.
+        const session = useSessionStore.getState()
+        const accessIsCurrent =
+          (session.accessTokenExpiresAt ?? 0) > Date.now() / 1000
+        if (
+          httpRemoteUserEnabled ||
+          !configLoadSucceeded ||
+          !session.user ||
+          accessIsCurrent
+        ) {
+          // Identity reads do not rotate cookies. Fresh sessions and anonymous
+          // visits use this path so navigation cannot interrupt a token rotation.
+          // Proxy-managed sessions also resolve identity without JWT refresh.
           const user = await fetchMe()
           if (!cancelled) setUser(user)
         } else {

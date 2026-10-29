@@ -17,7 +17,6 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/ignore"
 	"github.com/NianBroken/LeafDoc/internal/core/links"
 	"github.com/NianBroken/LeafDoc/internal/core/properties"
-	"github.com/NianBroken/LeafDoc/internal/core/restore"
 	"github.com/NianBroken/LeafDoc/internal/core/revision"
 	"github.com/NianBroken/LeafDoc/internal/core/search"
 	"github.com/NianBroken/LeafDoc/internal/core/tags"
@@ -54,7 +53,7 @@ type Wiki struct {
 	asset             *assets.AssetService
 	branding          *branding.BrandingService
 	avatar            *avatar.AvatarService
-	searchIndex       *search.SQLiteIndex
+	searchIndex       *search.MySQLIndex
 	status            *search.IndexingStatus
 	storageDir        string
 
@@ -227,24 +226,6 @@ func (w *Wiki) Favorites() *favorites.FavoritesStore {
 	return w.favorites
 }
 
-// StateStores returns the state stores (other than users.db) that exist in
-// this process, for restore.Config.Stores. A store whose feature is off is
-// not listed; a nil pointer must never be wrapped in the interface.
-func (w *Wiki) StateStores() []restore.LiveStore {
-	var stores []restore.LiveStore
-	if w.apiKeys != nil {
-		stores = append(stores, restore.LiveStore{File: restore.APIKeysDBFile, Store: w.apiKeys})
-	}
-	if w.favorites != nil {
-		stores = append(stores, restore.LiveStore{File: restore.FavoritesDBFile, Store: w.favorites})
-	}
-	return stores
-}
-
-// EmailTokenService returns the password-reset/invite token service, or nil
-// if SMTP isn't configured or auth is disabled (see initEmail). Every use
-// case that resolves this via the func()-based pattern (like UserService)
-// nil-checks it and returns ErrEmailDisabled.
 func (w *Wiki) EmailTokenService() *auth.EmailTokenService {
 	return w.emailTokenService
 }

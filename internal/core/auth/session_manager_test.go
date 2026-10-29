@@ -2,6 +2,7 @@ package auth
 
 import (
 	"database/sql"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 	"time"
 )
@@ -48,6 +49,7 @@ func setupTestSessionManager(t *testing.T, users map[string]*User) *SessionManag
 }
 
 func TestSessionManager_IssueSession_ReturnsAccessAndRefreshTokens(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Email: "alice@example.com", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -64,6 +66,7 @@ func TestSessionManager_IssueSession_ReturnsAccessAndRefreshTokens(t *testing.T)
 }
 
 func TestSessionManager_ValidateToken_ReturnsCurrentUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleEditor}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -82,6 +85,7 @@ func TestSessionManager_ValidateToken_ReturnsCurrentUser(t *testing.T) {
 }
 
 func TestSessionManager_ValidateToken_InvalidTokenRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	sm := setupTestSessionManager(t, nil)
 	if _, err := sm.ValidateToken("not-a-token"); err != ErrInvalidToken {
 		t.Fatalf("expected ErrInvalidToken, got %v", err)
@@ -93,6 +97,7 @@ func TestSessionManager_ValidateToken_InvalidTokenRejected(t *testing.T) {
 // refresh token (long-lived, and not checked against the session store here)
 // could be used as an access token.
 func TestSessionManager_ValidateToken_RejectsRefreshToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -109,6 +114,7 @@ func TestSessionManager_ValidateToken_RejectsRefreshToken(t *testing.T) {
 // A SessionManager constructed directly (not via NewAuthService, which wires
 // resolveUser) must fail loudly rather than panic on a nil call.
 func TestSessionManager_ValidateToken_ResolveUserNotWired_ReturnsErrorInsteadOfPanicking(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -136,6 +142,7 @@ func TestSessionManager_ValidateToken_ResolveUserNotWired_ReturnsErrorInsteadOfP
 }
 
 func TestSessionManager_RefreshToken_ResolveUserNotWired_ReturnsErrorInsteadOfPanicking(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -165,6 +172,7 @@ func TestSessionManager_RefreshToken_ResolveUserNotWired_ReturnsErrorInsteadOfPa
 // the role/email baked into the token's claims, so a role change takes
 // effect immediately instead of waiting for the access token to expire.
 func TestSessionManager_ValidateToken_ReflectsCurrentResolvedUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleViewer}
 	users := map[string]*User{user.ID: user}
 	sm := setupTestSessionManager(t, users)
@@ -186,6 +194,7 @@ func TestSessionManager_ValidateToken_ReflectsCurrentResolvedUser(t *testing.T) 
 }
 
 func TestSessionManager_RefreshToken_IssuesNewTokensAndRevokesOld(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -208,6 +217,7 @@ func TestSessionManager_RefreshToken_IssuesNewTokensAndRevokesOld(t *testing.T) 
 }
 
 func TestSessionManager_RefreshToken_RevokedTokenRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -224,6 +234,7 @@ func TestSessionManager_RefreshToken_RevokedTokenRejected(t *testing.T) {
 }
 
 func TestSessionManager_RefreshToken_AccessTokenRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -237,6 +248,7 @@ func TestSessionManager_RefreshToken_AccessTokenRejected(t *testing.T) {
 }
 
 func TestSessionManager_RefreshToken_InvalidTokenRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	sm := setupTestSessionManager(t, nil)
 	if _, err := sm.RefreshToken("invalid"); err != ErrInvalidToken {
 		t.Fatalf("expected ErrInvalidToken, got %v", err)
@@ -244,6 +256,7 @@ func TestSessionManager_RefreshToken_InvalidTokenRejected(t *testing.T) {
 }
 
 func TestSessionManager_RevokeRefreshToken_InvalidToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	sm := setupTestSessionManager(t, nil)
 	if err := sm.RevokeRefreshToken("invalid"); err != ErrInvalidToken {
 		t.Fatalf("expected ErrInvalidToken, got %v", err)
@@ -251,6 +264,7 @@ func TestSessionManager_RevokeRefreshToken_InvalidToken(t *testing.T) {
 }
 
 func TestSessionManager_RevokeRefreshToken_AccessTokenRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 	tokens, err := sm.IssueSession(user)
@@ -263,6 +277,7 @@ func TestSessionManager_RevokeRefreshToken_AccessTokenRejected(t *testing.T) {
 }
 
 func TestSessionManager_RevokeAllUserSessions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -288,6 +303,7 @@ func TestSessionManager_RevokeAllUserSessions(t *testing.T) {
 }
 
 func TestSessionManager_RevokeAllUserSessionsExceptCurrent_PreservesCallersSession(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -313,6 +329,7 @@ func TestSessionManager_RevokeAllUserSessionsExceptCurrent_PreservesCallersSessi
 }
 
 func TestSessionManager_RevokeAllUserSessionsExceptCurrent_UnparsableCurrentRevokesEverything(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
 
@@ -350,6 +367,7 @@ func fakeAdvancingClock(step time.Duration) func() time.Time {
 // drift, leaving a token still cryptographically valid while its session row
 // was already (or not yet) considered expired.
 func TestSessionManager_IssueSession_SessionExpiryMatchesRefreshTokenExp(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
@@ -390,6 +408,7 @@ func TestSessionManager_IssueSession_SessionExpiryMatchesRefreshTokenExp(t *test
 
 // Same regression, exercised via RefreshToken's newly-issued refresh session.
 func TestSessionManager_RefreshToken_SessionExpiryMatchesNewRefreshTokenExp(t *testing.T) {
+	testutil.ResetMySQL(t)
 	user := &User{ID: "u1", Username: "alice", Role: RoleAdmin}
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
@@ -434,6 +453,7 @@ func TestSessionManager_RefreshToken_SessionExpiryMatchesNewRefreshTokenExp(t *t
 }
 
 func TestSessionManager_Close_ClosesSessionStore(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -450,5 +470,52 @@ func TestSessionManager_Close_ClosesSessionStore(t *testing.T) {
 	}
 	if store.db != nil {
 		t.Fatal("expected session store db to be closed")
+	}
+}
+
+func TestSessionManager_RestoreGenerationInvalidatesAccessAndRefresh(t *testing.T) {
+	testutil.ResetMySQL(t)
+	user := &User{ID: "restored-id", Username: "same-user", Role: RoleAdmin}
+	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
+	tokens, err := sm.IssueSession(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sm.ValidateToken(tokens.Token); err != nil {
+		t.Fatal(err)
+	}
+	// Restore changes the epoch while preserving the account and session IDs.
+	if err := sm.sessionStore.withDB(func(db *sql.DB) error {
+		_, err := db.Exec("UPDATE auth_state SET generation=UUID() WHERE id=1")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sm.ValidateToken(tokens.Token); err != ErrInvalidToken {
+		t.Fatalf("old access token accepted: %v", err)
+	}
+	if _, err := sm.RefreshToken(tokens.RefreshToken); err != ErrInvalidToken {
+		t.Fatalf("old refresh token accepted: %v", err)
+	}
+	fresh, err := sm.IssueSession(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sm.ValidateToken(fresh.Token); err != nil {
+		t.Fatalf("fresh token rejected: %v", err)
+	}
+}
+
+func TestSessionManager_ReopenPreservesGenerationAndValidAccess(t *testing.T) {
+	testutil.ResetMySQL(t)
+	user := &User{ID: "stable-id", Username: "stable-user", Role: RoleAdmin}
+	sm := setupTestSessionManager(t, map[string]*User{user.ID: user})
+	tokens, err := sm.IssueSession(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := setupTestSessionManager(t, map[string]*User{user.ID: user})
+	if _, err := second.ValidateToken(tokens.Token); err != nil {
+		t.Fatalf("reopen invalidated access: %v", err)
 	}
 }

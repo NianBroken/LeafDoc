@@ -2,6 +2,7 @@ package links
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"strings"
 
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
@@ -392,4 +393,9 @@ func (b *LinkService) GetBrokenLinks() ([]BrokenLink, error) {
 	}
 
 	return links, nil
+}
+
+// WithExecutor uses the transaction's tree view and link records together.
+func (s *LinkService) WithExecutor(executor database.Executor, boundTree *tree.TreeService) *LinkService {
+	return &LinkService{storageDir: s.storageDir, treeService: boundTree, store: s.store.WithExecutor(executor)}
 }

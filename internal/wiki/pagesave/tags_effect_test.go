@@ -56,6 +56,7 @@ func createPageWithFrontmatter(t *testing.T, treeSvc *tree.TreeService, title, s
 // ─── TagsSideEffect ───────────────────────────────────────────────────────────
 
 func TestTagsSideEffect_Apply_Create_IndexesTagsFromRawContent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, tagsSvc, effect := setupTagsEffectTest(t)
 
 	raw := "---\ntags:\n  - golang\n  - testing\n---\n\nPage body."
@@ -84,6 +85,7 @@ func TestTagsSideEffect_Apply_Create_IndexesTagsFromRawContent(t *testing.T) {
 }
 
 func TestTagsSideEffect_Apply_Update_ReindexesTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, tagsSvc, effect := setupTagsEffectTest(t)
 
 	raw := "---\ntags:\n  - oldtag\n---\n\nOriginal."
@@ -120,6 +122,7 @@ func TestTagsSideEffect_Apply_Update_ReindexesTags(t *testing.T) {
 }
 
 func TestTagsSideEffect_Apply_Delete_RemovesTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, tagsSvc, effect := setupTagsEffectTest(t)
 
 	raw := "---\ntags:\n  - removeme\n---\n\nBody."
@@ -142,6 +145,7 @@ func TestTagsSideEffect_Apply_Delete_RemovesTags(t *testing.T) {
 }
 
 func TestTagsSideEffect_Apply_Delete_Recursive_RemovesTagsForAllAffectedPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, tagsSvc, effect := setupTagsEffectTest(t)
 
 	rawA := "---\ntags:\n  - subtree\n---\n\nA."

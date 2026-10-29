@@ -2,14 +2,9 @@ package auth
 
 import (
 	"database/sql"
-	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
-	"path/filepath"
-	"strings"
 	"sync"
-
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
-	_ "modernc.org/sqlite"
 )
 
 const logCloseRowsFailed = "could not close rows"
@@ -17,40 +12,19 @@ const logCloseRowsFailed = "could not close rows"
 type UserStore struct {
 	mu         sync.Mutex
 	storageDir string
-	filename   string
 	db         *sql.DB
 	// suspended is set by suspend() and makes Connect() refuse to lazily
 	// reopen db — see suspend's doc comment.
 	suspended bool
 }
 
-func databasePath(storageDir string, filename string) string {
-	normalizedStorageDir := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
-	return filepath.Join(normalizedStorageDir, filename)
-}
-
+// NewUserStore opens the configured MySQL account store.
 func NewUserStore(storageDir string) (*UserStore, error) {
-	u := &UserStore{
-		storageDir: storageDir,
-		filename:   "users.db",
-	}
-
-	// ensureSchema calls Connect() itself (idempotently), so it alone is
-	// enough to bring the store to a working state.
-	err := sqliteutil.OpenWithPolicy(databasePath(u.storageDir, u.filename), sqliteutil.FailOnCorruption, func() error {
-		if err := u.ensureSchema(); err != nil {
-			if u.db != nil {
-				_ = u.db.Close()
-				u.db = nil
-			}
-			return err
-		}
-		return nil
-	})
+	db, err := database.Open(storageDir)
 	if err != nil {
 		return nil, err
 	}
-	return u, nil
+	return &UserStore{storageDir: storageDir, db: db}, nil
 }
 
 func (f *UserStore) Connect() error {
@@ -62,7 +36,7 @@ func (f *UserStore) Connect() error {
 	if f.db != nil {
 		return nil
 	}
-	db, err := sql.Open("sqlite", databasePath(f.storageDir, f.filename)+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+	db, err := database.Open(f.storageDir)
 	if err != nil {
 		return err
 	}
@@ -70,15 +44,7 @@ func (f *UserStore) Connect() error {
 	return nil
 }
 
-// suspend closes db (if open) and marks the store so Connect() refuses to
-// lazily reopen it — unlike a plain Close(), which reconnects on the next
-// query.
-// Used by AuthService.PauseUserStoreForSwap before a live restore renames
-// users.db out from under this store: on Windows, an open file handle (or
-// one silently reopened by a query landing mid-swap) blocks the rename with
-// a sharing violation, which POSIX doesn't have. suspend is permanent for
-// this *UserStore instance — restore always continues with a brand new one
-// afterward (see AuthService.ReplaceUserStore), so there's no un-suspend.
+// suspend blocks account access while a restore replaces business records.
 func (f *UserStore) suspend() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -91,68 +57,7 @@ func (f *UserStore) suspend() error {
 	return err
 }
 
-func (f *UserStore) ensureSchema() error {
-	err := f.Connect()
-	if err != nil {
-		return err
-	}
-	_, err = f.db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			id TEXT PRIMARY KEY,
-			username TEXT NOT NULL UNIQUE,
-			password TEXT NOT NULL,
-			email TEXT NOT NULL UNIQUE,
-			role TEXT NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			must_set_password INTEGER NOT NULL DEFAULT 0,
-            must_change_password INTEGER NOT NULL DEFAULT 0
-		);
-	`)
-	if err != nil {
-		return err
-	}
-	if err := f.ensureCredentialSchema(); err != nil {
-		return err
-	}
-	return f.ensureMustSetPasswordColumn()
-}
-func (f *UserStore) ensureMustSetPasswordColumn() error {
-	existing, err := f.existingColumns()
-	if err != nil {
-		return err
-	}
-	if existing["must_set_password"] {
-		return nil
-	}
-	if _, err := f.db.Exec(`ALTER TABLE users ADD COLUMN must_set_password INTEGER NOT NULL DEFAULT 0`); err != nil {
-		return fmt.Errorf("failed to add column must_set_password to users table: %w", err)
-	}
-	return nil
-}
-
-func (f *UserStore) existingColumns() (map[string]bool, error) {
-	rows, err := f.db.Query(`PRAGMA table_info(users)`)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			slog.Default().Error(logCloseRowsFailed, "error", err)
-		}
-	}()
-
-	cols := map[string]bool{}
-	for rows.Next() {
-		var cid, notNull, pk int
-		var name, ctype string
-		var dflt sql.NullString
-		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dflt, &pk); err != nil {
-			return nil, err
-		}
-		cols[name] = true
-	}
-	return cols, rows.Err()
-}
+func (f *UserStore) ensureSchema() error { return f.Connect() }
 
 func (f *UserStore) Close() error {
 	f.mu.Lock()
@@ -289,7 +194,7 @@ func (f *UserStore) UpdateUser(user *User) error {
 		  AND NOT (
 			role = ?
 			AND ? != ?
-			AND (SELECT COUNT(*) FROM users WHERE role = ?) <= 1
+			AND (SELECT COUNT(*) FROM (SELECT id FROM users WHERE role = ?) AS administrators) <= 1
 		  );
 	`, user.Username, user.Password, user.Email, user.Role, user.ID, RoleAdmin, user.Role, RoleAdmin, RoleAdmin)
 	if err != nil {
@@ -433,19 +338,10 @@ func (f *UserStore) GetUserCount() (int, error) {
 	return count, nil
 }
 
+// mapConstraintViolationToError preserves the public duplicate-account error.
 func (f *UserStore) mapConstraintViolationToError(err error) error {
-	// Check if the error is a constraint violation
-
-	if err, ok := err.(interface{ Error() string }); ok {
-		msg := err.Error()
-		// Check for unique constraint violation
-		if strings.Contains(msg, "UNIQUE constraint failed: users.username") {
-			return ErrUserAlreadyExists
-		}
-
-		if strings.Contains(msg, "UNIQUE constraint failed: users.email") {
-			return ErrUserAlreadyExists
-		}
+	if database.IsDuplicate(err) {
+		return ErrUserAlreadyExists
 	}
 	return err
 }
@@ -495,25 +391,4 @@ func (f *UserStore) SetMustSetPassword(userID string, value bool) error {
 		WHERE id = ?;
 	`, v, userID)
 	return err
-}
-
-// ensureCredentialSchema removes obsolete credential columns and keeps account rows intact.
-func (f *UserStore) ensureCredentialSchema() error {
-	columns, err := f.existingColumns()
-	if err != nil {
-		return err
-	}
-	if !columns["must_change_password"] {
-		if _, err := f.db.Exec("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0"); err != nil {
-			return err
-		}
-	}
-	for column := range columns {
-		if strings.HasPrefix(column, "totp_") {
-			if _, err := f.db.Exec(`ALTER TABLE users DROP COLUMN "` + column + `"`); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

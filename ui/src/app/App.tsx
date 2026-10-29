@@ -15,6 +15,7 @@ import { toast, Toaster } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { useBrandingStore } from '@/features/branding/state/branding'
 import { useConfigStore } from '@/shared/state/config'
+import { useRestoreStore } from '@/features/restore/state/restore'
 
 function App() {
   const { t } = useTranslation('common')
@@ -37,7 +38,10 @@ function App() {
   const clearFavorites = useFavoritesStore((s) => s.clearFavorites)
 
   const mustChangePassword = useSessionStore((s) => s.user?.mustChangePassword)
-  useEffect(() => startSettingsSync(), [])
+  const isRestoring = useRestoreStore((s) => s.isLoading || s.requiresLogin)
+  useEffect(() => {
+    if (!isRestoring) return startSettingsSync()
+  }, [isRestoring])
   useApplyDesignMode()
   useEffect(() => {
     loadConfig()

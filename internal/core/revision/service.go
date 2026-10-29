@@ -1,6 +1,7 @@
 package revision
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 
 	"sync"
@@ -19,7 +20,7 @@ const (
 type Service struct {
 	storageDir         string
 	pages              *tree.TreeService
-	store              *FSStore
+	store              *MySQLStore
 	maxRevisions       int // 0 = unlimited
 	coalesceWindow     time.Duration
 	log                *slog.Logger
@@ -44,7 +45,7 @@ func NewService(storageDir string, pages *tree.TreeService, logger *slog.Logger,
 		coalesceWindow = opts[0].CoalesceWindow
 	}
 
-	store := NewFSStore(storageDir, logger)
+	store := NewMySQLStore(storageDir, logger)
 	return &Service{
 		storageDir:     storageDir,
 		pages:          pages,
@@ -53,4 +54,14 @@ func NewService(storageDir string, pages *tree.TreeService, logger *slog.Logger,
 		coalesceWindow: coalesceWindow,
 		log:            logger.With("component", "RevisionService"),
 	}
+}
+
+// WithExecutor creates isolated request state sharing only immutable configuration.
+func (s *Service) WithExecutor(executor database.Executor, pages *tree.TreeService) *Service {
+	if s == nil {
+		return nil
+	}
+	bound := NewService(s.storageDir, pages, s.log, ServiceOptions{MaxRevisions: s.maxRevisions, CoalesceWindow: s.coalesceWindow})
+	bound.store.executor = executor
+	return bound
 }

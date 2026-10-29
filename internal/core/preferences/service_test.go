@@ -1,12 +1,14 @@
 package preferences
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"sync"
 	"testing"
 )
 
 // Global preferences persist independently from accounts and serialize partial writes.
 func TestGlobalPreferences(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	svc, err := New(dir)
 	if err != nil {

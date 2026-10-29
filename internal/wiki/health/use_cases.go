@@ -7,18 +7,18 @@ import (
 )
 
 type checkResult struct {
-	sqlite  string
+	mysql   string
 	dataDir string
 	search  string
 }
 
 type HealthUseCase struct {
-	index      *search.SQLiteIndex
+	index      *search.MySQLIndex
 	status     *search.IndexingStatus
 	storageDir string
 }
 
-func NewHealthUseCase(index *search.SQLiteIndex, status *search.IndexingStatus, storageDir string) *HealthUseCase {
+func NewHealthUseCase(index *search.MySQLIndex, status *search.IndexingStatus, storageDir string) *HealthUseCase {
 	return &HealthUseCase{
 		index:      index,
 		status:     status,
@@ -30,9 +30,9 @@ func (uc *HealthUseCase) Execute() (bool, map[string]string) {
 	r := checkResult{}
 
 	if err := uc.index.Ping(); err != nil {
-		r.sqlite = "failed"
+		r.mysql = "failed"
 	} else {
-		r.sqlite = "ok"
+		r.mysql = "ok"
 	}
 
 	if info, err := os.Stat(uc.storageDir); err != nil || !info.IsDir() {
@@ -51,11 +51,11 @@ func (uc *HealthUseCase) Execute() (bool, map[string]string) {
 	}
 
 	checks := map[string]string{
-		"sqlite":   r.sqlite,
+		"mysql":    r.mysql,
 		"data_dir": r.dataDir,
 		"search":   r.search,
 	}
 
-	healthy := r.sqlite == "ok" && r.dataDir == "ok" && r.search != "failed"
+	healthy := r.mysql == "ok" && r.dataDir == "ok" && r.search != "failed"
 	return healthy, checks
 }

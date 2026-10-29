@@ -9,6 +9,8 @@ RUN npm ci --ignore-scripts
 
 COPY ./ui/ ./
 COPY ./scripts/sync-error-catalogs.mjs /app/scripts/sync-error-catalogs.mjs
+COPY ./scripts/resolve-version.mjs /app/scripts/resolve-version.mjs
+COPY ./internal/core/serviceports/ports.json /app/internal/core/serviceports/ports.json
 RUN mkdir -p /app/internal/core/localization
 RUN VITE_API_URL=/ npm run build
 

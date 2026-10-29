@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -61,6 +62,7 @@ func setupUpdateUserUseCase(t *testing.T) (*UpdateUserUseCase, *coreauth.UserSer
 // TestUpdateUser_AdminCanChangeRole verifies that an admin requester can promote
 // or demote another user's role.
 func TestUpdateUser_AdminCanChangeRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	viewer, err := svc.CreateUser("viewer", "viewer@example.com", "pass", coreauth.RoleViewer)
@@ -86,6 +88,7 @@ func TestUpdateUser_AdminCanChangeRole(t *testing.T) {
 // TestUpdateUser_AdminCanUpdateProfileWithoutRole verifies that an admin can
 // update username/email without sending a role and the existing role is kept.
 func TestUpdateUser_AdminCanUpdateProfileWithoutRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	editor, err := svc.CreateUser("ed", "ed@example.com", "pass", coreauth.RoleEditor)
@@ -118,6 +121,7 @@ func TestUpdateUser_AdminCanUpdateProfileWithoutRole(t *testing.T) {
 // GHSA-jj4r-587p-r5h5: a viewer calling PUT /api/users/:id on their own account
 // must not be able to promote themselves to admin.
 func TestUpdateUser_NonAdminCannotEscalateRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	viewer, err := svc.CreateUser("viewer", "viewer@example.com", "pass", coreauth.RoleViewer)
@@ -143,6 +147,7 @@ func TestUpdateUser_NonAdminCannotEscalateRole(t *testing.T) {
 // TestUpdateUser_NonAdminCanUpdateOwnProfile verifies that non-admin users can
 // still change their username and email while their role stays unchanged.
 func TestUpdateUser_NonAdminCanUpdateOwnProfile(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	editor, err := svc.CreateUser("ed", "ed@example.com", "pass", coreauth.RoleEditor)
@@ -174,6 +179,7 @@ func TestUpdateUser_NonAdminCanUpdateOwnProfile(t *testing.T) {
 // TestUpdateUser_LastAdminCannotSelfDemote verifies that the last admin cannot
 // demote themselves, which would leave the system with no admins.
 func TestUpdateUser_LastAdminCannotSelfDemote(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	admin, err := svc.CreateUser("admin", "admin@example.com", "pass", coreauth.RoleAdmin)
@@ -196,6 +202,7 @@ func TestUpdateUser_LastAdminCannotSelfDemote(t *testing.T) {
 // TestUpdateUser_AdminCanBeDemotedWhenAnotherExists verifies that an admin can
 // lose their role as long as at least one other admin remains.
 func TestUpdateUser_AdminCanBeDemotedWhenAnotherExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	admin1, _ := svc.CreateUser("admin1", "admin1@example.com", "pass", coreauth.RoleAdmin)
@@ -219,6 +226,7 @@ func TestUpdateUser_AdminCanBeDemotedWhenAnotherExists(t *testing.T) {
 // TestUpdateUser_AdminInvalidRole checks that an admin supplying an unknown role
 // gets a validation error rather than storing garbage.
 func TestUpdateUser_AdminInvalidRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	user, err := svc.CreateUser("alice", "alice@example.com", "pass", coreauth.RoleViewer)
@@ -239,6 +247,7 @@ func TestUpdateUser_AdminInvalidRole(t *testing.T) {
 }
 
 func TestLoginUseCase_EmitsSuccessMetric(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authSvc, userSvc, metrics := setupAuthUseCases(t, false)
 	if _, err := userSvc.CreateUser("alice", "alice@example.com", "securepass", coreauth.RoleViewer); err != nil {
 		t.Fatalf("CreateUser: %v", err)
@@ -263,6 +272,7 @@ func TestLoginUseCase_EmitsSuccessMetric(t *testing.T) {
 // (distinct from the "invalid_credentials" outcome of the failures that
 // triggered the lock itself — see loginAttemptTracker.recordAttempt).
 func TestLoginUseCase_EmitsLockedMetric(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authSvc, userSvc, metrics := setupAuthUseCases(t, false)
 	if _, err := userSvc.CreateUser("alice", "alice@example.com", "securepass", coreauth.RoleViewer); err != nil {
 		t.Fatalf("CreateUser: %v", err)
@@ -293,6 +303,7 @@ func TestLoginUseCase_EmitsLockedMetric(t *testing.T) {
 // TestLogoutUseCase_EmitsSessionRevokedMetric verifies a normal logout after a
 // successful login records the session as revoked.
 func TestLogoutUseCase_EmitsSessionRevokedMetric(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authSvc, userSvc, metrics := setupAuthUseCases(t, false)
 	if _, err := userSvc.CreateUser("alice", "alice@example.com", "securepass", coreauth.RoleViewer); err != nil {
 		t.Fatalf("CreateUser: %v", err)
@@ -316,6 +327,7 @@ func TestLogoutUseCase_EmitsSessionRevokedMetric(t *testing.T) {
 }
 
 func TestDeleteUser_RemovesFavoritesForUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := coreauth.NewUserStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewUserStore: %v", err)
@@ -424,6 +436,7 @@ func TestDeleteUser_RemovesFavoritesForUser(t *testing.T) {
 // nil-guard around API key cleanup: when API key management is disabled
 // (apiKeys is nil, the default), deleting a user must not panic or error.
 func TestDeleteUser_APIKeysDisabled_SkipsCleanupWithoutError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := coreauth.NewUserStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewUserStore: %v", err)
@@ -479,6 +492,7 @@ func TestDeleteUser_APIKeysDisabled_SkipsCleanupWithoutError(t *testing.T) {
 // but never touches whatever a caller captured directly, so a use case built
 // that way is left holding a closed store forever after a restore.
 func TestGetUsersUseCase_ReflectsLiveRestore(t *testing.T) {
+	testutil.ResetMySQL(t)
 	preDir := t.TempDir()
 	preStore, err := coreauth.NewUserStore(preDir)
 	if err != nil {
@@ -554,6 +568,7 @@ func TestGetUsersUseCase_ReflectsLiveRestore(t *testing.T) {
 // set through the user-management update enforces the same minimum length as
 // create, change-own-password and reset.
 func TestUpdateUser_ShortPassword_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	editor, err := svc.CreateUser("ed", "ed@example.com", "secretpassword", coreauth.RoleEditor)
@@ -582,6 +597,7 @@ func TestUpdateUser_ShortPassword_ReturnsValidationError(t *testing.T) {
 // user-management update cannot change the requester's own password — that
 // goes through ChangeOwnPassword, which verifies the current password.
 func TestUpdateUser_OwnPassword_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	admin, err := svc.CreateUser("boss", "boss@example.com", "secretpassword", coreauth.RoleAdmin)
@@ -609,6 +625,7 @@ func TestUpdateUser_OwnPassword_ReturnsValidationError(t *testing.T) {
 // TestUpdateUser_OwnProfileWithoutPassword_Succeeds verifies that editing the
 // requester's own username/email (no password) keeps working.
 func TestUpdateUser_OwnProfileWithoutPassword_Succeeds(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc := setupUpdateUserUseCase(t)
 
 	admin, err := svc.CreateUser("boss", "boss@example.com", "secretpassword", coreauth.RoleAdmin)

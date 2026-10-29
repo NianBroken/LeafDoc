@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 	"time"
 )
@@ -16,6 +17,7 @@ func setupTestUserResolver(t *testing.T) (*UserResolver, *UserService) {
 }
 
 func TestUserResolver_ResolveUserLabel_ResolvesKnownUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	resolver, service := setupTestUserResolver(t)
 
 	user, err := service.CreateUser("alice", "alice@example.com", "secure", "editor")
@@ -33,6 +35,7 @@ func TestUserResolver_ResolveUserLabel_ResolvesKnownUser(t *testing.T) {
 }
 
 func TestUserResolver_ResolveUserLabel_CachesLookupMissesSoRepeatedCallsDontHitTheStore(t *testing.T) {
+	testutil.ResetMySQL(t)
 	resolver, _ := setupTestUserResolver(t)
 
 	// First call for an ID that was never a real user (e.g. a deleted
@@ -66,6 +69,7 @@ func TestUserResolver_ResolveUserLabel_CachesLookupMissesSoRepeatedCallsDontHitT
 }
 
 func TestUserResolver_Reload_ClearsCachedMisses(t *testing.T) {
+	testutil.ResetMySQL(t)
 	resolver, _ := setupTestUserResolver(t)
 
 	if _, err := resolver.ResolveUserLabel("does-not-exist"); err == nil {
@@ -98,6 +102,7 @@ func TestUserResolver_Reload_ClearsCachedMisses(t *testing.T) {
 // in that sub-second window would forever resolve nil for that user even
 // after the restore completed and the store came back.
 func TestUserResolver_ResolveUserLabel_DoesNotCacheStoreUnavailableAsMiss(t *testing.T) {
+	testutil.ResetMySQL(t)
 	resolver, service := setupTestUserResolver(t)
 
 	user, err := service.CreateUser("bob", "bob@example.com", "secure", "editor")
@@ -132,6 +137,7 @@ func TestUserResolver_ResolveUserLabel_DoesNotCacheStoreUnavailableAsMiss(t *tes
 // AuthService.ReplaceUserStore swap, so a cache-miss lookup for a user that
 // only exists in the restored store fails forever.
 func TestUserResolver_ResolveUserLabel_ReflectsLiveRestore(t *testing.T) {
+	testutil.ResetMySQL(t)
 	preStore, err := NewUserStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewUserStore(pre): %v", err)

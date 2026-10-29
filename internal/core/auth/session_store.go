@@ -3,51 +3,31 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
-
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
-	_ "modernc.org/sqlite"
 )
 
 type SessionStore struct {
 	mu         sync.Mutex
 	storageDir string
-	filename   string
 	db         *sql.DB
 	cancel     context.CancelFunc
 	done       chan struct{}
 	log        *slog.Logger
 }
 
-func sessionDatabasePath(storageDir string, filename string) string {
-	normalizedStorageDir := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
-	return filepath.Join(normalizedStorageDir, filename)
-}
-
 func NewSessionStore(storageDir string) (*SessionStore, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &SessionStore{
 		storageDir: storageDir,
-		filename:   "sessions.db",
 		cancel:     cancel,
 		done:       make(chan struct{}),
 		log:        slog.Default().With("component", "SessionStore"),
 	}
 
-	err := sqliteutil.OpenWithPolicy(sessionDatabasePath(s.storageDir, s.filename), sqliteutil.QuarantineOnCorruption, func() error {
-		if err := s.ensureSchema(); err != nil {
-			if s.db != nil {
-				_ = s.db.Close()
-				s.db = nil
-			}
-			return err
-		}
-		return nil
-	})
+	err := s.ensureSchema()
 	if err != nil {
 		cancel()
 		return nil, err
@@ -79,7 +59,7 @@ func (s *SessionStore) withDB(fn func(db *sql.DB) error) error {
 	defer s.mu.Unlock()
 
 	if s.db == nil {
-		db, err := sql.Open("sqlite", sessionDatabasePath(s.storageDir, s.filename)+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+		db, err := database.Open(s.storageDir)
 		if err != nil {
 			return err
 		}
@@ -90,24 +70,7 @@ func (s *SessionStore) withDB(fn func(db *sql.DB) error) error {
 }
 
 func (s *SessionStore) ensureSchema() error {
-	return s.withDB(func(db *sql.DB) error {
-		_, err := db.Exec(`
-			CREATE TABLE IF NOT EXISTS sessions (
-				id TEXT PRIMARY KEY,          -- jti
-				user_id TEXT NOT NULL,
-				token_type TEXT NOT NULL,     -- "refresh"
-				created_at INTEGER NOT NULL,  -- unix sec
-				expires_at INTEGER NOT NULL,  -- unix sec
-				revoked_at INTEGER            -- unix sec, NULL = active
-			);
-
-			CREATE INDEX IF NOT EXISTS sessions_user_id_idx
-				ON sessions(user_id);
-			CREATE INDEX IF NOT EXISTS sessions_user_id_token_type_idx
-				ON sessions(user_id, token_type);
-		`)
-		return err
-	})
+	return s.withDB(func(db *sql.DB) error { return db.Ping() })
 }
 
 func (s *SessionStore) Close() error {
@@ -204,9 +167,7 @@ func (s *SessionStore) RevokeAllSessionsForUserExcept(userID, exceptID string) e
 	})
 }
 
-// DeleteAllSessions removes every session row regardless of state (active,
-// expired, or already revoked) — used after a restore, where the previous
-// sessions.db content is no longer meaningful against a swapped-in users.db.
+// DeleteAllSessions invalidates every session after a database restore.
 func (s *SessionStore) DeleteAllSessions() error {
 	return s.withDB(func(db *sql.DB) error {
 		_, err := db.Exec(`DELETE FROM sessions;`)
@@ -223,4 +184,21 @@ func (s *SessionStore) CleanupExpiredSessions() error {
 		`, now.Unix())
 		return err
 	})
+}
+
+// Generation reads the persisted authentication epoch. An empty fresh database
+// receives one random UUID; reopening a store never rotates an existing epoch.
+func (s *SessionStore) Generation() (string, error) {
+	var generation string
+	err := s.withDB(func(db *sql.DB) error {
+		err := db.QueryRow("SELECT generation FROM auth_state WHERE id=1").Scan(&generation)
+		if err != sql.ErrNoRows {
+			return err
+		}
+		if _, err := db.Exec("INSERT INTO auth_state(id,generation) VALUES(1,UUID()) ON DUPLICATE KEY UPDATE generation=auth_state.generation"); err != nil {
+			return err
+		}
+		return db.QueryRow("SELECT generation FROM auth_state WHERE id=1").Scan(&generation)
+	})
+	return generation, err
 }

@@ -1,13 +1,15 @@
 package snapshot
 
 import (
-	"os"
-	"path/filepath"
+	"encoding/json"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 	"time"
 )
 
 func TestSettingsStorePersistsAndAppliesSettings(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := NewSettingsStore(dir, 24*time.Hour, 5)
 	if err != nil {
@@ -29,9 +31,17 @@ func TestSettingsStorePersistsAndAppliesSettings(t *testing.T) {
 	if got := reloaded.Get(); got != want {
 		t.Fatalf("persisted settings = %+v, want %+v", got, want)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "snapshot-settings.json"), []byte(`{"enabled":false,"runOnStartup":false,"mode":"daily","hour":2,"minute":0,"timeZone":"UTC","retentionCount":3}`), 0o600); err != nil {
+	restored := want
+	restored.Enabled = false
+	restored.RetentionCount = 3
+	raw, err := json.Marshal(restored)
+	if err != nil {
 		t.Fatal(err)
 	}
+	if err := database.WriteRecord(dir, "settings", "snapshot-settings.json", raw); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := store.Reload(); err != nil {
 		t.Fatal(err)
 	}

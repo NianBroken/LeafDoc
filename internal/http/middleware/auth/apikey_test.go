@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -98,6 +99,7 @@ func apiKeyRouter(cfg authmw.APIKeyConfig, presetUser *coreauth.User) *gin.Engin
 }
 
 func TestInjectAPIKeyUser_ServiceNotConfigured(t *testing.T) {
+	testutil.ResetMySQL(t)
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.Header.Set("Authorization", "Bearer lw_deadbeef_"+"a")
 	w := httptest.NewRecorder()
@@ -110,6 +112,7 @@ func TestInjectAPIKeyUser_ServiceNotConfigured(t *testing.T) {
 }
 
 func TestInjectAPIKeyUser_NoAuthorizationHeader(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -124,6 +127,7 @@ func TestInjectAPIKeyUser_NoAuthorizationHeader(t *testing.T) {
 }
 
 func TestInjectAPIKeyUser_NonLeafDocBearerPassesThrough(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -140,6 +144,7 @@ func TestInjectAPIKeyUser_NonLeafDocBearerPassesThrough(t *testing.T) {
 }
 
 func TestInjectAPIKeyUser_DoesNotOverrideAlreadySetUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -167,6 +172,7 @@ func TestInjectAPIKeyUser_DoesNotOverrideAlreadySetUser(t *testing.T) {
 }
 
 func TestInjectAPIKeyUser_ValidKeySetsUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -192,6 +198,7 @@ func TestInjectAPIKeyUser_ValidKeySetsUser(t *testing.T) {
 }
 
 func TestInjectAPIKeyUser_InvalidKeyRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -207,6 +214,7 @@ func TestInjectAPIKeyUser_InvalidKeyRejected(t *testing.T) {
 }
 
 func TestInjectAPIKeyUser_RevokedKeyRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -239,6 +247,7 @@ func TestInjectAPIKeyUser_RevokedKeyRejected(t *testing.T) {
 // counted against its rate-limit budget on top of that.
 
 func TestInjectAPIKeyUser_KeyStoreSuspended_Returns503(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -265,6 +274,7 @@ func TestInjectAPIKeyUser_KeyStoreSuspended_Returns503(t *testing.T) {
 }
 
 func TestInjectAPIKeyUser_UserStoreSuspended_Returns503(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -295,6 +305,7 @@ func TestInjectAPIKeyUser_UserStoreSuspended_Returns503(t *testing.T) {
 // client backing off and retrying during a live restore's brief suspend
 // window must never get 429'd for doing exactly what the 503 asked it to do.
 func TestInjectAPIKeyUser_StoreUnavailable_NotCountedAsFailedAttempt(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -328,6 +339,7 @@ func TestInjectAPIKeyUser_StoreUnavailable_NotCountedAsFailedAttempt(t *testing.
 // 429, protecting against prefix/secret guessing now that Resolve uses a
 // fast constant-time compare instead of the (deliberately slow) bcrypt.
 func TestInjectAPIKeyUser_RateLimitsFailedAttempts(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -358,6 +370,7 @@ func TestInjectAPIKeyUser_RateLimitsFailedAttempts(t *testing.T) {
 // TestInjectAPIKeyUser_RateLimiterResetsOnValidKey verifies a valid key's
 // traffic never accumulates toward the failed-attempt limit.
 func TestInjectAPIKeyUser_RateLimiterResetsOnValidKey(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 
@@ -386,6 +399,7 @@ func TestInjectAPIKeyUser_RateLimiterResetsOnValidKey(t *testing.T) {
 // InjectAPIKeyUser sets the user, then RequireAuth short-circuits JWT validation
 // — the same contract TestInjectRemoteUser_WithRequireAuth verifies for proxy auth.
 func TestInjectAPIKeyUser_WithRequireAuth(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createAPIKeyFixture(t)
 	cleanupWithErrorCheck(t, "api key fixture", f.closeAll)
 

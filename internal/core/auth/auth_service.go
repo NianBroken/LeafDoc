@@ -11,9 +11,7 @@ import (
 )
 
 type AuthService struct {
-	// mu guards only userService — it's the one field ReplaceUserStore swaps
-	// after a restore (users.db is part of the snapshot ZIP). sessions'
-	// underlying session store is never swapped, so it needs no lock.
+	// mu guards the account service handle during restoration.
 	mu          sync.RWMutex
 	userService *UserService
 	sessions    *SessionManager
@@ -33,23 +31,12 @@ func (a *AuthService) users() *UserService {
 	return a.userService
 }
 
-// UserService returns the current *UserService (exported alias of users, for
-// callers outside this package). APIKeyService depends on this rather than
-// caching its own *UserService, so its owner lookups (Resolve) automatically
-// track ReplaceUserStore swaps after a live restore instead of going stale —
-// api_keys.db is the only user data APIKeyService owns and hot-swaps itself.
+// UserService returns the active account service after any restoration.
 func (a *AuthService) UserService() *UserService {
 	return a.users()
 }
 
-// ReplaceUserStore opens a fresh UserStore/UserService against
-// storageDir/users.db and swaps it in, closing the previous one afterward.
-// Used by a live restore after users.db has been swapped in on disk. Requests
-// already in flight against the old *UserService when the swap happens just
-// finish against it (a query on an about-to-close *sql.DB may transiently
-// fail) — acceptable given the write-gate has already stopped new mutating
-// traffic for the duration of the restore, and GET requests self-heal on
-// their next call.
+// ReplaceUserStore replaces the account connection after MySQL restoration.
 func (a *AuthService) ReplaceUserStore(storageDir string) error {
 	newStore, err := NewUserStore(storageDir)
 	if err != nil {
@@ -73,23 +60,12 @@ func (a *AuthService) ReplaceUserStore(storageDir string) error {
 	return nil
 }
 
-// PauseUserStoreForSwap closes the current UserStore's *sql.DB connection
-// and prevents it from reconnecting, releasing any OS-level file lock on
-// users.db before a live restore renames it. Needed on Windows, where an
-// open file handle blocks os.Rename with a sharing violation (POSIX allows
-// renaming an open file, which is why this was never needed there). Does not
-// replace the store — ReplaceUserStore does that afterward once the swap has
-// completed — so a request landing in between gets a clean, immediate error
-// (see errUserStoreUnavailable) instead of racing a reconnect against the
-// in-progress rename.
+// PauseUserStoreForSwap blocks account access during restoration.
 func (a *AuthService) PauseUserStoreForSwap() error {
 	return a.users().suspendStore()
 }
 
-// InvalidateAllSessions revokes every active session on this instance —
-// every logged-in user (including whoever triggered this) must log back in.
-// Used after a restore: the restored users.db may have entirely different
-// user IDs/passwords than the sessions currently trusting this process.
+// InvalidateAllSessions requires fresh authentication after restored accounts are committed.
 func (a *AuthService) InvalidateAllSessions() error {
 	return a.sessions.sessionStore.DeleteAllSessions()
 }

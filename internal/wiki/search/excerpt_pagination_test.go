@@ -2,8 +2,7 @@ package search
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"strings"
 	"testing"
 
@@ -14,9 +13,6 @@ import (
 func setupExcerptPages(tb testing.TB, count int) (*SearchUseCase, []string) {
 	tb.Helper()
 	dir := tb.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "root"), 0755); err != nil {
-		tb.Fatal(err)
-	}
 	store, err := coretags.NewTagsStore(dir)
 	if err != nil {
 		tb.Fatal(err)
@@ -27,24 +23,36 @@ func setupExcerptPages(tb testing.TB, count int) (*SearchUseCase, []string) {
 		}
 	})
 	tags := coretags.NewTagsService(store)
-	ids := make([]string, count)
-	for i := range ids {
-		ids[i] = fmt.Sprintf("p-%04d", i)
-		raw := fmt.Sprintf("---\nleafdoc_id: %s\nleafdoc_title: Page %04d\nleafdoc_created_at: 2026-01-01T00:00:00Z\nleafdoc_updated_at: 2026-01-01T00:00:00Z\nleafdoc_creator_id: system\nleafdoc_last_author_id: system\ntags: [docs]\n---\n\nUnique excerpt %04d", ids[i], i, i)
-		if err := os.WriteFile(filepath.Join(dir, "root", fmt.Sprintf("page-%04d.md", i)), []byte(raw), 0644); err != nil {
-			tb.Fatal(err)
-		}
-		if err := tags.IndexPageContent(ids[i], raw); err != nil {
-			tb.Fatal(err)
-		}
-	}
 	svc := tree.NewTreeService(dir)
 	if err := svc.LoadTree(); err != nil {
 		tb.Fatal(err)
 	}
+	ids := make([]string, count)
+	kind := tree.NodeKindPage
+	for i := range ids {
+		title := fmt.Sprintf("Page %04d", i)
+		slug := fmt.Sprintf("page-%04d", i)
+		id, err := svc.CreateNode("system", nil, title, slug, &kind)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		ids[i] = *id
+		raw := fmt.Sprintf("---\ntags: [docs]\n---\n\nUnique excerpt %04d", i)
+		if err := svc.UpdateNode(tree.UpdateNodeInput{UserID: "system", ID: *id, Title: title, Slug: slug, Content: &raw, ExpectedVersion: tree.VersionUnchecked, PreserveFrontmatter: true}); err != nil {
+			tb.Fatal(err)
+		}
+		page, err := svc.GetPage(*id)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		if err := tags.IndexPageContent(*id, page.RawContent); err != nil {
+			tb.Fatal(err)
+		}
+	}
 	return NewSearchUseCase(nil, tags, svc), ids
 }
 func TestSearchUseCase_SearchByTags_PaginationPreservesExcerptsAndFacets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, ids := setupExcerptPages(t, 5)
 	for _, tc := range []struct{ offset, limit, want int }{{1, 2, 2}, {10, 2, 0}, {-1, 0, 5}} {
 		out, err := uc.searchByTags(ids, tc.offset, tc.limit)
@@ -58,7 +66,7 @@ func TestSearchUseCase_SearchByTags_PaginationPreservesExcerptsAndFacets(t *test
 			t.Fatalf("facets %#v", out.Result.TagFacets)
 		}
 		for _, item := range out.Result.Items {
-			suffix := strings.TrimPrefix(item.PageID, "p-")
+			suffix := strings.TrimPrefix(item.Title, "Page ")
 			if !strings.Contains(item.Excerpt, "Unique excerpt "+suffix) {
 				t.Fatalf("wrong excerpt %+v", item)
 			}

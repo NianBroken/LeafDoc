@@ -2,7 +2,6 @@ package favorites
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
@@ -24,25 +23,25 @@ func newTestStore(t *testing.T) *FavoritesStore {
 	return store
 }
 
-func TestFavoritesStore_CreatesDatabaseInStorageDir(t *testing.T) {
-	tmp := t.TempDir()
-	store, err := NewFavoritesStore(tmp, nil)
+func TestFavoritesStore_CreatesNoLocalDatabase(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	store, err := NewFavoritesStore(dir, nil)
 	if err != nil {
-		t.Fatalf("NewFavoritesStore: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	if _, err := os.Stat(filepath.Join(tmp, "favorites.db")); err != nil {
-		t.Fatalf("expected favorites.db to exist: %v", err)
+	defer store.Close()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unexpected local persistence: %v", entries)
 	}
 }
 
 func TestFavoritesStore_IdempotentSchema(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	for i := 0; i < 3; i++ {
 		store, err := NewFavoritesStore(tmp, nil)
@@ -56,6 +55,7 @@ func TestFavoritesStore_IdempotentSchema(t *testing.T) {
 }
 
 func TestFavoritesStore_Add_ThenListPageIDsForUser_ReturnsIt(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.Add("user-1", "page-1"); err != nil {
@@ -72,6 +72,7 @@ func TestFavoritesStore_Add_ThenListPageIDsForUser_ReturnsIt(t *testing.T) {
 }
 
 func TestFavoritesStore_Add_IsIdempotent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.Add("user-1", "page-1"); err != nil {
@@ -91,6 +92,7 @@ func TestFavoritesStore_Add_IsIdempotent(t *testing.T) {
 }
 
 func TestFavoritesStore_Remove_IsIdempotentAndRemovesOnlyThatUsersFavorite(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.Add("user-1", "page-1"); err != nil {
@@ -126,6 +128,7 @@ func TestFavoritesStore_Remove_IsIdempotentAndRemovesOnlyThatUsersFavorite(t *te
 }
 
 func TestFavoritesStore_ListPageIDsForUser_ScopedPerUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.Add("user-1", "page-1"); err != nil {
@@ -145,6 +148,7 @@ func TestFavoritesStore_ListPageIDsForUser_ScopedPerUser(t *testing.T) {
 }
 
 func TestFavoritesStore_DeleteAllForPage_RemovesAcrossUsers(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.Add("user-1", "page-1"); err != nil {
@@ -179,6 +183,7 @@ func TestFavoritesStore_DeleteAllForPage_RemovesAcrossUsers(t *testing.T) {
 }
 
 func TestFavoritesStore_DeleteAllForUser_RemovesOnlyThatUsersFavorites(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.Add("user-1", "page-1"); err != nil {
@@ -213,6 +218,7 @@ func TestFavoritesStore_DeleteAllForUser_RemovesOnlyThatUsersFavorites(t *testin
 }
 
 func TestFavoritesStore_PauseForSwap_ClosesDBAndBlocksQueries(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	if err := store.Add("user-1", "page-1"); err != nil {
 		t.Fatalf("Add: %v", err)
@@ -243,6 +249,7 @@ func TestFavoritesStore_PauseForSwap_ClosesDBAndBlocksQueries(t *testing.T) {
 }
 
 func TestFavoritesStore_Replace_ReopensAgainstNewFileAndClosesOld(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := NewFavoritesStore(dir, nil)
 	if err != nil {
@@ -262,9 +269,8 @@ func TestFavoritesStore_Replace_ReopensAgainstNewFileAndClosesOld(t *testing.T) 
 		t.Fatalf("PauseForSwap: %v", err)
 	}
 
-	// Simulate a restore having swapped in a different favorites.db at the
-	// same path while this store's handle was released.
-	if err := os.Remove(filepath.Join(dir, "favorites.db")); err != nil {
+	// Account and session records persist in MySQL across store reopening.
+	if err := replacementClearFavorites(dir); err != nil {
 		t.Fatalf("remove original favorites.db: %v", err)
 	}
 	replacement, err := NewFavoritesStore(dir, nil)
@@ -296,42 +302,15 @@ func TestFavoritesStore_Replace_ReopensAgainstNewFileAndClosesOld(t *testing.T) 
 	}
 }
 
-// A corrupt favorites.db is moved aside with its sidecars, never deleted,
-// and the store keeps working on an empty database (ADR-0013); a 0-byte file
-// is a valid empty database and stays where it is.
-func TestNewFavoritesStore_UnreadableOrEmptyFile(t *testing.T) {
-	tests := []struct {
-		name           string
-		setup          func(t *testing.T, dbPath string) map[string]string
-		wantQuarantine bool
-	}{
-		{name: "corrupt file is quarantined", setup: testutil.WriteCorruptSQLiteDB, wantQuarantine: true},
-		{name: "0-byte file is a valid database", setup: func(t *testing.T, dbPath string) map[string]string {
-			testutil.WriteFile(t, filepath.Dir(dbPath), filepath.Base(dbPath), "")
-			return nil
-		}},
+// Account and session records persist in MySQL across store reopening.
+
+// replacementClearFavorites models a transactional restore changing the records.
+func replacementClearFavorites(dir string) error {
+	store, err := NewFavoritesStore(dir, nil)
+	if err != nil {
+		return err
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			dbPath := filepath.Join(dir, "favorites.db")
-			files := tt.setup(t, dbPath)
-
-			store, err := NewFavoritesStore(dir, nil)
-			if err != nil {
-				t.Fatalf("NewFavoritesStore: %v", err)
-			}
-			defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-			if err := store.Add("user-1", "page-1"); err != nil {
-				t.Fatalf("Add: %v", err)
-			}
-
-			if tt.wantQuarantine {
-				testutil.AssertSQLiteQuarantined(t, dbPath, files)
-			} else {
-				testutil.AssertNoSQLiteQuarantine(t, dbPath)
-			}
-		})
-	}
+	defer store.Close()
+	_, err = store.db.Exec("DELETE FROM favorites")
+	return err
 }

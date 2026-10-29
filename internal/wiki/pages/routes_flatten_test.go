@@ -1,10 +1,12 @@
 package pages
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 )
 
 func TestFlattenMetadataEntry_FlatString(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("key", "value", result)
 	if result["key"] != "value" {
@@ -13,6 +15,7 @@ func TestFlattenMetadataEntry_FlatString(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_NestedOneLevel(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("a", map[string]interface{}{"b": "val"}, result)
 	if result["a.b"] != "val" {
@@ -21,6 +24,7 @@ func TestFlattenMetadataEntry_NestedOneLevel(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_NestedTwoLevels(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("a", map[string]interface{}{
 		"b": map[string]interface{}{"c": "deep"},
@@ -31,6 +35,7 @@ func TestFlattenMetadataEntry_NestedTwoLevels(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_SkipsEmptyStringValue(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("key", "", result)
 	if _, ok := result["key"]; ok {
@@ -39,6 +44,7 @@ func TestFlattenMetadataEntry_SkipsEmptyStringValue(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_SkipsWhitespaceOnlyValue(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("key", "   ", result)
 	if _, ok := result["key"]; ok {
@@ -47,6 +53,7 @@ func TestFlattenMetadataEntry_SkipsWhitespaceOnlyValue(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_SkipsValueWithNewline(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("key", "line1\nline2", result)
 	if _, ok := result["key"]; ok {
@@ -55,6 +62,7 @@ func TestFlattenMetadataEntry_SkipsValueWithNewline(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_SkipsNonStringLeaf(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("key", 42, result)
 	if _, ok := result["key"]; ok {
@@ -63,6 +71,7 @@ func TestFlattenMetadataEntry_SkipsNonStringLeaf(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_SkipsLeafdocChildSegment(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("meta", map[string]interface{}{
 		"leafdoc_id": "secret",
@@ -77,6 +86,7 @@ func TestFlattenMetadataEntry_SkipsLeafdocChildSegment(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_SkipsEmptyChildKey(t *testing.T) {
+	testutil.ResetMySQL(t)
 	result := map[string]string{}
 	flattenMetadataEntry("a", map[string]interface{}{
 		"":  "empty-key-value",
@@ -93,6 +103,7 @@ func TestFlattenMetadataEntry_SkipsEmptyChildKey(t *testing.T) {
 // ─── extractPageMetadata ─────────────────────────────────────────────────────
 
 func TestExtractPageMetadata_SkipsTagsAlways(t *testing.T) {
+	testutil.ResetMySQL(t)
 	fields := map[string]interface{}{
 		"tags":   []interface{}{"go", "react"},
 		"status": "draft",
@@ -110,6 +121,7 @@ func TestExtractPageMetadata_SkipsTagsAlways(t *testing.T) {
 }
 
 func TestExtractPageMetadata_TitleInExtraFieldsIsAlwaysCustomProperty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// "title" always lands in ExtraFields and is always treated as a custom
 	// property by extractPageMetadata.
 	fields := map[string]interface{}{
@@ -123,6 +135,7 @@ func TestExtractPageMetadata_TitleInExtraFieldsIsAlwaysCustomProperty(t *testing
 }
 
 func TestExtractPageMetadata_SkipsLeafdocPrefixAlways(t *testing.T) {
+	testutil.ResetMySQL(t)
 	fields := map[string]interface{}{
 		"leafdoc_id": "abc",
 		"status":     "draft",
@@ -134,6 +147,7 @@ func TestExtractPageMetadata_SkipsLeafdocPrefixAlways(t *testing.T) {
 }
 
 func TestFlattenMetadataEntry_DepthLimitDoesNotPanic(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Build a map nested maxFlattenDepth+5 levels deep
 	inner := map[string]interface{}{"leaf": "value"}
 	for i := 0; i < maxFlattenDepth+5; i++ {

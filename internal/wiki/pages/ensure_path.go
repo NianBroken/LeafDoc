@@ -3,6 +3,7 @@ package pages
 import (
 	"context"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"strings"
 
@@ -43,7 +44,20 @@ func NewEnsurePathUseCase(
 }
 
 // Execute ensures the path exists and returns the final node.
-func (uc *EnsurePathUseCase) Execute(_ context.Context, in EnsurePathInput) (*EnsurePathOutput, error) {
+func (uc *EnsurePathUseCase) Execute(ctx context.Context, in EnsurePathInput) (*EnsurePathOutput, error) {
+	if !uc.tree.InUnitOfWork() {
+		var result *EnsurePathOutput
+		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.orchestrator = o
+			var inner error
+			result, inner = copy.Execute(ctx, in)
+			return inner
+		})
+		return result, err
+	}
+
 	ve := sharederrors.NewValidationErrors()
 
 	cleanPath := strings.Trim(strings.TrimSpace(in.TargetPath), "/")
@@ -128,12 +142,14 @@ func (uc *EnsurePathUseCase) Execute(_ context.Context, in EnsurePathInput) (*En
 			uc.log.Warn("failed to get page for post-create processing", "pageID", n.ID, "error", tree.ErrPageNotFound)
 			continue
 		}
-		uc.orchestrator.Run(pagesave.PageSaveEvent{
+		if err := uc.orchestrator.Run(pagesave.PageSaveEvent{
 			Operation: pagesave.PageOperationCreate,
 			UserID:    in.UserID,
 			After:     p,
 			Summary:   "page created via ensure path",
-		})
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return &EnsurePathOutput{Page: page}, nil

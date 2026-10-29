@@ -1,55 +1,62 @@
 package restore
 
 import (
-	"fmt"
+	"context"
+	"errors"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
 	"os"
 	"path/filepath"
-
-	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
-// RestoreOffline validates and swaps a snapshot ZIP directly into dataDir,
-// without any of the live-instance machinery (no write gate, no AuthService
-// reopen, no resync trigger). Intended to run before the server starts —
-// the next NewWiki() cold boot picks up the restored users.db/tree/etc for
-// free. Used by `leafdoc restore-snapshot`.
-//
-// zipPath is a local filesystem path the operator running this CLI command
-// chose directly — running it already requires the same filesystem access
-// the caps would be defending, so extraction runs unrestricted rather than
-// under DefaultZipExtractionLimits, matching the by-id online-restore path.
+// interventionError keeps maintenance active when resource rollback is incomplete.
+type interventionError struct{ cause error }
+
+func (e *interventionError) Error() string { return e.cause.Error() }
+func (e *interventionError) Unwrap() error { return e.cause }
+
+func rollbackResources(sw *swapper, cause error) error {
+	if rollbackErr := sw.RollbackAll(); rollbackErr != nil {
+		return &interventionError{errors.Join(cause, rollbackErr)}
+	}
+	return cause
+}
+
+// RestoreOffline uses the same validation, database transaction and resource swap as live restore.
 func RestoreOffline(dataDir, zipPath string) error {
-	stagingDir, _, err := extractAndValidateWithLimits(zipPath, dataDir, coreshared.UnrestrictedExtractionLimits)
+	staging, _, err := extractAndValidateWithLimits(zipPath, dataDir, coreshared.UnrestrictedExtractionLimits)
 	if err != nil {
-		return fmt.Errorf("snapshot validation failed: %w", err)
+		return err
 	}
-	defer func() { _ = os.RemoveAll(stagingDir) }()
+	defer os.RemoveAll(staging)
+	database.MaintenanceMu.Lock()
+	defer database.MaintenanceMu.Unlock()
+	return restoreStaged(dataDir, staging)
+}
 
-	// No live connection exists in this offline path (the server hasn't
-	// started yet), so any leftover -wal/-shm here is from a prior unclean
-	// shutdown, not in-flight state — see removeStaleWALSidecars for why
-	// this still needs cleaning up before the swap. Only a database this
-	// snapshot actually staged gets its live sidecars cleaned. A database
-	// SwapAll will leave untouched (see newSwapper's doc comment) may have a
-	// live WAL holding real committed-but-uncheckpointed data, which
-	// deleting the sidecar would discard for good.
-	for _, name := range walSidecarDBNames {
-		if _, err := os.Stat(filepath.Join(stagingDir, name)); err != nil {
-			continue
-		}
-		if err := removeStaleWALSidecars(filepath.Join(dataDir, name)); err != nil {
-			return fmt.Errorf("failed to clean up stale %s WAL files before swap: %w", name, err)
-		}
+// restoreStaged commits MySQL only after all resource moves succeed.
+func restoreStaged(dataDir, staging string) error {
+	raw, err := os.ReadFile(filepath.Join(staging, "database.json"))
+	if err != nil {
+		return err
 	}
-
-	sw := newSwapper(dataDir, stagingDir)
+	db, err := database.Open(dataDir)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	tx, err := database.Import(context.Background(), db, raw)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	sw := newSwapper(dataDir, staging)
 	if err := sw.SwapAll(); err != nil {
-		if rbErr := sw.RollbackAll(); rbErr != nil {
-			return fmt.Errorf("%w (rollback also failed: %v; data directory may need manual repair)", err, rbErr)
-		}
-		return fmt.Errorf("failed to swap restored files (rolled back, data directory untouched): %w", err)
+		return rollbackResources(sw, err)
 	}
-
+	if err := tx.Commit(); err != nil {
+		return rollbackResources(sw, err)
+	}
 	sw.CommitAll()
 	return nil
 }

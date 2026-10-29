@@ -4,19 +4,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
-	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
 type LinksStore struct {
+	executor   database.Executor
 	mu         sync.RWMutex
 	storageDir string
-	filename   string
 	db         *sql.DB
 }
 
@@ -40,33 +37,13 @@ type BrokenLink struct {
 	ToPath     string `json:"to_path"`
 }
 
-func linksDatabasePath(storageDir string, filename string) string {
-	normalizedStorageDir := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
-	return filepath.Join(normalizedStorageDir, filename)
-}
-
+// NewLinksStore opens the MySQL link index.
 func NewLinksStore(storageDir string) (*LinksStore, error) {
-	s := &LinksStore{
-		storageDir: storageDir,
-		filename:   "links.db",
-	}
-
-	// ensureSchema calls Connect() itself (idempotently), so it alone is
-	// enough to bring the store to a working state.
-	err := sqliteutil.OpenWithPolicy(linksDatabasePath(s.storageDir, s.filename), sqliteutil.RebuildOnCorruption, func() error {
-		if err := s.ensureSchema(); err != nil {
-			if s.db != nil {
-				_ = s.db.Close()
-				s.db = nil
-			}
-			return err
-		}
-		return nil
-	})
+	db, err := database.Open(storageDir)
 	if err != nil {
 		return nil, err
 	}
-	return s, nil
+	return &LinksStore{storageDir: storageDir, db: db}, nil
 }
 
 func (s *LinksStore) Connect() error {
@@ -75,57 +52,12 @@ func (s *LinksStore) Connect() error {
 		return nil
 	}
 	// Connect to the database
-	db, err := sql.Open("sqlite", linksDatabasePath(s.storageDir, s.filename)+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+	db, err := database.Open(s.storageDir)
 	if err != nil {
 		return err
 	}
 	s.db = db
 	return nil
-}
-
-func (s *LinksStore) ensureSchema() error {
-	err := s.Connect()
-	if err != nil {
-		return err
-	}
-	if err := s.dropLegacySchema(); err != nil {
-		return err
-	}
-	_, err = s.db.Exec(`
-        CREATE TABLE IF NOT EXISTS links (
-            from_page_id TEXT NOT NULL,
-            to_page_id   TEXT,
-			to_path	  	 TEXT NOT NULL,
-            from_title   TEXT,
-			state 	     INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (from_page_id, to_path)
-        );
-
-		CREATE INDEX IF NOT EXISTS idx_links_to_page_id ON links(to_page_id);
-		CREATE INDEX IF NOT EXISTS idx_links_to_path    ON links(to_path);
-		CREATE INDEX IF NOT EXISTS idx_links_to_path_from_page_id ON links(to_path, from_page_id);
-		CREATE INDEX IF NOT EXISTS idx_links_state      ON links(state);
-		CREATE INDEX IF NOT EXISTS idx_links_to_path_lower ON links(LOWER(to_path));
-	`)
-	return err
-}
-
-// dropLegacySchema drops a links table from before the 3-state `state` column
-// (it had a boolean `broken` column). The links index is derived data and is
-// rebuilt from the markdown files on every startup (IndexAllPages), so the
-// table can simply be recreated instead of migrated.
-func (s *LinksStore) dropLegacySchema() error {
-	var legacy int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('links') WHERE name = 'broken'`).Scan(&legacy)
-	if err != nil {
-		return err
-	}
-	if legacy == 0 {
-		return nil
-	}
-	slog.Default().Info("dropping legacy links table, it is rebuilt from the markdown files", "table", "links")
-	_, err = s.db.Exec(`DROP TABLE links; DROP INDEX IF EXISTS idx_links_broken;`)
-	return err
 }
 
 // DeleteOutgoingLinks removes all links originating from the given page.
@@ -134,7 +66,7 @@ func (s *LinksStore) DeleteOutgoingLinks(fromPageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`DELETE FROM links WHERE from_page_id = ?`, fromPageID)
+	_, err := s.queryExecutor().Exec(`DELETE FROM links WHERE from_page_id = ?`, fromPageID)
 	return err
 }
 
@@ -144,7 +76,7 @@ func (s *LinksStore) MarkIncomingLinksBroken(toPageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`
+	_, err := s.queryExecutor().Exec(`
 		UPDATE links
 		SET to_page_id = NULL,
 		    state     = 1
@@ -161,7 +93,7 @@ func (s *LinksStore) MarkLinksBrokenForPath(toPath string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`
+	_, err := s.queryExecutor().Exec(`
 		UPDATE links
 		SET to_page_id = NULL,
 		    state     = 1
@@ -178,14 +110,14 @@ func (s *LinksStore) MarkLinksBrokenForPrefix(oldPrefix string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`
+	_, err := s.queryExecutor().Exec(`
 		UPDATE links
 		SET to_page_id = NULL,
 		    state     = 1
 		WHERE state = 0
 		  AND (
 		    to_path = ?
-		    OR to_path LIKE ? || '/%'
+		    OR to_path LIKE CONCAT(?, '/%')
 		  )
 	`, oldPrefix, oldPrefix)
 
@@ -195,7 +127,7 @@ func (s *LinksStore) MarkLinksBrokenForPrefix(oldPrefix string) error {
 func (s *LinksStore) AddLinks(fromPageID string, fromTitle string, toLinks []TargetLink) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -212,7 +144,7 @@ func (s *LinksStore) AddLinks(fromPageID string, fromTitle string, toLinks []Tar
 		return errors.Join(base, err)
 	}
 
-	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO links(from_page_id, to_page_id, to_path, from_title, state) VALUES (?, ?, ?, ?, ?)`)
+	stmt, err := tx.Prepare(`REPLACE INTO links(from_page_id, to_page_id, to_path, from_title, state) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		rbErr := tx.Rollback()
 		base := fmt.Errorf("failed to prepare insert statement for links from page %s", fromPageID)
@@ -248,7 +180,7 @@ func (s *LinksStore) ReplaceLinksAndHeal(updates []PageLinkUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -264,7 +196,7 @@ func (s *LinksStore) ReplaceLinksAndHeal(updates []PageLinkUpdate) error {
 	return tx.Commit()
 }
 
-func (s *LinksStore) replaceLinksAndHealTx(tx *sql.Tx, updates []PageLinkUpdate) error {
+func (s *LinksStore) replaceLinksAndHealTx(tx database.Executor, updates []PageLinkUpdate) error {
 	deleteStmt, err := tx.Prepare(`DELETE FROM links WHERE from_page_id = ?`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare delete statement for batched link update: %w", err)
@@ -275,7 +207,7 @@ func (s *LinksStore) replaceLinksAndHealTx(tx *sql.Tx, updates []PageLinkUpdate)
 		}
 	}()
 
-	insertStmt, err := tx.Prepare(`INSERT OR REPLACE INTO links(from_page_id, to_page_id, to_path, from_title, state) VALUES (?, ?, ?, ?, ?)`)
+	insertStmt, err := tx.Prepare(`REPLACE INTO links(from_page_id, to_page_id, to_path, from_title, state) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare insert statement for batched link update: %w", err)
 	}
@@ -323,7 +255,7 @@ func (s *LinksStore) replaceLinksAndHealTx(tx *sql.Tx, updates []PageLinkUpdate)
 func (s *LinksStore) GetBacklinksForPage(pageID string) ([]Backlink, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	rows, err := s.db.Query(`SELECT from_page_id, to_page_id, from_title FROM links WHERE to_page_id = ? AND state = 0`, pageID)
+	rows, err := s.queryExecutor().Query(`SELECT from_page_id, to_page_id, from_title FROM links WHERE to_page_id = ? AND state = 0`, pageID)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +290,7 @@ func (s *LinksStore) GetOutgoingLinksForPage(pageID string) ([]Outgoing, error) 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
         SELECT from_page_id, to_page_id, to_path, from_title, state
         FROM links
         WHERE from_page_id = ?
@@ -428,7 +360,7 @@ func (s *LinksStore) appendOutgoingLinksForPageBatch(outgoingByPageID map[string
 		args = append(args, pageID)
 	}
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
         SELECT from_page_id, to_page_id, to_path, from_title, state
         FROM links
         WHERE from_page_id IN (`+placeholders+`)
@@ -466,7 +398,7 @@ func (s *LinksStore) GetRefactorMatchesForPrefix(oldPrefix string) ([]RefactorLi
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
 		SELECT from_page_id, from_title, to_path, state
 		FROM links
 		WHERE to_path = ? OR to_path LIKE ?
@@ -501,7 +433,7 @@ func (s *LinksStore) GetRefactorSourcePageIDsForPrefix(oldPrefix string) ([]stri
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
 		SELECT DISTINCT from_page_id
 		FROM links
 		WHERE to_path = ? OR to_path LIKE ?
@@ -534,7 +466,7 @@ func (s *LinksStore) GetRefactorSourcePageIDsForWikiLinkTitle(title string) ([]s
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
 		SELECT DISTINCT from_page_id
 		FROM links
 		WHERE LOWER(to_path) = ?
@@ -567,7 +499,7 @@ func (s *LinksStore) GetBrokenIncomingForPath(toPath string) ([]Backlink, error)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
 		SELECT from_page_id, to_page_id, from_title
 		FROM links
 		WHERE to_path = ? AND state = 1
@@ -608,7 +540,7 @@ func (s *LinksStore) HealLinksForPath(toPath string, pageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`
+	_, err := s.queryExecutor().Exec(`
 		UPDATE links
 		SET to_page_id = ?, state = 0
 		WHERE to_path = ? AND state = 1
@@ -617,18 +549,9 @@ func (s *LinksStore) HealLinksForPath(toPath string, pageID string) error {
 	return err
 }
 
-// sentinelKey builds the lower-cased "wikilink:<title>" key for comparison
-// with SQLite's LOWER(to_path). SQLite's built-in LOWER() folds ASCII only, so
-// the key must be folded the same way: strings.ToLower would also fold
-// non-ASCII capitals (Ä → ä) and then never match the stored value.
+// sentinelKey follows MySQL Unicode LOWER when matching title-based links.
 func sentinelKey(title string) string {
-	key := wikilinkSentinelPrefix + strings.TrimSpace(title)
-	return strings.Map(func(r rune) rune {
-		if r >= 'A' && r <= 'Z' {
-			return r + ('a' - 'A')
-		}
-		return r
-	}, key)
+	return strings.ToLower(wikilinkSentinelPrefix + strings.TrimSpace(title))
 }
 
 // ReconcileWikiLinksForTitle applies the state computed by the caller
@@ -645,7 +568,7 @@ func (s *LinksStore) ReconcileWikiLinksForTitle(title string, state LinkState, p
 		target = pageID
 	}
 
-	_, err := s.db.Exec(`
+	_, err := s.queryExecutor().Exec(`
 		UPDATE links
 		SET to_page_id = ?, state = ?
 		WHERE LOWER(to_path) = ?
@@ -660,7 +583,7 @@ func (s *LinksStore) GetAmbiguousIncomingForTitle(title string) ([]Backlink, err
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
 		SELECT from_page_id, from_title
 		FROM links
 		WHERE LOWER(to_path) = ? AND state = 2
@@ -690,7 +613,7 @@ func (s *LinksStore) GetBrokenLinks() ([]BrokenLink, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
         SELECT from_page_id, from_title, to_path
         FROM links
         WHERE state = 1
@@ -730,7 +653,7 @@ func (s *LinksStore) Clear() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`DELETE FROM links`)
+	_, err := s.queryExecutor().Exec(`DELETE FROM links`)
 	return err
 }
 
@@ -746,4 +669,16 @@ func (s *LinksStore) Close() error {
 		s.db = nil
 	}
 	return nil
+}
+
+// WithExecutor binds an independent store view to the caller-owned transaction.
+func (s *LinksStore) WithExecutor(executor database.Executor) *LinksStore {
+	return &LinksStore{executor: executor, storageDir: s.storageDir}
+}
+
+func (s *LinksStore) queryExecutor() database.Executor {
+	if s.executor != nil {
+		return s.executor
+	}
+	return s.db
 }

@@ -5,13 +5,15 @@
 //
 // Run with:
 //
-//	docker compose up -d --wait && go test ./... && docker compose down
+//	node run.mjs
 package e2eproxy
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -34,18 +36,32 @@ var autoCreateProxyURL string
 var directURL string
 
 func TestMain(m *testing.M) {
-	proxyURL = envOr("E2E_PROXY_URL", "http://localhost:8095")
-	autoCreateProxyURL = envOr("E2E_AUTOCREATE_PROXY_URL", "http://localhost:8096")
+	if os.Getenv("E2E_PROXY_RUN_ID") == "" {
+		fmt.Fprintln(os.Stderr, "Run proxy tests with node run.mjs to ensure database isolation")
+		os.Exit(1)
+	}
+	raw, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "serviceports", "ports.json"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	var ports map[string]int
+	if err = json.Unmarshal(raw, &ports); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	proxyURL = fmt.Sprintf("http://127.0.0.1:%d", ports["proxyTest"])
+	autoCreateProxyURL = fmt.Sprintf("http://127.0.0.1:%d", ports["proxyAutoCreateTest"])
 	directURL = envOr("E2E_DIRECT_URL", "")
 
 	if err := waitReachable(proxyURL+"/api/config", 60*time.Second); err != nil {
 		fmt.Fprintf(os.Stderr, "LeafDoc proxy stack not reachable at %s: %v\n", proxyURL, err)
-		fmt.Fprintln(os.Stderr, "Start the stack first:  docker compose up -d --wait")
+		fmt.Fprintln(os.Stderr, "Run the isolated stack with: node run.mjs")
 		os.Exit(1)
 	}
 	if err := waitReachable(autoCreateProxyURL+"/api/config", 60*time.Second); err != nil {
 		fmt.Fprintf(os.Stderr, "LeafDoc auto-create proxy stack not reachable at %s: %v\n", autoCreateProxyURL, err)
-		fmt.Fprintln(os.Stderr, "Start the stack first:  docker compose up -d --wait")
+		fmt.Fprintln(os.Stderr, "Run the isolated stack with: node run.mjs")
 		os.Exit(1)
 	}
 

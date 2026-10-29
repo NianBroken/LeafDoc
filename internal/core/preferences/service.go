@@ -26,9 +26,6 @@ func Defaults() Config {
 	return Config{Language: "zh", DateFormat: "iso", TimeFormat: "24h", AutoSave: true}
 }
 func New(dir string) (*Service, error) {
-	if err := RemoveLegacyState(dir); err != nil {
-		return nil, err
-	}
 	st, err := settings.New(dir, "preferences.json", 0600, Defaults(), nil)
 	if err != nil {
 		return nil, err

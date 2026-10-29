@@ -2,6 +2,7 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SettingsTable, SettingsTableCell } from './SettingsTable'
 import { TooltipProvider } from './ui/tooltip'
+import userEvent from '@testing-library/user-event'
 
 afterEach(() => {
   cleanup()
@@ -10,6 +11,29 @@ afterEach(() => {
 
 // Resize callbacks represent actual overflow; accessible hints follow that state.
 describe('SettingsTable', () => {
+  it('keeps interactive cells in the native keyboard focus order', async () => {
+    const onClick = vi.fn()
+    const user = userEvent.setup()
+    const { container } = render(
+      <SettingsTable columns={1}>
+        <tbody>
+          <tr>
+            <SettingsTableCell content="controls">
+              <button type="button" onClick={onClick}>
+                操作
+              </button>
+            </SettingsTableCell>
+          </tr>
+        </tbody>
+      </SettingsTable>,
+    )
+    await user.tab()
+    expect(screen.getByRole('button', { name: '操作' })).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(onClick).toHaveBeenCalledOnce()
+    expect(container.querySelector('.table-cell-text')).toBeNull()
+  })
+
   it('exposes full overflowing text to keyboard users and releases observers', () => {
     let measure = () => {}
     const disconnect = vi.fn()

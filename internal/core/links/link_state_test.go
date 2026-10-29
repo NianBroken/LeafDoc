@@ -1,6 +1,7 @@
 package links
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
@@ -9,6 +10,7 @@ import (
 // An ambiguous [[Title]] resolves to every matching page and remains a normal
 // backlink instead of appearing in the wiki-wide broken-links list.
 func TestLinkService_GetBrokenLinks_AmbiguousWikilink_NotListed(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -28,6 +30,7 @@ func TestLinkService_GetBrokenLinks_AmbiguousWikilink_NotListed(t *testing.T) {
 }
 
 func TestLinkService_GetBrokenLinks_UnresolvedWikilink_Listed(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -75,6 +78,7 @@ func outgoingState(t *testing.T, store *LinksStore, fromID string) LinkState {
 }
 
 func TestClassifyTitleMatches(t *testing.T) {
+	testutil.ResetMySQL(t)
 	cases := []struct {
 		matches int
 		want    LinkState
@@ -92,6 +96,7 @@ func TestClassifyTitleMatches(t *testing.T) {
 }
 
 func TestLinkService_UpdateLinks_StoresStatePerMatchCount(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -118,6 +123,7 @@ func TestLinkService_UpdateLinks_StoresStatePerMatchCount(t *testing.T) {
 // A resolved link must flip to ambiguous when a second page with the same
 // title appears, without the source page being re-saved.
 func TestLinkService_ReconcileTitle_DuplicateCreated_ResolvedBecomesAmbiguous(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -149,6 +155,7 @@ func TestLinkService_ReconcileTitle_DuplicateCreated_ResolvedBecomesAmbiguous(t 
 }
 
 func TestLinkService_ReconcileTitle_OneOfTwoDeleted_AmbiguousBecomesResolved(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -177,6 +184,7 @@ func TestLinkService_ReconcileTitle_OneOfTwoDeleted_AmbiguousBecomesResolved(t *
 }
 
 func TestLinkService_ReconcileTitle_AllDeleted_BecomesBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -200,6 +208,7 @@ func TestLinkService_ReconcileTitle_AllDeleted_BecomesBroken(t *testing.T) {
 }
 
 func TestLinkService_ReconcileTitle_IsCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -216,6 +225,7 @@ func TestLinkService_ReconcileTitle_IsCaseInsensitive(t *testing.T) {
 
 // Path-based links are never ambiguous; reconciling a title must not touch them.
 func TestLinkService_ReconcileTitle_LeavesPathLinksAlone(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -230,9 +240,9 @@ func TestLinkService_ReconcileTitle_LeavesPathLinksAlone(t *testing.T) {
 	}
 }
 
-// SQLite's LOWER() only folds ASCII, so the reconcile key must be folded the
-// same way or titles with non-ASCII capitals (Ärzte, Über, Éclair) never match.
+// Unicode title keys follow the database comparison rules.
 func TestLinkService_ReconcileTitle_NonASCIITitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -250,6 +260,7 @@ func TestLinkService_ReconcileTitle_NonASCIITitle(t *testing.T) {
 }
 
 func TestLinkService_ReconcileTitle_TrimsWhitespace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	sourceID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -267,6 +278,7 @@ func TestLinkService_ReconcileTitle_TrimsWhitespace(t *testing.T) {
 // Regression: a path rewrite (rename/move) re-writes the whole row set of a
 // source page. Its wiki-link rows must survive it.
 func TestLinkService_UpdateRewrittenLinks_KeepsWikilinkRows(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	srcID := mustCreatePage(t, ts, nil, "Source", "source")
@@ -301,6 +313,7 @@ func TestLinkService_UpdateRewrittenLinks_KeepsWikilinkRows(t *testing.T) {
 // When the rename rule rewrites [[Old]] to [[New]] in the content, the index row
 // has to follow: it becomes wikilink:New, resolved to the renamed page.
 func TestLinkService_UpdateRewrittenLinks_TitleRuleMovesWikilinkRow(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	srcID := mustCreatePage(t, ts, nil, "Source", "source")

@@ -12,7 +12,7 @@ export default class SnapshotSettingsPage {
   }
 
   private snapshotRows() {
-    return this.page.locator('.settings__preview', {
+    return this.page.locator('table.settings__table tbody tr', {
       has: this.page.getByRole('link', { name: 'Download' }),
     });
   }

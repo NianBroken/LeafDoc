@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"time"
 
@@ -51,7 +52,20 @@ func NewUpdatePageUseCase(
 }
 
 // Execute validates, updates the node, and fires post-save side effects.
-func (uc *UpdatePageUseCase) Execute(_ context.Context, in UpdatePageInput) (out *UpdatePageOutput, err error) {
+func (uc *UpdatePageUseCase) Execute(ctx context.Context, in UpdatePageInput) (out *UpdatePageOutput, err error) {
+	if !uc.tree.InUnitOfWork() {
+		var result *UpdatePageOutput
+		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.orchestrator = o
+			var inner error
+			result, inner = copy.Execute(ctx, in)
+			return inner
+		})
+		return result, err
+	}
+
 	started := time.Now()
 	defer func() {
 		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationUpdate), err, started)
@@ -133,7 +147,9 @@ func (uc *UpdatePageUseCase) Execute(_ context.Context, in UpdatePageInput) (out
 		}
 	}
 
-	uc.orchestrator.Run(event)
+	if err := uc.orchestrator.Run(event); err != nil {
+		return nil, err
+	}
 
 	return &UpdatePageOutput{Page: after}, nil
 }

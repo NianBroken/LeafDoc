@@ -44,6 +44,17 @@ func (s *Service) RecordContentUpdates(pages []*tree.Page, authorID, summary str
 		return errs
 	}
 
+	if s.store.executor != nil {
+		for i, page := range pages {
+			if page == nil {
+				errs[i] = fmt.Errorf("page is required")
+				continue
+			}
+			_, _, errs[i] = s.recordContentUpdateForPage(page, authorID, summary)
+		}
+		return errs
+	}
+
 	type batchItem struct {
 		index int
 		page  *tree.Page

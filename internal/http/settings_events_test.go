@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http/httptest"
 	"net/url"
 	"runtime"
@@ -15,6 +16,7 @@ import (
 
 // Poll responses are complete, uncached, and release their subscriptions.
 func TestSettingsPollInitialAndIdle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	h := newSettingsEvents()
 	for _, cursor := range []string{"", fmt.Sprintf("%s/%d", h.instance, h.current())} {
 		w := httptest.NewRecorder()
@@ -35,6 +37,7 @@ func TestSettingsPollInitialAndIdle(t *testing.T) {
 }
 
 func TestSettingsPollCommitAndCancellation(t *testing.T) {
+	testutil.ResetMySQL(t)
 	for _, cancelRequest := range []bool{false, true} {
 		h := newSettingsEvents()
 		previous := fmt.Sprintf("%s/%d", h.instance, h.current())

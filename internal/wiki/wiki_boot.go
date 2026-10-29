@@ -22,8 +22,7 @@ import (
 // ─── Subsystem initializers ───────────────────────────────────────────────────
 
 func (w *Wiki) initAuth(options *WikiOptions) error {
-	// A corrupt users.db fails here, before InitDefaultAdmin could create
-	// an admin in an empty replacement (ADR-0013).
+	// Database connection and schema initialization complete before admin creation.
 	store, err := auth.NewUserStore(w.storageDir)
 	if err != nil {
 		return fmt.Errorf("failed to init user store: %w", err)
@@ -186,7 +185,7 @@ func (w *Wiki) bootstrapTagsAndProperties() {
 
 func (w *Wiki) initSearch() error {
 	var err error
-	w.searchIndex, err = search.NewSQLiteIndex(w.storageDir)
+	w.searchIndex, err = search.NewMySQLIndex(w.storageDir)
 	if err != nil {
 		return fmt.Errorf("failed to init search index: %w", err)
 	}

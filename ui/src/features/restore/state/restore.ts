@@ -7,7 +7,6 @@ import {
   triggerSelfRestart,
   RestoreStatus,
 } from '@/shared/lib/api/restore'
-import { getResyncStatus } from '@/shared/lib/api/resync'
 import { sleep } from '@/shared/lib/sleep'
 
 const POLL_INTERVAL_MS = 800
@@ -15,19 +14,13 @@ const POLL_ERROR_LIMIT = 3
 
 interface RestoreState {
   isLoading: boolean
+  requiresLogin: boolean
   phase: string | null
-  // True once the restore job itself is done and this store has switched to
-  // polling the existing resync status endpoint for the tail end (rebuilding
-  // search/links/tags) — the backend already triggered that resync, this
-  // store never issues its own resync trigger.
+  // The job receipt covers database replacement and all derived-state rebuilds.
   isResyncPhase: boolean
   needsIntervention: boolean
   versionWarning: string | null
-  // False when the tail-end resync's completion could not be confirmed (the
-  // poll lost track of the job or kept erroring). The restore itself still
-  // succeeded at this point — only the search/links/tags rebuild status is
-  // unknown — so this is a soft signal for the UI to caveat, not an error to
-  // throw and have the caller mistake for the restore itself having failed.
+  // Successful completion includes the server's derived-state rebuild.
   resyncConfirmed: boolean
   trigger: (id: string) => Promise<void>
   triggerUpload: (file: File) => Promise<void>
@@ -36,6 +29,7 @@ interface RestoreState {
 
 export const useRestoreStore = create<RestoreState>((set) => ({
   isLoading: false,
+  requiresLogin: false,
   phase: null,
   isResyncPhase: false,
   needsIntervention: false,
@@ -52,12 +46,12 @@ export const useRestoreStore = create<RestoreState>((set) => ({
       resyncConfirmed: true,
     })
     try {
-      await triggerRestore(id)
+      const receipt = await triggerRestore(id)
+      await pollUntilDone(set, receipt.statusToken)
     } catch (err) {
       set({ isLoading: false })
       throw err
     }
-    await pollUntilDone(set)
   },
 
   triggerUpload: async (file: File) => {
@@ -70,12 +64,12 @@ export const useRestoreStore = create<RestoreState>((set) => ({
       resyncConfirmed: true,
     })
     try {
-      await triggerRestoreFromUpload(file)
+      const receipt = await triggerRestoreFromUpload(file)
+      await pollUntilDone(set, receipt.statusToken)
     } catch (err) {
       set({ isLoading: false })
       throw err
     }
-    await pollUntilDone(set)
   },
 
   selfRestart: async () => {
@@ -95,6 +89,7 @@ export const useRestoreStore = create<RestoreState>((set) => ({
 // server-side job reports progress from here on.
 async function pollUntilDone(
   set: (partial: Partial<RestoreState>) => void,
+  statusToken: string,
 ): Promise<void> {
   let consecutiveErrors = 0
   for (;;) {
@@ -102,7 +97,7 @@ async function pollUntilDone(
 
     let status: RestoreStatus
     try {
-      status = await getRestoreStatus()
+      status = await getRestoreStatus(statusToken)
       consecutiveErrors = 0
     } catch (err) {
       consecutiveErrors++
@@ -127,58 +122,17 @@ async function pollUntilDone(
         set({ isLoading: false, phase: null })
         throw new Error(status.error)
       }
-      set({ isResyncPhase: true })
-      await pollResyncTail(set)
+      set({
+        isLoading: false,
+        phase: null,
+        isResyncPhase: false,
+        requiresLogin: true,
+      })
       return
     }
     if (!status.running) {
       set({ isLoading: false, phase: null })
       throw new Error(i18next.t('errors.jobLost', { ns: 'restore' }))
-    }
-  }
-}
-
-// pollResyncTail polls the existing resync status endpoint (no new endpoint,
-// per ADR-0004's polling pattern) until the resync the restore already
-// triggered server-side finishes. Never throws: the restore itself already
-// succeeded by the time this runs, so a lost job or repeated poll errors
-// here are reported via resyncConfirmed=false (a caveat), not as a failure
-// of the overall restore.
-async function pollResyncTail(
-  set: (partial: Partial<RestoreState>) => void,
-): Promise<void> {
-  let consecutiveErrors = 0
-  for (;;) {
-    await sleep(POLL_INTERVAL_MS)
-    try {
-      const status = await getResyncStatus()
-      consecutiveErrors = 0
-      set({ phase: status.phase || null })
-      if (status.done) {
-        set({ isLoading: false, phase: null, isResyncPhase: false })
-        return
-      }
-      if (!status.running) {
-        // Job lost (e.g. server restarted) before ever reporting done.
-        set({
-          isLoading: false,
-          phase: null,
-          isResyncPhase: false,
-          resyncConfirmed: false,
-        })
-        return
-      }
-    } catch {
-      consecutiveErrors++
-      if (consecutiveErrors >= POLL_ERROR_LIMIT) {
-        set({
-          isLoading: false,
-          phase: null,
-          isResyncPhase: false,
-          resyncConfirmed: false,
-        })
-        return
-      }
     }
   }
 }

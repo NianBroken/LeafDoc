@@ -12,12 +12,14 @@ import (
 // ─── ExtractPropertiesFromContent ────────────────────────────────────────────
 
 func TestExtractPropertiesFromContent_TextValue(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	assertEntry(t, got, "status", PropertyEntry{Value: "draft", Type: "text"})
 }
 
 func TestExtractPropertiesFromContent_MultipleStringValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nstatus: draft\nauthor: alice\nenvironment: staging\n---\n"
 	got := ExtractPropertiesFromContent(content)
 
@@ -30,6 +32,7 @@ func TestExtractPropertiesFromContent_MultipleStringValues(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsNumberValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nscore: 42\nrating: 4.5\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["score"]; ok {
@@ -42,6 +45,7 @@ func TestExtractPropertiesFromContent_SkipsNumberValues(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsBooleanValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nfeatured: true\narchived: false\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["featured"]; ok {
@@ -54,6 +58,7 @@ func TestExtractPropertiesFromContent_SkipsBooleanValues(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsEmptyStringValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nempty: \"\"\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["empty"]; ok {
@@ -63,6 +68,7 @@ func TestExtractPropertiesFromContent_SkipsEmptyStringValues(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsWhitespaceOnlyValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nblank: \"   \"\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["blank"]; ok {
@@ -72,12 +78,14 @@ func TestExtractPropertiesFromContent_SkipsWhitespaceOnlyValues(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_TrimsValueWhitespace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nstatus: \"  draft  \"\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	assertEntry(t, got, "status", PropertyEntry{Value: "draft", Type: "text"})
 }
 
 func TestExtractPropertiesFromContent_SkipsMultilineStringValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ndescription: |\n  line one\n  line two\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["description"]; ok {
@@ -89,6 +97,7 @@ func TestExtractPropertiesFromContent_SkipsMultilineStringValues(t *testing.T) {
 // ─── Reserved keys must be skipped ───────────────────────────────────────────
 
 func TestExtractPropertiesFromContent_SkipsTagsKey(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags:\n  - react\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["tags"]; ok {
@@ -98,6 +107,7 @@ func TestExtractPropertiesFromContent_SkipsTagsKey(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsTagsKeyCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nTags:\n  - react\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["Tags"]; ok {
@@ -106,6 +116,7 @@ func TestExtractPropertiesFromContent_SkipsTagsKeyCaseInsensitive(t *testing.T) 
 }
 
 func TestExtractPropertiesFromContent_IndexesTitleAlone(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// "title" is always a custom property — it lands in ExtraFields and is indexed
 	// regardless of whether leafdoc_title is also present.
 	content := "---\ntitle: My Page\nstatus: draft\n---\n"
@@ -116,6 +127,7 @@ func TestExtractPropertiesFromContent_IndexesTitleAlone(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_IndexesMixedCaseTitleAsCustomProperty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// YAML is case-sensitive: "Title" ≠ "title". Both are custom properties.
 	content := "---\nTitle: My Page\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
@@ -125,6 +137,7 @@ func TestExtractPropertiesFromContent_IndexesMixedCaseTitleAsCustomProperty(t *t
 }
 
 func TestExtractPropertiesFromContent_IndexesTitleWhenLeafdocTitleAlsoPresent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Both "title" and "leafdoc_title" present: "title" is a custom property.
 	content := "---\ntitle: My Custom Title\nleafdoc_title: My Title\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
@@ -133,6 +146,7 @@ func TestExtractPropertiesFromContent_IndexesTitleWhenLeafdocTitleAlsoPresent(t 
 }
 
 func TestExtractPropertiesFromContent_IndexesTitleAloneAsCustomProperty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// "title" alone is always a custom property — no leafdoc_title required.
 	content := "---\ntitle: My Page\n---\n"
 	got := ExtractPropertiesFromContent(content)
@@ -142,6 +156,7 @@ func TestExtractPropertiesFromContent_IndexesTitleAloneAsCustomProperty(t *testi
 }
 
 func TestExtractPropertiesFromContent_SkipsLeafdocPrefix(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nleafdoc_id: abc123\nleafdoc_created: 2024-01-01\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	for key := range got {
@@ -153,6 +168,7 @@ func TestExtractPropertiesFromContent_SkipsLeafdocPrefix(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsLeafdocPrefixCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nLeafdoc_ID: abc\nstatus: ok\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["Leafdoc_ID"]; ok {
@@ -163,6 +179,7 @@ func TestExtractPropertiesFromContent_SkipsLeafdocPrefixCaseInsensitive(t *testi
 // ─── Non-scalar values must be skipped ───────────────────────────────────────
 
 func TestExtractPropertiesFromContent_SkipsListValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nkeywords: [go, testing]\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["keywords"]; ok {
@@ -172,6 +189,7 @@ func TestExtractPropertiesFromContent_SkipsListValues(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsBlockListValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nkeywords:\n  - go\n  - testing\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["keywords"]; ok {
@@ -180,6 +198,7 @@ func TestExtractPropertiesFromContent_SkipsBlockListValues(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_SkipsNilValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nempty:\nstatus: draft\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["empty"]; ok {
@@ -190,6 +209,7 @@ func TestExtractPropertiesFromContent_SkipsNilValues(t *testing.T) {
 // ─── Edge cases ───────────────────────────────────────────────────────────────
 
 func TestExtractPropertiesFromContent_NoFrontmatterReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	got := ExtractPropertiesFromContent("# Page\n\nNo frontmatter.")
 	if got != nil {
 		t.Errorf("expected nil for content without frontmatter, got %v", got)
@@ -197,6 +217,7 @@ func TestExtractPropertiesFromContent_NoFrontmatterReturnsNil(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_EmptyContentReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	got := ExtractPropertiesFromContent("")
 	if got != nil {
 		t.Errorf("expected nil for empty content, got %v", got)
@@ -204,6 +225,7 @@ func TestExtractPropertiesFromContent_EmptyContentReturnsNil(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_OnlyReservedKeysReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags:\n  - go\nleafdoc_id: abc\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if got != nil {
@@ -212,6 +234,7 @@ func TestExtractPropertiesFromContent_OnlyReservedKeysReturnsNil(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_OnlyNonStringValuesReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nscore: 42\nfeatured: true\nrating: 4.5\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if got != nil {
@@ -222,6 +245,7 @@ func TestExtractPropertiesFromContent_OnlyNonStringValuesReturnsNil(t *testing.T
 // ─── Nested map (dot-notation) extraction ────────────────────────────────────
 
 func TestExtractPropertiesFromContent_NestedMapOneLevelDeep(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\na:\n  b: value\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	assertEntry(t, got, "a.b", PropertyEntry{Value: "value", Type: "text"})
@@ -231,12 +255,14 @@ func TestExtractPropertiesFromContent_NestedMapOneLevelDeep(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_NestedMapTwoLevelsDeep(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\na:\n  b:\n    c: deep\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	assertEntry(t, got, "a.b.c", PropertyEntry{Value: "deep", Type: "text"})
 }
 
 func TestExtractPropertiesFromContent_NestedMapMultipleChildren(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\na:\n  b: val1\n  c: val2\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if len(got) != 2 {
@@ -247,6 +273,7 @@ func TestExtractPropertiesFromContent_NestedMapMultipleChildren(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_MixedFlatAndNestedKeys(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\nstatus: draft\na:\n  b: nested\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if len(got) != 2 {
@@ -257,6 +284,7 @@ func TestExtractPropertiesFromContent_MixedFlatAndNestedKeys(t *testing.T) {
 }
 
 func TestExtractPropertiesFromContent_NestedMapSkipsNonStringLeaves(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\na:\n  b: 42\n  c: value\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["a.b"]; ok {
@@ -266,6 +294,7 @@ func TestExtractPropertiesFromContent_NestedMapSkipsNonStringLeaves(t *testing.T
 }
 
 func TestExtractPropertiesFromContent_NestedMapSkipsEmptyStringLeaves(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\na:\n  b: \"\"\n  c: value\n---\n"
 	got := ExtractPropertiesFromContent(content)
 	if _, ok := got["a.b"]; ok {
@@ -275,6 +304,7 @@ func TestExtractPropertiesFromContent_NestedMapSkipsEmptyStringLeaves(t *testing
 }
 
 func TestExtractPropertiesFromContent_NestedMapSkipsLeafdocChildSegment(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// A nested child key that starts with leafdoc_ must not be indexed even
 	// when the top-level key is a normal user key.
 	content := "---\nmeta:\n  leafdoc_id: spoofed\n  status: active\n---\n"
@@ -286,6 +316,7 @@ func TestExtractPropertiesFromContent_NestedMapSkipsLeafdocChildSegment(t *testi
 }
 
 func TestExtractPropertiesFromContent_NestedMapDepthLimitNotPanics(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Build YAML that is deeper than maxNestedPropertyDepth. extractFlatEntry
 	// must return without crashing or producing an unboundedly long key.
 	depth := maxNestedPropertyDepth + 5
@@ -368,6 +399,7 @@ func createPageWithContent(t *testing.T, ts *tree.TreeService, title, slug, cont
 }
 
 func TestPropertiesService_IndexAllPages_BuildsIndex(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupPropertiesService(t)
 
 	id1 := createPageWithContent(t, ts, "Page A", "page-a", "---\nstatus: draft\n---\n# A")
@@ -393,6 +425,7 @@ func TestPropertiesService_IndexAllPages_BuildsIndex(t *testing.T) {
 }
 
 func TestPropertiesService_IndexAllPages_IsIdempotent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupPropertiesService(t)
 	createPageWithContent(t, ts, "Page A", "page-a", "---\nstatus: draft\n---\n# A")
 
@@ -413,6 +446,7 @@ func TestPropertiesService_IndexAllPages_IsIdempotent(t *testing.T) {
 }
 
 func TestPropertiesService_IndexAllPages_SkipsSystemKeys(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// System keys: "tags" and any "leafdoc_*" prefix must never be indexed.
 	// "title" is always a custom property and will appear in the index when set.
 	svc, ts := setupPropertiesService(t)
@@ -440,6 +474,7 @@ func TestPropertiesService_IndexAllPages_SkipsSystemKeys(t *testing.T) {
 }
 
 func TestPropertiesService_IndexAllPages_SkipsListValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupPropertiesService(t)
 	createPageWithContent(t, ts, "Page A", "page-a",
 		"---\nkeywords: [go, testing]\nstatus: draft\n---\n# A")
@@ -458,6 +493,7 @@ func TestPropertiesService_IndexAllPages_SkipsListValues(t *testing.T) {
 }
 
 func TestPropertiesService_IndexAllPages_PagesWithoutPropertiesAreSkipped(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupPropertiesService(t)
 	createPageWithContent(t, ts, "No Props", "no-props", "# Just content")
 
@@ -473,6 +509,7 @@ func TestPropertiesService_IndexAllPages_PagesWithoutPropertiesAreSkipped(t *tes
 }
 
 func TestPropertiesService_IndexAllPages_ReadsPropertiesFromRawFrontmatter(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupPropertiesService(t)
 	pageID := createPageWithContent(t, ts, "Page A", "page-a", "---\nstatus: draft\n---\n# A")
 
@@ -498,6 +535,7 @@ func TestPropertiesService_IndexAllPages_ReadsPropertiesFromRawFrontmatter(t *te
 // ─── IndexPageContent ─────────────────────────────────────────────────────────
 
 func TestPropertiesService_IndexPageContent_StoresProperties(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupPropertiesService(t)
 
 	raw := "---\nstatus: draft\nauthor: alice\n---\n\n# Page"
@@ -523,6 +561,7 @@ func TestPropertiesService_IndexPageContent_StoresProperties(t *testing.T) {
 }
 
 func TestPropertiesService_IndexPageContent_NoFrontmatterStoresNothing(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupPropertiesService(t)
 
 	if err := svc.IndexPageContent("page-1", "# Just content"); err != nil {
@@ -539,6 +578,7 @@ func TestPropertiesService_IndexPageContent_NoFrontmatterStoresNothing(t *testin
 }
 
 func TestPropertiesService_IndexPageContent_UpdatesExistingEntry(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupPropertiesService(t)
 
 	if err := svc.IndexPageContent("page-1", "---\nstatus: draft\n---\n"); err != nil {

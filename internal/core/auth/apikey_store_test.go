@@ -1,10 +1,7 @@
 package auth
 
 import (
-	"database/sql"
 	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,40 +23,41 @@ func setupTestAPIKeyStore(t *testing.T) *APIKeyStore {
 	return store
 }
 
-func TestAPIKeyStore_UsesWALJournalMode(t *testing.T) {
-	store := setupTestAPIKeyStore(t)
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	var mode string
-	if err := store.withDB(func(db *sql.DB) error {
-		return db.QueryRow(`PRAGMA journal_mode`).Scan(&mode)
-	}); err != nil {
-		t.Fatalf("failed to read journal_mode: %v", err)
+func TestAPIKeyStore_UsesInnoDB(t *testing.T) {
+	testutil.ResetMySQL(t)
+	store, err := NewAPIKeyStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.EqualFold(mode, "wal") {
-		t.Fatalf("journal_mode = %q, want %q", mode, "wal")
+	defer store.Close()
+	var engine string
+	if err := store.db.QueryRow("SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", "api_keys").Scan(&engine); err != nil {
+		t.Fatal(err)
+	}
+	if engine != "InnoDB" {
+		t.Fatalf("engine=%s", engine)
 	}
 }
 
-func TestAPIKeyStore_CreatesDatabaseInStorageDir(t *testing.T) {
-	storageDir := t.TempDir()
-	store, err := NewAPIKeyStore(storageDir)
+func TestAPIKeyStore_CreatesNoLocalDatabase(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	store, err := NewAPIKeyStore(dir)
 	if err != nil {
-		t.Fatalf("NewAPIKeyStore err: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	if _, err := os.Stat(filepath.Join(storageDir, "api_keys.db")); err != nil {
-		t.Fatalf("expected api_keys.db in storage dir, got err: %v", err)
+	defer store.Close()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unexpected local persistence: %v", entries)
 	}
 }
 
 func TestAPIKeyStore_CreateAndGetByPrefix(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -93,6 +91,7 @@ func TestAPIKeyStore_CreateAndGetByPrefix(t *testing.T) {
 }
 
 func TestAPIKeyStore_GetByPrefix_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -102,6 +101,7 @@ func TestAPIKeyStore_GetByPrefix_NotFound(t *testing.T) {
 }
 
 func TestAPIKeyStore_GetByID_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -111,6 +111,7 @@ func TestAPIKeyStore_GetByID_NotFound(t *testing.T) {
 }
 
 func TestAPIKeyStore_CreateAPIKey_DuplicatePrefixCollides(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -126,6 +127,7 @@ func TestAPIKeyStore_CreateAPIKey_DuplicatePrefixCollides(t *testing.T) {
 }
 
 func TestAPIKeyStore_ListAll_OrderedNewestFirst(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -151,6 +153,7 @@ func TestAPIKeyStore_ListAll_OrderedNewestFirst(t *testing.T) {
 }
 
 func TestAPIKeyStore_DeleteAllForUser_RemovesOnlyThatUsersKeys(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -177,6 +180,7 @@ func TestAPIKeyStore_DeleteAllForUser_RemovesOnlyThatUsersKeys(t *testing.T) {
 }
 
 func TestAPIKeyStore_DeleteAllForUser_NoKeysIsNotAnError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -186,6 +190,7 @@ func TestAPIKeyStore_DeleteAllForUser_NoKeysIsNotAnError(t *testing.T) {
 }
 
 func TestAPIKeyStore_Revoke(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -211,6 +216,7 @@ func TestAPIKeyStore_Revoke(t *testing.T) {
 }
 
 func TestAPIKeyStore_Revoke_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -220,6 +226,7 @@ func TestAPIKeyStore_Revoke_NotFound(t *testing.T) {
 }
 
 func TestAPIKeyStore_Revoke_Idempotent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -244,6 +251,7 @@ func TestAPIKeyStore_Revoke_Idempotent(t *testing.T) {
 }
 
 func TestAPIKeyStore_TouchLastUsed(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -272,6 +280,7 @@ func TestAPIKeyStore_TouchLastUsed(t *testing.T) {
 // the restore swap window (Windows rename-of-open-file sharing violation)
 // fails fast instead of silently grabbing a fresh OS-level file handle.
 func TestAPIKeyStore_Suspend_ClosesDBAndBlocksReconnect(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestAPIKeyStore(t)
 
 	key := &APIKey{
@@ -315,6 +324,7 @@ func TestAPIKeyStore_Suspend_ClosesDBAndBlocksReconnect(t *testing.T) {
 }
 
 func TestAPIKey_IsActive_ExpiredIsInactive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	past := time.Now().Add(-time.Hour)
 	key := &APIKey{ExpiresAt: &past}
 	if key.IsActive(time.Now()) {
@@ -323,6 +333,7 @@ func TestAPIKey_IsActive_ExpiredIsInactive(t *testing.T) {
 }
 
 func TestAPIKey_IsActive_NoExpiryIsActive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	key := &APIKey{}
 	if !key.IsActive(time.Now()) {
 		t.Fatalf("expected key with no expiry and no revocation to be active")

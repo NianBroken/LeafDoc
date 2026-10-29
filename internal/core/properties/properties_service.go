@@ -1,6 +1,7 @@
 package properties
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"strings"
 
 	"github.com/NianBroken/LeafDoc/internal/core/markdown"
@@ -118,4 +119,9 @@ func toPropertyEntry(value interface{}) (PropertyEntry, bool) {
 		return PropertyEntry{}, false
 	}
 	return PropertyEntry{Value: s, Type: "text"}, true
+}
+
+// WithExecutor binds derived-index writes to the page transaction.
+func (s *PropertiesService) WithExecutor(executor database.Executor) *PropertiesService {
+	return &PropertiesService{store: s.store.WithExecutor(executor)}
 }

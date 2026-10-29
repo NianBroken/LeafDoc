@@ -2,6 +2,7 @@ package importer
 
 import (
 	"errors"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -67,6 +68,7 @@ func waitForExecutionStatus(t *testing.T, is *ImporterService, want ExecutionSta
 // containing one of those same, already-legitimate assets.
 
 func TestImporterService_NewImporterService_RaisesZipEntryCapToMatchConfiguredAssetMax(t *testing.T) {
+	testutil.ResetMySQL(t)
 	planner := NewPlanner(&fakeWiki{}, tree.NewSlugService(), "")
 	store := NewPlanStore()
 
@@ -79,6 +81,7 @@ func TestImporterService_NewImporterService_RaisesZipEntryCapToMatchConfiguredAs
 }
 
 func TestImporterService_SetAssetMaxUploadSizeBytes_RaisesZipEntryCapWhenLarger(t *testing.T) {
+	testutil.ResetMySQL(t)
 	planner := NewPlanner(&fakeWiki{}, tree.NewSlugService(), "")
 	store := NewPlanStore()
 	is := NewImporterService(planner, store, t.TempDir(), 0) // defaults: 50 MiB zip entry cap
@@ -91,6 +94,7 @@ func TestImporterService_SetAssetMaxUploadSizeBytes_RaisesZipEntryCapWhenLarger(
 }
 
 func TestImporterService_SetAssetMaxUploadSizeBytes_DoesNotLowerZipEntryCap(t *testing.T) {
+	testutil.ResetMySQL(t)
 	planner := NewPlanner(&fakeWiki{}, tree.NewSlugService(), "")
 	store := NewPlanStore()
 	is := NewImporterService(planner, store, t.TempDir(), 0) // defaults: 50 MiB zip entry cap
@@ -104,6 +108,7 @@ func TestImporterService_SetAssetMaxUploadSizeBytes_DoesNotLowerZipEntryCap(t *t
 }
 
 func TestImporterService_createImportPlanFromFolder_StoresPlan(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	mustWrite(t, tmp, "a.md", "# A\nbody")
 
@@ -125,6 +130,7 @@ func TestImporterService_createImportPlanFromFolder_StoresPlan(t *testing.T) {
 }
 
 func TestImporterService_createImportPlanFromFolder_CleansUpOldWorkspace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// old workspace with a marker file
 	oldWS := t.TempDir()
 	marker := mustWrite(t, oldWS, "marker.txt", "x")
@@ -164,6 +170,7 @@ func TestImporterService_createImportPlanFromFolder_CleansUpOldWorkspace(t *test
 }
 
 func TestImporterService_GetCurrentPlan_NoPlan(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := &fakeWiki{treeHash: "h1", lookups: map[string]*tree.PathLookup{}}
 	is := newServiceWithFakeWiki(t, w)
 
@@ -174,6 +181,7 @@ func TestImporterService_GetCurrentPlan_NoPlan(t *testing.T) {
 }
 
 func TestImporterService_ClearCurrentPlan(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	mustWrite(t, tmp, "a.md", "# A")
 
@@ -195,6 +203,7 @@ func TestImporterService_ClearCurrentPlan(t *testing.T) {
 }
 
 func TestImporterService_ExecuteCurrentPlan_NoPlan(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := &fakeWiki{treeHash: "h1", lookups: map[string]*tree.PathLookup{}}
 	is := newServiceWithFakeWiki(t, w)
 
@@ -205,6 +214,7 @@ func TestImporterService_ExecuteCurrentPlan_NoPlan(t *testing.T) {
 }
 
 func TestImporterService_StartCurrentPlanExecution_RunsInBackgroundAndStoresResult(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	mustWrite(t, ws, "a.md", "# A\nbody")
 
@@ -269,6 +279,7 @@ func TestImporterService_StartCurrentPlanExecution_RunsInBackgroundAndStoresResu
 }
 
 func TestImporterService_ClearCurrentPlan_WhileRunning_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	mustWrite(t, ws, "a.md", "# A\nbody")
 
@@ -300,6 +311,7 @@ func TestImporterService_ClearCurrentPlan_WhileRunning_ReturnsError(t *testing.T
 }
 
 func TestImporterService_CancelCurrentPlan_StopsBeforeNextItem(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	mustWrite(t, ws, "a.md", "# A\nbody")
 	mustWrite(t, ws, "b.md", "# B\nbody")
@@ -351,6 +363,7 @@ func TestImporterService_CancelCurrentPlan_StopsBeforeNextItem(t *testing.T) {
 }
 
 func TestImporterService_ResumesRunningImportFromPersistedState(t *testing.T) {
+	testutil.ResetMySQL(t)
 	workspaceRoot := t.TempDir()
 	mustWrite(t, workspaceRoot, "a.md", "# A\nbody")
 	mustWrite(t, workspaceRoot, "b.md", "# B\nbody")
@@ -411,6 +424,7 @@ func TestImporterService_ResumesRunningImportFromPersistedState(t *testing.T) {
 }
 
 func TestImporterService_ResumeRunningImport_FailsWhenTreeHashChanged(t *testing.T) {
+	testutil.ResetMySQL(t)
 	workspaceRoot := t.TempDir()
 	mustWrite(t, workspaceRoot, "a.md", "# A\nbody")
 	mustWrite(t, workspaceRoot, "b.md", "# B\nbody")
@@ -465,6 +479,7 @@ func TestImporterService_ResumeRunningImport_FailsWhenTreeHashChanged(t *testing
 }
 
 func TestImporterService_ExecuteCurrentPlan_HappyPath_PreservesNonInternalFrontmatter(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	mustWrite(t, ws, "a.md", "---\naliases:\n  - x\ncustom_key: keep-me\nleafdoc_id: source-id\nleafdoc_title: Source Title\ntitle: X\n---\n\n# Heading\nBody")
 
@@ -523,6 +538,7 @@ func TestImporterService_ExecuteCurrentPlan_HappyPath_PreservesNonInternalFrontm
 }
 
 func TestImporterService_ExecuteCurrentPlan_ExecutorStalePlanPropagatesError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	mustWrite(t, ws, "a.md", "# A")
 
@@ -546,6 +562,7 @@ func TestImporterService_ExecuteCurrentPlan_ExecutorStalePlanPropagatesError(t *
 }
 
 func TestFindMarkdownEntries_FindsMdRecursively_AndNormalizesSlashes(t *testing.T) {
+	testutil.ResetMySQL(t)
 	base := t.TempDir()
 	mustWrite(t, base, "a.md", "x")
 	mustWrite(t, base, "b.txt", "x")
@@ -582,6 +599,7 @@ func TestFindMarkdownEntries_FindsMdRecursively_AndNormalizesSlashes(t *testing.
 }
 
 func TestImporterService_createImportPlanFromFolder_UsesTargetBasePath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	mustWrite(t, tmp, "a.md", "# A\nbody")
 
@@ -613,6 +631,7 @@ func TestImporterService_createImportPlanFromFolder_UsesTargetBasePath(t *testin
 }
 
 func TestFindMarkdownEntries_FindsMixedCaseMdExtensions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	base := t.TempDir()
 	mustWrite(t, base, "a.MD", "x")
 	mustWrite(t, base, "b.mD", "x")

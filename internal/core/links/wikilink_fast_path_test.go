@@ -1,12 +1,14 @@
 package links
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"reflect"
 	"strings"
 	"testing"
 )
 
 func TestExtractWikiLinksFromMarkdown_NonWikilinkDocuments_ReturnNoTargets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	for _, content := range []string{"", "Plain text [link](/page)", "`code`\n\n```go\nvar x = 1\n```", "[[unfinished", "[[ -n $value ]]"} {
 		if got := extractWikiLinksFromMarkdown(content); len(got) != 0 {
 			t.Fatalf("%q: got %v", content, got)
@@ -14,6 +16,7 @@ func TestExtractWikiLinksFromMarkdown_NonWikilinkDocuments_ReturnNoTargets(t *te
 	}
 }
 func TestExtractWikiLinksFromMarkdown_MixedCodeAndUnicode_PreservesTargets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "[[Überblick]] [[Notes|Alias]] `[[Inline]]`\n\n```\n[[Fenced]]\n```\n\n    [[Indented]]\n\n[[Überblick]]"
 	if got := extractWikiLinksFromMarkdown(content); !reflect.DeepEqual(got, []string{"Überblick", "Notes"}) {
 		t.Fatalf("got %v", got)

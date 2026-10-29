@@ -22,7 +22,7 @@ import (
 
 	"github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/NianBroken/LeafDoc/internal/core/auth/maintenance"
-	"github.com/NianBroken/LeafDoc/internal/core/defaultdocs"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/email"
 	"github.com/NianBroken/LeafDoc/internal/core/ignore"
 	"github.com/NianBroken/LeafDoc/internal/core/localization"
@@ -106,6 +106,7 @@ var (
 )
 
 func main() {
+	defer database.ClosePools()
 	// Errors that surface here come from flag parsing and validation, which
 	// happen before there is a configured logger - they are CLI diagnostics, so
 	// they go to stderr as plain text. Anything that fails once the logger is up
@@ -121,9 +122,6 @@ func main() {
 func runResetAdminPasswordCommand(cfg *serverConfig) error {
 	user, err := maintenance.ResetAdminPassword(cfg.server.dataDir, cfg.auth.adminUsername, cfg.auth.adminEmail, os.Getenv("LEAFDOC_ADMIN_PASSWORD"))
 	if err != nil {
-		if msg, ok := corruptDatabaseMessage(err); ok {
-			return fmt.Errorf("password reset failed: %s", msg)
-		}
 		return fmt.Errorf("password reset failed: %w", err)
 	}
 
@@ -259,9 +257,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		Metrics: metrics,
 	})
 	if err != nil {
-		if msg, ok := corruptDatabaseMessage(err); ok {
-			fail(msg, "error", err)
-		}
+
 		fail("Failed to initialize Wiki", "error", err)
 	}
 
@@ -292,26 +288,24 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		if err != nil {
 			return fmt.Errorf("failed to initialize full backup settings: %w", err)
 		}
+		writeGate = restore.NewWriteGate()
 		snapshotManager := snapshot.NewManager(snapshot.Config{
-			BackupsDir:         snapshotsDir,
-			RootDir:            filepath.Join(cfg.server.dataDir, "root"),
-			AssetsDir:          filepath.Join(cfg.server.dataDir, "assets"),
-			BrandingDir:        filepath.Join(cfg.server.dataDir, "branding"),
-			AvatarsDir:         filepath.Join(cfg.server.dataDir, "avatars"),
-			BrandingConfigFile: filepath.Join(cfg.server.dataDir, "branding.json"),
-			SettingsFiles: []string{
-				filepath.Join(cfg.server.dataDir, defaultdocs.StateFile),
-				filepath.Join(cfg.server.dataDir, "public-access.json"),
-				filepath.Join(cfg.server.dataDir, "toc-display.json"),
-				filepath.Join(cfg.server.dataDir, "preferences.json"),
-				filepath.Join(cfg.server.dataDir, "snapshot-settings.json"),
-			},
-			SchemaFile:     filepath.Join(cfg.server.dataDir, "schema.json"),
-			UsersDBPath:    filepath.Join(cfg.server.dataDir, "users.db"),
-			StateDBPaths:   stateDBPaths(cfg.server.dataDir),
+			DataDir:        cfg.server.dataDir,
+			BackupsDir:     snapshotsDir,
+			AssetsDir:      filepath.Join(cfg.server.dataDir, "assets"),
+			BrandingDir:    filepath.Join(cfg.server.dataDir, "branding"),
+			AvatarsDir:     filepath.Join(cfg.server.dataDir, "avatars"),
 			WikiVersion:    Version,
 			Interval:       cfg.backup.snapshotInterval,
 			RetentionCount: cfg.backup.snapshotRetention,
+			Quiesce: func() (func(), error) {
+				writeGate.Engage()
+				if !writeGate.WaitForDrain(10 * time.Second) {
+					writeGate.Disengage()
+					return nil, fmt.Errorf("snapshot maintenance drain timed out")
+				}
+				return writeGate.Disengage, nil
+			},
 		})
 		snapshotManager.UpdateSettings(snapshotSettings.Get())
 		snapshotScheduler := snapshot.NewScheduler(snapshotManager)
@@ -322,17 +316,15 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		defer snapshotScheduler.Stop()
 		w.SetSnapshotRoutes(wikisnapshot.NewRoutes(snapshotManager, snapshotScheduler, w.AuthService(), cfg.backup.snapshotRetention, snapshotSettings))
 
-		writeGate = restore.NewWriteGate()
 		restoreManager := restore.NewManager(restore.Config{
 			SnapshotManager:    snapshotManager,
 			DataDir:            cfg.server.dataDir,
 			WikiVersion:        Version,
 			WriteGate:          writeGate,
 			AuthService:        w.AuthService(),
-			Stores:             w.StateStores(),
 			Reloadables:        []settings.Reloadable{w.BrandingService(), publicAccessService, tocDisplayService, globalPreferences, snapshotSettings},
 			UserResolver:       w.UserResolver(),
-			TriggerResync:      w.TriggerResyncAsync,
+			ReloadRuntime:      w.ReloadAfterRestore,
 			MaxUploadSizeBytes: restoreUploadMaxSize,
 		})
 		// Registered after (so it runs before, defers are LIFO) the w.Close()
@@ -395,17 +387,6 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 	}
 
 	return nil
-}
-
-// stateDBPaths returns the paths of every state database other than users.db
-// that a snapshot captures (see restore.StateDBFiles).
-func stateDBPaths(dataDir string) []string {
-	files := restore.StateDBFiles()
-	paths := make([]string, 0, len(files))
-	for _, f := range files {
-		paths = append(paths, filepath.Join(dataDir, f))
-	}
-	return paths
 }
 
 // buildPublicAccessService decides whether "public mode" is pinned by

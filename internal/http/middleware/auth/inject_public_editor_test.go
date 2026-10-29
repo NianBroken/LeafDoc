@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,6 +11,7 @@ import (
 )
 
 func TestInjectPublicEditor_AuthDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	testCases := []struct {
@@ -119,6 +121,7 @@ func TestInjectPublicEditor_AuthDisabled(t *testing.T) {
 }
 
 func TestInjectPublicEditor_PublicEditorProperties(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
@@ -160,6 +163,7 @@ func TestInjectPublicEditor_PublicEditorProperties(t *testing.T) {
 }
 
 func TestInjectPublicEditor_NextCalled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	nextCalled := false

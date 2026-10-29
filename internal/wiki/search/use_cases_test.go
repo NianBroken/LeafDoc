@@ -21,9 +21,9 @@ func setupSearchUseCaseForTags(t *testing.T) (*SearchUseCase, *coretags.TagsServ
 		t.Fatalf("LoadTree: %v", err)
 	}
 
-	index, err := coresearch.NewSQLiteIndex(dir)
+	index, err := coresearch.NewMySQLIndex(dir)
 	if err != nil {
-		t.Fatalf("NewSQLiteIndex: %v", err)
+		t.Fatalf("NewMySQLIndex: %v", err)
 	}
 	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(index.Close, t) })
 
@@ -69,6 +69,7 @@ func createTaggedPage(t *testing.T, treeSvc *tree.TreeService, title, slug strin
 }
 
 func TestSearchUseCase_Execute_TagOnlySearchEscapesTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, tagsSvc, treeSvc := setupSearchUseCaseForTags(t)
 
 	pageID := createTaggedPage(t, treeSvc, `<img src=x onerror="alert(1)">`, "tagged-title", []string{"docs"})

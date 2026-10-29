@@ -1,4 +1,5 @@
 import { fetchWithAuth } from '@/shared/lib/api/client'
+import { API_BASE_URL } from '@/shared/lib/config'
 
 const RESTORE_URL = '/api/admin/restore'
 
@@ -11,24 +12,41 @@ export interface RestoreStatus {
   needsIntervention?: boolean
 }
 
-export async function triggerRestore(id: string): Promise<void> {
-  await fetchWithAuth(`${RESTORE_URL}/${encodeURIComponent(id)}`, {
-    method: 'POST',
-  })
+export interface RestoreReceipt {
+  statusToken: string
 }
 
-export async function triggerRestoreFromUpload(file: File): Promise<void> {
+export async function triggerRestore(id: string): Promise<RestoreReceipt> {
+  return await fetchWithAuth<RestoreReceipt>(
+    `${RESTORE_URL}/${encodeURIComponent(id)}`,
+    {
+      method: 'POST',
+    },
+  )
+}
+
+export async function triggerRestoreFromUpload(
+  file: File,
+): Promise<RestoreReceipt> {
   const formData = new FormData()
   formData.append('file', file)
-  await fetchWithAuth(`${RESTORE_URL}/upload`, {
+  return await fetchWithAuth<RestoreReceipt>(`${RESTORE_URL}/upload`, {
     method: 'POST',
     body: formData,
     headers: {}, // Let browser set Content-Type for FormData
   })
 }
 
-export async function getRestoreStatus(): Promise<RestoreStatus> {
-  return await fetchWithAuth<RestoreStatus>(`${RESTORE_URL}/status`, {})
+// A job-scoped receipt survives account replacement without refreshing old sessions.
+export async function getRestoreStatus(
+  statusToken: string,
+): Promise<RestoreStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/restore/progress`, {
+    headers: { 'X-Restore-Token': statusToken },
+    credentials: 'omit',
+  })
+  if (!response.ok) throw new Error(`Restore progress: HTTP ${response.status}`)
+  return await response.json()
 }
 
 // triggerSelfRestart's request is expected to never receive a clean

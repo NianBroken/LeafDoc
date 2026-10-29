@@ -7,17 +7,13 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 )
 
-// BrandingStore persists BrandingConfig to <storageDir>/branding.json, backed
-// by the shared settings.Store[T] primitive (atomic write, cached read,
-// Reload after a restore).
+// BrandingStore caches branding configuration persisted in MySQL.
 type BrandingStore struct {
 	storageDir string
 	store      *settings.Store[BrandingConfig]
 }
 
-// NewBrandingStore creates a new branding store, loading whatever is
-// currently on disk (or DefaultBrandingConfig if branding.json doesn't exist
-// yet).
+// NewBrandingStore loads persisted MySQL branding or initializes defaults.
 func NewBrandingStore(storageDir string) (*BrandingStore, error) {
 	st, err := settings.New(storageDir, "branding.json", 0o644, *DefaultBrandingConfig(), injectBrandingConstraints)
 	if err != nil {
@@ -43,7 +39,7 @@ func (s *BrandingStore) Load() *BrandingConfig {
 	return &cfg
 }
 
-// Save writes the branding configuration to disk and updates the cache.
+// Save persists the branding configuration in MySQL and updates the cache.
 func (s *BrandingStore) Save(config *BrandingConfig) error {
 	if err := s.store.Put(*config); err != nil {
 		return fmt.Errorf("failed to write branding config: %w", err)
@@ -51,7 +47,7 @@ func (s *BrandingStore) Save(config *BrandingConfig) error {
 	return nil
 }
 
-// Reload re-reads branding.json from disk, satisfying settings.Reloadable.
+// Reload refreshes the cache from MySQL, satisfying settings.Reloadable.
 func (s *BrandingStore) Reload() error {
 	if err := s.store.Reload(); err != nil {
 		return fmt.Errorf("failed to reload branding config: %w", err)

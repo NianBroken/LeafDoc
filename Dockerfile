@@ -5,6 +5,8 @@ COPY ./ui/package*.json ./
 RUN npm ci --ignore-scripts
 COPY ./ui/ ./
 COPY ./scripts/sync-error-catalogs.mjs /app/scripts/sync-error-catalogs.mjs
+COPY ./scripts/resolve-version.mjs /app/scripts/resolve-version.mjs
+COPY ./internal/core/serviceports/ports.json /app/internal/core/serviceports/ports.json
 RUN mkdir -p /app/internal/core/localization
 RUN VITE_API_URL=/ npm run build
 
@@ -29,7 +31,7 @@ COPY --from=backend-build /out/leafdoc /app/leafdoc
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-EXPOSE 8080
+EXPOSE 24692
 
 RUN mkdir -p /app/data && chmod 777 /app/data
 

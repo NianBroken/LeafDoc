@@ -66,16 +66,39 @@ describe('useBootstrapAuth', () => {
     expect(ensureRefresh).not.toHaveBeenCalled()
   })
 
-  it('calls ensureRefresh for a confirmed session-auth deployment', async () => {
+  it('refreshes an expired recorded session in a confirmed session-auth deployment', async () => {
     useConfigStore.setState({
       configLoadSucceeded: true,
       httpRemoteUserEnabled: false,
     })
+    useSessionStore.setState({ user: testUser, accessTokenExpiresAt: 1 })
 
     renderHook(() => useBootstrapAuth(true))
 
     await waitFor(() => expect(ensureRefresh).toHaveBeenCalled())
     expect(fetchMe).not.toHaveBeenCalled()
+  })
+
+  it('reads anonymous identity without sending a token refresh request', async () => {
+    renderHook(() => useBootstrapAuth(true))
+
+    await waitFor(() => expect(fetchMe).toHaveBeenCalledOnce())
+    expect(ensureRefresh).not.toHaveBeenCalled()
+    expect(useSessionStore.getState().user).toBeNull()
+  })
+
+  it('confirms a current session without rotating its refresh token on navigation', async () => {
+    useSessionStore.setState({
+      user: testUser,
+      accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
+    })
+    ;(fetchMe as Mock).mockResolvedValue(testUser)
+
+    renderHook(() => useBootstrapAuth(true))
+
+    await waitFor(() => expect(fetchMe).toHaveBeenCalledOnce())
+    expect(ensureRefresh).not.toHaveBeenCalled()
+    expect(useSessionStore.getState().user).toEqual(testUser)
   })
 
   it('clears the user when fetchMe fails with an auth error', async () => {

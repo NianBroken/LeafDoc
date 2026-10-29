@@ -37,6 +37,7 @@ func setupPropertiesEffectTest(t *testing.T) (*tree.TreeService, *properties.Pro
 // ─── PropertiesSideEffect ─────────────────────────────────────────────────────
 
 func TestPropertiesSideEffect_Apply_Create_IndexesPropertiesFromRawContent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, propsSvc, effect := setupPropertiesEffectTest(t)
 
 	raw := "---\nstatus: draft\nauthor: alice\n---\n\nPage body."
@@ -65,6 +66,7 @@ func TestPropertiesSideEffect_Apply_Create_IndexesPropertiesFromRawContent(t *te
 }
 
 func TestPropertiesSideEffect_Apply_Update_ReindexesProperties(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, propsSvc, effect := setupPropertiesEffectTest(t)
 
 	raw := "---\nstatus: draft\n---\n\nOriginal."
@@ -99,6 +101,7 @@ func TestPropertiesSideEffect_Apply_Update_ReindexesProperties(t *testing.T) {
 }
 
 func TestPropertiesSideEffect_Apply_Delete_RemovesProperties(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, propsSvc, effect := setupPropertiesEffectTest(t)
 
 	raw := "---\nstatus: draft\n---\n\nBody."

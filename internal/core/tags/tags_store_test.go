@@ -2,9 +2,7 @@ package tags
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/NianBroken/LeafDoc/internal/testutil"
@@ -27,38 +25,41 @@ func newTestStore(t *testing.T) *TagsStore {
 
 // ─── DB lifecycle ────────────────────────────────────────────────────────────
 
-func TestTagsStore_UsesWALJournalMode(t *testing.T) {
-	store := newTestStore(t)
-
-	var mode string
-	if err := store.db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
-		t.Fatalf("failed to read journal_mode: %v", err)
+func TestTagsStore_UsesInnoDB(t *testing.T) {
+	testutil.ResetMySQL(t)
+	store, err := NewTagsStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	if !strings.EqualFold(mode, "wal") {
-		t.Fatalf("journal_mode = %q, want %q", mode, "wal")
+	defer store.Close()
+	var engine string
+	if err := store.db.QueryRow("SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", "page_tags").Scan(&engine); err != nil {
+		t.Fatal(err)
+	}
+	if engine != "InnoDB" {
+		t.Fatalf("engine=%s", engine)
 	}
 }
 
-func TestTagsStore_CreatesDatabaseInStorageDir(t *testing.T) {
-	tmp := t.TempDir()
-	store, err := NewTagsStore(tmp)
+func TestTagsStore_CreatesNoLocalDatabase(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	store, err := NewTagsStore(dir)
 	if err != nil {
-		t.Fatalf("NewTagsStore: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	if _, err := os.Stat(filepath.Join(tmp, "tags.db")); err != nil {
-		t.Fatalf("expected tags.db to exist: %v", err)
+	defer store.Close()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unexpected local persistence: %v", entries)
 	}
 }
 
 func TestTagsStore_IdempotentSchema(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	for i := 0; i < 3; i++ {
 		store, err := NewTagsStore(tmp)
@@ -74,6 +75,7 @@ func TestTagsStore_IdempotentSchema(t *testing.T) {
 // ─── SetTagsForPage ──────────────────────────────────────────────────────────
 
 func TestTagsStore_SetTagsForPage_StoresTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.SetTagsForPage("page-1", []string{"go", "testing"}); err != nil {
@@ -90,6 +92,7 @@ func TestTagsStore_SetTagsForPage_StoresTags(t *testing.T) {
 }
 
 func TestTagsStore_SetTagsForPage_ReplacesOnSecondCall(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.SetTagsForPage("page-1", []string{"go", "testing"}); err != nil {
@@ -107,6 +110,7 @@ func TestTagsStore_SetTagsForPage_ReplacesOnSecondCall(t *testing.T) {
 }
 
 func TestTagsStore_SetTagsForPage_EmptyTagsClearsExisting(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.SetTagsForPage("page-1", []string{"go", "testing"}); err != nil {
@@ -126,6 +130,7 @@ func TestTagsStore_SetTagsForPage_EmptyTagsClearsExisting(t *testing.T) {
 }
 
 func TestTagsStore_SetTagsForPage_NilTagsClearsExisting(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.SetTagsForPage("page-1", []string{"go"}); err != nil {
@@ -147,6 +152,7 @@ func TestTagsStore_SetTagsForPage_NilTagsClearsExisting(t *testing.T) {
 // ─── DeleteTagsForPage ───────────────────────────────────────────────────────
 
 func TestTagsStore_DeleteTagsForPage_RemovesTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.SetTagsForPage("page-1", []string{"go", "testing"}); err != nil {
@@ -166,6 +172,7 @@ func TestTagsStore_DeleteTagsForPage_RemovesTags(t *testing.T) {
 }
 
 func TestTagsStore_DeleteTagsForPage_NonExistentPageIsNoop(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	if err := store.DeleteTagsForPage("does-not-exist"); err != nil {
 		t.Fatalf("DeleteTagsForPage on unknown page: %v", err)
@@ -173,6 +180,7 @@ func TestTagsStore_DeleteTagsForPage_NonExistentPageIsNoop(t *testing.T) {
 }
 
 func TestTagsStore_DeleteTagsForPage_DoesNotAffectOtherPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.SetTagsForPage("page-1", []string{"go"}); err != nil {
@@ -196,6 +204,7 @@ func TestTagsStore_DeleteTagsForPage_DoesNotAffectOtherPages(t *testing.T) {
 // ─── GetAllTags ──────────────────────────────────────────────────────────────
 
 func TestTagsStore_GetAllTags_EmptyDB(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	tags, err := store.GetAllTags("", 50)
 	if err != nil {
@@ -207,6 +216,7 @@ func TestTagsStore_GetAllTags_EmptyDB(t *testing.T) {
 }
 
 func TestTagsStore_GetAllTags_ReturnsTagsWithCount(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"go", "testing"})
@@ -235,6 +245,7 @@ func TestTagsStore_GetAllTags_ReturnsTagsWithCount(t *testing.T) {
 }
 
 func TestTagsStore_GetAllTags_OrderByCountDescThenTagAsc(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"alpha", "beta", "gamma"})
@@ -262,6 +273,7 @@ func TestTagsStore_GetAllTags_OrderByCountDescThenTagAsc(t *testing.T) {
 }
 
 func TestTagsStore_GetAllTags_OrderAlphaForSameCount(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"zebra", "apple"})
@@ -279,6 +291,7 @@ func TestTagsStore_GetAllTags_OrderAlphaForSameCount(t *testing.T) {
 }
 
 func TestTagsStore_GetAllTags_FilterByPrefix(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"react", "redux", "rails", "node"})
@@ -299,6 +312,7 @@ func TestTagsStore_GetAllTags_FilterByPrefix(t *testing.T) {
 }
 
 func TestTagsStore_GetAllTags_EmptyFilterReturnsAll(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"alpha", "beta", "gamma"})
@@ -313,6 +327,7 @@ func TestTagsStore_GetAllTags_EmptyFilterReturnsAll(t *testing.T) {
 }
 
 func TestTagsStore_GetAllTags_RespectsLimit(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"a", "b", "c", "d", "e"})
@@ -327,6 +342,7 @@ func TestTagsStore_GetAllTags_RespectsLimit(t *testing.T) {
 }
 
 func TestTagsStore_GetAllTags_ZeroLimitReturnsAll(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"a", "b", "c", "d", "e"})
@@ -343,6 +359,7 @@ func TestTagsStore_GetAllTags_ZeroLimitReturnsAll(t *testing.T) {
 // ─── GetPageIDsByTags ────────────────────────────────────────────────────────
 
 func TestTagsStore_GetPageIDsByTags_ANDLogic(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"react", "typescript"})
@@ -361,6 +378,7 @@ func TestTagsStore_GetPageIDsByTags_ANDLogic(t *testing.T) {
 }
 
 func TestTagsStore_GetPageIDsByTags_SingleTag(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"react", "typescript"})
@@ -378,6 +396,7 @@ func TestTagsStore_GetPageIDsByTags_SingleTag(t *testing.T) {
 }
 
 func TestTagsStore_GetPageIDsByTags_NoMatch(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"react"})
@@ -392,6 +411,7 @@ func TestTagsStore_GetPageIDsByTags_NoMatch(t *testing.T) {
 }
 
 func TestTagsStore_GetPageIDsByTags_EmptyInputReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	_ = store.SetTagsForPage("page-1", []string{"react"})
 
@@ -405,6 +425,7 @@ func TestTagsStore_GetPageIDsByTags_EmptyInputReturnsNil(t *testing.T) {
 }
 
 func TestTagsStore_GetPageIDsByTags_ThreeTagAND(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"a", "b", "c"})
@@ -423,6 +444,7 @@ func TestTagsStore_GetPageIDsByTags_ThreeTagAND(t *testing.T) {
 // ─── GetTagsForPages ─────────────────────────────────────────────────────────
 
 func TestTagsStore_GetTagsForPages_ReturnsTagsForMultiplePages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"go", "testing"})
@@ -442,6 +464,7 @@ func TestTagsStore_GetTagsForPages_ReturnsTagsForMultiplePages(t *testing.T) {
 }
 
 func TestTagsStore_GetTagsForPages_EmptyInputReturnsEmptyMap(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	got, err := store.GetTagsForPages([]string{})
@@ -457,6 +480,7 @@ func TestTagsStore_GetTagsForPages_EmptyInputReturnsEmptyMap(t *testing.T) {
 }
 
 func TestTagsStore_GetTagsForPages_UnknownIDReturnsNoEntry(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	got, err := store.GetTagsForPages([]string{"does-not-exist"})
@@ -471,6 +495,7 @@ func TestTagsStore_GetTagsForPages_UnknownIDReturnsNoEntry(t *testing.T) {
 // ─── Clear ───────────────────────────────────────────────────────────────────
 
 func TestTagsStore_Clear_RemovesAllEntries(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetTagsForPage("page-1", []string{"go"})
@@ -492,6 +517,7 @@ func TestTagsStore_Clear_RemovesAllEntries(t *testing.T) {
 // ─── SetPageIndex ─────────────────────────────────────────────────────────────
 
 func TestTagsStore_SetPageIndex_StoresTagsAndExcerpt(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	if err := store.SetPageIndex("page-1", []string{"go", "testing"}, "some excerpt"); err != nil {
@@ -514,6 +540,7 @@ func TestTagsStore_SetPageIndex_StoresTagsAndExcerpt(t *testing.T) {
 }
 
 func TestTagsStore_SetPageIndex_UpdatesExcerptOnSecondCall(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPageIndex("page-1", []string{"go"}, "first excerpt")
@@ -529,6 +556,7 @@ func TestTagsStore_SetPageIndex_UpdatesExcerptOnSecondCall(t *testing.T) {
 }
 
 func TestTagsStore_SetPageIndex_EmptyTagsClearsTagsButKeepsExcerpt(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPageIndex("page-1", []string{"go"}, "excerpt here")
@@ -554,6 +582,7 @@ func TestTagsStore_SetPageIndex_EmptyTagsClearsTagsButKeepsExcerpt(t *testing.T)
 // ─── DeletePageIndex ─────────────────────────────────────────────────────────
 
 func TestTagsStore_DeletePageIndex_RemovesTagsAndExcerpt(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPageIndex("page-1", []string{"go"}, "some excerpt")
@@ -579,6 +608,7 @@ func TestTagsStore_DeletePageIndex_RemovesTagsAndExcerpt(t *testing.T) {
 }
 
 func TestTagsStore_DeletePageIndex_NonExistentPageIsNoop(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	if err := store.DeletePageIndex("does-not-exist"); err != nil {
 		t.Fatalf("DeletePageIndex on unknown page: %v", err)
@@ -588,6 +618,7 @@ func TestTagsStore_DeletePageIndex_NonExistentPageIsNoop(t *testing.T) {
 // ─── DeletePageIndexes ───────────────────────────────────────────────────────
 
 func TestTagsStore_DeletePageIndexes_RemovesTagsAndExcerptForAllGivenPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPageIndex("page-a", []string{"go"}, "excerpt a")
@@ -622,6 +653,7 @@ func TestTagsStore_DeletePageIndexes_RemovesTagsAndExcerptForAllGivenPages(t *te
 }
 
 func TestTagsStore_DeletePageIndexes_EmptyInputIsNoop(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	if err := store.DeletePageIndexes(nil); err != nil {
 		t.Fatalf("DeletePageIndexes(nil): %v", err)
@@ -631,6 +663,7 @@ func TestTagsStore_DeletePageIndexes_EmptyInputIsNoop(t *testing.T) {
 // ─── GetExcerptsForPages ─────────────────────────────────────────────────────
 
 func TestTagsStore_GetExcerptsForPages_ReturnsCorrectExcerpts(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPageIndex("p1", []string{"go"}, "excerpt one")
@@ -649,6 +682,7 @@ func TestTagsStore_GetExcerptsForPages_ReturnsCorrectExcerpts(t *testing.T) {
 }
 
 func TestTagsStore_GetExcerptsForPages_UnknownIDReturnsNoEntry(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	got, err := store.GetExcerptsForPages([]string{"ghost"})
@@ -661,6 +695,7 @@ func TestTagsStore_GetExcerptsForPages_UnknownIDReturnsNoEntry(t *testing.T) {
 }
 
 func TestTagsStore_GetExcerptsForPages_EmptyInputReturnsEmptyMap(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	got, err := store.GetExcerptsForPages([]string{})
@@ -678,6 +713,7 @@ func TestTagsStore_GetExcerptsForPages_EmptyInputReturnsEmptyMap(t *testing.T) {
 // ─── Clear (with page_meta) ───────────────────────────────────────────────────
 
 func TestTagsStore_Clear_AlsoRemovesPageMeta(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPageIndex("page-1", []string{"go"}, "some excerpt")
@@ -698,6 +734,7 @@ func TestTagsStore_Clear_AlsoRemovesPageMeta(t *testing.T) {
 // ─── GetAllTags — LIKE wildcard escaping ─────────────────────────────────────
 
 func TestTagsStore_GetAllTags_FilterEscapesLikeWildcards(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	// Tags that would accidentally match if % or _ were treated as wildcards.

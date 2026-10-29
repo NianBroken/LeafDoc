@@ -84,7 +84,7 @@ func (t *TreeService) collectIDsDFS() []string {
 }
 
 // GetPages returns pages for the given IDs under a single read lock,
-// reading files in parallel. Each entry is nil when the corresponding error is non-nil.
+// reading pooled MySQL records in parallel. Each entry is nil when the corresponding error is non-nil.
 func (t *TreeService) GetPages(ids []string) ([]*Page, []error) {
 	pages := make([]*Page, len(ids))
 	errs := make([]error, len(ids))
@@ -118,6 +118,19 @@ func (t *TreeService) GetPages(ids []string) ([]*Page, []error) {
 	}
 
 	if len(tasks) == 0 {
+		return pages, errs
+	}
+
+	// A transaction owns one wire connection, so its rows are consumed in sequence.
+	if t.InUnitOfWork() {
+		for _, tk := range tasks {
+			content, raw, err := t.store.ReadPageAndRaw(tk.node)
+			if err != nil {
+				errs[tk.index] = fmt.Errorf(errGetPageContentFailed, err)
+			} else {
+				pages[tk.index] = &Page{PageNode: tk.node, Content: content, RawContent: raw}
+			}
+		}
 		return pages, errs
 	}
 
@@ -242,14 +255,15 @@ func (t *TreeService) FindPageByRoutePath(routePath string) (*Page, error) {
 		parent = node
 	}
 
-	content, err := t.store.ReadPageContent(node)
+	content, raw, err := t.store.ReadPageAndRaw(node)
 	if err != nil {
 		return nil, fmt.Errorf(errGetPageContentFailed, err)
 	}
 
 	return &Page{
-		PageNode: node,
-		Content:  content,
+		PageNode:   node,
+		Content:    content,
+		RawContent: raw,
 	}, nil
 }
 

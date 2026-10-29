@@ -1,6 +1,9 @@
 package main
 
-import "github.com/urfave/cli/v3"
+import (
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
+	"github.com/urfave/cli/v3"
+)
 
 // metricsOptions holds the options for the Prometheus metrics listener.
 type metricsOptions struct {
@@ -35,7 +38,7 @@ func (o *metricsOptions) Flags() []cli.Flag {
 			Destination: &o.metricsPort,
 			Category:    catMetrics,
 			Usage:       "port for the Prometheus metrics listener",
-			Value:       "9091",
+			Value:       serviceports.Port("metrics"),
 			Sources:     envVars("LEAFDOC_METRICS_PORT"),
 			Config:      trimmed,
 		},

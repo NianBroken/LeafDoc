@@ -1,185 +1,141 @@
 package pagesave
 
 import (
-	"log/slog"
-	"strings"
-
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/links"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	"log/slog"
+	"strings"
 )
 
-// LinkIndexSideEffect updates the link index after every page mutation.
+// LinkIndexSideEffect keeps outgoing links and incoming link resolution consistent.
 type LinkIndexSideEffect struct {
 	svc     *links.LinkService
 	log     *slog.Logger
 	metrics *httpmetrics.HTTPMetrics
 }
 
-// NewLinkIndexSideEffect creates a LinkIndexSideEffect.
 func NewLinkIndexSideEffect(svc *links.LinkService, log *slog.Logger, metrics *httpmetrics.HTTPMetrics) *LinkIndexSideEffect {
 	if log == nil {
 		log = slog.Default()
 	}
 	return &LinkIndexSideEffect{svc: svc, log: log, metrics: metrics}
 }
-
-func (e *LinkIndexSideEffect) Name() string {
-	return "links"
+func (e *LinkIndexSideEffect) Name() string { return "links" }
+func (e *LinkIndexSideEffect) WithExecutor(exec database.Executor, boundTree *tree.TreeService) PageSideEffect {
+	copy := *e
+	if e.svc != nil {
+		copy.svc = e.svc.WithExecutor(exec, boundTree)
+	}
+	return &copy
 }
-
 func (e *LinkIndexSideEffect) Apply(event PageSaveEvent) {
-	if e.svc == nil {
-		return
-	}
-	switch event.Operation {
-	case PageOperationCreate:
-		e.updateAndHeal(event.After, event.Operation)
-		e.reconcilePageTitle(event.After, event.Operation)
-
-	case PageOperationRestore:
-		// Content was restored to a previous version; update outgoing links and heal incoming.
-		e.updateAndHeal(event.After, event.Operation)
-		e.reconcilePageTitle(event.After, event.Operation)
-
-	case PageOperationUpdate:
-		if event.SlugChanged {
-			e.markBrokenForOldPath(event.OldPath, event.Operation)
-			for _, p := range event.AffectedPages {
-				e.updateAndHeal(p, event.Operation)
-			}
-		} else if event.After != nil {
-			if err := e.svc.UpdateLinksForPage(event.After, event.After.Content); err != nil {
-				e.log.Warn("failed to update links for page", "pageID", event.After.ID, "error", err)
-				e.recordFailure(event.Operation)
-			}
-			e.healExact(event.After, event.Operation)
-		}
-		// A title change alters which pages carry the old and the new title,
-		// whether or not the slug changed. [[OldTitle]] and [[NewTitle]] links
-		// are recomputed in one statement per title.
-		if event.TitleChanged && event.After != nil {
-			e.reconcileTitles(event.Operation, event.OldTitle, event.After.Title)
-		}
-
-	case PageOperationMove:
-		e.markBrokenForOldPath(event.OldPath, event.Operation)
-		for _, p := range event.AffectedPages {
-			e.updateAndHeal(p, event.Operation)
-		}
-
-	case PageOperationDelete:
-		for _, p := range event.AffectedPages {
-			if err := e.svc.DeleteOutgoingLinksForPage(p.ID); err != nil {
-				e.log.Warn("failed to delete outgoing links", "pageID", p.ID, "error", err)
-				e.recordFailure(event.Operation)
-			}
-		}
-		if event.Before == nil {
-			e.reconcileDeletedTitles(event)
-			return
-		}
-		if len(event.AffectedPages) > 1 {
-			// Recursive delete: mark path-based links broken via prefix …
-			e.markBrokenForOldPath(event.OldPath, event.Operation)
-			// … and by page ID so that healed wikilink sentinels
-			// (to_path="wikilink:X", not the route path) are also marked broken.
-			for _, p := range event.AffectedPages {
-				if p == nil {
-					continue
-				}
-				if err := e.svc.MarkIncomingLinksBrokenForPage(p.ID); err != nil {
-					e.log.Warn("failed to mark incoming links broken", "pageID", p.ID, "error", err)
-					e.recordFailure(event.Operation)
-				}
-			}
-		} else {
-			// Single-page delete.
-			if err := e.svc.MarkIncomingLinksBrokenForPage(event.Before.ID); err != nil {
-				e.log.Warn("failed to mark incoming links broken", "pageID", event.Before.ID, "error", err)
-				e.recordFailure(event.Operation)
-			}
-			if event.OldPath != "" {
-				if err := e.svc.MarkLinksBrokenForPath(event.OldPath); err != nil {
-					e.log.Warn("failed to mark links broken for path", "path", event.OldPath, "error", err)
-					e.recordFailure(event.Operation)
-				}
-			}
-		}
-		e.reconcileDeletedTitles(event)
+	if err := e.ApplyTransactional(event); err != nil {
+		e.log.Error("link index update failed", "error", err)
+		e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
 	}
 }
-
-func (e *LinkIndexSideEffect) healExact(p *tree.Page, operation PageOperationType) {
-	if p == nil {
-		return
+func (e *LinkIndexSideEffect) updateAndHeal(page *tree.Page) error {
+	if page == nil {
+		return nil
 	}
-	if err := e.svc.HealLinksForExactPath(p); err != nil {
-		e.log.Warn("failed to heal links for page", "pageID", p.ID, "error", err)
-		e.recordFailure(operation)
+	if err := e.svc.UpdateLinksForPage(page, page.Content); err != nil {
+		return err
 	}
+	return e.svc.HealLinksForExactPath(page)
 }
-
-// reconcileDeletedTitles: the deleted pages no longer carry their titles, so
-// [[Title]] links may now be resolved (one page left), still ambiguous or broken.
-func (e *LinkIndexSideEffect) reconcileDeletedTitles(event PageSaveEvent) {
-	titles := make([]string, 0, len(event.AffectedPages))
-	for _, p := range event.AffectedPages {
-		if p != nil {
-			titles = append(titles, p.Title)
-		}
-	}
-	e.reconcileTitles(event.Operation, titles...)
-}
-
-func (e *LinkIndexSideEffect) reconcilePageTitle(p *tree.Page, operation PageOperationType) {
-	if p == nil {
-		return
-	}
-	e.reconcileTitles(operation, p.Title)
-}
-
-// reconcileTitles recomputes the state of all [[Title]] links for each given
-// title, once per distinct (case-insensitive) title.
-func (e *LinkIndexSideEffect) reconcileTitles(operation PageOperationType, titles ...string) {
-	seen := make(map[string]struct{}, len(titles))
+func (e *LinkIndexSideEffect) reconcileTitles(titles ...string) error {
+	seen := map[string]bool{}
 	for _, title := range titles {
 		key := strings.ToLower(strings.TrimSpace(title))
-		if key == "" {
+		if key == "" || seen[key] {
 			continue
 		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
+		seen[key] = true
 		if err := e.svc.ReconcileTitle(title); err != nil {
-			e.log.Warn("failed to reconcile wiki links for title", "title", title, "error", err)
-			e.recordFailure(operation)
+			return err
 		}
 	}
+	return nil
+}
+func (e *LinkIndexSideEffect) markBrokenForOldPath(path string) error {
+	if path == "" {
+		return nil
+	}
+	return e.svc.MarkLinksBrokenForPrefix(path)
 }
 
-func (e *LinkIndexSideEffect) updateAndHeal(p *tree.Page, operation PageOperationType) {
-	if p == nil {
-		return
+// ApplyTransactional returns the first failed link change so all page writes roll back.
+func (e *LinkIndexSideEffect) ApplyTransactional(event PageSaveEvent) error {
+	if e.svc == nil {
+		return nil
 	}
-	if err := e.svc.UpdateLinksForPage(p, p.Content); err != nil {
-		e.log.Warn("failed to update links for page", "pageID", p.ID, "error", err)
-		e.recordFailure(operation)
+	switch event.Operation {
+	case PageOperationCreate, PageOperationRestore:
+		if err := e.updateAndHeal(event.After); err != nil {
+			return err
+		}
+		if event.After != nil {
+			return e.reconcileTitles(event.After.Title)
+		}
+	case PageOperationUpdate:
+		if event.SlugChanged {
+			if err := e.markBrokenForOldPath(event.OldPath); err != nil {
+				return err
+			}
+			for _, page := range event.AffectedPages {
+				if err := e.updateAndHeal(page); err != nil {
+					return err
+				}
+			}
+		} else if err := e.updateAndHeal(event.After); err != nil {
+			return err
+		}
+		if event.TitleChanged && event.After != nil {
+			return e.reconcileTitles(event.OldTitle, event.After.Title)
+		}
+	case PageOperationMove:
+		if err := e.markBrokenForOldPath(event.OldPath); err != nil {
+			return err
+		}
+		for _, page := range event.AffectedPages {
+			if err := e.updateAndHeal(page); err != nil {
+				return err
+			}
+		}
+	case PageOperationDelete:
+		for _, page := range event.AffectedPages {
+			if err := e.svc.DeleteOutgoingLinksForPage(page.ID); err != nil {
+				return err
+			}
+		}
+		if event.Before != nil {
+			if len(event.AffectedPages) > 1 {
+				if err := e.markBrokenForOldPath(event.OldPath); err != nil {
+					return err
+				}
+				for _, page := range event.AffectedPages {
+					if err := e.svc.MarkIncomingLinksBrokenForPage(page.ID); err != nil {
+						return err
+					}
+				}
+			} else {
+				if err := e.svc.MarkIncomingLinksBrokenForPage(event.Before.ID); err != nil {
+					return err
+				}
+				if event.OldPath != "" {
+					if err := e.svc.MarkLinksBrokenForPath(event.OldPath); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		titles := []string{}
+		for _, page := range event.AffectedPages {
+			titles = append(titles, page.Title)
+		}
+		return e.reconcileTitles(titles...)
 	}
-	e.healExact(p, operation)
-}
-
-func (e *LinkIndexSideEffect) markBrokenForOldPath(oldPath string, operation PageOperationType) {
-	if oldPath == "" {
-		return
-	}
-	if err := e.svc.MarkLinksBrokenForPrefix(oldPath); err != nil {
-		e.log.Warn("failed to mark links broken for prefix", "path", oldPath, "error", err)
-		e.recordFailure(operation)
-	}
-}
-
-func (e *LinkIndexSideEffect) recordFailure(operation PageOperationType) {
-	e.metrics.IncPageSaveSideEffectFailure(string(operation), e.Name())
+	return nil
 }

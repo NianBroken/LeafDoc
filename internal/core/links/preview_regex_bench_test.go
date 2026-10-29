@@ -1,6 +1,7 @@
 package links
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"reflect"
 	"strings"
 	"testing"
@@ -17,6 +18,7 @@ func BenchmarkFindWikiLinksPreview(b *testing.B) {
 }
 
 func TestCompiledWikiLinkFinder_ReusedAcrossPages_PreservesMatching(t *testing.T) {
+	testutil.ResetMySQL(t)
 	e := NewMarkdownRefactorEngine()
 	finder := CompileWikiLinkFinder("/docs/project-plan", "Project Plan")
 	cases := []struct {
@@ -36,6 +38,7 @@ func TestCompiledWikiLinkFinder_ReusedAcrossPages_PreservesMatching(t *testing.T
 	}
 }
 func TestCompiledWikiLinkFinder_RegexMetacharacters_AreLiteral(t *testing.T) {
+	testutil.ResetMySQL(t)
 	e := NewMarkdownRefactorEngine()
 	got := e.FindWikiLinksPrecompiled("[[C++ (Guide)]] [[C (Guide)]]", CompileWikiLinkFinder("", "C++ (Guide)"))
 	if !reflect.DeepEqual(got, []string{"[[C++ (Guide)]]"}) {

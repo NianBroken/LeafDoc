@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net"
 	"strconv"
 	"strings"
@@ -145,6 +146,7 @@ func newTestEmailTokenService(t *testing.T, smtpAddr string) (*EmailTokenService
 }
 
 func TestEmailTokenService_RequestPasswordReset_UnknownIdentifier_ReturnsNilWithoutContactingSMTP(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// No listener at all — if RequestPasswordReset tried to send mail for an
 	// unknown identifier, this would fail to connect and return an error.
 	svc, _, _ := newTestEmailTokenService(t, "127.0.0.1:1")
@@ -155,6 +157,7 @@ func TestEmailTokenService_RequestPasswordReset_UnknownIdentifier_ReturnsNilWith
 }
 
 func TestEmailTokenService_RequestPasswordReset_KnownIdentifier_SendsToUsersEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	srv := startFakeSMTPServer(t)
 	svc, users, _ := newTestEmailTokenService(t, srv.addr)
 
@@ -178,6 +181,7 @@ func TestEmailTokenService_RequestPasswordReset_KnownIdentifier_SendsToUsersEmai
 }
 
 func TestEmailTokenService_ConfirmPasswordReset_RevokesExistingSessions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	srv := startFakeSMTPServer(t)
 	svc, users, authService := newTestEmailTokenService(t, srv.addr)
 
@@ -214,6 +218,7 @@ func TestEmailTokenService_ConfirmPasswordReset_RevokesExistingSessions(t *testi
 }
 
 func TestEmailTokenService_ConfirmPasswordReset_TokenIsSingleUse(t *testing.T) {
+	testutil.ResetMySQL(t)
 	srv := startFakeSMTPServer(t)
 	svc, users, _ := newTestEmailTokenService(t, srv.addr)
 
@@ -236,6 +241,7 @@ func TestEmailTokenService_ConfirmPasswordReset_TokenIsSingleUse(t *testing.T) {
 }
 
 func TestEmailTokenService_ConfirmInvite_ClearsMustSetPasswordAndAuthenticates(t *testing.T) {
+	testutil.ResetMySQL(t)
 	srv := startFakeSMTPServer(t)
 	svc, users, _ := newTestEmailTokenService(t, srv.addr)
 
@@ -263,6 +269,7 @@ func TestEmailTokenService_ConfirmInvite_ClearsMustSetPasswordAndAuthenticates(t
 }
 
 func TestEmailTokenService_ConfirmInvite_RejectsPasswordResetToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	srv := startFakeSMTPServer(t)
 	svc, users, _ := newTestEmailTokenService(t, srv.addr)
 

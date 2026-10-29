@@ -114,7 +114,7 @@ func TestProxyAuth_UnknownUser(t *testing.T) {
 
 // TestProxyAuth_AutoCreate_ProvisionsUnknownUser verifies that an unknown
 // proxy-asserted identity is auto-provisioned end-to-end through the real
-// nginx + LeafDoc stack (auto-create stack, port 8096), with the configured
+// nginx + LeafDoc stack (auto-create stack, shared fixed port), with the configured
 // default role and, when no email is forwarded, the synthesized placeholder
 // email.
 func TestProxyAuth_AutoCreate_ProvisionsUnknownUser(t *testing.T) {

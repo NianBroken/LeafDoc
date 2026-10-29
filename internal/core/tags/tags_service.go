@@ -1,6 +1,7 @@
 package tags
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"strings"
 
 	"github.com/NianBroken/LeafDoc/internal/core/markdown"
@@ -104,4 +105,9 @@ func normalizeTags(value interface{}) []string {
 		result = append(result, normalized)
 	}
 	return result
+}
+
+// WithExecutor binds derived-index writes to the page transaction.
+func (s *TagsService) WithExecutor(executor database.Executor) *TagsService {
+	return &TagsService{store: s.store.WithExecutor(executor)}
 }

@@ -63,6 +63,7 @@ func mustCreateUser(t *testing.T, users *UserService, username, role string) *Us
 // ─── hashSecret / timing-equalization ───────────────────────────────────────
 
 func TestHashSecret_DeterministicAndDistinct(t *testing.T) {
+	testutil.ResetMySQL(t)
 	h1 := hashSecret("secret-a")
 	h2 := hashSecret("secret-a")
 	h3 := hashSecret("secret-b")
@@ -84,6 +85,7 @@ func TestHashSecret_DeterministicAndDistinct(t *testing.T) {
 // key" instead of "restore in progress".
 
 func TestAPIKeyService_Resolve_KeyStoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "suspend-key-store", RoleViewer)
 
@@ -110,6 +112,7 @@ func TestAPIKeyService_Resolve_KeyStoreSuspended_ReturnsStoreUnavailable(t *test
 }
 
 func TestAPIKeyService_Resolve_UserStoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "suspend-user-store", RoleViewer)
 
@@ -136,6 +139,7 @@ func TestAPIKeyService_Resolve_UserStoreSuspended_ReturnsStoreUnavailable(t *tes
 }
 
 func TestAPIKeyService_Resolve_UnknownPrefixAndWrongSecretBothInvalid(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Both cases must go through the same hash-and-compare path (unknown
 	// prefix compares against dummySecretHash) so a caller can't distinguish
 	// them by response shape or timing. This asserts the observable contract;
@@ -163,6 +167,7 @@ func TestAPIKeyService_Resolve_UnknownPrefixAndWrongSecretBothInvalid(t *testing
 // ─── token generation / parsing ─────────────────────────────────────────────
 
 func TestGenerateKeyToken_ProducesNonEmptyDistinctValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	prefix1, secret1, err := generateKeyToken()
 	if err != nil {
 		t.Fatalf("generateKeyToken err: %v", err)
@@ -180,6 +185,7 @@ func TestGenerateKeyToken_ProducesNonEmptyDistinctValues(t *testing.T) {
 }
 
 func TestParseKeyToken_RoundTrip(t *testing.T) {
+	testutil.ResetMySQL(t)
 	prefix, secret, err := generateKeyToken()
 	if err != nil {
 		t.Fatalf("generateKeyToken err: %v", err)
@@ -196,6 +202,7 @@ func TestParseKeyToken_RoundTrip(t *testing.T) {
 }
 
 func TestParseKeyToken_RejectsMalformed(t *testing.T) {
+	testutil.ResetMySQL(t)
 	cases := []string{
 		"",
 		"not-a-key-token",
@@ -214,6 +221,7 @@ func TestParseKeyToken_RejectsMalformed(t *testing.T) {
 // ─── intersectRole ───────────────────────────────────────────────────────────
 
 func TestIntersectRole_NeverWidensPermission(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tests := []struct {
 		userRole, keyRole, want string
 	}{
@@ -236,6 +244,7 @@ func TestIntersectRole_NeverWidensPermission(t *testing.T) {
 }
 
 func TestIntersectRole_UnknownRoleFailsSafeToViewer(t *testing.T) {
+	testutil.ResetMySQL(t)
 	if got := intersectRole("bogus", RoleAdmin); got != RoleViewer {
 		t.Errorf("intersectRole(bogus, admin) = %q, want %q (fail safe)", got, RoleViewer)
 	}
@@ -247,6 +256,7 @@ func TestIntersectRole_UnknownRoleFailsSafeToViewer(t *testing.T) {
 // ─── CreateAPIKey ────────────────────────────────────────────────────────────
 
 func TestAPIKeyService_CreateAPIKey_DefaultsToViewerRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "alice", RoleEditor)
 
@@ -268,6 +278,7 @@ func TestAPIKeyService_CreateAPIKey_DefaultsToViewerRole(t *testing.T) {
 }
 
 func TestAPIKeyService_CreateAPIKey_RejectsInvalidRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "bob", RoleAdmin)
 
@@ -278,6 +289,7 @@ func TestAPIKeyService_CreateAPIKey_RejectsInvalidRole(t *testing.T) {
 }
 
 func TestAPIKeyService_CreateAPIKey_RejectsUnknownUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTestAPIKeyService(t)
 
 	_, _, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: "no-such-user", CreatedBy: "admin1"})
@@ -289,6 +301,7 @@ func TestAPIKeyService_CreateAPIKey_RejectsUnknownUser(t *testing.T) {
 // ─── Resolve ─────────────────────────────────────────────────────────────────
 
 func TestAPIKeyService_Resolve_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "carol", RoleViewer)
 
@@ -310,6 +323,7 @@ func TestAPIKeyService_Resolve_HappyPath(t *testing.T) {
 }
 
 func TestAPIKeyService_Resolve_NarrowsRoleToKeyRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "dave", RoleAdmin)
 
@@ -328,6 +342,7 @@ func TestAPIKeyService_Resolve_NarrowsRoleToKeyRole(t *testing.T) {
 }
 
 func TestAPIKeyService_Resolve_NarrowsRoleToUserRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	// Owner is only a viewer; an admin-role key must not widen that.
 	owner := mustCreateUser(t, users, "erin", RoleViewer)
@@ -347,6 +362,7 @@ func TestAPIKeyService_Resolve_NarrowsRoleToUserRole(t *testing.T) {
 }
 
 func TestAPIKeyService_Resolve_RejectsMalformedToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTestAPIKeyService(t)
 
 	if _, err := svc.Resolve("not-a-token"); err != ErrAPIKeyInvalid {
@@ -355,6 +371,7 @@ func TestAPIKeyService_Resolve_RejectsMalformedToken(t *testing.T) {
 }
 
 func TestAPIKeyService_Resolve_RejectsUnknownPrefix(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTestAPIKeyService(t)
 
 	if _, err := svc.Resolve(apiKeyTokenPrefix + "deadbeef_" + strings.Repeat("a", 64)); err != ErrAPIKeyInvalid {
@@ -363,6 +380,7 @@ func TestAPIKeyService_Resolve_RejectsUnknownPrefix(t *testing.T) {
 }
 
 func TestAPIKeyService_Resolve_RejectsWrongSecret(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "frank", RoleViewer)
 
@@ -379,6 +397,7 @@ func TestAPIKeyService_Resolve_RejectsWrongSecret(t *testing.T) {
 }
 
 func TestAPIKeyService_Resolve_RejectsRevokedKey(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "grace", RoleViewer)
 
@@ -396,6 +415,7 @@ func TestAPIKeyService_Resolve_RejectsRevokedKey(t *testing.T) {
 }
 
 func TestAPIKeyService_Resolve_RejectsExpiredKey(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "heidi", RoleViewer)
 
@@ -411,6 +431,7 @@ func TestAPIKeyService_Resolve_RejectsExpiredKey(t *testing.T) {
 }
 
 func TestAPIKeyService_ListAPIKeys(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users := setupTestAPIKeyService(t)
 	owner := mustCreateUser(t, users, "ivan", RoleViewer)
 

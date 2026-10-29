@@ -54,10 +54,8 @@ export default function UserManagement() {
                   <SettingsTableHeader>
                     {t('columns.email')}
                   </SettingsTableHeader>
-                  <SettingsTableHeader content="role">
-                    {t('columns.role')}
-                  </SettingsTableHeader>
-                  <SettingsTableHeader content="actions">
+                  <SettingsTableHeader>{t('columns.role')}</SettingsTableHeader>
+                  <SettingsTableHeader>
                     {t('columns.actions')}
                   </SettingsTableHeader>
                 </tr>
@@ -94,17 +92,12 @@ export default function UserManagement() {
                         {user.email}
                       </SettingsTableCell>
                       <SettingsTableCell className="settings__table-cell">
-                        <span
-                          className={`settings__role-pill ${
-                            user.role === 'admin'
-                              ? 'settings__role-pill--admin'
-                              : 'settings__role-pill--default'
-                          }`}
-                        >
-                          {t(`roles.${user.role}`)}
-                        </span>
+                        {t(`roles.${user.role}`)}
                       </SettingsTableCell>
-                      <SettingsTableCell className="settings__actions-cell">
+                      <SettingsTableCell
+                        className="settings__actions-cell"
+                        content="controls"
+                      >
                         <UserRowActions user={user} />
                       </SettingsTableCell>
                     </tr>

@@ -1,6 +1,8 @@
 package branding
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +10,7 @@ import (
 )
 
 func TestBrandingStore_New_WhenConfigMissing_ReturnsDefault(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := NewBrandingStore(dir)
 	if err != nil {
@@ -40,6 +43,7 @@ func TestBrandingStore_New_WhenConfigMissing_ReturnsDefault(t *testing.T) {
 }
 
 func TestBrandingStore_SaveThenLoad_RoundTrip_PersistsFields(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := NewBrandingStore(dir)
 	if err != nil {
@@ -85,42 +89,35 @@ func TestBrandingStore_SaveThenLoad_RoundTrip_PersistsFields(t *testing.T) {
 	}
 }
 
-func TestBrandingStore_Save_WritesFileToExpectedLocation(t *testing.T) {
+func TestBrandingStore_Save_WritesMySQLWithoutLocalConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := NewBrandingStore(dir)
 	if err != nil {
-		t.Fatalf("NewBrandingStore() error: %v", err)
+		t.Fatal(err)
 	}
-
 	cfg := DefaultBrandingConfig()
 	cfg.SiteName = "CheckFile"
-
 	if err := store.Save(cfg); err != nil {
-		t.Fatalf("Save() error: %v", err)
+		t.Fatal(err)
 	}
-
-	p := filepath.Join(dir, "branding.json")
-	info, err := os.Stat(p)
+	data, err := database.ReadRecord(dir, "settings", "branding.json")
 	if err != nil {
-		t.Fatalf("expected branding.json to exist: %v", err)
+		t.Fatal(err)
 	}
-	if info.IsDir() {
-		t.Fatalf("expected branding.json to be a file, got directory")
+	if !strings.Contains(string(data), `"siteName":"CheckFile"`) {
+		t.Fatalf("unexpected saved value: %s", data)
 	}
-
-	b, err := os.ReadFile(p)
-	if err != nil {
-		t.Fatalf("ReadFile() error: %v", err)
-	}
-	if !strings.Contains(string(b), `"siteName": "CheckFile"`) {
-		t.Fatalf("expected branding.json to contain siteName, got:\n%s", string(b))
+	if _, err := os.Stat(filepath.Join(dir, "branding.json")); !os.IsNotExist(err) {
+		t.Fatalf("local config exists: %v", err)
 	}
 }
 
 func TestBrandingStore_New_WhenInvalidJSON_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(dir, "branding.json"), []byte("{not valid json"), 0644); err != nil {
+	if err := database.WriteRecord(dir, "settings", "branding.json", []byte("{not valid json")); err != nil {
 		t.Fatalf("setup write invalid json: %v", err)
 	}
 
@@ -134,6 +131,7 @@ func TestBrandingStore_New_WhenInvalidJSON_ReturnsError(t *testing.T) {
 }
 
 func TestBrandingStore_New_InsertsConstraintsEvenIfZeroInFile(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 
 	// Only persisted fields are on disk. BrandingConstraints is json:"-" and
@@ -143,7 +141,7 @@ func TestBrandingStore_New_InsertsConstraintsEvenIfZeroInFile(t *testing.T) {
   "logoFile": "logo.webp",
   "faviconFile": "favicon.png"
 }`
-	if err := os.WriteFile(filepath.Join(dir, "branding.json"), []byte(raw), 0644); err != nil {
+	if err := database.WriteRecord(dir, "settings", "branding.json", []byte(raw)); err != nil {
 		t.Fatalf("setup write json: %v", err)
 	}
 
@@ -163,6 +161,7 @@ func TestBrandingStore_New_InsertsConstraintsEvenIfZeroInFile(t *testing.T) {
 }
 
 func TestBrandingStore_Reload_PicksUpExternalFileChange(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	store, err := NewBrandingStore(dir)
 	if err != nil {
@@ -172,7 +171,7 @@ func TestBrandingStore_Reload_PicksUpExternalFileChange(t *testing.T) {
 	// Simulate a restore swapping in a different branding.json out from
 	// under this store, without going through its own Save.
 	raw := `{"siteName":"Restored Site","logoFile":"","faviconFile":""}`
-	if err := os.WriteFile(filepath.Join(dir, "branding.json"), []byte(raw), 0644); err != nil {
+	if err := database.WriteRecord(dir, "settings", "branding.json", []byte(raw)); err != nil {
 		t.Fatalf("write branding.json: %v", err)
 	}
 

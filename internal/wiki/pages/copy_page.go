@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"strings"
 
@@ -46,7 +47,20 @@ func NewCopyPageUseCase(
 }
 
 // Execute copies the source page to a new node with duplicated assets.
-func (uc *CopyPageUseCase) Execute(_ context.Context, in CopyPageInput) (*CopyPageOutput, error) {
+func (uc *CopyPageUseCase) Execute(ctx context.Context, in CopyPageInput) (*CopyPageOutput, error) {
+	if !uc.tree.InUnitOfWork() {
+		var result *CopyPageOutput
+		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.orchestrator = o
+			var inner error
+			result, inner = copy.Execute(ctx, in)
+			return inner
+		})
+		return result, err
+	}
+
 	ve := sharederrors.NewValidationErrors()
 	if in.Title == "" {
 		ve.Add("title", "Title must not be empty")
@@ -101,12 +115,14 @@ func (uc *CopyPageUseCase) Execute(_ context.Context, in CopyPageInput) (*CopyPa
 		return nil, err
 	}
 
-	uc.orchestrator.Run(pagesave.PageSaveEvent{
+	if err := uc.orchestrator.Run(pagesave.PageSaveEvent{
 		Operation: pagesave.PageOperationCreate,
 		UserID:    in.UserID,
 		After:     copyPage,
 		Summary:   "page copied",
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	return &CopyPageOutput{Page: copyPage}, nil
 }

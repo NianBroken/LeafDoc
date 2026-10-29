@@ -1,6 +1,9 @@
 package main
 
-import "github.com/urfave/cli/v3"
+import (
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
+	"github.com/urfave/cli/v3"
+)
 
 // serverOptions holds the options for listener, data directory and logging.
 type serverOptions struct {
@@ -33,7 +36,7 @@ func (o *serverOptions) Flags() []cli.Flag {
 			Destination: &o.port,
 			Category:    catServer,
 			Usage:       "port to run the server on",
-			Value:       "8080",
+			Value:       serviceports.Port("backend"),
 			Sources:     envVars("LEAFDOC_PORT"),
 			Config:      trimmed,
 		},

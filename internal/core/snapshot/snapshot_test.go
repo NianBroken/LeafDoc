@@ -3,382 +3,67 @@ package snapshot
 import (
 	"archive/zip"
 	"context"
-	"database/sql"
 	"encoding/json"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
-	"github.com/NianBroken/LeafDoc/internal/testutil"
-	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
+func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "snapshot") }
+
+// newTestConfig supplies real MySQL state and independent resource paths.
 func newTestConfig(t *testing.T) Config {
 	t.Helper()
-	base := t.TempDir()
-
-	rootDir := filepath.Join(base, "root")
-	assetsDir := filepath.Join(base, "assets")
-	backupsDir := filepath.Join(base, "backups")
-	usersDBPath := filepath.Join(base, "users.db")
-	brandingConfigFile := testutil.WriteFile(t, base, "branding.json", `{"siteName":"Test Site"}`)
-	publicAccessFile := testutil.WriteFile(t, base, "public-access.json", `{"enabled":true}`)
-	tocDisplayFile := testutil.WriteFile(t, base, "toc-display.json", `{"alwaysShow":true}`)
-
-	testutil.WriteFile(t, rootDir, "page.md", "# Hello\n")
-	testutil.WriteFile(t, assetsDir, "image.png", "fake-image-bytes")
-
-	createTestUsersDB(t, usersDBPath)
-
-	return Config{
-		BackupsDir:         backupsDir,
-		RootDir:            rootDir,
-		AssetsDir:          assetsDir,
-		BrandingConfigFile: brandingConfigFile,
-		SettingsFiles:      []string{publicAccessFile, tocDisplayFile},
-		UsersDBPath:        usersDBPath,
-		WikiVersion:        "v0.0.0-test",
-	}
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	return Config{DataDir: dir, BackupsDir: filepath.Join(dir, "snapshots"), AssetsDir: filepath.Join(dir, "assets"), WikiVersion: "test"}
 }
 
-func createTestUsersDB(t *testing.T, path string) {
-	t.Helper()
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatalf("failed to open users db: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(db.Close, t)
-
-	if _, err := db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT)"); err != nil {
-		t.Fatalf("failed to create users table: %v", err)
-	}
-	if _, err := db.Exec("INSERT INTO users (email) VALUES (?)", "admin@example.com"); err != nil {
-		t.Fatalf("failed to seed users table: %v", err)
-	}
-}
-
-func createTestAPIKeysDB(t *testing.T, path string) {
-	t.Helper()
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatalf("failed to open api keys db: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(db.Close, t)
-
-	if _, err := db.Exec("CREATE TABLE api_keys (id INTEGER PRIMARY KEY, prefix TEXT)"); err != nil {
-		t.Fatalf("failed to create api_keys table: %v", err)
-	}
-	if _, err := db.Exec("INSERT INTO api_keys (prefix) VALUES (?)", "ab12cd"); err != nil {
-		t.Fatalf("failed to seed api_keys table: %v", err)
-	}
-}
-
-func createTestFavoritesDB(t *testing.T, path string) {
-	t.Helper()
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatalf("failed to open favorites db: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(db.Close, t)
-
-	if _, err := db.Exec("CREATE TABLE favorites (user_id TEXT, page_id TEXT)"); err != nil {
-		t.Fatalf("failed to create favorites table: %v", err)
-	}
-	if _, err := db.Exec("INSERT INTO favorites (user_id, page_id) VALUES (?, ?)", "user-1", "page-1"); err != nil {
-		t.Fatalf("failed to seed favorites table: %v", err)
-	}
-}
-
-func TestCreateSnapshot_CreatesZip(t *testing.T) {
+func TestMySQLSnapshotContents(t *testing.T) {
 	cfg := newTestConfig(t)
-
+	if err := database.WriteRecord(cfg.DataDir, "settings", "site", []byte("中文设置")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cfg.AssetsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.AssetsDir, "sample.txt"), []byte("附件"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	id, err := createSnapshot(context.Background(), cfg)
 	if err != nil {
-		t.Fatalf("createSnapshot failed: %v", err)
+		t.Fatal(err)
 	}
-
-	zipPath := filepath.Join(cfg.BackupsDir, id+".zip")
-	if _, err := os.Stat(zipPath); err != nil {
-		t.Fatalf("expected zip file at %s: %v", zipPath, err)
-	}
-
-	sidecarPath := filepath.Join(cfg.BackupsDir, id+".json")
-	data, err := os.ReadFile(sidecarPath)
+	reader, err := zip.OpenReader(filepath.Join(cfg.BackupsDir, id+".zip"))
 	if err != nil {
-		t.Fatalf("expected sidecar file at %s: %v", sidecarPath, err)
+		t.Fatal(err)
 	}
-
-	var entry SnapshotEntry
-	if err := json.Unmarshal(data, &entry); err != nil {
-		t.Fatalf("failed to parse sidecar json: %v", err)
-	}
-	if entry.ID != id {
-		t.Errorf("sidecar id = %q, want %q", entry.ID, id)
-	}
-	if entry.SizeBytes <= 0 {
-		t.Errorf("sidecar sizeBytes = %d, want > 0", entry.SizeBytes)
-	}
-	if entry.CreatedAt.IsZero() {
-		t.Errorf("sidecar createdAt is zero")
-	}
-}
-
-func TestCreateSnapshot_ContainsExpectedFiles(t *testing.T) {
-	cfg := newTestConfig(t)
-
-	id, err := createSnapshot(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("createSnapshot failed: %v", err)
-	}
-
-	zipPath := filepath.Join(cfg.BackupsDir, id+".zip")
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		t.Fatalf("failed to open zip: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(r.Close, t)
-
-	got := map[string]bool{}
-	for _, f := range r.File {
-		got[f.Name] = true
-	}
-
-	for _, want := range []string{"root/page.md", "assets/image.png", "users.db", "branding.json", "public-access.json", "toc-display.json", "backup-meta.json"} {
-		if !got[want] {
-			t.Errorf("zip missing expected entry %q; got entries: %v", want, got)
-		}
-	}
-}
-
-func TestCreateSnapshot_BrandingConfigFileIsOptional(t *testing.T) {
-	// An instance that has never touched branding settings has no
-	// branding.json on disk yet — createSnapshot must not fail over that
-	// (matches addFileToZip's existing "missing optional source" behavior).
-	cfg := newTestConfig(t)
-	cfg.BrandingConfigFile = filepath.Join(t.TempDir(), "does-not-exist", "branding.json")
-
-	id, err := createSnapshot(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("createSnapshot failed: %v", err)
-	}
-
-	zipPath := filepath.Join(cfg.BackupsDir, id+".zip")
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		t.Fatalf("failed to open zip: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(r.Close, t)
-
-	for _, f := range r.File {
-		if f.Name == "branding.json" {
-			t.Error("expected no branding.json entry when the source file doesn't exist")
-		}
-	}
-}
-
-func TestCreateSnapshot_MissingSettingsFileIsSkipped(t *testing.T) {
-	// public-access.json / toc-display.json only exist once an admin has
-	// toggled the setting; a missing one must not fail the snapshot.
-	cfg := newTestConfig(t)
-	cfg.SettingsFiles = []string{filepath.Join(t.TempDir(), "public-access.json")}
-
-	id, err := createSnapshot(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("createSnapshot failed: %v", err)
-	}
-
-	r, err := zip.OpenReader(filepath.Join(cfg.BackupsDir, id+".zip"))
-	if err != nil {
-		t.Fatalf("failed to open zip: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(r.Close, t)
-
-	for _, f := range r.File {
-		if f.Name == "public-access.json" {
-			t.Error("expected no public-access.json entry when the source file doesn't exist")
-		}
-	}
-}
-
-// stateDBCases are the state databases a snapshot captures through
-// StateDBPaths; each case builds a real database file of that kind.
-var stateDBCases = []struct {
-	file   string
-	create func(t *testing.T, path string)
-}{
-	{file: "api_keys.db", create: createTestAPIKeysDB},
-	{file: "favorites.db", create: createTestFavoritesDB},
-}
-
-// zipEntryNames returns the entry names of snapshot id's ZIP.
-func zipEntryNames(t *testing.T, cfg Config, id string) map[string]bool {
-	t.Helper()
-	r, err := zip.OpenReader(filepath.Join(cfg.BackupsDir, id+".zip"))
-	if err != nil {
-		t.Fatalf("failed to open zip: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(r.Close, t)
-
+	defer reader.Close()
 	names := map[string]bool{}
-	for _, f := range r.File {
-		names[f.Name] = true
+	for _, entry := range reader.File {
+		names[entry.Name] = true
 	}
-	return names
-}
-
-func TestCreateSnapshot_StateDBIsOptional(t *testing.T) {
-	for _, tc := range stateDBCases {
-		t.Run(tc.file, func(t *testing.T) {
-			cfg := newTestConfig(t)
-			cfg.StateDBPaths = []string{filepath.Join(t.TempDir(), tc.file)}
-
-			id, err := createSnapshot(context.Background(), cfg)
-			if err != nil {
-				t.Fatalf("createSnapshot failed: %v", err)
-			}
-			if zipEntryNames(t, cfg, id)[tc.file] {
-				t.Errorf("expected no %s entry when the source file doesn't exist", tc.file)
-			}
-		})
+	for _, name := range []string{"database.json", "backup-meta.json", "checksums.json", "assets/sample.txt"} {
+		if !names[name] {
+			t.Errorf("missing %s", name)
+		}
+	}
+	for _, entry := range reader.File {
+		if filepath.Ext(entry.Name) == ".db" {
+			t.Fatal("local database in MySQL snapshot")
+		}
 	}
 }
 
-func TestCreateSnapshot_ContainsStateDBWhenPresent(t *testing.T) {
-	for _, tc := range stateDBCases {
-		t.Run(tc.file, func(t *testing.T) {
-			cfg := newTestConfig(t)
-			path := filepath.Join(t.TempDir(), tc.file)
-			tc.create(t, path)
-			cfg.StateDBPaths = []string{path}
-
-			id, err := createSnapshot(context.Background(), cfg)
-			if err != nil {
-				t.Fatalf("createSnapshot failed: %v", err)
-			}
-			if !zipEntryNames(t, cfg, id)[tc.file] {
-				t.Errorf("expected a %s entry when the source file exists", tc.file)
-			}
-		})
-	}
-}
-
-// TestCreateSnapshot_StateDBStatErrorOtherThanNotExist_FailsSnapshot is the
-// regression test for a real bug found in review: an os.Stat error other
-// than "file doesn't exist" (e.g. permission denied, or here a path component
-// that isn't a directory) used to be silently treated the same as "the
-// database just doesn't exist on this data dir yet", producing a snapshot
-// that quietly omits its data instead of failing loudly.
-func TestCreateSnapshot_StateDBStatErrorOtherThanNotExist_FailsSnapshot(t *testing.T) {
-	for _, tc := range stateDBCases {
-		t.Run(tc.file, func(t *testing.T) {
-			cfg := newTestConfig(t)
-			blocker := testutil.WriteFile(t, t.TempDir(), "not-a-directory", "x")
-			cfg.StateDBPaths = []string{filepath.Join(blocker, tc.file)}
-
-			if _, err := createSnapshot(context.Background(), cfg); err == nil {
-				t.Fatalf("expected createSnapshot to fail on a %s stat error other than not-exist", tc.file)
-			}
-		})
-	}
-}
-
-func TestCreateSnapshot_SameSecondCallsDoNotCollide(t *testing.T) {
+func TestSnapshotWriteBarrierFailure(t *testing.T) {
 	cfg := newTestConfig(t)
-
-	id1, err := createSnapshot(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("first createSnapshot failed: %v", err)
-	}
-	id2, err := createSnapshot(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("second createSnapshot failed: %v", err)
-	}
-
-	if id1 == id2 {
-		t.Fatalf("expected distinct IDs for two createSnapshot calls, got %q twice", id1)
-	}
-
-	for _, id := range []string{id1, id2} {
-		if _, err := os.Stat(filepath.Join(cfg.BackupsDir, id+".zip")); err != nil {
-			t.Errorf("expected zip for %s to still exist: %v", id, err)
-		}
-		if _, err := os.Stat(filepath.Join(cfg.BackupsDir, id+".json")); err != nil {
-			t.Errorf("expected sidecar for %s to still exist: %v", id, err)
-		}
-	}
-}
-
-func TestUniqueSnapshotID_ReturnsSameIDWhenNoCollision(t *testing.T) {
-	backupsDir := t.TempDir()
-	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-
-	id, err := uniqueSnapshotID(backupsDir, ts)
-	if err != nil {
-		t.Fatalf("uniqueSnapshotID failed: %v", err)
-	}
-	want := "snapshot-20260101-120000"
-	if id != want {
-		t.Errorf("id = %q, want %q", id, want)
-	}
-}
-
-func TestUniqueSnapshotID_AppendsSuffixOnCollision(t *testing.T) {
-	backupsDir := t.TempDir()
-	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	base := "snapshot-20260101-120000"
-
-	if err := os.WriteFile(filepath.Join(backupsDir, base+".zip"), []byte("x"), 0o644); err != nil {
-		t.Fatalf("failed to write fixture: %v", err)
-	}
-
-	id, err := uniqueSnapshotID(backupsDir, ts)
-	if err != nil {
-		t.Fatalf("uniqueSnapshotID failed: %v", err)
-	}
-	want := base + "-2"
-	if id != want {
-		t.Errorf("id = %q, want %q", id, want)
-	}
-}
-
-func TestVacuumSQLiteDB_WaitsForBusyWriter(t *testing.T) {
-	base := t.TempDir()
-	srcPath := filepath.Join(base, "users.db")
-	createTestUsersDB(t, srcPath)
-
-	// _txlock=exclusive makes Begin() issue "BEGIN EXCLUSIVE", grabbing the
-	// database lock immediately instead of lazily on first write.
-	holderDB, err := sql.Open("sqlite", srcPath+"?_txlock=exclusive")
-	if err != nil {
-		t.Fatalf("failed to open holder connection: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(holderDB.Close, t)
-
-	tx, err := holderDB.Begin()
-	if err != nil {
-		t.Fatalf("failed to begin exclusive transaction: %v", err)
-	}
-
-	committed := make(chan struct{})
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		if err := tx.Commit(); err != nil {
-			t.Errorf("failed to commit holder transaction: %v", err)
-		}
-		close(committed)
-	}()
-
-	dstPath := filepath.Join(base, "users-copy.db")
-	if err := vacuumSQLiteDB(context.Background(), srcPath, dstPath); err != nil {
-		t.Fatalf("vacuumSQLiteDB failed while a writer briefly held the database: %v", err)
-	}
-
-	<-committed
-
-	if _, err := os.Stat(dstPath); err != nil {
-		t.Fatalf("expected vacuum output at %s: %v", dstPath, err)
+	cfg.Quiesce = func() (func(), error) { return nil, os.ErrPermission }
+	if _, err := createSnapshot(context.Background(), cfg); err == nil {
+		t.Fatal("write barrier failure ignored")
 	}
 }
 

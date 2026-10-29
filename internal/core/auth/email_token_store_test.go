@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"strings"
 	"sync"
 	"testing"
@@ -22,6 +23,7 @@ func newTestEmailTokenStore(t *testing.T) *EmailTokenStore {
 }
 
 func TestEmailTokenStore_IssueThenResolve_ValidToken_Succeeds(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	raw, err := store.Issue("user-1", PurposePasswordReset, time.Hour)
@@ -45,6 +47,7 @@ func TestEmailTokenStore_IssueThenResolve_ValidToken_Succeeds(t *testing.T) {
 }
 
 func TestEmailTokenStore_Resolve_WrongPurpose_ReturnsInvalid(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	raw, err := store.Issue("user-1", PurposeInvite, InviteTokenTTL)
@@ -58,6 +61,7 @@ func TestEmailTokenStore_Resolve_WrongPurpose_ReturnsInvalid(t *testing.T) {
 }
 
 func TestEmailTokenStore_Resolve_UnknownID_ReturnsInvalid(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	if _, err := store.Resolve("does-not-exist.somesecret", PurposePasswordReset); err != ErrEmailTokenInvalid {
@@ -66,6 +70,7 @@ func TestEmailTokenStore_Resolve_UnknownID_ReturnsInvalid(t *testing.T) {
 }
 
 func TestEmailTokenStore_Resolve_MalformedToken_ReturnsInvalid(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	for _, raw := range []string{"", "no-dot-here", ".missing-id", "missing-secret."} {
@@ -76,6 +81,7 @@ func TestEmailTokenStore_Resolve_MalformedToken_ReturnsInvalid(t *testing.T) {
 }
 
 func TestEmailTokenStore_Resolve_WrongSecret_ReturnsInvalid(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	raw, err := store.Issue("user-1", PurposePasswordReset, time.Hour)
@@ -90,6 +96,7 @@ func TestEmailTokenStore_Resolve_WrongSecret_ReturnsInvalid(t *testing.T) {
 }
 
 func TestEmailTokenStore_Resolve_ExpiredToken_ReturnsInvalid(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	raw, err := store.Issue("user-1", PurposePasswordReset, -time.Second)
@@ -103,6 +110,7 @@ func TestEmailTokenStore_Resolve_ExpiredToken_ReturnsInvalid(t *testing.T) {
 }
 
 func TestEmailTokenStore_Consume_SingleUse_SecondConsumeFails(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	raw, err := store.Issue("user-1", PurposePasswordReset, time.Hour)
@@ -120,6 +128,7 @@ func TestEmailTokenStore_Consume_SingleUse_SecondConsumeFails(t *testing.T) {
 }
 
 func TestEmailTokenStore_Resolve_ConsumedToken_ReturnsInvalid(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	raw, err := store.Issue("user-1", PurposePasswordReset, time.Hour)
@@ -142,6 +151,7 @@ func TestEmailTokenStore_Resolve_ConsumedToken_ReturnsInvalid(t *testing.T) {
 // calls: two requests racing to consume the same token (e.g. a double-submit
 // of the same reset link) must not both succeed.
 func TestEmailTokenStore_Consume_ConcurrentRace_OnlyOneWinner(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	raw, err := store.Issue("user-1", PurposePasswordReset, time.Hour)
@@ -174,6 +184,7 @@ func TestEmailTokenStore_Consume_ConcurrentRace_OnlyOneWinner(t *testing.T) {
 }
 
 func TestEmailTokenStore_CleanupExpired_RemovesOnlyExpiredRows(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestEmailTokenStore(t)
 
 	expiredRaw, err := store.Issue("user-1", PurposePasswordReset, -time.Second)

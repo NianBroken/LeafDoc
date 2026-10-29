@@ -20,9 +20,11 @@ func BenchmarkTreeSortPages(b *testing.B) {
 			}
 			order := make([]string, count)
 			for i := 0; i < count; i++ {
-				id := fmt.Sprintf("page-%d", i)
-				svc.tree.Children = append(svc.tree.Children, &PageNode{ID: id, Position: i, Parent: svc.tree})
-				order[count-i-1] = id
+				id, err := svc.CreateNode("system", nil, fmt.Sprintf("Page %d", i), fmt.Sprintf("page-%d", i), ptrKind(NodeKindPage))
+				if err != nil {
+					b.Fatal(err)
+				}
+				order[count-i-1] = *id
 			}
 			b.ReportAllocs()
 			b.ResetTimer()

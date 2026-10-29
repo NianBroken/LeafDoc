@@ -1,6 +1,9 @@
 package pagesave
 
 import (
+	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	"time"
 
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
@@ -28,12 +31,22 @@ func NewPageSaveOrchestrator(metrics *httpmetrics.HTTPMetrics, effects ...PageSi
 }
 
 // Run delivers the event to each side effect in registration order.
-func (o *PageSaveOrchestrator) Run(event PageSaveEvent) {
+func (o *PageSaveOrchestrator) Run(event PageSaveEvent) error {
+	if o == nil {
+		return nil
+	}
 	for _, se := range o.sideEffects {
 		started := time.Now()
-		se.Apply(event)
+		if effect, ok := se.(interface{ ApplyTransactional(PageSaveEvent) error }); ok {
+			if err := effect.ApplyTransactional(event); err != nil {
+				return err
+			}
+		} else {
+			se.Apply(event)
+		}
 		o.metrics.ObservePageSaveSideEffect(string(event.Operation), sideEffectName(se), started)
 	}
+	return nil
 }
 
 func sideEffectName(effect PageSideEffect) string {
@@ -41,4 +54,29 @@ func sideEffectName(effect PageSideEffect) string {
 		return named.Name()
 	}
 	return "unknown"
+}
+
+// WithExecutor binds every database effect to one request transaction.
+func (o *PageSaveOrchestrator) WithExecutor(exec database.Executor, t *tree.TreeService) *PageSaveOrchestrator {
+	if o == nil {
+		return nil
+	}
+	effects := make([]PageSideEffect, 0, len(o.sideEffects))
+	for _, effect := range o.sideEffects {
+		if binder, ok := effect.(interface {
+			WithExecutor(database.Executor, *tree.TreeService) PageSideEffect
+		}); ok {
+			effects = append(effects, binder.WithExecutor(exec, t))
+		} else {
+			effects = append(effects, effect)
+		}
+	}
+	return NewPageSaveOrchestrator(o.metrics, effects...)
+}
+
+// Execute commits page data, history and indexes together before publishing the tree.
+func (o *PageSaveOrchestrator) Execute(ctx context.Context, t *tree.TreeService, fn func(*tree.TreeService, *PageSaveOrchestrator, database.Executor) error) error {
+	return t.WithUnitOfWork(ctx, func(bound *tree.TreeService, exec database.Executor) error {
+		return fn(bound, o.WithExecutor(exec, bound), exec)
+	})
 }

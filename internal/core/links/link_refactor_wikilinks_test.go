@@ -1,10 +1,14 @@
 package links
 
-import "testing"
+import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
+	"testing"
+)
 
 // ─── RewriteWikiLinks ────────────────────────────────────────────────────────
 
 func TestRewriteWikiLinks_TitleRename(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "See [[Project Plan]] and [[Project Plan|our plan]] for details."
 
@@ -25,6 +29,7 @@ func TestRewriteWikiLinks_TitleRename(t *testing.T) {
 }
 
 func TestRewriteWikiLinks_TitleRenameCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 
 	cases := []struct{ input, want string }{
@@ -44,6 +49,7 @@ func TestRewriteWikiLinks_TitleRenameCaseInsensitive(t *testing.T) {
 }
 
 func TestRewriteWikiLinks_PathHintRewrite(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "See [[docs/intro]] and [[docs/intro|Introduction]]."
 
@@ -62,6 +68,7 @@ func TestRewriteWikiLinks_PathHintRewrite(t *testing.T) {
 }
 
 func TestRewriteWikiLinks_SkipsCodeBlocks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "`[[Old Title]]` inline\n\n```\n[[Old Title]]\n```\n\n[[Old Title]] outside"
 
@@ -79,6 +86,7 @@ func TestRewriteWikiLinks_SkipsCodeBlocks(t *testing.T) {
 }
 
 func TestRewriteWikiLinks_NoMatchReturnsUnchanged(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "See [[Other Page]] here."
 
@@ -95,6 +103,7 @@ func TestRewriteWikiLinks_NoMatchReturnsUnchanged(t *testing.T) {
 }
 
 func TestRewriteWikiLinks_EmptyRulesNoOp(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "[[Some Page]]"
 	result := engine.RewriteWikiLinks(content, nil)
@@ -106,6 +115,7 @@ func TestRewriteWikiLinks_EmptyRulesNoOp(t *testing.T) {
 // ─── FindWikiLinksForPath ────────────────────────────────────────────────────
 
 func TestFindWikiLinksForPath_FindsPathHint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "See [[docs/intro]] for details."
 	found := engine.FindWikiLinksForPath(content, "/docs/intro", "Intro")
@@ -118,6 +128,7 @@ func TestFindWikiLinksForPath_FindsPathHint(t *testing.T) {
 }
 
 func TestFindWikiLinksForPath_FindsTitleLink(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "See [[Project Plan]] for details."
 	found := engine.FindWikiLinksForPath(content, "/docs/project-plan", "Project Plan")
@@ -130,6 +141,7 @@ func TestFindWikiLinksForPath_FindsTitleLink(t *testing.T) {
 }
 
 func TestFindWikiLinksForPath_TitleMatchCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "See [[project plan]] for details."
 	found := engine.FindWikiLinksForPath(content, "/docs/project-plan", "Project Plan")
@@ -139,6 +151,7 @@ func TestFindWikiLinksForPath_TitleMatchCaseInsensitive(t *testing.T) {
 }
 
 func TestFindWikiLinksForPath_SkipsCodeBlocks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	// Fenced code block: no occurrence outside code → nothing reported.
 	fenced := "```\n[[Project Plan]]\n```"
@@ -158,6 +171,7 @@ func TestFindWikiLinksForPath_SkipsCodeBlocks(t *testing.T) {
 }
 
 func TestFindWikiLinksForPath_EmptyContentReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	found := engine.FindWikiLinksForPath("", "/docs/intro", "Intro")
 	if len(found) != 0 {
@@ -166,6 +180,7 @@ func TestFindWikiLinksForPath_EmptyContentReturnsNil(t *testing.T) {
 }
 
 func TestFindWikiLinksForPath_NoMatchReturnsEmpty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "No wiki links here, just [regular](/links)."
 	found := engine.FindWikiLinksForPath(content, "/docs/intro", "Intro")
@@ -181,6 +196,7 @@ func TestFindWikiLinksForPath_NoMatchReturnsEmpty(t *testing.T) {
 // RewriteReplacements; without skipping the redundant path-hint rewrite (or
 // otherwise deduplicating overlaps), applyReplacements panics.
 func TestRewriteWikiLinks_TitleEqualsPathHint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	content := "See [[intro]] and [[intro|Start]] here."
 
@@ -201,6 +217,7 @@ func TestRewriteWikiLinks_TitleEqualsPathHint(t *testing.T) {
 }
 
 func TestRewriteWikiLinks_PathOnlyMoveWithSameTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine := NewMarkdownRefactorEngine()
 	// Page is moved but NOT renamed: OldTitle == NewTitle.
 	// titleCoversHint must not suppress the path-hint rewrite in this case.

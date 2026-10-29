@@ -1,14 +1,15 @@
 package pagesave
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 
 	"github.com/NianBroken/LeafDoc/internal/core/search"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
-// setupSearchTest creates a temp-dir-backed tree, SQLiteIndex and SearchIndexSideEffect.
-func setupSearchTest(t *testing.T) (*tree.TreeService, *search.SQLiteIndex, *SearchIndexSideEffect) {
+// setupSearchTest creates a temp-dir-backed tree, MySQLIndex and SearchIndexSideEffect.
+func setupSearchTest(t *testing.T) (*tree.TreeService, *search.MySQLIndex, *SearchIndexSideEffect) {
 	t.Helper()
 	tmp := t.TempDir()
 
@@ -17,9 +18,9 @@ func setupSearchTest(t *testing.T) (*tree.TreeService, *search.SQLiteIndex, *Sea
 		t.Fatalf("LoadTree: %v", err)
 	}
 
-	index, err := search.NewSQLiteIndex(tmp)
+	index, err := search.NewMySQLIndex(tmp)
 	if err != nil {
-		t.Fatalf("NewSQLiteIndex: %v", err)
+		t.Fatalf("NewMySQLIndex: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := index.Close(); err != nil {
@@ -56,6 +57,7 @@ func createPageWithContent(t *testing.T, treeSvc *tree.TreeService, title, slug,
 // ─── IndexAllPages ────────────────────────────────────────────────────────────
 
 func TestSearchIndexSideEffect_IndexAllPages_IndexesExistingPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, index, effect := setupSearchTest(t)
 
 	page := createPageWithContent(t, treeSvc, "Search Test Page", "search-test", "# Search Test Page\nThis is some uniquecontent for indexing.")
@@ -77,6 +79,7 @@ func TestSearchIndexSideEffect_IndexAllPages_IndexesExistingPages(t *testing.T) 
 }
 
 func TestSearchIndexSideEffect_IndexAllPages_ClearsStaleEntries(t *testing.T) {
+	testutil.ResetMySQL(t)
 	_, index, effect := setupSearchTest(t)
 
 	// Pre-populate the index with a stale entry not present in the tree.
@@ -98,6 +101,7 @@ func TestSearchIndexSideEffect_IndexAllPages_ClearsStaleEntries(t *testing.T) {
 }
 
 func TestSearchIndexSideEffect_IndexAllPages_EmptyTree(t *testing.T) {
+	testutil.ResetMySQL(t)
 	_, index, effect := setupSearchTest(t)
 
 	if err := effect.IndexAllPages(); err != nil {
@@ -116,6 +120,7 @@ func TestSearchIndexSideEffect_IndexAllPages_EmptyTree(t *testing.T) {
 // ─── Apply ───────────────────────────────────────────────────────────────────
 
 func TestSearchIndexSideEffect_Apply_Create_IndexesPage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, index, effect := setupSearchTest(t)
 
 	page := createPageWithContent(t, treeSvc, "Created Page", "created", "some uniqueterm_create content")
@@ -138,6 +143,7 @@ func TestSearchIndexSideEffect_Apply_Create_IndexesPage(t *testing.T) {
 }
 
 func TestSearchIndexSideEffect_Apply_Update_ReplacesContentAfterBootstrap(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, index, effect := setupSearchTest(t)
 
 	page := createPageWithContent(t, treeSvc, "My Page", "my-page", "initial uniqueword_before content")
@@ -186,6 +192,7 @@ func TestSearchIndexSideEffect_Apply_Update_ReplacesContentAfterBootstrap(t *tes
 }
 
 func TestSearchIndexSideEffect_Apply_Delete_RemovesFromIndex(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, index, effect := setupSearchTest(t)
 
 	page := createPageWithContent(t, treeSvc, "Delete Me", "delete-me", "deletable uniqueterm_delete content")
@@ -217,6 +224,7 @@ func TestSearchIndexSideEffect_Apply_Delete_RemovesFromIndex(t *testing.T) {
 }
 
 func TestSearchIndexSideEffect_Apply_Delete_Recursive_RemovesAllPagesFromIndex(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, index, effect := setupSearchTest(t)
 
 	parent := createPageWithContent(t, treeSvc, "Parent Section", "parent", "parent uniqueterm_parent content")
@@ -292,6 +300,7 @@ func TestSearchIndexSideEffect_Apply_Delete_Recursive_RemovesAllPagesFromIndex(t
 }
 
 func TestSearchIndexSideEffect_Apply_Move_PageStillSearchableAtNewPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	treeSvc, index, effect := setupSearchTest(t)
 
 	// Create a parent page (will auto-convert to section when child is added).

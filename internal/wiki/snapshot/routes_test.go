@@ -3,7 +3,6 @@ package wikisnapshot
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,49 +13,39 @@ import (
 	"time"
 
 	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"github.com/gin-gonic/gin"
-	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
 func init() {
 	gin.SetMode(gin.TestMode)
 }
 
+func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "wiki/snapshot") }
+
 func newTestManager(t *testing.T) *snapshotSvc.Manager {
 	t.Helper()
 	base := t.TempDir()
 
-	rootDir := filepath.Join(base, "root")
 	assetsDir := filepath.Join(base, "assets")
 	backupsDir := filepath.Join(base, "backups")
-	usersDBPath := filepath.Join(base, "users.db")
 
-	if err := os.MkdirAll(rootDir, 0o755); err != nil {
-		t.Fatalf("failed to create root dir: %v", err)
+	pages := tree.NewTreeService(base)
+	if err := pages.LoadTree(); err != nil {
+		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(rootDir, "page.md"), []byte("# Hello\n"), 0o644); err != nil {
-		t.Fatalf("failed to write page: %v", err)
+	if _, err := pages.CreateNode("system", nil, "Hello", "hello", nil); err != nil {
+		t.Fatal(err)
 	}
 	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
 		t.Fatalf("failed to create assets dir: %v", err)
 	}
 
-	db, err := sql.Open("sqlite", usersDBPath)
-	if err != nil {
-		t.Fatalf("failed to open users db: %v", err)
-	}
-	if _, err := db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY)"); err != nil {
-		t.Fatalf("failed to create users table: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("failed to close users db: %v", err)
-	}
-
 	return snapshotSvc.NewManager(snapshotSvc.Config{
 		BackupsDir:  backupsDir,
-		RootDir:     rootDir,
+		DataDir:     base,
 		AssetsDir:   assetsDir,
-		UsersDBPath: usersDBPath,
 		WikiVersion: "v0.0.0-test",
 	})
 }
@@ -90,6 +79,7 @@ func newTestRouter(routes *Routes) *gin.Engine {
 }
 
 func TestHandleUpdateSettingsValidatesAndPersists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	manager := newTestManager(t)
 	settingsStore, err := snapshotSvc.NewSettingsStore(t.TempDir(), 24*time.Hour, 10)
 	if err != nil {
@@ -124,6 +114,7 @@ func TestHandleUpdateSettingsValidatesAndPersists(t *testing.T) {
 }
 
 func TestHandleStatus_Disabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -140,6 +131,7 @@ func TestHandleStatus_Disabled(t *testing.T) {
 }
 
 func TestHandleStatus_Enabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m, retentionCount: 10}
 	router := newTestRouter(routes)
@@ -164,6 +156,7 @@ func TestHandleStatus_Enabled(t *testing.T) {
 }
 
 func TestHandleList_NotEnabledWhenManagerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -176,6 +169,7 @@ func TestHandleList_NotEnabledWhenManagerNil(t *testing.T) {
 }
 
 func TestHandleDownload_NotEnabledWhenManagerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -188,6 +182,7 @@ func TestHandleDownload_NotEnabledWhenManagerNil(t *testing.T) {
 }
 
 func TestHandleDelete_NotEnabledWhenManagerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -200,6 +195,7 @@ func TestHandleDelete_NotEnabledWhenManagerNil(t *testing.T) {
 }
 
 func TestHandleTrigger_NotEnabledWhenSchedulerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -212,6 +208,7 @@ func TestHandleTrigger_NotEnabledWhenSchedulerNil(t *testing.T) {
 }
 
 func TestHandleTrigger_Returns202(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	scheduler := snapshotSvc.NewScheduler(m)
 	defer scheduler.Stop()
@@ -235,6 +232,7 @@ func TestHandleTrigger_Returns202(t *testing.T) {
 }
 
 func TestHandleList_ReturnsCreatedSnapshots(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	if err := m.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce failed: %v", err)
@@ -262,6 +260,7 @@ func TestHandleList_ReturnsCreatedSnapshots(t *testing.T) {
 }
 
 func TestHandleDownload_ReturnsZip(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	if err := m.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce failed: %v", err)
@@ -285,7 +284,7 @@ func TestHandleDownload_ReturnsZip(t *testing.T) {
 		t.Errorf("expected Content-Type application/zip, got %q", ct)
 	}
 	if cc := w.Header().Get("Cache-Control"); cc != "no-store" {
-		t.Errorf("expected Cache-Control no-store (snapshot contains users.db), got %q", cc)
+		t.Errorf("expected Cache-Control no-store for private database records, got %q", cc)
 	}
 	disposition := w.Header().Get("Content-Disposition")
 	if disposition == "" {
@@ -297,6 +296,7 @@ func TestHandleDownload_ReturnsZip(t *testing.T) {
 }
 
 func TestHandleDownload_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -311,6 +311,7 @@ func TestHandleDownload_NotFound(t *testing.T) {
 }
 
 func TestHandleDownload_InvalidID(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Single-segment IDs that fail validateSnapshotID's prefix/".." checks but
 	// don't contain "/" (a "/" in the id wouldn't even route to this handler —
 	// gin matches path segments, so that case 404s at the router, not here).
@@ -328,6 +329,7 @@ func TestHandleDownload_InvalidID(t *testing.T) {
 }
 
 func TestHandleDelete_RemovesSnapshot(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	if err := m.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce failed: %v", err)
@@ -358,6 +360,7 @@ func TestHandleDelete_RemovesSnapshot(t *testing.T) {
 }
 
 func TestHandleDelete_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)

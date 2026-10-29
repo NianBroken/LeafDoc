@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,6 +47,7 @@ func doGet(r http.Handler, cookie *http.Cookie) *httptest.ResponseRecorder {
 }
 
 func TestRequireAuthOrPublicRead_UserAlreadyInContext_Passes(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	inject := func(c *gin.Context) {
 		c.Set("user", &coreauth.User{ID: "x", Username: "proxied", Role: coreauth.RoleEditor})
@@ -60,6 +62,7 @@ func TestRequireAuthOrPublicRead_UserAlreadyInContext_Passes(t *testing.T) {
 }
 
 func TestRequireAuthOrPublicRead_NoToken_PublicOff_Returns401(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	r := newAuthOrPublicRouter(nil, authCookies, false, &flipGate{enabled: false}, nil)
 
@@ -73,6 +76,7 @@ func TestRequireAuthOrPublicRead_NoToken_PublicOff_Returns401(t *testing.T) {
 }
 
 func TestRequireAuthOrPublicRead_NoToken_PublicOn_PassesAnonymously(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	r := newAuthOrPublicRouter(nil, authCookies, false, &flipGate{enabled: true}, nil)
 
@@ -83,6 +87,7 @@ func TestRequireAuthOrPublicRead_NoToken_PublicOn_PassesAnonymously(t *testing.T
 }
 
 func TestRequireAuthOrPublicRead_InvalidToken_PublicOff_Returns401(t *testing.T) {
+	testutil.ResetMySQL(t)
 	fixture := createTestAuthFixture(t)
 	cleanupWithErrorCheck(t, "auth fixture", fixture.close)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
@@ -98,6 +103,7 @@ func TestRequireAuthOrPublicRead_InvalidToken_PublicOff_Returns401(t *testing.T)
 }
 
 func TestRequireAuthOrPublicRead_InvalidToken_PublicOn_PassesAnonymously(t *testing.T) {
+	testutil.ResetMySQL(t)
 	fixture := createTestAuthFixture(t)
 	cleanupWithErrorCheck(t, "auth fixture", fixture.close)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
@@ -110,6 +116,7 @@ func TestRequireAuthOrPublicRead_InvalidToken_PublicOn_PassesAnonymously(t *test
 }
 
 func TestRequireAuthOrPublicRead_ValidToken_AttachesUser_BothModes(t *testing.T) {
+	testutil.ResetMySQL(t)
 	fixture := createTestAuthFixture(t)
 	cleanupWithErrorCheck(t, "auth fixture", fixture.close)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
@@ -128,6 +135,7 @@ func TestRequireAuthOrPublicRead_ValidToken_AttachesUser_BothModes(t *testing.T)
 }
 
 func TestRequireAuthOrPublicRead_NilAuthServiceWithToken_Returns500(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	// Even in public mode a present token with no authService is a
 	// misconfiguration, not a fall-through to anonymous.
@@ -140,6 +148,7 @@ func TestRequireAuthOrPublicRead_NilAuthServiceWithToken_Returns500(t *testing.T
 }
 
 func TestRequireAuthOrPublicRead_AuthDisabled_NoUser_PublicOff_Returns401(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	r := newAuthOrPublicRouter(nil, authCookies, true, &flipGate{enabled: false}, nil)
 
@@ -153,6 +162,7 @@ func TestRequireAuthOrPublicRead_AuthDisabled_NoUser_PublicOff_Returns401(t *tes
 }
 
 func TestRequireAuthOrPublicRead_NilGate_TreatedAsPublicOff(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	r := newAuthOrPublicRouter(nil, authCookies, false, nil, nil)
 
@@ -167,6 +177,7 @@ func TestRequireAuthOrPublicRead_NilGate_TreatedAsPublicOff(t *testing.T) {
 // follows the gate value at request time — not a value snapshotted when the
 // route was registered.
 func TestRequireAuthOrPublicRead_GateFlipsAtRuntime_SameRouterChangesBehaviour(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	gate := &flipGate{enabled: false}
 	r := newAuthOrPublicRouter(nil, authCookies, false, gate, nil)

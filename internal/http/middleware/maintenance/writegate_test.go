@@ -164,3 +164,24 @@ func TestWriteGateMiddleware_RespondsWithLocalizedErrorShape(t *testing.T) {
 		}
 	}
 }
+
+// Restore progress remains readable during maintenance, while the capability
+// endpoint receives no exemption for write requests.
+func TestRestoreProgressDuringMaintenance(t *testing.T) {
+	gate := restore.NewWriteGate()
+	gate.Engage()
+	router := newTestRouter(gate)
+	for _, path := range []string{"/api/restore/progress", "/wiki/api/restore/progress"} {
+		for _, method := range []string{http.MethodGet, http.MethodPost} {
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(method, path, nil))
+			expected := http.StatusOK
+			if method == http.MethodPost {
+				expected = http.StatusServiceUnavailable
+			}
+			if response.Code != expected {
+				t.Fatalf("%s %s=%d want=%d", method, path, response.Code, expected)
+			}
+		}
+	}
+}

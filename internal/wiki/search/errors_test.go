@@ -34,7 +34,7 @@ func TestRespondWithSearchError_InternalErrorIsSanitized(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 
-	respondWithSearchError(c, errors.New("sqlite disk I/O error"))
+	respondWithSearchError(c, errors.New("MySQL connection lost"))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)

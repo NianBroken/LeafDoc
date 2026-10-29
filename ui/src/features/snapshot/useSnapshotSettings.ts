@@ -17,6 +17,14 @@ import type { SnapshotSettings as SnapshotSettingsValue } from '@/shared/lib/api
 import { useRestoreStore } from '@/features/restore/state/restore'
 
 import { useSetTitle } from '@/features/viewer/setTitle'
+import { useSessionStore } from '@/shared/state/session'
+import { BASE_PATH } from '@/shared/lib/config'
+
+// Restored account data invalidates every previous browser session.
+function returnToLogin() {
+  useSessionStore.getState().clear()
+  window.location.replace(`${BASE_PATH}/login`)
+}
 
 export function useSnapshotSettings() {
   const { t } = useTranslation('snapshot')
@@ -146,7 +154,7 @@ export function useSnapshotSettings() {
       } else {
         toast.warning(tRestore('toast.restoreSucceededResyncUnconfirmed'))
       }
-      window.location.reload()
+      returnToLogin()
     } catch (err) {
       if (
         err instanceof ApiLocalizedError &&
@@ -174,7 +182,7 @@ export function useSnapshotSettings() {
       } else {
         toast.warning(tRestore('toast.restoreSucceededResyncUnconfirmed'))
       }
-      window.location.reload()
+      returnToLogin()
     } catch (err) {
       if (
         err instanceof ApiLocalizedError &&

@@ -2,11 +2,13 @@ package settings
 
 import (
 	"errors"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"sync"
 	"testing"
 )
 
 func TestFixed_Get_ReturnsPinnedValue(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := NewFixed(testConfig{Name: "pinned"})
 	if got := f.Get(); got.Name != "pinned" {
 		t.Fatalf("Get() = %+v, want Name %q", got, "pinned")
@@ -14,6 +16,7 @@ func TestFixed_Get_ReturnsPinnedValue(t *testing.T) {
 }
 
 func TestFixed_Put_AlwaysFailsWithErrEnvManaged(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := NewFixed(testConfig{Name: "pinned"})
 	if err := f.Put(testConfig{Name: "changed"}); !errors.Is(err, ErrEnvManaged) {
 		t.Fatalf("Put() err = %v, want ErrEnvManaged", err)
@@ -24,6 +27,7 @@ func TestFixed_Put_AlwaysFailsWithErrEnvManaged(t *testing.T) {
 }
 
 func TestFixed_Reload_IsANoOp(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := NewFixed(testConfig{Name: "pinned"})
 	if err := f.Reload(); err != nil {
 		t.Fatalf("Reload() err = %v, want nil", err)
@@ -34,12 +38,14 @@ func TestFixed_Reload_IsANoOp(t *testing.T) {
 }
 
 func TestFixed_EnvManaged_IsTrue(t *testing.T) {
+	testutil.ResetMySQL(t)
 	if !NewFixed(testConfig{}).EnvManaged() {
 		t.Fatal("Fixed.EnvManaged() = false, want true")
 	}
 }
 
 func TestManaged_DelegatesToStoreAndReportsNotEnvManaged(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	st, err := New(dir, "config.json", 0o600, testConfig{Name: "default"}, nil)
 	if err != nil {
@@ -60,7 +66,7 @@ func TestManaged_DelegatesToStoreAndReportsNotEnvManaged(t *testing.T) {
 		t.Fatalf("Get() after Put = %+v, want Name %q", got, "saved")
 	}
 
-	// The write really landed on disk and Reload re-reads it.
+	// The write is persisted in MySQL and visible through a fresh store.
 	reopened, err := New(dir, "config.json", 0o600, testConfig{}, nil)
 	if err != nil {
 		t.Fatalf("reopen New err: %v", err)
@@ -71,6 +77,7 @@ func TestManaged_DelegatesToStoreAndReportsNotEnvManaged(t *testing.T) {
 }
 
 func TestValue_BothImplementationsSatisfyInterface_AndReloadInSlice(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	st, err := New(dir, "config.json", 0o600, testConfig{}, nil)
 	if err != nil {
@@ -91,6 +98,7 @@ func TestValue_BothImplementationsSatisfyInterface_AndReloadInSlice(t *testing.T
 }
 
 func TestManaged_ConcurrentGetAndPut_NoRace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	st, err := New(dir, "config.json", 0o600, testConfig{}, nil)
 	if err != nil {

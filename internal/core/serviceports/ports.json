@@ -1,0 +1,9 @@
+{
+  "frontend": 24691,
+  "backend": 24692,
+  "gatewayAdmin": 24693,
+  "metrics": 24694,
+  "proxyTest": 24695,
+  "proxyAutoCreateTest": 24696,
+  "proxyTestMySQL": 24697
+}

@@ -1,4 +1,5 @@
-const e2eBaseUrl = process.env.E2E_BASE_URL || 'http://localhost:8080';
+import { e2eBaseUrl } from '../helpers/servicePorts';
+
 export const e2eBasePath = new URL(e2eBaseUrl).pathname.replace(/\/$/, '');
 
 export function toAppPath(path: string): string {

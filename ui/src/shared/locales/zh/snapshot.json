@@ -50,7 +50,7 @@
   "createNow": "立即创建备份",
   "creating": "创建中…",
   "listSectionTitle": "可用备份",
-  "listSectionDescription": "下载备份以手动恢复：停止服务器，将 ZIP 解压覆盖到数据目录，然后重启。",
+  "listSectionDescription": "下载备份以留存，或使用恢复功能将数据库与资源恢复到该备份。",
   "listEmpty": "暂无备份。",
   "columnDate": "创建时间",
   "columnSize": "大小",
@@ -66,5 +66,7 @@
     "backupTriggerFailed": "触发备份失败",
     "deleteSuccess": "备份已删除",
     "deleteFailed": "删除备份失败"
-  }
+  },
+  "columnName": "备份名称",
+  "columnActions": "操作"
 }

@@ -2,13 +2,15 @@ package importer
 
 import (
 	"errors"
-	"os"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestPlanStoreSet(t *testing.T) {
+	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 	plan := &StoredPlan{ExecutionStatus: ExecutionStatusPlanned}
 	if err := s.Set(plan); err != nil {
@@ -28,6 +30,7 @@ func TestPlanStoreSet(t *testing.T) {
 }
 
 func TestPlanStoreGet(t *testing.T) {
+	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 
 	_, err := s.Get()
@@ -37,6 +40,7 @@ func TestPlanStoreGet(t *testing.T) {
 }
 
 func TestPlanStoreSetAndGet(t *testing.T) {
+	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 	plan := &StoredPlan{
 		Plan:            &PlanResult{ID: "plan-1"},
@@ -59,6 +63,7 @@ func TestPlanStoreSetAndGet(t *testing.T) {
 }
 
 func TestPlanStoreClear(t *testing.T) {
+	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 	plan := &StoredPlan{}
 	if err := s.Set(plan); err != nil {
@@ -76,6 +81,7 @@ func TestPlanStoreClear(t *testing.T) {
 }
 
 func TestPlanStore_PersistsAndLoadsState(t *testing.T) {
+	testutil.ResetMySQL(t)
 	stateFile := filepath.Join(t.TempDir(), "current-plan.json")
 	store := NewPlanStore(stateFile)
 	if err := store.Set(&StoredPlan{
@@ -100,8 +106,9 @@ func TestPlanStore_PersistsAndLoadsState(t *testing.T) {
 }
 
 func TestPlanStore_LoadError_IsReported(t *testing.T) {
+	testutil.ResetMySQL(t)
 	stateFile := filepath.Join(t.TempDir(), "current-plan.json")
-	if err := os.WriteFile(stateFile, []byte("{invalid"), 0o644); err != nil {
+	if err := database.WriteRecord(filepath.Dir(stateFile), "import_state", filepath.Base(stateFile), []byte("{invalid")); err != nil {
 		t.Fatalf("WriteFile err: %v", err)
 	}
 
@@ -112,6 +119,7 @@ func TestPlanStore_LoadError_IsReported(t *testing.T) {
 }
 
 func TestPlanStoreTryStartExecution_WithNilPlanPayload(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := NewPlanStore()
 	if err := store.Set(&StoredPlan{
 		Plan:            nil,
@@ -127,6 +135,7 @@ func TestPlanStoreTryStartExecution_WithNilPlanPayload(t *testing.T) {
 }
 
 func TestPlanStoreUpdateExecutionProgress_UpdatesEmbeddedFields(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := NewPlanStore()
 	if err := store.Set(&StoredPlan{
 		Plan:            &PlanResult{ID: "plan-1"},
@@ -161,3 +170,5 @@ func TestPlanStoreUpdateExecutionProgress_UpdatesEmbeddedFields(t *testing.T) {
 		t.Fatalf("expected started_at to be updated, got %#v", retrieved.StartedAt)
 	}
 }
+
+func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "importer") }

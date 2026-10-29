@@ -1,14 +1,12 @@
 package search
 
 import (
-	"database/sql"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
-
-	_ "modernc.org/sqlite"
 )
 
-func (s *SQLiteIndex) IndexPage(path string, filePath string, pageID string, title string, kind tree.NodeKind, raw string) error {
+func (s *MySQLIndex) IndexPage(path string, filePath string, pageID string, title string, kind tree.NodeKind, raw string) error {
 	failures, err := s.IndexPages([]IndexPageInput{{Path: path, FilePath: filePath, PageID: pageID, Title: title, Kind: kind, Raw: raw}})
 	if err != nil {
 		return err
@@ -20,12 +18,12 @@ func (s *SQLiteIndex) IndexPage(path string, filePath string, pageID string, tit
 }
 
 // RemovePages removes page IDs from the index in a single transaction.
-func (s *SQLiteIndex) RemovePages(pageIDs []string) error {
+func (s *MySQLIndex) RemovePages(pageIDs []string) error {
 	if len(pageIDs) == 0 {
 		return nil
 	}
-	return s.withDB(func(db *sql.DB) error {
-		tx, err := db.Begin()
+	return s.withExecutor(func(db database.Executor) error {
+		tx, err := database.BeginExecutor(db)
 		if err != nil {
 			return err
 		}
@@ -33,7 +31,7 @@ func (s *SQLiteIndex) RemovePages(pageIDs []string) error {
 			_ = tx.Rollback()
 		}()
 
-		stmt, err := tx.Prepare(`DELETE FROM pages WHERE pageID = ?`)
+		stmt, err := tx.Prepare(`DELETE FROM search_documents WHERE pageID = ?`)
 		if err != nil {
 			return err
 		}

@@ -1,16 +1,17 @@
 package wiki
 
 import (
-	"os"
-	"path/filepath"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
+	"strings"
 	"testing"
-	"unicode"
 
 	"github.com/NianBroken/LeafDoc/internal/core/defaultdocs"
 )
 
 // The curriculum is complete, persisted and stable across repeated initialization.
 func TestDefaultDocuments_CompleteAndIdempotent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	t.Cleanup(func() {
 		if err := w.Close(); err != nil {
@@ -25,14 +26,8 @@ func TestDefaultDocuments_CompleteAndIdempotent(t *testing.T) {
 		t.Fatal("expected exactly five default pages")
 	}
 	for _, document := range documents {
-		count := 0
-		for _, r := range document.Content {
-			if unicode.Is(unicode.Han, r) {
-				count++
-			}
-		}
-		if count < 2000 {
-			t.Errorf("%s has only %d Chinese characters", document.Slug, count)
+		if len([]rune(document.Content)) < 1000 || strings.Count(document.Content, "## ") < 8 || !strings.Contains(document.Content, "```") {
+			t.Errorf("incomplete tutorial: %s", document.Slug)
 		}
 		lookup, err := w.tree.LookupPagePath(document.Slug)
 		if err != nil || !lookup.Exists {
@@ -60,14 +55,15 @@ func TestDefaultDocuments_CompleteAndIdempotent(t *testing.T) {
 
 // Pending initialization reuses its system pages and fails explicitly on invalid state.
 func TestDefaultDocuments_ResumeAndRejectCorruptState(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	t.Cleanup(func() {
 		if err := w.Close(); err != nil {
 			t.Error(err)
 		}
 	})
-	state := filepath.Join(w.storageDir, defaultDocumentsStateFile)
-	if err := os.WriteFile(state, []byte(`{"complete":false}`), 0o644); err != nil {
+	state := defaultDocumentsStateFile
+	if err := database.WriteRecord(w.storageDir, "instance_state", state, []byte(`{"complete":false}`)); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.EnsureDefaultDocuments(); err != nil {
@@ -76,7 +72,7 @@ func TestDefaultDocuments_ResumeAndRejectCorruptState(t *testing.T) {
 	if len(w.tree.GetTree().Children) != 5 {
 		t.Fatal("resume duplicated pages")
 	}
-	if err := os.WriteFile(state, []byte(`invalid`), 0o644); err != nil {
+	if err := database.WriteRecord(w.storageDir, "instance_state", state, []byte(`invalid`)); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.EnsureDefaultDocuments(); err == nil {

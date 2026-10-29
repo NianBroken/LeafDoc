@@ -3,13 +3,11 @@ package tags
 import (
 	"database/sql"
 	"fmt"
-	"path/filepath"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"strings"
 	"sync"
 
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
-	_ "modernc.org/sqlite"
 )
 
 const (
@@ -18,8 +16,9 @@ const (
 )
 
 type TagsStore struct {
-	mu sync.Mutex
-	db *sql.DB
+	executor database.Executor
+	mu       sync.Mutex
+	db       *sql.DB
 }
 
 type TagCount struct {
@@ -27,44 +26,13 @@ type TagCount struct {
 	Count int    `json:"count"`
 }
 
+// NewTagsStore connects the domain store to the configured MySQL database.
 func NewTagsStore(storageDir string) (*TagsStore, error) {
-	normalized := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
-	dbPath := filepath.Join(normalized, "tags.db")
-
-	s := &TagsStore{}
-	err := sqliteutil.OpenWithPolicy(dbPath, sqliteutil.RebuildOnCorruption, func() error {
-		db, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
-		if err != nil {
-			return fmt.Errorf("failed to open tags database: %w", err)
-		}
-		s.db = db
-		if err := s.ensureSchema(); err != nil {
-			_ = db.Close()
-			s.db = nil
-			return err
-		}
-		return nil
-	})
+	db, err := database.Open(storageDir)
 	if err != nil {
 		return nil, err
 	}
-	return s, nil
-}
-
-func (s *TagsStore) ensureSchema() error {
-	_, err := s.db.Exec(`
-		CREATE TABLE IF NOT EXISTS page_tags (
-			page_id TEXT NOT NULL,
-			tag     TEXT NOT NULL COLLATE NOCASE,
-			PRIMARY KEY (page_id, tag)
-		);
-		CREATE INDEX IF NOT EXISTS idx_page_tags_tag ON page_tags(tag);
-		CREATE TABLE IF NOT EXISTS page_meta (
-			page_id TEXT PRIMARY KEY,
-			excerpt TEXT NOT NULL DEFAULT ''
-		);
-	`)
-	return err
+	return &TagsStore{db: db}, nil
 }
 
 // SetTagsForPage replaces all tags for the given page atomically.
@@ -74,7 +42,7 @@ func (s *TagsStore) SetTagsForPage(pageID string, tags []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -85,7 +53,7 @@ func (s *TagsStore) SetTagsForPage(pageID string, tags []string) error {
 	}
 
 	if len(tags) > 0 {
-		stmt, err := tx.Prepare(`INSERT OR IGNORE INTO page_tags(page_id, tag) VALUES (?, ?)`)
+		stmt, err := tx.Prepare(`INSERT INTO page_tags(page_id, tag) VALUES (?, ?) ON DUPLICATE KEY UPDATE tag=page_tags.tag`)
 		if err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to prepare tag insert: %w", err)
@@ -107,7 +75,7 @@ func (s *TagsStore) DeleteTagsForPage(pageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`DELETE FROM page_tags WHERE page_id = ?`, pageID)
+	_, err := s.queryExecutor().Exec(`DELETE FROM page_tags WHERE page_id = ?`, pageID)
 	return err
 }
 
@@ -117,7 +85,7 @@ func (s *TagsStore) SetPageIndex(pageID string, tags []string, excerpt string) e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -128,7 +96,7 @@ func (s *TagsStore) SetPageIndex(pageID string, tags []string, excerpt string) e
 	}
 
 	if len(tags) > 0 {
-		stmt, err := tx.Prepare(`INSERT OR IGNORE INTO page_tags(page_id, tag) VALUES (?, ?)`)
+		stmt, err := tx.Prepare(`INSERT INTO page_tags(page_id, tag) VALUES (?, ?) ON DUPLICATE KEY UPDATE tag=page_tags.tag`)
 		if err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to prepare tag insert: %w", err)
@@ -145,8 +113,8 @@ func (s *TagsStore) SetPageIndex(pageID string, tags []string, excerpt string) e
 
 	if _, err := tx.Exec(
 		`INSERT INTO page_meta(page_id, excerpt) VALUES (?, ?)
-		 ON CONFLICT(page_id) DO UPDATE SET excerpt = excluded.excerpt`,
-		pageID, excerpt,
+		 ON DUPLICATE KEY UPDATE excerpt = ?`,
+		pageID, excerpt, excerpt,
 	); err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("failed to upsert excerpt for page %s: %w", pageID, err)
@@ -160,7 +128,7 @@ func (s *TagsStore) DeletePageIndex(pageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -187,7 +155,7 @@ func (s *TagsStore) DeletePageIndexes(pageIDs []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -234,7 +202,7 @@ func (s *TagsStore) GetExcerptsForPages(pageIDs []string) (map[string]string, er
 		args[i] = id
 	}
 
-	rows, err := s.db.Query(fmt.Sprintf(
+	rows, err := s.queryExecutor().Query(fmt.Sprintf(
 		`SELECT page_id, excerpt FROM page_meta WHERE page_id IN (%s)`,
 		placeholders,
 	), args...)
@@ -258,7 +226,7 @@ func (s *TagsStore) Clear() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -281,7 +249,7 @@ func (s *TagsStore) GetAllTags(filter string, limit int) ([]TagCount, error) {
 	query := `
 		SELECT tag, COUNT(DISTINCT page_id) AS count
 		FROM page_tags
-		WHERE tag LIKE ? || '%' ESCAPE '\'
+		WHERE tag LIKE CONCAT(?, '%') ESCAPE '='
 		GROUP BY tag
 		ORDER BY count DESC, tag ASC
 	`
@@ -289,7 +257,7 @@ func (s *TagsStore) GetAllTags(filter string, limit int) ([]TagCount, error) {
 		query += fmt.Sprintf(sqlLimitFmt, limit)
 	}
 
-	rows, err := s.db.Query(query, escapeLikePrefix(filter))
+	rows, err := s.queryExecutor().Query(query, escapeLikePrefix(filter))
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +307,7 @@ func (s *TagsStore) GetAllTagsForSelection(filter string, selected []string, lim
 		SELECT pt.tag, COUNT(DISTINCT pt.page_id) AS count
 		FROM page_tags pt
 		JOIN matching_pages mp ON mp.page_id = pt.page_id
-		WHERE pt.tag LIKE ? || '%%' ESCAPE '\'
+		WHERE pt.tag LIKE CONCAT(?, '%%') ESCAPE '='
 		  AND pt.tag NOT IN (%s)
 		GROUP BY pt.tag
 		ORDER BY count DESC, tag ASC
@@ -348,7 +316,7 @@ func (s *TagsStore) GetAllTagsForSelection(filter string, selected []string, lim
 		query += fmt.Sprintf(sqlLimitFmt, limit)
 	}
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.queryExecutor().Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +349,7 @@ func (s *TagsStore) GetPageIDsByTags(tags []string) ([]string, error) {
 	args = append(args, len(tags))
 
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(tags)), ",")
-	rows, err := s.db.Query(fmt.Sprintf(`
+	rows, err := s.queryExecutor().Query(fmt.Sprintf(`
 		SELECT page_id
 		FROM page_tags
 		WHERE tag IN (%s)
@@ -408,7 +376,7 @@ func (s *TagsStore) getAllTagsLocked(filter string, limit int) ([]TagCount, erro
 	query := `
 		SELECT tag, COUNT(DISTINCT page_id) AS count
 		FROM page_tags
-		WHERE tag LIKE ? || '%' ESCAPE '\'
+		WHERE tag LIKE CONCAT(?, '%') ESCAPE '='
 		GROUP BY tag
 		ORDER BY count DESC, tag ASC
 	`
@@ -416,7 +384,7 @@ func (s *TagsStore) getAllTagsLocked(filter string, limit int) ([]TagCount, erro
 		query += fmt.Sprintf(sqlLimitFmt, limit)
 	}
 
-	rows, err := s.db.Query(query, escapeLikePrefix(filter))
+	rows, err := s.queryExecutor().Query(query, escapeLikePrefix(filter))
 	if err != nil {
 		return nil, err
 	}
@@ -448,7 +416,7 @@ func (s *TagsStore) GetTagsForPages(pageIDs []string) (map[string][]string, erro
 		args[i] = id
 	}
 
-	rows, err := s.db.Query(fmt.Sprintf(`
+	rows, err := s.queryExecutor().Query(fmt.Sprintf(`
 		SELECT page_id, tag FROM page_tags
 		WHERE page_id IN (%s)
 		ORDER BY page_id, tag ASC
@@ -472,9 +440,9 @@ func (s *TagsStore) GetTagsForPages(pageIDs []string) (map[string][]string, erro
 // escapeLikePrefix escapes LIKE special characters in a prefix filter so that
 // '%', '_', and '\' are treated as literals and not as SQL wildcards.
 func escapeLikePrefix(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
+	s = strings.ReplaceAll(s, `=`, `==`)
+	s = strings.ReplaceAll(s, `%`, `=%`)
+	s = strings.ReplaceAll(s, `_`, `=_`)
 	return s
 }
 
@@ -489,4 +457,16 @@ func (s *TagsStore) Close() error {
 		s.db = nil
 	}
 	return nil
+}
+
+// WithExecutor binds an independent store view to the caller-owned transaction.
+func (s *TagsStore) WithExecutor(executor database.Executor) *TagsStore {
+	return &TagsStore{executor: executor}
+}
+
+func (s *TagsStore) queryExecutor() database.Executor {
+	if s.executor != nil {
+		return s.executor
+	}
+	return s.db
 }

@@ -4,13 +4,18 @@ package wikirestore
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
+	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
+	"github.com/NianBroken/LeafDoc/internal/http/middleware/security"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,14 +26,15 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/restore"
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	"github.com/gin-gonic/gin"
-
-	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
 func init() {
 	gin.SetMode(gin.TestMode)
 }
+
+func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "wiki/restore") }
 
 // newTestManager wires a real restore.Manager (real snapshot manager, real
 // AuthService, real BrandingService) against fresh temp dirs — the
@@ -46,8 +52,13 @@ func newTestManagerWithMaxUploadSize(t *testing.T, maxUploadSizeBytes int64) *re
 	t.Helper()
 	base := t.TempDir()
 
-	rootDir := filepath.Join(base, "root")
-	testutil.WriteFile(t, rootDir, "page.md", "# Hello\n")
+	pages := tree.NewTreeService(base)
+	if err := pages.LoadTree(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pages.CreateNode("system", nil, "Hello", "hello", nil); err != nil {
+		t.Fatal(err)
+	}
 
 	userStore, err := coreauth.NewUserStore(base)
 	if err != nil {
@@ -78,8 +89,7 @@ func newTestManagerWithMaxUploadSize(t *testing.T, maxUploadSizeBytes int64) *re
 
 	snapshotManager := snapshotSvc.NewManager(snapshotSvc.Config{
 		BackupsDir:  filepath.Join(base, "backups"),
-		RootDir:     rootDir,
-		UsersDBPath: filepath.Join(base, "users.db"),
+		DataDir:     base,
 		WikiVersion: "v0.0.0-test",
 	})
 
@@ -100,20 +110,24 @@ func newTestRouter(routes *Routes) *gin.Engine {
 	r.POST("/restore/upload", routes.handleTriggerUpload)
 	r.POST("/restore/:id", routes.handleTrigger)
 	r.GET("/restore/status", routes.handleStatus)
+	r.GET("/api/restore/progress", routes.handleProgress)
 	r.POST("/restore/self-restart", routes.handleSelfRestart)
 	return r
 }
 
-// buildFixtureZipPath builds a real, minimal-but-valid backup ZIP (the shape
-// extractAndValidate requires: backup-meta.json + users.db) from a fresh
-// source layout, independent of whatever dataDir a given test's Manager is
-// wired against, and returns the path to the resulting ZIP file.
+// buildFixtureZipPath exports real MySQL records and resource checksums into
+// the same versioned ZIP format accepted by the HTTP restore endpoint.
 func buildFixtureZipPath(t *testing.T) string {
 	t.Helper()
 	src := t.TempDir()
 
-	rootDir := filepath.Join(src, "root")
-	testutil.WriteFile(t, rootDir, "welcome.md", "# Uploaded backup content\n")
+	pages := tree.NewTreeService(src)
+	if err := pages.LoadTree(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pages.CreateNode("system", nil, "Uploaded backup content", "welcome", nil); err != nil {
+		t.Fatal(err)
+	}
 
 	userStore, err := coreauth.NewUserStore(src)
 	if err != nil {
@@ -133,8 +147,7 @@ func buildFixtureZipPath(t *testing.T) string {
 
 	snapshotManager := snapshotSvc.NewManager(snapshotSvc.Config{
 		BackupsDir:  filepath.Join(src, "backups"),
-		RootDir:     rootDir,
-		UsersDBPath: filepath.Join(src, "users.db"),
+		DataDir:     src,
 		WikiVersion: "v0.0.0-test",
 	})
 	if err := snapshotManager.RunOnce(context.Background()); err != nil {
@@ -180,6 +193,7 @@ func newMultipartUploadRequest(t *testing.T, url, zipPath string) *http.Request 
 }
 
 func TestHandleTrigger_NotEnabledWhenManagerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -192,6 +206,7 @@ func TestHandleTrigger_NotEnabledWhenManagerNil(t *testing.T) {
 }
 
 func TestHandleStatus_NotEnabledWhenManagerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -204,6 +219,7 @@ func TestHandleStatus_NotEnabledWhenManagerNil(t *testing.T) {
 }
 
 func TestHandleTrigger_UnknownSnapshotID_AsyncJobReportsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -229,6 +245,7 @@ func TestHandleTrigger_UnknownSnapshotID_AsyncJobReportsError(t *testing.T) {
 }
 
 func TestHandleStatus_ReturnsJobStatus(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -250,6 +267,7 @@ func TestHandleStatus_ReturnsJobStatus(t *testing.T) {
 }
 
 func TestHandleSelfRestart_NotEnabledWhenManagerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	w := httptest.NewRecorder()
@@ -262,6 +280,7 @@ func TestHandleSelfRestart_NotEnabledWhenManagerNil(t *testing.T) {
 }
 
 func TestHandleTriggerUpload_NotEnabledWhenManagerNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	router := newTestRouter(&Routes{})
 
 	zipPath := buildFixtureZipPath(t)
@@ -275,6 +294,7 @@ func TestHandleTriggerUpload_NotEnabledWhenManagerNil(t *testing.T) {
 }
 
 func TestHandleTriggerUpload_HappyPath_AsyncJobCompletes(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -288,6 +308,16 @@ func TestHandleTriggerUpload_HappyPath_AsyncJobCompletes(t *testing.T) {
 		t.Fatalf("expected 202, got %d: %s", w.Code, w.Body.String())
 	}
 
+	var accepted struct {
+		StatusToken string `json:"statusToken"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &accepted); err != nil {
+		t.Fatal(err)
+	}
+	if token, err := hex.DecodeString(accepted.StatusToken); err != nil || len(token) != 32 {
+		t.Fatal("upload response omitted valid progress credential")
+	}
+
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if m.Status().Done {
@@ -299,9 +329,18 @@ func TestHandleTriggerUpload_HappyPath_AsyncJobCompletes(t *testing.T) {
 	if status.Error != "" {
 		t.Fatalf("expected successful restore, got error: %s", status.Error)
 	}
+	progressRequest := httptest.NewRequest(http.MethodGet, "/api/restore/progress", nil)
+	progressRequest.Header.Set("X-Restore-Token", accepted.StatusToken)
+	progressResponse := httptest.NewRecorder()
+	router.ServeHTTP(progressResponse, progressRequest)
+	if progressResponse.Code != http.StatusOK {
+		t.Fatalf("upload progress unavailable: %d", progressResponse.Code)
+	}
+
 }
 
 func TestHandleTriggerUpload_ExceedsConfiguredMaxSize(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManagerWithMaxUploadSize(t, 8) // smaller than any real fixture zip
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -330,6 +369,7 @@ func TestHandleTriggerUpload_ExceedsConfiguredMaxSize(t *testing.T) {
 // client or a mangled proxy. That masked the real cause. A malformed-but-not-
 // oversized body should surface as ErrCodeRestoreUploadInvalid (400) instead.
 func TestHandleTriggerUpload_MalformedMultipartBody_DistinctFromTooLarge(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -353,6 +393,7 @@ func TestHandleTriggerUpload_MalformedMultipartBody_DistinctFromTooLarge(t *test
 }
 
 func TestHandleTriggerUpload_MissingFile(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -385,6 +426,7 @@ func TestHandleTriggerUpload_MissingFile(t *testing.T) {
 // (which would syscall.Exec / os.Exit the *test process itself*). A fresh
 // Manager never has NeedsIntervention set, so this only exercises the guard.
 func TestHandleSelfRestart_RejectedWithoutNeedsIntervention(t *testing.T) {
+	testutil.ResetMySQL(t)
 	m := newTestManager(t)
 	routes := &Routes{manager: m}
 	router := newTestRouter(routes)
@@ -395,5 +437,74 @@ func TestHandleSelfRestart_RejectedWithoutNeedsIntervention(t *testing.T) {
 
 	if w.Code != http.StatusConflict {
 		t.Errorf("expected 409 when the job hasn't reported NeedsIntervention, got %d", w.Code)
+	}
+}
+
+// TestProgressCredentialRoute separates the narrow bearer capability from
+// authenticated administrator status and accepts credentials only in headers.
+func TestProgressCredentialRoute(t *testing.T) {
+	testutil.ResetMySQL(t)
+	manager := newTestManager(t)
+	routes := &Routes{manager: manager}
+	triggerRouter := newTestRouter(routes)
+	registered := gin.New()
+	routes.RegisterRoutes(httpinternal.RouterContext{Engine: registered, Base: registered, AuthCookies: authmw.NewAuthCookies(true, time.Hour, time.Hour), CSRFCookie: security.NewCSRFCookie(true, time.Hour), Opts: httpinternal.RouterOptions{AllowInsecure: true}})
+	request := func(path, token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		if token != "" {
+			req.Header.Set("X-Restore-Token", token)
+		}
+		response := httptest.NewRecorder()
+		registered.ServeHTTP(response, req)
+		return response
+	}
+	if response := request("/api/restore/progress", ""); response.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous idle progress=%d", response.Code)
+	}
+	trigger := func() string {
+		response := httptest.NewRecorder()
+		triggerRouter.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/restore/not-found", nil))
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("trigger=%d %s", response.Code, response.Body.String())
+		}
+		var body struct {
+			StatusToken string `json:"statusToken"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := hex.DecodeString(body.StatusToken)
+		if err != nil || len(decoded) != 32 {
+			t.Fatal("invalid 256-bit credential")
+		}
+		manager.Wait()
+		return body.StatusToken
+	}
+	first := trigger()
+	for _, item := range []struct{ path, token string }{{"/api/restore/progress", "wrong"}, {"/api/restore/progress?statusToken=" + first, ""}, {"/api/restore/progress?token=" + first, ""}, {"/api/admin/restore/status", first}} {
+		if response := request(item.path, item.token); response.Code != http.StatusUnauthorized {
+			t.Fatalf("unauthorized route accepted: %s %d", item.path, response.Code)
+		}
+	}
+	response := request("/api/restore/progress", first)
+	if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("valid credential=%d cache=%s", response.Code, response.Header().Get("Cache-Control"))
+	}
+	if strings.Contains(response.Body.String(), first) {
+		t.Fatal("credential leaked into status body")
+	}
+	var state restore.JobStatus
+	if err := json.Unmarshal(response.Body.Bytes(), &state); err != nil || !state.Done {
+		t.Fatalf("completed status unavailable: %v", err)
+	}
+	second := trigger()
+	if first == second {
+		t.Fatal("credential did not rotate")
+	}
+	if response := request("/api/restore/progress", first); response.Code != http.StatusUnauthorized {
+		t.Fatal("previous job credential accepted")
+	}
+	if response := request("/api/restore/progress", second); response.Code != http.StatusOK {
+		t.Fatal("current job credential rejected")
 	}
 }

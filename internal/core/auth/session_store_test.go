@@ -1,40 +1,31 @@
 package auth
 
 import (
-	"database/sql"
 	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
-func TestSessionStore_UsesWALJournalMode(t *testing.T) {
+func TestSessionStore_UsesInnoDB(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
-		t.Fatalf("NewSessionStore err: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	var mode string
-	if err := store.withDB(func(db *sql.DB) error {
-		return db.QueryRow(`PRAGMA journal_mode`).Scan(&mode)
-	}); err != nil {
-		t.Fatalf("failed to read journal_mode: %v", err)
+	defer store.Close()
+	var engine string
+	if err := store.db.QueryRow("SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", "sessions").Scan(&engine); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.EqualFold(mode, "wal") {
-		t.Fatalf("journal_mode = %q, want %q", mode, "wal")
+	if engine != "InnoDB" {
+		t.Fatalf("engine=%s", engine)
 	}
 }
 
 func TestSessionStore_CreateAndValidateSession(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewSessionStore err: %v", err)
@@ -60,15 +51,8 @@ func TestSessionStore_CreateAndValidateSession(t *testing.T) {
 	}
 }
 
-func TestSessionDatabasePath_WindowsPath(t *testing.T) {
-	got := strings.ReplaceAll(sessionDatabasePath(`C:\wiki\data`, "sessions.db"), `\`, `/`)
-	want := `C:/wiki/data/sessions.db`
-	if got != want {
-		t.Fatalf("path = %q, want %q", got, want)
-	}
-}
-
 func TestSessionStore_RevokeAllSessionsForUserExcept(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewSessionStore err: %v", err)
@@ -115,6 +99,7 @@ func TestSessionStore_RevokeAllSessionsForUserExcept(t *testing.T) {
 }
 
 func TestSessionStore_RevokeAllSessionsForUserExcept_EmptyExceptRevokesAll(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, err := NewSessionStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewSessionStore err: %v", err)
@@ -139,20 +124,19 @@ func TestSessionStore_RevokeAllSessionsForUserExcept_EmptyExceptRevokesAll(t *te
 	}
 }
 
-func TestSessionStore_CreatesDatabaseInStorageDir(t *testing.T) {
-	tmp := t.TempDir()
-	store, err := NewSessionStore(tmp)
+func TestSessionStore_CreatesNoLocalDatabase(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	store, err := NewSessionStore(dir)
 	if err != nil {
-		t.Fatalf("NewSessionStore err: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	if _, err := os.Stat(filepath.Join(tmp, "sessions.db")); err != nil {
-		t.Fatalf("expected sessions.db in storage dir, got err: %v", err)
+	defer store.Close()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unexpected local persistence: %v", entries)
 	}
 }

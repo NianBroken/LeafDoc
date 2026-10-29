@@ -3140,7 +3140,7 @@
   }
 
   .settings__table-scroll {
-    @apply min-w-0 overflow-hidden;
+    @apply min-w-0 overflow-x-auto;
   }
 
   /* Every table fills its container with equal columns and a shared row height. */
@@ -3153,6 +3153,17 @@
 
   .settings__table col {
     width: calc(100% / var(--settings-table-columns));
+  }
+
+  /* Columns retain usable control space while the whole table scrolls together. */
+  .settings__table {
+    min-width: calc(
+      var(--settings-table-columns) * var(--settings-table-min-column, 10rem)
+    );
+  }
+
+  .snapshot__table {
+    --settings-table-min-column: 12rem;
   }
 
   .settings__table tr,
@@ -3181,6 +3192,10 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .settings__table-controls {
+    @apply flex min-h-6 items-center;
   }
 
   .table-cell-text > * {
@@ -3378,28 +3393,14 @@
     @apply shrink-0;
   }
 
-  /* Text in headers shares the content insets of the corresponding controls. */
-  .settings__table {
-    --settings-table-role-inset: 0.5rem;
-    --settings-table-action-inset: 0.75rem;
+  /* Text actions share the text baseline and never shift the cell's left edge. */
+  .settings__text-action {
+    @apply text-brand focus-visible:outline-brand inline-flex min-h-7 shrink-0 cursor-pointer items-center border-0 bg-transparent p-0 text-sm leading-6 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    font: inherit;
   }
 
-  .settings__table-heading--role {
-    padding-inline: var(--settings-table-role-inset);
-  }
-
-  .settings__table-heading--actions {
-    display: inline-flex;
-    border-inline: 1px solid transparent;
-    padding-inline: var(--settings-table-action-inset);
-  }
-
-  .settings__table .settings__role-pill {
-    padding-inline: var(--settings-table-role-inset);
-  }
-
-  .users__actions > button {
-    padding-inline: var(--settings-table-action-inset);
+  .settings__table-actions {
+    @apply flex items-center gap-3;
   }
 
   .settings__table-head {

@@ -72,7 +72,7 @@ func newTestWiki(t *testing.T) *wiki.Wiki {
 	w, err := wiki.NewWiki(&wiki.WikiOptions{
 		StorageDir:          t.TempDir(),
 		AdminPassword:       "adminpassword",
-		JWTSecret:           "secretkey",
+		JWTSecret:           "mysql-test-secret-at-least-32-characters",
 		AccessTokenTimeout:  15 * time.Minute,
 		RefreshTokenTimeout: 7 * 24 * time.Hour,
 	})
@@ -98,7 +98,8 @@ func newImporterProbe(w *wiki.Wiki) *wiki.WikiImportAdapter {
 	return wiki.NewWikiImportAdapter(w)
 }
 
-func TestImporterService_ExecuteCurrentPlan_WritesPreservedFrontmatterToDisk(t *testing.T) {
+func TestImporterService_ExecuteCurrentPlan_PersistsPreservedFrontmatterInMySQL(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	integMustWrite(t, ws, "Imported.md", "---\naliases:\n  - alpha\ncustom_key: keep-me\nleafdoc_id: source-id\ntitle: Imported Title\n---\n\n# Imported Title\nBody")
 
@@ -122,11 +123,11 @@ func TestImporterService_ExecuteCurrentPlan_WritesPreservedFrontmatterToDisk(t *
 		t.Fatalf("unexpected result: imported=%d skipped=%d", res.ImportedCount, res.SkippedCount)
 	}
 
-	rawBytes, err := os.ReadFile(filepath.Join(w.GetStorageDir(), "root", "imported.md"))
+	persistedPage, err := newImporterProbe(w).FindByPath("imported")
 	if err != nil {
 		t.Fatalf("ReadFile err: %v", err)
 	}
-	raw := string(rawBytes)
+	raw := persistedPage.RawContent
 
 	fm, body, has, err := markdown.ParseFrontmatter(raw)
 	if err != nil {
@@ -160,6 +161,7 @@ func TestImporterService_ExecuteCurrentPlan_WritesPreservedFrontmatterToDisk(t *
 }
 
 func TestImporterService_ExecuteCurrentPlan_IndexesTagsAndPropertiesImmediately(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	integMustWrite(t, ws, "Imported.md", "---\ntags:\n  - React\n  - docs\nstatus: published\nowner: alice\npriority: 3\nowners:\n  - alice\n---\n\n# Imported Title\nBody")
 
@@ -247,6 +249,7 @@ func TestImporterService_ExecuteCurrentPlan_IndexesTagsAndPropertiesImmediately(
 }
 
 func TestImporterService_ExecuteCurrentPlan_RewritesLinksAndUploadsAssetsToDisk(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := t.TempDir()
 	integMustWrite(t, ws, "Guides/index.md", "# Guides")
 	integMustWrite(t, ws, "Guides/Setup.md", strings.Join([]string{
@@ -306,6 +309,7 @@ func TestImporterService_ExecuteCurrentPlan_RewritesLinksAndUploadsAssetsToDisk(
 }
 
 func TestImporterService_ExecuteCurrentPlan_ImportsFixturePackage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := integCopyFixtureToTemp(t, "link-assets-package")
 
 	w := newTestWiki(t)
@@ -373,6 +377,7 @@ func TestImporterService_ExecuteCurrentPlan_ImportsFixturePackage(t *testing.T) 
 }
 
 func TestImporterService_ExecuteCurrentPlan_ImportsLeafDocNestedFixture(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := integCopyFixtureToTemp(t, "leafdoc-nested-package")
 
 	w := newTestWiki(t)
@@ -438,11 +443,11 @@ func TestImporterService_ExecuteCurrentPlan_ImportsLeafDocNestedFixture(t *testi
 		}
 	}
 
-	rawIntroBytes, err := os.ReadFile(filepath.Join(w.GetStorageDir(), "root", "intro.md"))
+	persistedIntro, err := newImporterProbe(w).FindByPath("intro")
 	if err != nil {
 		t.Fatalf("ReadFile intro err: %v", err)
 	}
-	rawIntro := string(rawIntroBytes)
+	rawIntro := persistedIntro.RawContent
 
 	fm, body, has, err := markdown.ParseFrontmatter(rawIntro)
 	if err != nil {
@@ -485,6 +490,7 @@ func TestImporterService_ExecuteCurrentPlan_ImportsLeafDocNestedFixture(t *testi
 }
 
 func TestImporterService_ExecuteCurrentPlan_ImportsObsidianWikiLinksFixture(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ws := integCopyFixtureToTemp(t, "obsidian-wikilinks-package")
 
 	w := newTestWiki(t)

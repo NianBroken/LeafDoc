@@ -3,6 +3,7 @@ package pages
 import (
 	"context"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"sort"
 	"strings"
@@ -324,6 +325,23 @@ func NewApplyPageRefactorUseCase(
 
 // Execute applies the refactor operation to the page tree.
 func (uc *ApplyPageRefactorUseCase) Execute(ctx context.Context, in RefactorApplyInput) (*tree.Page, error) {
+	if !uc.tree.InUnitOfWork() {
+		var result *tree.Page
+		err := uc.tree.WithUnitOfWork(ctx, func(bound *tree.TreeService, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.revision = uc.revision.WithExecutor(exec, bound)
+			if uc.links != nil {
+				copy.links = uc.links.WithExecutor(exec, bound)
+			}
+			copy.preview = NewPreviewPageRefactorUseCase(bound, uc.slug, copy.links, uc.log)
+			var inner error
+			result, inner = copy.Execute(ctx, in)
+			return inner
+		})
+		return result, err
+	}
+
 	started := time.Now()
 	plan, err := uc.buildApplyPlan(in)
 	if err != nil {
@@ -566,16 +584,14 @@ func (uc *ApplyPageRefactorUseCase) rewriteAffectedPages(userID string, affected
 		return nil
 	}
 
-	updatedPages := uc.persistContentRewrites(userID, rewrites, "failed to rewrite links in page")
+	updatedPages, err := uc.persistContentRewrites(userID, rewrites)
+	if err != nil {
+		return err
+	}
 
 	if uc.links != nil && len(updatedPages) > 0 {
 		if err := uc.links.UpdateRewrittenLinksAndHealForPages(updatedPages, rules); err != nil {
-			uc.log.Warn(
-				"failed to update link index after rewrite",
-				"pageCount", len(updatedPages),
-				"pageIDSample", samplePageIDs(updatedPages, 5),
-				"error", err,
-			)
+			return err
 		}
 	}
 	return nil
@@ -588,10 +604,9 @@ type contentRewrite struct {
 }
 
 // persistContentRewrites writes all rewrites in one bulk update and records a
-// content revision for each page that was written. A page whose write fails is
-// logged with writeFailedMsg and left out of the returned pages; callers then
-// update the link index for the returned pages in their own way.
-func (uc *ApplyPageRefactorUseCase) persistContentRewrites(userID string, rewrites []contentRewrite, writeFailedMsg string) []*tree.Page {
+// content revision for each page that was written. Any write failure aborts
+// the surrounding transaction before callers update the related indexes.
+func (uc *ApplyPageRefactorUseCase) persistContentRewrites(userID string, rewrites []contentRewrite) ([]*tree.Page, error) {
 	bulk := make([]tree.BulkContentUpdate, 0, len(rewrites))
 	for _, r := range rewrites {
 		bulk = append(bulk, tree.BulkContentUpdate{ID: r.page.ID, Content: r.content})
@@ -601,24 +616,24 @@ func (uc *ApplyPageRefactorUseCase) persistContentRewrites(userID string, rewrit
 	updatedPages := make([]*tree.Page, 0, len(rewrites))
 	for i, r := range rewrites {
 		if errs[i] != nil {
-			uc.log.Warn(writeFailedMsg, "pageID", r.page.ID, "error", errs[i])
-			continue
+			return nil, errs[i]
 		}
-		updatedPages = append(updatedPages, &tree.Page{
-			PageNode: r.page.PageNode,
-			Content:  r.content,
-		})
+		page, err := uc.tree.GetPage(r.page.ID)
+		if err != nil {
+			return nil, err
+		}
+		updatedPages = append(updatedPages, page)
 	}
 
 	if uc.revision != nil {
 		revErrs := uc.revision.RecordContentUpdates(updatedPages, userID, "")
 		for i, err := range revErrs {
 			if err != nil {
-				uc.log.Warn("failed to record content revision", "pageID", updatedPages[i].ID, "error", err)
+				return nil, fmt.Errorf("record revision for %s: %w", updatedPages[i].ID, err)
 			}
 		}
 	}
-	return updatedPages
+	return updatedPages, nil
 }
 
 func (uc *ApplyPageRefactorUseCase) refreshAffectedPageLinks(pageIDs []string) error {
@@ -682,16 +697,14 @@ func (uc *ApplyPageRefactorUseCase) rewritePathChangedSubtree(userID string, sna
 		return nil
 	}
 
-	updatedPages := uc.persistContentRewrites(userID, rewrites, "failed to rewrite relative links in subtree page")
+	updatedPages, err := uc.persistContentRewrites(userID, rewrites)
+	if err != nil {
+		return err
+	}
 
 	if uc.links != nil && len(updatedPages) > 0 {
 		if err := uc.links.UpdateLinksAndHealForPages(updatedPages); err != nil {
-			uc.log.Warn(
-				"failed to update link index after subtree rewrite",
-				"pageCount", len(updatedPages),
-				"pageIDSample", samplePageIDs(updatedPages, 5),
-				"error", err,
-			)
+			return err
 		}
 	}
 	return nil

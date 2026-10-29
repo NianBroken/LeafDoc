@@ -3,13 +3,11 @@ package properties
 import (
 	"database/sql"
 	"fmt"
-	"path/filepath"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"strings"
 	"sync"
 
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
-	_ "modernc.org/sqlite"
 )
 
 // PropertyEntry is a single property value with its type.
@@ -27,47 +25,18 @@ type PropertyKeyCount struct {
 const logCloseRowsFailed = "could not close rows"
 
 type PropertiesStore struct {
-	mu sync.Mutex
-	db *sql.DB
+	executor database.Executor
+	mu       sync.Mutex
+	db       *sql.DB
 }
 
+// NewPropertiesStore connects the domain store to the configured MySQL database.
 func NewPropertiesStore(storageDir string) (*PropertiesStore, error) {
-	normalized := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
-	dbPath := filepath.Join(normalized, "properties.db")
-
-	s := &PropertiesStore{}
-	err := sqliteutil.OpenWithPolicy(dbPath, sqliteutil.RebuildOnCorruption, func() error {
-		db, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
-		if err != nil {
-			return fmt.Errorf("failed to open properties database: %w", err)
-		}
-		s.db = db
-		if err := s.ensureSchema(); err != nil {
-			_ = db.Close()
-			s.db = nil
-			return err
-		}
-		return nil
-	})
+	db, err := database.Open(storageDir)
 	if err != nil {
 		return nil, err
 	}
-	return s, nil
-}
-
-func (s *PropertiesStore) ensureSchema() error {
-	_, err := s.db.Exec(`
-		CREATE TABLE IF NOT EXISTS page_properties (
-			page_id TEXT NOT NULL,
-			key     TEXT NOT NULL,
-			value   TEXT NOT NULL,
-			type    TEXT NOT NULL DEFAULT 'text',
-			PRIMARY KEY (page_id, key)
-		);
-		CREATE INDEX IF NOT EXISTS idx_page_properties_key       ON page_properties(key);
-		CREATE INDEX IF NOT EXISTS idx_page_properties_key_value ON page_properties(key, value);
-	`)
-	return err
+	return &PropertiesStore{db: db}, nil
 }
 
 // SetPropertiesForPage replaces all properties for the given page atomically.
@@ -78,7 +47,7 @@ func (s *PropertiesStore) SetPropertiesForPage(pageID string, props map[string]P
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
+	tx, err := database.BeginExecutor(s.queryExecutor())
 	if err != nil {
 		return err
 	}
@@ -89,7 +58,7 @@ func (s *PropertiesStore) SetPropertiesForPage(pageID string, props map[string]P
 	}
 
 	if len(props) > 0 {
-		stmt, err := tx.Prepare(`INSERT OR IGNORE INTO page_properties(page_id, key, value, type) VALUES (?, ?, ?, ?)`)
+		stmt, err := tx.Prepare(`INSERT INTO page_properties(page_id, property_key, property_value, value_type) VALUES (?, ?, ?, ?)`)
 		if err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to prepare property insert: %w", err)
@@ -111,7 +80,7 @@ func (s *PropertiesStore) DeletePropertiesForPage(pageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`DELETE FROM page_properties WHERE page_id = ?`, pageID)
+	_, err := s.queryExecutor().Exec(`DELETE FROM page_properties WHERE page_id = ?`, pageID)
 	return err
 }
 
@@ -119,7 +88,7 @@ func (s *PropertiesStore) Clear() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`DELETE FROM page_properties`)
+	_, err := s.queryExecutor().Exec(`DELETE FROM page_properties`)
 	return err
 }
 
@@ -130,17 +99,17 @@ func (s *PropertiesStore) GetAllPropertyKeys(filter string, limit int) ([]Proper
 	defer s.mu.Unlock()
 
 	query := `
-		SELECT key, COUNT(DISTINCT page_id) AS count
+		SELECT property_key, COUNT(DISTINCT page_id) AS count
 		FROM page_properties
-		WHERE key LIKE ? || '%' ESCAPE '\'
-		GROUP BY key
-		ORDER BY count DESC, key ASC
+		WHERE property_key LIKE CONCAT(?, '%') ESCAPE '='
+		GROUP BY property_key
+		ORDER BY count DESC, property_key ASC
 	`
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	rows, err := s.db.Query(query, escapeLikePrefix(filter))
+	rows, err := s.queryExecutor().Query(query, escapeLikePrefix(filter))
 	if err != nil {
 		return nil, err
 	}
@@ -162,9 +131,9 @@ func (s *PropertiesStore) GetPageIDsByProperty(key, value string) ([]string, err
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	rows, err := s.db.Query(`
+	rows, err := s.queryExecutor().Query(`
 		SELECT page_id FROM page_properties
-		WHERE key = ? AND value = ?
+		WHERE property_key = ? AND property_value = ?
 	`, key, value)
 	if err != nil {
 		return nil, err
@@ -197,10 +166,10 @@ func (s *PropertiesStore) GetPropertiesForPages(pageIDs []string) (map[string]ma
 		args[i] = id
 	}
 
-	rows, err := s.db.Query(fmt.Sprintf(`
-		SELECT page_id, key, value, type FROM page_properties
+	rows, err := s.queryExecutor().Query(fmt.Sprintf(`
+		SELECT page_id, property_key, property_value, value_type FROM page_properties
 		WHERE page_id IN (%s)
-		ORDER BY page_id, key ASC
+		ORDER BY page_id, property_key ASC
 	`, placeholders), args...)
 	if err != nil {
 		return nil, err
@@ -237,8 +206,20 @@ func (s *PropertiesStore) Close() error {
 // escapeLikePrefix escapes LIKE special characters so that '%', '_', and '\'
 // are treated as literals and not SQL wildcards.
 func escapeLikePrefix(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
+	s = strings.ReplaceAll(s, `=`, `==`)
+	s = strings.ReplaceAll(s, `%`, `=%`)
+	s = strings.ReplaceAll(s, `_`, `=_`)
 	return s
+}
+
+// WithExecutor binds an independent store view to the caller-owned transaction.
+func (s *PropertiesStore) WithExecutor(executor database.Executor) *PropertiesStore {
+	return &PropertiesStore{executor: executor}
+}
+
+func (s *PropertiesStore) queryExecutor() database.Executor {
+	if s.executor != nil {
+		return s.executor
+	}
+	return s.db
 }

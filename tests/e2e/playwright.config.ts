@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { e2eBaseUrl } from './helpers/servicePorts';
 
-const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const baseURL = e2eBaseUrl;
 const headless = process.env.E2E_HEADLESS !== 'false';
 const maxFailures = Number(process.env.E2E_MAX_FAILURES || '1');
 

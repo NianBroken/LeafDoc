@@ -2,9 +2,7 @@ package properties
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/NianBroken/LeafDoc/internal/testutil"
@@ -35,37 +33,41 @@ func props(kv ...string) map[string]PropertyEntry {
 
 // ─── DB lifecycle ────────────────────────────────────────────────────────────
 
-func TestPropertiesStore_UsesWALJournalMode(t *testing.T) {
-	store := newTestStore(t)
-
-	var mode string
-	if err := store.db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
-		t.Fatalf("failed to read journal_mode: %v", err)
+func TestPropertiesStore_UsesInnoDB(t *testing.T) {
+	testutil.ResetMySQL(t)
+	store, err := NewPropertiesStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.EqualFold(mode, "wal") {
-		t.Fatalf("journal_mode = %q, want %q", mode, "wal")
+	defer store.Close()
+	var engine string
+	if err := store.db.QueryRow("SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", "page_properties").Scan(&engine); err != nil {
+		t.Fatal(err)
+	}
+	if engine != "InnoDB" {
+		t.Fatalf("engine=%s", engine)
 	}
 }
 
-func TestPropertiesStore_CreatesDatabaseInStorageDir(t *testing.T) {
-	tmp := t.TempDir()
-	store, err := NewPropertiesStore(tmp)
+func TestPropertiesStore_CreatesNoLocalDatabase(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	store, err := NewPropertiesStore(dir)
 	if err != nil {
-		t.Fatalf("NewPropertiesStore: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	if _, err := os.Stat(filepath.Join(tmp, "properties.db")); err != nil {
-		t.Fatalf("expected properties.db to exist: %v", err)
+	defer store.Close()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unexpected local persistence: %v", entries)
 	}
 }
 
 func TestPropertiesStore_IdempotentSchema(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	for i := 0; i < 3; i++ {
 		store, err := NewPropertiesStore(tmp)
@@ -81,6 +83,7 @@ func TestPropertiesStore_IdempotentSchema(t *testing.T) {
 // ─── SetPropertiesForPage ────────────────────────────────────────────────────
 
 func TestPropertiesStore_SetPropertiesForPage_StoresEntries(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	input := props("status", "draft", "author", "alice", "environment", "staging")
@@ -106,6 +109,7 @@ func TestPropertiesStore_SetPropertiesForPage_StoresEntries(t *testing.T) {
 }
 
 func TestPropertiesStore_SetPropertiesForPage_ReplacesOnSecondCall(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft", "author", "alice"))
@@ -125,6 +129,7 @@ func TestPropertiesStore_SetPropertiesForPage_ReplacesOnSecondCall(t *testing.T)
 }
 
 func TestPropertiesStore_SetPropertiesForPage_EmptyMapClearsExisting(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))
@@ -142,6 +147,7 @@ func TestPropertiesStore_SetPropertiesForPage_EmptyMapClearsExisting(t *testing.
 }
 
 func TestPropertiesStore_SetPropertiesForPage_NilMapClearsExisting(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))
@@ -161,6 +167,7 @@ func TestPropertiesStore_SetPropertiesForPage_NilMapClearsExisting(t *testing.T)
 // ─── DeletePropertiesForPage ─────────────────────────────────────────────────
 
 func TestPropertiesStore_DeletePropertiesForPage_RemovesEntries(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))
@@ -178,6 +185,7 @@ func TestPropertiesStore_DeletePropertiesForPage_RemovesEntries(t *testing.T) {
 }
 
 func TestPropertiesStore_DeletePropertiesForPage_NonExistentIsNoop(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	if err := store.DeletePropertiesForPage("does-not-exist"); err != nil {
 		t.Fatalf("DeletePropertiesForPage on unknown page: %v", err)
@@ -185,6 +193,7 @@ func TestPropertiesStore_DeletePropertiesForPage_NonExistentIsNoop(t *testing.T)
 }
 
 func TestPropertiesStore_DeletePropertiesForPage_DoesNotAffectOtherPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))
@@ -204,6 +213,7 @@ func TestPropertiesStore_DeletePropertiesForPage_DoesNotAffectOtherPages(t *test
 // ─── GetAllPropertyKeys ──────────────────────────────────────────────────────
 
 func TestPropertiesStore_GetAllPropertyKeys_EmptyDB(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 	keys, err := store.GetAllPropertyKeys("", 50)
 	if err != nil {
@@ -215,6 +225,7 @@ func TestPropertiesStore_GetAllPropertyKeys_EmptyDB(t *testing.T) {
 }
 
 func TestPropertiesStore_GetAllPropertyKeys_ReturnsDistinctKeysWithCount(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft", "priority", "high"))
@@ -243,6 +254,7 @@ func TestPropertiesStore_GetAllPropertyKeys_ReturnsDistinctKeysWithCount(t *test
 }
 
 func TestPropertiesStore_GetAllPropertyKeys_OrderByCountDescThenKeyAsc(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("alpha", "x", "beta", "x", "gamma", "x"))
@@ -269,6 +281,7 @@ func TestPropertiesStore_GetAllPropertyKeys_OrderByCountDescThenKeyAsc(t *testin
 }
 
 func TestPropertiesStore_GetAllPropertyKeys_FilterByPrefix(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "x", "stage", "x", "score", "x", "author", "x"))
@@ -289,6 +302,7 @@ func TestPropertiesStore_GetAllPropertyKeys_FilterByPrefix(t *testing.T) {
 }
 
 func TestPropertiesStore_GetAllPropertyKeys_RespectsLimit(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("a", "1", "b", "2", "c", "3", "d", "4", "e", "5"))
@@ -303,6 +317,7 @@ func TestPropertiesStore_GetAllPropertyKeys_RespectsLimit(t *testing.T) {
 }
 
 func TestPropertiesStore_GetAllPropertyKeys_ZeroLimitReturnsAll(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("a", "1", "b", "2", "c", "3"))
@@ -317,6 +332,7 @@ func TestPropertiesStore_GetAllPropertyKeys_ZeroLimitReturnsAll(t *testing.T) {
 }
 
 func TestPropertiesStore_GetAllPropertyKeys_FilterEscapesLikeWildcards(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft", "stage", "alpha"))
@@ -343,6 +359,7 @@ func TestPropertiesStore_GetAllPropertyKeys_FilterEscapesLikeWildcards(t *testin
 // ─── GetPageIDsByProperty ─────────────────────────────────────────────────────
 
 func TestPropertiesStore_GetPageIDsByProperty_ExactMatch(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))
@@ -367,6 +384,7 @@ func TestPropertiesStore_GetPageIDsByProperty_ExactMatch(t *testing.T) {
 }
 
 func TestPropertiesStore_GetPageIDsByProperty_NoMatch(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))
@@ -381,6 +399,7 @@ func TestPropertiesStore_GetPageIDsByProperty_NoMatch(t *testing.T) {
 }
 
 func TestPropertiesStore_GetPageIDsByProperty_KeyNotExistsReturnsEmpty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))
@@ -395,6 +414,7 @@ func TestPropertiesStore_GetPageIDsByProperty_KeyNotExistsReturnsEmpty(t *testin
 }
 
 func TestPropertiesStore_GetPageIDsByProperty_ValueIsCaseSensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "Draft"))
@@ -412,6 +432,7 @@ func TestPropertiesStore_GetPageIDsByProperty_ValueIsCaseSensitive(t *testing.T)
 // ─── GetPropertiesForPages ────────────────────────────────────────────────────
 
 func TestPropertiesStore_GetPropertiesForPages_MultiplePages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft", "score", "10"))
@@ -435,6 +456,7 @@ func TestPropertiesStore_GetPropertiesForPages_MultiplePages(t *testing.T) {
 }
 
 func TestPropertiesStore_GetPropertiesForPages_EmptyInputReturnsEmptyMap(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	got, err := store.GetPropertiesForPages([]string{})
@@ -450,6 +472,7 @@ func TestPropertiesStore_GetPropertiesForPages_EmptyInputReturnsEmptyMap(t *test
 }
 
 func TestPropertiesStore_GetPropertiesForPages_UnknownIDReturnsNoEntry(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	got, err := store.GetPropertiesForPages([]string{"does-not-exist"})
@@ -464,6 +487,7 @@ func TestPropertiesStore_GetPropertiesForPages_UnknownIDReturnsNoEntry(t *testin
 // ─── Clear ───────────────────────────────────────────────────────────────────
 
 func TestPropertiesStore_Clear_RemovesAllEntries(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := newTestStore(t)
 
 	_ = store.SetPropertiesForPage("page-1", props("status", "draft"))

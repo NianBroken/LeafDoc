@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,6 +19,7 @@ type authFixture struct {
 
 func createTestAuthFixture(t *testing.T) *authFixture {
 	t.Helper()
+	testutil.ResetMySQL(t)
 
 	storageDir := t.TempDir()
 	userStore, err := coreauth.NewUserStore(storageDir)
@@ -61,6 +63,7 @@ func createTestAuthFixture(t *testing.T) *authFixture {
 }
 
 func TestRequireAuth_WithAuthDisabled_UserExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
@@ -115,6 +118,7 @@ func TestRequireAuth_WithAuthDisabled_UserExists(t *testing.T) {
 }
 
 func TestRequireAuth_WithAuthDisabled_NoUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
@@ -144,6 +148,7 @@ func TestRequireAuth_WithAuthDisabled_NoUser(t *testing.T) {
 }
 
 func TestRequireAuth_WithInvalidUserContext_NilUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
@@ -175,6 +180,7 @@ func TestRequireAuth_WithInvalidUserContext_NilUser(t *testing.T) {
 }
 
 func TestRequireAuth_WithInvalidUserContext_WrongType(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
@@ -206,6 +212,7 @@ func TestRequireAuth_WithInvalidUserContext_WrongType(t *testing.T) {
 }
 
 func TestRequireAuth_WithAuthEnabled_ValidToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	fixture := createTestAuthFixture(t)
@@ -267,6 +274,7 @@ func TestRequireAuth_WithAuthEnabled_ValidToken(t *testing.T) {
 }
 
 func TestRequireAuth_WithAuthEnabled_MissingToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	fixture := createTestAuthFixture(t)
@@ -303,6 +311,7 @@ func TestRequireAuth_WithAuthEnabled_MissingToken(t *testing.T) {
 }
 
 func TestRequireAuth_WithAuthEnabled_NilAuthService(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
@@ -334,6 +343,7 @@ func TestRequireAuth_WithAuthEnabled_NilAuthService(t *testing.T) {
 }
 
 func TestRequireAuth_WithAuthEnabled_InvalidToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	fixture := createTestAuthFixture(t)
@@ -374,6 +384,7 @@ func TestRequireAuth_WithAuthEnabled_InvalidToken(t *testing.T) {
 }
 
 func TestRequireAuth_WithAuthEnabled_UserSetInContext(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	fixture := createTestAuthFixture(t)
@@ -425,6 +436,7 @@ func TestRequireAuth_WithAuthEnabled_UserSetInContext(t *testing.T) {
 }
 
 func TestRequireAuth_NextNotCalledOnFailure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	fixture := createTestAuthFixture(t)
@@ -467,6 +479,7 @@ func TestRequireAuth_NextNotCalledOnFailure(t *testing.T) {
 }
 
 func TestRequireAuth_ComprehensiveScenarios(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	testCases := []struct {
@@ -593,6 +606,7 @@ func TestRequireAuth_ComprehensiveScenarios(t *testing.T) {
 }
 
 func TestOptionalAuth_NoToken_PassesThrough(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
 	router := gin.New()
@@ -616,6 +630,7 @@ func TestOptionalAuth_NoToken_PassesThrough(t *testing.T) {
 }
 
 func TestOptionalAuth_ValidToken_SetsUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	fixture := createTestAuthFixture(t)
 	defer func() {
@@ -660,6 +675,7 @@ func TestOptionalAuth_ValidToken_SetsUser(t *testing.T) {
 }
 
 func TestOptionalAuth_InvalidToken_PassesThrough(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	fixture := createTestAuthFixture(t)
 	defer func() {
@@ -691,6 +707,7 @@ func TestOptionalAuth_InvalidToken_PassesThrough(t *testing.T) {
 }
 
 func TestOptionalAuth_NilAuthService_WithToken_Returns500(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
 	router := gin.New()
@@ -714,6 +731,7 @@ func TestOptionalAuth_NilAuthService_WithToken_Returns500(t *testing.T) {
 }
 
 func TestOptionalAuth_UserAlreadyInContext_ShortCircuits(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
 	injected := &coreauth.User{ID: "proxy-user", Username: "proxy", Role: coreauth.RoleViewer}

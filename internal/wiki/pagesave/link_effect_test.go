@@ -1,6 +1,7 @@
 package pagesave
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 
 	"github.com/NianBroken/LeafDoc/internal/core/links"
@@ -42,6 +43,7 @@ func setupLinkEffect(t *testing.T) (*LinkIndexSideEffect, *links.LinkService, *t
 // existed in the store (e.g. from when the title was ambiguous) by re-routing
 // them to the one remaining page still titled "Alpha".
 func TestLinkIndexSideEffect_Rename_HealsPreexistingBrokenWikilinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect, svc, ts := setupLinkEffect(t)
 
 	// "Alpha" will be renamed; "Keeper" retains the title so [[Alpha]] becomes unambiguous.

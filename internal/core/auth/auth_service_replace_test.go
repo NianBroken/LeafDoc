@@ -1,12 +1,14 @@
 package auth
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"sync"
 	"testing"
 	"time"
 )
 
 func TestAuthService_ReplaceUserStore_SwapsToNewUsers(t *testing.T) {
+	testutil.ResetMySQL(t)
 	oldDir := t.TempDir()
 	oldStore, err := NewUserStore(oldDir)
 	if err != nil {
@@ -48,6 +50,9 @@ func TestAuthService_ReplaceUserStore_SwapsToNewUsers(t *testing.T) {
 			t.Error(err)
 		}
 	})
+	if _, err := newStore.db.Exec("DELETE FROM users"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := NewUserService(newStore).CreateUser("new-user", "new@example.com", "new-password", "admin"); err != nil {
 		t.Fatal(err)
 	}
@@ -75,6 +80,7 @@ func TestAuthService_ReplaceUserStore_SwapsToNewUsers(t *testing.T) {
 // subsequent ReplaceUserStore (once the swap has completed) must still bring
 // the service back to a fully working state.
 func TestAuthService_PauseUserStoreForSwap_ThenReplaceUserStore_Recovers(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := setupTestAuthService(t)
 	t.Cleanup(func() { _ = f.Close() })
 
@@ -113,7 +119,9 @@ func TestAuthService_PauseUserStoreForSwap_ThenReplaceUserStore_Recovers(t *test
 }
 
 func TestAuthService_ReplaceUserStore_ClosesPreviousStore(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := setupTestAuthService(t)
+	oldDatabase := f.userService.store.db
 	t.Cleanup(func() { _ = f.Close() })
 
 	newDir := t.TempDir()
@@ -139,12 +147,13 @@ func TestAuthService_ReplaceUserStore_ClosesPreviousStore(t *testing.T) {
 
 	// The old store's *sql.DB was closed; any further query against it (via
 	// the private field, reachable only within-package) should now fail.
-	if _, err := f.userService.store.GetUserByUsername("testuser"); err == nil {
+	if err := oldDatabase.Ping(); err == nil {
 		t.Error("expected a query against the closed previous store to fail")
 	}
 }
 
 func TestAuthService_ReplaceUserStore_ConcurrentLoginsDuringSwap(t *testing.T) {
+	testutil.ResetMySQL(t)
 	oldDir := t.TempDir()
 	oldStore, err := NewUserStore(oldDir)
 	if err != nil {
@@ -182,7 +191,7 @@ func TestAuthService_ReplaceUserStore_ConcurrentLoginsDuringSwap(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	if _, err := NewUserService(newStore).CreateUser("shared-user", "shared@example.com", "shared-password", "admin"); err != nil {
+	if _, err := newStore.GetUserByUsername("shared-user"); err != nil {
 		t.Fatal(err)
 	}
 	if err := newStore.Close(); err != nil {
@@ -231,6 +240,7 @@ func TestAuthService_ReplaceUserStore_ConcurrentLoginsDuringSwap(t *testing.T) {
 }
 
 func TestAuthService_InvalidateAllSessions_RevokesActiveSessions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := setupTestAuthService(t)
 	t.Cleanup(func() { _ = f.Close() })
 

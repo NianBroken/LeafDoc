@@ -27,7 +27,7 @@ type WikiImportAdapter struct {
 	asset       *assets.AssetService
 	tags        *tags.TagsService
 	props       *properties.PropertiesService
-	searchIndex *search.SQLiteIndex
+	searchIndex *search.MySQLIndex
 	log         *slog.Logger
 }
 

@@ -5,8 +5,18 @@ import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import { defineConfig, type ConfigEnv } from 'vite'
 
+const ports = JSON.parse(
+  fs.readFileSync(
+    path.resolve(
+      import.meta.dirname,
+      '../internal/core/serviceports/ports.json',
+    ),
+    'utf8',
+  ),
+) as Record<string, number>
+
 const backendTarget =
-  process.env.LEAFDOC_BACKEND_URL?.trim() || 'http://localhost:8080'
+  process.env.LEAFDOC_BACKEND_URL?.trim() || `http://localhost:${ports.backend}`
 
 // The shared resolver supplies identical release metadata on every platform.
 const appVersion = execFileSync(
@@ -99,7 +109,10 @@ export default defineConfig(({ command }: ConfigEnv) => ({
       },
     },
   ],
+  preview: { port: ports.frontend, strictPort: true },
   server: {
+    port: ports.frontend,
+    strictPort: true,
     proxy: {
       '/defaults': { target: backendTarget, changeOrigin: true, secure: false },
       '/avatars': { target: backendTarget, changeOrigin: true, secure: false },

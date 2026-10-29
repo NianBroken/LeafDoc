@@ -2,12 +2,11 @@ package auth
 
 import (
 	"database/sql"
-	"strings"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"sync"
 	"time"
 
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
-	_ "modernc.org/sqlite"
 )
 
 // APIKey is the persisted representation of an API key. The plaintext secret
@@ -42,7 +41,6 @@ func (k *APIKey) IsActive(now time.Time) bool {
 type APIKeyStore struct {
 	mu         sync.Mutex
 	storageDir string
-	filename   string
 	db         *sql.DB
 	// suspended is set by suspend() and makes withDB refuse to lazily reopen
 	// db — see suspend's doc comment.
@@ -52,7 +50,6 @@ type APIKeyStore struct {
 func NewAPIKeyStore(storageDir string) (*APIKeyStore, error) {
 	s := &APIKeyStore{
 		storageDir: storageDir,
-		filename:   "api_keys.db",
 	}
 
 	if err := s.ensureSchema(); err != nil {
@@ -71,7 +68,7 @@ func (s *APIKeyStore) withDB(fn func(db *sql.DB) error) error {
 	}
 
 	if s.db == nil {
-		db, err := sql.Open("sqlite", databasePath(s.storageDir, s.filename)+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+		db, err := database.Open(s.storageDir)
 		if err != nil {
 			return err
 		}
@@ -81,17 +78,7 @@ func (s *APIKeyStore) withDB(fn func(db *sql.DB) error) error {
 	return fn(s.db)
 }
 
-// suspend closes db (if open) and marks the store so withDB refuses to
-// lazily reopen it — unlike a plain Close(), whose reconnect-on-next-query
-// behavior would otherwise defeat the point of suspending. Used by
-// APIKeyService.PauseForSwap before a live restore renames api_keys.db out
-// from under this store: on Windows, an open file handle (or one silently
-// reopened by a query landing mid-swap) blocks the rename with a sharing
-// violation, which POSIX doesn't have. Mirrors UserStore.suspend exactly —
-// see that doc comment for the full rationale. suspend is permanent for this
-// *APIKeyStore instance; restore always continues with a brand new one
-// afterward (see APIKeyService.Replace), so there's no un-suspend. Idempotent:
-// a second call is a safe no-op.
+// suspend prevents key access until the restore service reopens the store.
 func (s *APIKeyStore) suspend() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -126,24 +113,7 @@ func errAPIKeyStoreUnavailable() error {
 }
 
 func (s *APIKeyStore) ensureSchema() error {
-	return s.withDB(func(db *sql.DB) error {
-		_, err := db.Exec(`
-			CREATE TABLE IF NOT EXISTS api_keys (
-				id           TEXT PRIMARY KEY,
-				name         TEXT NOT NULL,
-				user_id      TEXT NOT NULL,
-				prefix       TEXT NOT NULL UNIQUE,
-				key_hash     TEXT NOT NULL,
-				role         TEXT NOT NULL,
-				expires_at   INTEGER,          -- unix sec, NULL = never expires
-				created_by   TEXT NOT NULL,
-				created_at   INTEGER NOT NULL, -- unix sec
-				last_used_at INTEGER,          -- unix sec, NULL = never used
-				revoked_at   INTEGER           -- unix sec, NULL = active
-			);
-		`)
-		return err
-	})
+	return s.withDB(func(db *sql.DB) error { return db.Ping() })
 }
 
 func (s *APIKeyStore) Close() error {
@@ -286,7 +256,7 @@ func (s *APIKeyStore) TouchLastUsed(id string, at time.Time) error {
 }
 
 func (s *APIKeyStore) mapConstraintViolationToError(err error) error {
-	if strings.Contains(err.Error(), "UNIQUE constraint failed: api_keys.prefix") {
+	if database.IsDuplicate(err) {
 		return ErrAPIKeyPrefixCollision
 	}
 	return err

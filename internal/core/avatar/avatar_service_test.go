@@ -2,6 +2,7 @@ package avatar
 
 import (
 	"bytes"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"image"
 	"image/color"
 	"image/gif"
@@ -114,6 +115,7 @@ func solidSquarePNG(t *testing.T, size int) []byte {
 
 // Uploads recreate an empty storage directory removed by housekeeping.
 func TestAvatarService_UploadAvatar_RecreatesMissingDirectory(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestAvatarService(t)
 	if err := os.Remove(filepath.Join(dir, "avatars")); err != nil {
 		t.Fatal(err)
@@ -127,6 +129,7 @@ func TestAvatarService_UploadAvatar_RecreatesMissingDirectory(t *testing.T) {
 }
 
 func TestAvatarService_UploadAvatar_ValidFormats_ProducesTargetSizePNG(t *testing.T) {
+	testutil.ResetMySQL(t)
 	square := image.NewRGBA(image.Rect(0, 0, 300, 300))
 	for y := 0; y < 300; y++ {
 		for x := 0; x < 300; x++ {
@@ -170,6 +173,7 @@ func TestAvatarService_UploadAvatar_ValidFormats_ProducesTargetSizePNG(t *testin
 }
 
 func TestAvatarService_UploadAvatar_WebpFormat_ProducesTargetSizePNG(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// golang.org/x/image/webp is decode-only (no encoder), so this fixture
 	// was generated externally (Pillow, lossless WEBP) as a 100x100 solid
 	// color image and pinned here as raw bytes; verified to round-trip
@@ -206,6 +210,7 @@ func TestAvatarService_UploadAvatar_WebpFormat_ProducesTargetSizePNG(t *testing.
 }
 
 func TestAvatarService_UploadAvatar_RejectedExtension_ReturnsInvalidTypeError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestAvatarService(t)
 	data := solidSquarePNG(t, 100)
 
@@ -216,6 +221,7 @@ func TestAvatarService_UploadAvatar_RejectedExtension_ReturnsInvalidTypeError(t 
 }
 
 func TestAvatarService_UploadAvatar_CorruptBytes_ReturnsDecodeFailedError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestAvatarService(t)
 	garbage := []byte("this is not an image, just plain garbage bytes")
 
@@ -226,6 +232,7 @@ func TestAvatarService_UploadAvatar_CorruptBytes_ReturnsDecodeFailedError(t *tes
 }
 
 func TestAvatarService_UploadAvatar_OversizedUpload_Rejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestAvatarService(t)
 
 	// Build a PNG payload whose encoded byte size exceeds MaxUploadSize.
@@ -252,6 +259,7 @@ func TestAvatarService_UploadAvatar_OversizedUpload_Rejected(t *testing.T) {
 }
 
 func TestAvatarService_UploadAvatar_NonSquareInput_CropsCenteredNotCorner(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestAvatarService(t)
 
 	// A wide rectangle: the center-square crop should span x in [100, 300)
@@ -320,6 +328,7 @@ func TestAvatarService_UploadAvatar_NonSquareInput_CropsCenteredNotCorner(t *tes
 }
 
 func TestAvatarService_DeleteAvatar_IdempotentAndNoOpWhenNothingUploaded(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestAvatarService(t)
 
 	// Deleting when nothing was ever uploaded must not error.
@@ -350,6 +359,7 @@ func TestAvatarService_DeleteAvatar_IdempotentAndNoOpWhenNothingUploaded(t *test
 }
 
 func TestAvatarService_AvatarPath_ReportsExistence(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestAvatarService(t)
 
 	if _, found := svc.AvatarPath("user-1"); found {
@@ -371,6 +381,7 @@ func TestAvatarService_AvatarPath_ReportsExistence(t *testing.T) {
 }
 
 func TestAvatarService_UploadAvatar_UnsafeUserID_Rejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestAvatarService(t)
 	data := solidSquarePNG(t, 100)
 

@@ -27,7 +27,7 @@ func newAPIKeyRouterTest(t *testing.T) (*wiki.Wiki, http.Handler) {
 	w, err := wiki.NewWiki(&wiki.WikiOptions{
 		StorageDir:             t.TempDir(),
 		AdminPassword:          "adminpassword",
-		JWTSecret:              "secretkey",
+		JWTSecret:              "test-secret-key-with-at-least-32-characters",
 		AccessTokenTimeout:     15 * time.Minute,
 		RefreshTokenTimeout:    7 * 24 * time.Hour,
 		EnableRevision:         true,
@@ -65,6 +65,7 @@ func bearerJSONRequest(method, url, token, body string) *http.Request {
 // management surface, and confirms the list response never leaks the secret
 // or its hash.
 func TestAPIKeys_AdminCanCreateListAndRevoke(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 
 	owner, err := w.UserService().CreateUser("agent-owner", "agent-owner@example.com", "password123", coreauth.RoleEditor)
@@ -112,6 +113,7 @@ func TestAPIKeys_AdminCanCreateListAndRevoke(t *testing.T) {
 // TestAPIKeys_NonAdminCannotManageKeys verifies the management surface is
 // admin-only, matching every other admin-gated feature in the app.
 func TestAPIKeys_NonAdminCannotManageKeys(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 
 	owner, err := w.UserService().CreateUser("plain-editor", "plain-editor@example.com", "password123", coreauth.RoleEditor)
@@ -137,6 +139,7 @@ func TestAPIKeys_NonAdminCannotManageKeys(t *testing.T) {
 // writes, so RequireCookieSession is what closes this: even an admin-scoped
 // key must be rejected from /api/api-keys, regardless of role.
 func TestAPIKeys_AdminScopedKeyCannotManageKeys(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 
 	owner, err := w.UserService().CreateUser("admin-agent-owner", "admin-agent-owner@example.com", "password123", coreauth.RoleAdmin)
@@ -167,6 +170,7 @@ func TestAPIKeys_AdminScopedKeyCannotManageKeys(t *testing.T) {
 // permission model: a viewer-scoped key can reach a read endpoint, but is
 // rejected on a mutating one by the role guard (a resolved key skips CSRF).
 func TestAPIKeys_ViewerScopedKeyCanReadButNotWrite(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 
 	owner, err := w.UserService().CreateUser("agent-owner", "agent-owner@example.com", "password123", coreauth.RoleAdmin)
@@ -204,6 +208,7 @@ func TestAPIKeys_ViewerScopedKeyCanReadButNotWrite(t *testing.T) {
 // TestAPIKeys_RevokedKeyIsRejectedImmediately verifies revocation takes effect
 // on the very next request — no caching, no grace period.
 func TestAPIKeys_RevokedKeyIsRejectedImmediately(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 
 	owner, err := w.UserService().CreateUser("agent-owner", "agent-owner@example.com", "password123", coreauth.RoleViewer)
@@ -270,6 +275,7 @@ func createAPIKeyFor(t *testing.T, w *wiki.Wiki, router http.Handler, username, 
 // then follows the normal role guards: an editor key can create a page with
 // nothing but the Authorization header.
 func TestAPIKeys_EditorKeyCanWritePages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 	secret := createAPIKeyFor(t, w, router, "editor-agent", coreauth.RoleEditor, coreauth.RoleEditor)
 
@@ -285,6 +291,7 @@ func TestAPIKeys_EditorKeyCanWritePages(t *testing.T) {
 // TestAPIKeys_ViewerKeyOwnedByEditorCannotWrite checks role(user) ∩ role(key):
 // the owner could write, but the viewer-scoped key must not.
 func TestAPIKeys_ViewerKeyOwnedByEditorCannotWrite(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 	secret := createAPIKeyFor(t, w, router, "editor-owner", coreauth.RoleEditor, coreauth.RoleViewer)
 
@@ -303,6 +310,7 @@ func TestAPIKeys_ViewerKeyOwnedByEditorCannotWrite(t *testing.T) {
 // TestAPIKeys_SessionWithoutCSRFTokenStillRejected guards against the CSRF
 // skip leaking to cookie sessions: only a resolved key may skip the check.
 func TestAPIKeys_SessionWithoutCSRFTokenStillRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	_, router := newAPIKeyRouterTest(t)
 
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login",
@@ -336,6 +344,7 @@ func TestAPIKeys_SessionWithoutCSRFTokenStillRejected(t *testing.T) {
 // point the stored git credentials at another server. An admin-scoped key must
 // not reach them, while harmless status routes stay reachable.
 func TestAPIKeys_InstanceRecoveryRoutesAreSessionOnly(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, router := newAPIKeyRouterTest(t)
 	secret := createAPIKeyFor(t, w, router, "recovery-agent", coreauth.RoleAdmin, coreauth.RoleAdmin)
 

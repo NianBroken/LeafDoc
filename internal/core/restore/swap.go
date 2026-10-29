@@ -2,7 +2,8 @@ package restore
 
 import (
 	"archive/zip"
-	"database/sql"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,9 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NianBroken/LeafDoc/internal/core/defaultdocs"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
-	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
 // backupMeta mirrors internal/core/snapshot's unexported backupMeta struct — the
@@ -25,18 +25,11 @@ type backupMeta struct {
 	Version   string    `json:"version"`
 }
 
-// requiredZipEntries are the only entries createSnapshot always writes
-// unconditionally (root/, assets/, branding/, avatars/, branding.json, and
-// schema.json are all skipped by the writer when the corresponding source is
-// empty or missing, so their absence in a given ZIP isn't itself invalid).
-var requiredZipEntries = []string{"backup-meta.json", "users.db"}
+// Required entries distinguish the versioned MySQL format from older archives.
+var requiredZipEntries = []string{"backup-meta.json", "database.json", "checksums.json"}
 
-// extractAndValidate opens zipPath, verifies the required entries exist,
-// extracts everything into a fresh staging directory *inside* dataDir (not
-// the OS temp dir — so the later swap can use os.Rename instead of a
-// cross-filesystem copy), and sanity-checks the staged users.db by running a
-// trivial query against it — all before any live file is touched. The caller
-// must os.RemoveAll the returned staging dir once done with it.
+// extractAndValidate verifies paths, size budgets, checksums and the database format.
+// The returned staging directory is owned and removed by the caller.
 func extractAndValidate(zipPath, dataDir string) (stagingDir string, meta backupMeta, err error) {
 	return extractAndValidateWithLimits(zipPath, dataDir, shared.DefaultZipExtractionLimits)
 }
@@ -50,11 +43,15 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 
 	present := map[string]bool{}
 	for _, f := range r.File {
-		present[f.Name] = true
+		name := strings.ToLower(filepath.ToSlash(filepath.Clean(f.Name)))
+		if present[name] {
+			return "", backupMeta{}, fmt.Errorf("duplicate backup entry: %s", f.Name)
+		}
+		present[name] = true
 	}
 	for _, want := range requiredZipEntries {
 		if !present[want] {
-			return "", backupMeta{}, fmt.Errorf("snapshot zip is missing required entry %q", want)
+			return "", backupMeta{}, fmt.Errorf("unsupported backup format: required MySQL entry %q is missing", want)
 		}
 	}
 
@@ -81,23 +78,14 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 		return "", backupMeta{}, fmt.Errorf("failed to parse backup-meta.json: %w", err)
 	}
 
-	if err := sanityCheckSQLiteDB(filepath.Join(stagingDir, "users.db"), "users", usersRequiredColumns); err != nil {
-		_ = os.RemoveAll(stagingDir)
-		return "", backupMeta{}, fmt.Errorf("staged users.db failed sanity check: %w", err)
+	if err := validateArchive(stagingDir); err != nil {
+		os.RemoveAll(stagingDir)
+		return "", backupMeta{}, err
 	}
-
-	// Every database in stateDBs is optional (API key management is off by
-	// default; an older snapshot may predate a store), so only sanity-check
-	// one when the snapshot actually staged it — same presence guard SwapAll
-	// itself uses.
-	for _, db := range stateDBs {
-		staged := filepath.Join(stagingDir, db.File)
-		if _, err := os.Stat(staged); err != nil {
-			continue
-		}
-		if err := sanityCheckSQLiteDB(staged, db.Table, db.Columns); err != nil {
-			_ = os.RemoveAll(stagingDir)
-			return "", backupMeta{}, fmt.Errorf("staged %s failed sanity check: %w", db.File, err)
+	for _, name := range swapNames {
+		if err := os.MkdirAll(filepath.Join(stagingDir, name), 0o755); err != nil {
+			os.RemoveAll(stagingDir)
+			return "", backupMeta{}, err
 		}
 	}
 
@@ -143,132 +131,8 @@ func extractZipEntry(f *zip.File, destDir string, limits shared.ExtractionLimits
 	return nil
 }
 
-// stateDB is a SQLite database holding real state (ADR-0013), other than
-// users.db, that snapshots capture and a restore swaps in place.
-type stateDB struct {
-	File    string   // file name in the data dir and at the snapshot ZIP root
-	Table   string   // table sanityCheckSQLiteDB probes in a staged copy
-	Columns []string // columns that table must have
-}
-
-// File names of the state databases in stateDBs, for the composition root's
-// Config.Stores entries (Wiki.StateStores), so each name exists once.
-const (
-	APIKeysDBFile   = "api_keys.db"
-	FavoritesDBFile = "favorites.db"
-)
-
-// stateDBs is the one place a new state store is registered for backup and
-// restore: snapshots capture these files (StateDBFiles), a restore
-// sanity-checks and swaps them (swapNames), and the composition root passes
-// the live store as a Config.Stores entry.
-var stateDBs = []stateDB{
-	{File: APIKeysDBFile, Table: "api_keys", Columns: apiKeysRequiredColumns},
-	{File: FavoritesDBFile, Table: "favorites", Columns: favoritesRequiredColumns},
-}
-
-// StateDBFiles returns the file names of every state database other than
-// users.db, for the snapshot configuration.
-func StateDBFiles() []string {
-	files := make([]string, 0, len(stateDBs))
-	for _, db := range stateDBs {
-		files = append(files, db.File)
-	}
-	return files
-}
-
-var (
-	usersRequiredColumns     = []string{"id", "username", "password", "email", "role", "created_at"}
-	apiKeysRequiredColumns   = []string{"id", "name", "user_id", "prefix", "key_hash", "role", "expires_at", "created_by", "created_at", "last_used_at", "revoked_at"}
-	favoritesRequiredColumns = []string{"user_id", "page_id", "created_at"}
-)
-
-func sanityCheckSQLiteDB(path, table string, columns []string) error {
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = db.Close() }()
-
-	var integrity string
-	if err := db.QueryRow("PRAGMA integrity_check").Scan(&integrity); err != nil {
-		return fmt.Errorf("failed to run integrity check: %w", err)
-	}
-	if integrity != "ok" {
-		return fmt.Errorf("integrity check failed: %s", integrity)
-	}
-
-	// LIMIT 0 fetches no rows but still forces SQLite to resolve every named
-	// column against the table's actual schema, so a missing table or a
-	// missing/renamed column fails the query the same way — no rows need to
-	// exist in the table for this to work.
-	rows, err := db.Query(fmt.Sprintf("SELECT %s FROM %s LIMIT 0", strings.Join(columns, ", "), table))
-	if err != nil {
-		return fmt.Errorf("failed to query %s schema: %w", table, err)
-	}
-	defer func() { _ = rows.Close() }()
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("failed to query %s schema: %w", table, err)
-	}
-	return nil
-}
-
-// swapNames lists every top-level item a snapshot ZIP may contain, in the
-// order they're swapped. All are optional in the staging dir — see
-// newSwapper's doc comment. sessions.db is deliberately absent: it's never
-// part of the snapshot (session state is ephemeral, tied to the running
-// process) — see AuthService.InvalidateAllSessions, called post-swap instead
-// of being restored. "avatars" is a plain per-user-avatar asset directory
-// (like "assets"/"branding") — no hot-swappable service owns it, so it
-// carries no reload/rollback step of its own.
-var swapNames = append([]string{defaultdocs.StateFile, "root", "assets", "branding", "avatars", "branding.json", "public-access.json", "toc-display.json", "preferences.json", "snapshot-settings.json", "schema.json", "users.db"}, StateDBFiles()...)
-
-// walSidecarDBNames lists every WAL-mode database whose stale -wal/-shm
-// sidecars may need cleaning up before a swap — derived from swapNames
-// itself (every entry that's a .db file; the non-DB entries —
-// root/assets/branding/schema.json — never run in WAL mode) so the two
-// lists can't drift apart when a future store gets added. Shared by
-// manager.go and offline.go.
-var walSidecarDBNames = func() []string {
-	names := make([]string, 0, len(swapNames))
-	for _, name := range swapNames {
-		if strings.HasSuffix(name, ".db") {
-			names = append(names, name)
-		}
-	}
-	return names
-}()
-
-// removeStaleWALSidecars deletes dbPath's -wal and -shm sidecar files, if
-// present, without touching dbPath itself. Missing files are not an error.
-//
-// users.db runs in WAL mode (internal/core/auth/user_store.go). A snapshot
-// ZIP's users.db is always a plain, sidecar-free single file — createSnapshot
-// (internal/core/snapshot) produces it via `VACUUM INTO`, which never emits a
-// -wal/-shm — so the *staged* replacement never has this problem. The live
-// side is the concern: before a swap, the live UserStore is either closed
-// (live restore, via UserStore.suspend — SQLite auto-checkpoints and
-// truncates the WAL when the last connection to a WAL-mode database closes)
-// or was never opened by this process at all (offline `restore-snapshot`,
-// run before the server starts). Either way, by the time a swap runs, any
-// -wal/-shm left at the live path is expected to be an empty/harmless
-// checkpoint remnant, not unflushed data — but leaving it in place is still
-// a bad idea: swapNames renames only users.db itself, so a stale sidecar
-// would be left sitting next to the *replacement* users.db, and a WAL file
-// that doesn't belong to the database next to it is exactly the kind of
-// ambiguous state worth not creating, however unlikely SQLite is to
-// misinterpret it. Called before newSwapper/SwapAll for the live users.db
-// path in both the live-restore (manager.go) and offline (offline.go)
-// paths.
-func removeStaleWALSidecars(dbPath string) error {
-	var errs []error
-	for _, suffix := range []string{"-wal", "-shm"} {
-		if err := os.Remove(dbPath + suffix); err != nil && !os.IsNotExist(err) {
-			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
-}
+// swapNames contains only file resources; business data is restored transactionally.
+var swapNames = []string{"assets", "branding", "avatars", "revision-assets"}
 
 // swapItem is one live path <-> staged path pair.
 type swapItem struct {
@@ -310,6 +174,9 @@ func newSwapper(dataDir, stagingDir string) *swapper {
 	items := make([]*swapItem, 0, len(swapNames))
 	for _, name := range swapNames {
 		live := filepath.Join(dataDir, name)
+		if name == "revision-assets" {
+			live = filepath.Join(dataDir, ".leafdoc", "blobs", "assets")
+		}
 		items = append(items, &swapItem{
 			name:       name,
 			livePath:   live,
@@ -333,6 +200,9 @@ func (sw *swapper) SwapAll() error {
 	for _, item := range sw.items {
 		if _, err := os.Stat(item.stagedPath); err != nil {
 			continue // not captured by this snapshot; leave the live item alone
+		}
+		if err := os.MkdirAll(filepath.Dir(item.livePath), 0o755); err != nil {
+			return fmt.Errorf("prepare restored resource directory: %w", err)
 		}
 
 		if _, err := os.Stat(item.livePath); err == nil {
@@ -401,4 +271,63 @@ func (sw *swapper) CommitAll() {
 			slog.Default().Warn("restore: failed to clean up pre-restore backup copy", "item", item.name, "path", item.preRestore, "error", err)
 		}
 	}
+}
+
+// validateArchive checks all extracted bytes before any live resource changes.
+func validateArchive(dir string) error {
+	raw, err := os.ReadFile(filepath.Join(dir, "checksums.json"))
+	if err != nil {
+		return err
+	}
+	checksums := map[string]string{}
+	if err := json.Unmarshal(raw, &checksums); err != nil {
+		return err
+	}
+	for _, required := range []string{"database.json", "backup-meta.json"} {
+		if checksums[required] == "" {
+			return fmt.Errorf("missing required checksum")
+		}
+	}
+	err = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		relative, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(relative)
+		if name == "checksums.json" {
+			return nil
+		}
+		expected, ok := checksums[name]
+		if !ok {
+			return fmt.Errorf("unverified backup entry: %s", name)
+		}
+		bytes, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(bytes)
+		if hex.EncodeToString(sum[:]) != expected {
+			return fmt.Errorf("backup checksum mismatch: %s", name)
+		}
+		delete(checksums, name)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(checksums) != 0 {
+		return fmt.Errorf("backup resource is missing")
+	}
+	raw, err = os.ReadFile(filepath.Join(dir, "database.json"))
+	if err != nil {
+		return err
+	}
+	_, err = database.ValidateDump(raw)
+	return err
 }

@@ -1,6 +1,7 @@
 package links
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"strings"
 	"testing"
 
@@ -13,6 +14,7 @@ func pageNodeKind() *tree.NodeKind {
 }
 
 func TestExtractLinksFromMarkdown_FiltersExternalAndNormalizes(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := `
 # Example
 
@@ -48,6 +50,7 @@ With both: [Both](/docs/page5?foo=bar#section)
 }
 
 func TestExtractLinksFromMarkdown_IgnoresExternalLinksCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := `
 [HTTPS](HTTPS://example.com)
 [Mail](Mailto:test@example.com)
@@ -66,6 +69,7 @@ func TestExtractLinksFromMarkdown_IgnoresExternalLinksCaseInsensitive(t *testing
 }
 
 func TestExtractLinksFromMarkdown_IgnoresAssetDestinations(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := `
 Asset absolute: [File](/assets/abc/manual.pdf)
 Asset relative: [Image](assets/abc/picture.png)
@@ -86,6 +90,7 @@ Internal: [Page](/docs/page1)
 }
 
 func TestExtractLinksFromMarkdown_IgnoresMixedCaseExternalSchemes(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := `
 Uppercase HTTPS: [A](HTTPS://example.com)
 Uppercase HTTP: [B](HTTP://example.com)
@@ -145,6 +150,7 @@ func setupTreeForLinksTest(t *testing.T) (*tree.TreeService, string, string) {
 }
 
 func TestResolveTargetLinks_FindsExistingTargets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, page2ID := setupTreeForLinksTest(t)
 
 	// current page: docs/page1
@@ -173,6 +179,7 @@ func TestResolveTargetLinks_FindsExistingTargets(t *testing.T) {
 }
 
 func TestResolveTargetLinks_ReturnsBrokenTargetsForNonExisting(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, _ := setupTreeForLinksTest(t)
 
 	page1, err := ts.GetPage(page1ID)
@@ -214,6 +221,7 @@ func TestResolveTargetLinks_ReturnsBrokenTargetsForNonExisting(t *testing.T) {
 }
 
 func TestResolveTargetLinks_IgnoresAssetDestinations(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, _ := setupTreeForLinksTest(t)
 
 	page1, err := ts.GetPage(page1ID)
@@ -292,6 +300,7 @@ func createSimpleLinkedPages(t *testing.T, ts *tree.TreeService) (pageAID, pageB
 }
 
 func TestLinkService_IndexAllPages_BuildsLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 	pageAID, pageBID := createSimpleLinkedPages(t, ts)
 
@@ -321,6 +330,7 @@ func TestLinkService_IndexAllPages_BuildsLinks(t *testing.T) {
 }
 
 func TestLinkService_IndexAllPages_ReplacesExistingLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 	pageAID, pageBID := createSimpleLinkedPages(t, ts)
 
@@ -351,6 +361,7 @@ func TestLinkService_IndexAllPages_ReplacesExistingLinks(t *testing.T) {
 	}
 }
 func TestLinkService_UpdateLinksForPage_OnlyAffectsOnePage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 	pageAID, pageBID := createSimpleLinkedPages(t, ts)
 
@@ -380,6 +391,7 @@ func TestLinkService_UpdateLinksForPage_OnlyAffectsOnePage(t *testing.T) {
 }
 
 func TestLinkService_ClearLinks_RemovesAllLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 	_, pageBID := createSimpleLinkedPages(t, ts)
 
@@ -401,6 +413,7 @@ func TestLinkService_ClearLinks_RemovesAllLinks(t *testing.T) {
 }
 
 func TestLinkService_GetOutgoingLinksForPage_ReturnsOutgoingLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 	pageAID, pageBID := createSimpleLinkedPages(t, ts)
 
@@ -444,6 +457,7 @@ func TestLinkService_GetOutgoingLinksForPage_ReturnsOutgoingLinks(t *testing.T) 
 }
 
 func TestLinkService_GetOutgoingLinksForPage_NoOutgoings(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	aIDPtr, err := ts.CreateNode("system", nil, "Lonely Page", "lonely", pageNodeKind())
@@ -481,6 +495,7 @@ func TestLinkService_GetOutgoingLinksForPage_NoOutgoings(t *testing.T) {
 }
 
 func TestLinkService_IndexAllPages_IgnoresAssetLinksInOutgoingAndBrokenSets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	aIDPtr, err := ts.CreateNode("system", nil, "Page A", "a", pageNodeKind())
@@ -537,6 +552,7 @@ func TestLinkService_IndexAllPages_IgnoresAssetLinksInOutgoingAndBrokenSets(t *t
 }
 
 func TestToOutgoingResult_MapsOutgoingToResultItems(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, page2ID := setupTreeForLinksTest(t)
 
 	root := ts.GetTree()
@@ -580,6 +596,7 @@ func TestToOutgoingResult_MapsOutgoingToResultItems(t *testing.T) {
 }
 
 func TestToOutgoingResult_WikilinkSentinelDisplaysPlainTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, _ := setupTreeForLinksTest(t)
 
 	outgoings := []Outgoing{{
@@ -610,6 +627,7 @@ func TestToOutgoingResult_WikilinkSentinelDisplaysPlainTitle(t *testing.T) {
 }
 
 func TestLinkService_LateCreatedTarget_BecomesResolvedAfterReindex(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	aIDPtr, err := ts.CreateNode("system", nil, "Page A", "a", pageNodeKind())
@@ -697,6 +715,7 @@ func TestLinkService_LateCreatedTarget_BecomesResolvedAfterReindex(t *testing.T)
 }
 
 func TestLinkService_HealOnPageCreate_ResolvesBrokenLinksWithoutReindex(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	aIDPtr, err := ts.CreateNode("system", nil, "Page A", "a", pageNodeKind())
@@ -782,6 +801,7 @@ func TestLinkService_HealOnPageCreate_ResolvesBrokenLinksWithoutReindex(t *testi
 }
 
 func TestLinksStore_GetBrokenIncomingForPath_ReturnsBrokenLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	// Create three pages: A, B, C
@@ -873,6 +893,7 @@ func TestLinksStore_GetBrokenIncomingForPath_ReturnsBrokenLinks(t *testing.T) {
 }
 
 func TestLinkService_GetBrokenLinks_ReturnsBrokenLinksWithResolvedFromPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	sectionIDPtr, err := ts.CreateNode("system", nil, "Docs", "docs", pageNodeKind())
@@ -923,6 +944,7 @@ func TestLinkService_GetBrokenLinks_ReturnsBrokenLinksWithResolvedFromPath(t *te
 }
 
 func TestLinksStore_GetBrokenIncomingForPath_FiltersByPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	aIDPtr, err := ts.CreateNode("system", nil, "Page A", "a", pageNodeKind())
@@ -989,6 +1011,7 @@ func TestLinksStore_GetBrokenIncomingForPath_FiltersByPath(t *testing.T) {
 }
 
 func TestLinksStore_GetBrokenIncomingForPath_EmptyWhenNoBrokenLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	aIDPtr, err := ts.CreateNode("system", nil, "Page A", "a", pageNodeKind())
@@ -1038,6 +1061,7 @@ func TestLinksStore_GetBrokenIncomingForPath_EmptyWhenNoBrokenLinks(t *testing.T
 }
 
 func TestLinksStore_GetBrokenIncomingForPath_OrdersByFromTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	// Create three pages with titles that should be ordered alphabetically
@@ -1093,6 +1117,7 @@ func TestLinksStore_GetBrokenIncomingForPath_OrdersByFromTitle(t *testing.T) {
 }
 
 func TestLinksStore_GetBrokenIncomingForPath_OnlyReturnsBrokenNotResolved(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, store := setupLinkService(t)
 
 	// Create Page A that links to a non-existent page
@@ -1169,6 +1194,7 @@ func TestLinksStore_GetBrokenIncomingForPath_OnlyReturnsBrokenNotResolved(t *tes
 }
 
 func TestLinkService_UpdateLinksAndHealForPages_UpdatesAndHealsMultiplePages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	aIDPtr, err := ts.CreateNode("system", nil, "Page A", "a", pageNodeKind())
@@ -1257,6 +1283,7 @@ func TestLinkService_UpdateLinksAndHealForPages_UpdatesAndHealsMultiplePages(t *
 }
 
 func TestLinkService_UpdateLinksAndHealForPages_ReindexesOutgoingForSourcePages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	sourceIDPtr, err := ts.CreateNode("system", nil, "Source", "source", pageNodeKind())
@@ -1327,6 +1354,7 @@ func TestLinkService_UpdateLinksAndHealForPages_ReindexesOutgoingForSourcePages(
 // ─── extractWikiLinksFromMarkdown ────────────────────────────────────────────
 
 func TestExtractWikiLinksFromMarkdown_BasicSyntax(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := `
 See [[Project Plan]] for details.
 Also check [[Meeting Notes|our last meeting]].
@@ -1346,6 +1374,7 @@ Normal [link](/docs/page) stays untouched.
 }
 
 func TestExtractWikiLinksFromMarkdown_DeduplicatesTargets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := `[[Notes]] and [[Notes]] again and [[Notes|different alias]].`
 	got := extractWikiLinksFromMarkdown(md)
 	if len(got) != 1 {
@@ -1357,6 +1386,7 @@ func TestExtractWikiLinksFromMarkdown_DeduplicatesTargets(t *testing.T) {
 }
 
 func TestExtractWikiLinksFromMarkdown_IgnoresFencedCodeBlock(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := "```bash\nif [[ -n \"$computed_hash\" && -n \"$src_hash\" ]]; then\n  [[ \"$src_hash\" == sha256-* ]]\nfi\n```\n"
 
 	got := extractWikiLinksFromMarkdown(md)
@@ -1366,6 +1396,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresFencedCodeBlock(t *testing.T) {
 }
 
 func TestExtractWikiLinksFromMarkdown_IgnoresInlineCode(t *testing.T) {
+	testutil.ResetMySQL(t)
 	got := extractWikiLinksFromMarkdown("`[[ -n $x ]]`")
 	if len(got) != 0 {
 		t.Fatalf("expected no wiki links from inline code, got %v", got)
@@ -1373,6 +1404,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresInlineCode(t *testing.T) {
 }
 
 func TestExtractWikiLinksFromMarkdown_MixedRealAndCodeBlock(t *testing.T) {
+	testutil.ResetMySQL(t)
 	md := "See [[Real Page]].\n\n```\n[[ -z \"$x\" ]]\n```\n"
 
 	got := extractWikiLinksFromMarkdown(md)
@@ -1385,6 +1417,7 @@ func TestExtractWikiLinksFromMarkdown_MixedRealAndCodeBlock(t *testing.T) {
 }
 
 func TestExtractWikiLinksFromMarkdown_IgnoresIndentedCodeBlock(t *testing.T) {
+	testutil.ResetMySQL(t)
 	got := extractWikiLinksFromMarkdown("    [[ Something ]]\n")
 	if len(got) != 0 {
 		t.Fatalf("expected no wiki links from indented code block, got %v", got)
@@ -1392,6 +1425,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresIndentedCodeBlock(t *testing.T) {
 }
 
 func TestExtractWikiLinksFromMarkdown_IgnoresBashConditionalsOutsideCodeBlocks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	cases := []string{
 		`if [[ -n "$computed_hash" && -n "$src_hash" ]]; then`,
 		`if [[ "$src_hash" == sha256-* ]]; then`,
@@ -1405,6 +1439,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresBashConditionalsOutsideCodeBlocks(t
 }
 
 func TestExtractWikiLinksFromMarkdown_Empty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	got := extractWikiLinksFromMarkdown("No wiki links here.")
 	if len(got) != 0 {
 		t.Fatalf("expected empty slice, got %v", got)
@@ -1414,6 +1449,7 @@ func TestExtractWikiLinksFromMarkdown_Empty(t *testing.T) {
 // ─── resolveWikiLinkTargets ──────────────────────────────────────────────────
 
 func TestResolveWikiLinkTargets_SingleTitleMatch(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, _ := setupTreeForLinksTest(t)
 
 	targets := resolveWikiLinkTargets(ts, []string{"Page 1"})
@@ -1429,6 +1465,7 @@ func TestResolveWikiLinkTargets_SingleTitleMatch(t *testing.T) {
 }
 
 func TestResolveWikiLinkTargets_NoMatch_ReturnsBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, _, _ := setupTreeForLinksTest(t)
 
 	targets := resolveWikiLinkTargets(ts, []string{"Nonexistent Page"})
@@ -1441,6 +1478,7 @@ func TestResolveWikiLinkTargets_NoMatch_ReturnsBroken(t *testing.T) {
 }
 
 func TestResolveWikiLinkTargets_AmbiguousTitle_ReturnsBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	storageDir := t.TempDir()
 	ts := tree.NewTreeService(storageDir)
 	if err := ts.LoadTree(); err != nil {
@@ -1470,6 +1508,7 @@ func TestResolveWikiLinkTargets_AmbiguousTitle_ReturnsBroken(t *testing.T) {
 }
 
 func TestResolveWikiLinkTargets_PathHint_Resolved(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, _ := setupTreeForLinksTest(t)
 
 	targets := resolveWikiLinkTargets(ts, []string{"docs/page1"})
@@ -1485,6 +1524,7 @@ func TestResolveWikiLinkTargets_PathHint_Resolved(t *testing.T) {
 }
 
 func TestResolveWikiLinkTargets_PathHint_BrokenWhenNotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, _, _ := setupTreeForLinksTest(t)
 
 	targets := resolveWikiLinkTargets(ts, []string{"docs/nonexistent"})
@@ -1497,6 +1537,7 @@ func TestResolveWikiLinkTargets_PathHint_BrokenWhenNotFound(t *testing.T) {
 }
 
 func TestResolveWikiLinkTargets_BrokenSentinelFormat(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, _, _ := setupTreeForLinksTest(t)
 
 	targets := resolveWikiLinkTargets(ts, []string{"Nonexistent Page"})
@@ -1513,6 +1554,7 @@ func TestResolveWikiLinkTargets_BrokenSentinelFormat(t *testing.T) {
 }
 
 func TestResolveWikiLinkTargets_SlashTitleFallback(t *testing.T) {
+	testutil.ResetMySQL(t)
 	storageDir := t.TempDir()
 	ts := tree.NewTreeService(storageDir)
 	if err := ts.LoadTree(); err != nil {
@@ -1544,6 +1586,7 @@ func TestResolveWikiLinkTargets_SlashTitleFallback(t *testing.T) {
 // the route-path lookup was tried first and silently won, resolving the
 // link to the wrong page with Broken staying false.
 func TestResolveWikiLinkTargets_SlashTitle_PrefersTitleOverCollidingRoutePath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	storageDir := t.TempDir()
 	ts := tree.NewTreeService(storageDir)
 	if err := ts.LoadTree(); err != nil {
@@ -1586,6 +1629,7 @@ func TestResolveWikiLinkTargets_SlashTitle_PrefersTitleOverCollidingRoutePath(t 
 }
 
 func TestResolveWikiLinkTargets_AmbiguousSlashTitle_ReturnsBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	storageDir := t.TempDir()
 	ts := tree.NewTreeService(storageDir)
 	if err := ts.LoadTree(); err != nil {
@@ -1610,6 +1654,7 @@ func TestResolveWikiLinkTargets_AmbiguousSlashTitle_ReturnsBroken(t *testing.T) 
 // ─── ReconcileTitle ────────────────────────────────────────────────────
 
 func TestLinkService_ReconcileTitle_HealsAfterPageCreation(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	// Page A contains [[Target Page]] which does not exist yet.
@@ -1665,6 +1710,7 @@ func TestLinkService_ReconcileTitle_HealsAfterPageCreation(t *testing.T) {
 // Fix 2: ReconcileTitle matches case-insensitively, so [[notes]] heals
 // when a page titled "Notes" is created.
 func TestLinkService_ReconcileTitle_CaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	pageAIDPtr, err := ts.CreateNode("system", nil, "Page A", "page-a", pageNodeKind())
@@ -1707,6 +1753,7 @@ func TestLinkService_ReconcileTitle_CaseInsensitive(t *testing.T) {
 // paths during rename refactors; they are re-resolved by title and stay in the
 // result, otherwise ReplaceLinksAndHeal would drop their index rows.
 func TestRewriteResolvedTargets_KeepsWikilinkSentinelsUnmangled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, page1ID, _ := setupTreeForLinksTest(t)
 
 	page1, err := ts.GetPage(page1ID)
@@ -1742,6 +1789,7 @@ func TestRewriteResolvedTargets_KeepsWikilinkSentinelsUnmangled(t *testing.T) {
 // Fix 4: Broken path hints (e.g. [[docs/nonexistent]]) are stored as normal
 // broken route paths so HealLinksForExactPath heals them when the page appears.
 func TestResolveWikiLinkTargets_PathHint_BrokenStoresAsRoutePath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ts, _, _ := setupTreeForLinksTest(t)
 
 	targets := resolveWikiLinkTargets(ts, []string{"docs/nonexistent"})
@@ -1761,6 +1809,7 @@ func TestResolveWikiLinkTargets_PathHint_BrokenStoresAsRoutePath(t *testing.T) {
 }
 
 func TestLinkService_AmbiguousWikiLinksAppearAsBacklinksForAllMatchingPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	sourceIDPtr, err := ts.CreateNode("system", nil, "Source", "source", pageNodeKind())
@@ -1831,6 +1880,7 @@ func TestLinkService_AmbiguousWikiLinksAppearAsBacklinksForAllMatchingPages(t *t
 }
 
 func TestLinkService_AmbiguousWikiLinksAreNotBrokenInSourceStatus(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	sourceIDPtr, err := ts.CreateNode("system", nil, "Source", "source", pageNodeKind())
@@ -1892,6 +1942,7 @@ func TestLinkService_AmbiguousWikiLinksAreNotBrokenInSourceStatus(t *testing.T) 
 // Gap 3: when N>1 pages share a title, ReconcileTitle must not heal
 // broken [[Title]] sentinels, because the link is still ambiguous.
 func TestLinkService_ReconcileTitle_StaysAmbiguousWhenSeveralPagesRemain(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts, _ := setupLinkService(t)
 
 	// Two "Kafka" pages already exist.

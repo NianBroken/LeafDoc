@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/tls"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,7 @@ import (
 )
 
 func Test_RequireSecure_TLS(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
@@ -36,6 +38,7 @@ func Test_RequireSecure_TLS(t *testing.T) {
 }
 
 func Test_RequireSecure_XForwardedProto(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
@@ -81,6 +84,7 @@ func Test_RequireSecure_XForwardedProto(t *testing.T) {
 }
 
 func Test_RequireSecure_XForwardedSsl(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
@@ -127,6 +131,7 @@ func Test_RequireSecure_XForwardedSsl(t *testing.T) {
 }
 
 func Test_RequireSecure_FrontEndHttps(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
@@ -173,6 +178,7 @@ func Test_RequireSecure_FrontEndHttps(t *testing.T) {
 }
 
 func Test_RequireSecure_AllowInsecure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
@@ -198,6 +204,7 @@ func Test_RequireSecure_AllowInsecure(t *testing.T) {
 }
 
 func Test_RequireSecure_ErrorWhenHTTPSRequired(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
@@ -227,6 +234,7 @@ func Test_RequireSecure_ErrorWhenHTTPSRequired(t *testing.T) {
 }
 
 func TestAuthCookies_CookieNames_Secure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
 	accessName, refreshName := auth.cookieNames(true)
@@ -241,6 +249,7 @@ func TestAuthCookies_CookieNames_Secure(t *testing.T) {
 }
 
 func TestAuthCookies_CookieNames_Insecure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	auth := NewAuthCookies(true, time.Hour, time.Hour*24)
 
 	accessName, refreshName := auth.cookieNames(false)
@@ -255,6 +264,7 @@ func TestAuthCookies_CookieNames_Insecure(t *testing.T) {
 }
 
 func TestAuthCookies_Set_Secure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
@@ -344,6 +354,7 @@ func TestAuthCookies_Set_Secure(t *testing.T) {
 }
 
 func TestAuthCookies_Set_Insecure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(true, time.Hour, time.Hour*24)
 
@@ -408,6 +419,7 @@ func TestAuthCookies_Set_Insecure(t *testing.T) {
 }
 
 func TestAuthCookies_Set_ErrorWhenHTTPSRequired(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
@@ -432,6 +444,7 @@ func TestAuthCookies_Set_ErrorWhenHTTPSRequired(t *testing.T) {
 }
 
 func TestAuthCookies_Clear_Secure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
@@ -496,6 +509,7 @@ func TestAuthCookies_Clear_Secure(t *testing.T) {
 }
 
 func TestAuthCookies_Clear_Insecure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(true, time.Hour, time.Hour*24)
 
@@ -536,6 +550,7 @@ func TestAuthCookies_Clear_Insecure(t *testing.T) {
 }
 
 func TestAuthCookies_ReadAccess_Secure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
@@ -565,6 +580,7 @@ func TestAuthCookies_ReadAccess_Secure(t *testing.T) {
 }
 
 func TestAuthCookies_ReadAccess_Insecure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(true, time.Hour, time.Hour*24)
 
@@ -593,6 +609,7 @@ func TestAuthCookies_ReadAccess_Insecure(t *testing.T) {
 }
 
 func TestAuthCookies_ReadAccess_MissingCookie(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
@@ -618,6 +635,7 @@ func TestAuthCookies_ReadAccess_MissingCookie(t *testing.T) {
 }
 
 func TestAuthCookies_ReadRefresh_Secure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
@@ -647,6 +665,7 @@ func TestAuthCookies_ReadRefresh_Secure(t *testing.T) {
 }
 
 func TestAuthCookies_ReadRefresh_Insecure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(true, time.Hour, time.Hour*24)
 
@@ -675,6 +694,7 @@ func TestAuthCookies_ReadRefresh_Insecure(t *testing.T) {
 }
 
 func TestAuthCookies_ReadRefresh_MissingCookie(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 	auth := NewAuthCookies(false, time.Hour, time.Hour*24)
 
@@ -700,6 +720,7 @@ func TestAuthCookies_ReadRefresh_MissingCookie(t *testing.T) {
 }
 
 func TestAuthCookies_CustomTTL(t *testing.T) {
+	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
 
 	accessTTL := 30 * time.Minute

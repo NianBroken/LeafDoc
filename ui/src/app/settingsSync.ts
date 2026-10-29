@@ -23,7 +23,9 @@ export function startSettingsSync() {
       do {
         again = false
         await useConfigStore.getState().loadConfig()
+        if (stopped) return
         await useBrandingStore.getState().loadBranding()
+        if (stopped) return
         const user = useSessionStore.getState().user
         if (user?.role === 'admin' && !user.mustChangePassword)
           await useUserStore.getState().loadUsers()

@@ -15,6 +15,7 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 
 	"github.com/NianBroken/LeafDoc/internal/core/assets"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/favorites"
 	"github.com/NianBroken/LeafDoc/internal/core/links"
 	"github.com/NianBroken/LeafDoc/internal/core/revision"
@@ -41,6 +42,7 @@ type testDeps struct {
 
 func newTestDeps(t *testing.T) *testDeps {
 	t.Helper()
+	testutil.ResetMySQL(t)
 	storageDir := t.TempDir()
 
 	treeService := tree.NewTreeService(storageDir)
@@ -140,6 +142,7 @@ func sectionKind() *tree.NodeKind {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestCreatePageUseCase_HappyPath_Root(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 
@@ -161,6 +164,7 @@ func TestCreatePageUseCase_HappyPath_Root(t *testing.T) {
 }
 
 func TestCreatePageUseCase_HappyPath_WithParent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 
@@ -190,6 +194,7 @@ func TestCreatePageUseCase_HappyPath_WithParent(t *testing.T) {
 }
 
 func TestCreatePageUseCase_InvalidInput_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	cases := []struct {
 		name                 string
 		input                pages.CreatePageInput
@@ -228,6 +233,7 @@ func TestCreatePageUseCase_InvalidInput_ReturnsError(t *testing.T) {
 }
 
 func TestCreatePageUseCase_Section_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 
@@ -250,6 +256,7 @@ func TestCreatePageUseCase_Section_HappyPath(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestUpdatePageUseCase_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -283,6 +290,7 @@ func TestUpdatePageUseCase_HappyPath(t *testing.T) {
 }
 
 func TestUpdatePageUseCase_VersionConflict_ReturnsVersionConflictError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -328,6 +336,7 @@ func TestUpdatePageUseCase_VersionConflict_ReturnsVersionConflictError(t *testin
 }
 
 func TestUpdatePageUseCase_VersionUncheckedSentinel_TreatedAsVersionRequired(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -355,6 +364,7 @@ func TestUpdatePageUseCase_VersionUncheckedSentinel_TreatedAsVersionRequired(t *
 }
 
 func TestUpdatePageUseCase_EmptyTitle_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -376,6 +386,7 @@ func TestUpdatePageUseCase_EmptyTitle_ReturnsValidationError(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestDeletePageUseCase_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	deleteUC := pages.NewDeletePageUseCase(deps.tree, deps.revision, deps.assets, deps.favorites, deps.orchestrator(), slog.Default(), nil)
@@ -400,6 +411,7 @@ func TestDeletePageUseCase_HappyPath(t *testing.T) {
 }
 
 func TestDeletePageUseCase_Root_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	deleteUC := pages.NewDeletePageUseCase(deps.tree, deps.revision, deps.assets, deps.favorites, deps.orchestrator(), slog.Default(), nil)
 
@@ -412,6 +424,7 @@ func TestDeletePageUseCase_Root_ReturnsError(t *testing.T) {
 }
 
 func TestDeletePageUseCase_WithChildren_Recursive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	deleteUC := pages.NewDeletePageUseCase(deps.tree, deps.revision, deps.assets, deps.favorites, deps.orchestrator(), slog.Default(), nil)
@@ -432,6 +445,7 @@ func TestDeletePageUseCase_WithChildren_Recursive(t *testing.T) {
 }
 
 func TestDeletePageUseCase_NonRecursive_RemovesFavoritesForPage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	deleteUC := pages.NewDeletePageUseCase(deps.tree, deps.revision, deps.assets, deps.favorites, deps.orchestrator(), slog.Default(), nil)
@@ -459,6 +473,7 @@ func TestDeletePageUseCase_NonRecursive_RemovesFavoritesForPage(t *testing.T) {
 }
 
 func TestDeletePageUseCase_Recursive_RemovesFavoritesForWholeSubtree(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	deleteUC := pages.NewDeletePageUseCase(deps.tree, deps.revision, deps.assets, deps.favorites, deps.orchestrator(), slog.Default(), nil)
@@ -496,6 +511,7 @@ func TestDeletePageUseCase_Recursive_RemovesFavoritesForWholeSubtree(t *testing.
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestAddFavoriteUseCase_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	addFavoriteUC := pages.NewAddFavoriteUseCase(deps.tree, deps.favorites)
@@ -520,6 +536,7 @@ func TestAddFavoriteUseCase_HappyPath(t *testing.T) {
 }
 
 func TestAddFavoriteUseCase_NonExistentPage_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	addFavoriteUC := pages.NewAddFavoriteUseCase(deps.tree, deps.favorites)
 
@@ -532,6 +549,7 @@ func TestAddFavoriteUseCase_NonExistentPage_ReturnsError(t *testing.T) {
 }
 
 func TestAddFavoriteUseCase_Idempotent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	addFavoriteUC := pages.NewAddFavoriteUseCase(deps.tree, deps.favorites)
@@ -558,6 +576,7 @@ func TestAddFavoriteUseCase_Idempotent(t *testing.T) {
 }
 
 func TestRemoveFavoriteUseCase_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	addFavoriteUC := pages.NewAddFavoriteUseCase(deps.tree, deps.favorites)
@@ -588,6 +607,7 @@ func TestRemoveFavoriteUseCase_HappyPath(t *testing.T) {
 }
 
 func TestRemoveFavoriteUseCase_NotFavorited_IsNoOp(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	removeFavoriteUC := pages.NewRemoveFavoriteUseCase(deps.favorites)
 
@@ -599,6 +619,7 @@ func TestRemoveFavoriteUseCase_NotFavorited_IsNoOp(t *testing.T) {
 }
 
 func TestListFavoritesUseCase_ResolvesFavoritedPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	addFavoriteUC := pages.NewAddFavoriteUseCase(deps.tree, deps.favorites)
@@ -635,6 +656,7 @@ func TestListFavoritesUseCase_ResolvesFavoritedPages(t *testing.T) {
 }
 
 func TestListFavoritesUseCase_SkipsStaleFavoriteForDeletedPage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	listFavoritesUC := pages.NewListFavoritesUseCase(deps.tree, deps.favorites, slog.Default())
@@ -665,6 +687,7 @@ func TestListFavoritesUseCase_SkipsStaleFavoriteForDeletedPage(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestMovePageUseCase_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	moveUC := pages.NewMovePageUseCase(deps.tree, deps.orchestrator(), slog.Default(), nil)
@@ -695,6 +718,7 @@ func TestMovePageUseCase_HappyPath(t *testing.T) {
 }
 
 func TestMovePageUseCase_VersionConflict_ReturnsVersionConflictError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	moveUC := pages.NewMovePageUseCase(deps.tree, deps.orchestrator(), slog.Default(), nil)
@@ -753,6 +777,7 @@ func TestMovePageUseCase_VersionConflict_ReturnsVersionConflictError(t *testing.
 }
 
 func TestMovePageUseCase_Root_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	moveUC := pages.NewMovePageUseCase(deps.tree, deps.orchestrator(), slog.Default(), nil)
 
@@ -769,6 +794,7 @@ func TestMovePageUseCase_Root_ReturnsError(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestEnsurePathUseCase_CreatesNewPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewEnsurePathUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default())
 
@@ -787,6 +813,7 @@ func TestEnsurePathUseCase_CreatesNewPath(t *testing.T) {
 }
 
 func TestEnsurePathUseCase_ExistingPath_ReturnsExistingPage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewEnsurePathUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default())
 
@@ -809,6 +836,7 @@ func TestEnsurePathUseCase_ExistingPath_ReturnsExistingPage(t *testing.T) {
 }
 
 func TestEnsurePathUseCase_EmptyPath_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewEnsurePathUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default())
 
@@ -825,6 +853,7 @@ func TestEnsurePathUseCase_EmptyPath_ReturnsValidationError(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestPageQueries_GetPage_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	queries := pages.NewPageQueries(deps.tree)
@@ -843,6 +872,7 @@ func TestPageQueries_GetPage_HappyPath(t *testing.T) {
 }
 
 func TestPageQueries_GetPage_NotFound_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	queries := pages.NewPageQueries(deps.tree)
 
@@ -853,6 +883,7 @@ func TestPageQueries_GetPage_NotFound_ReturnsError(t *testing.T) {
 }
 
 func TestCreatePageUseCase_ReservedHistorySlug_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 
@@ -868,6 +899,7 @@ func TestCreatePageUseCase_ReservedHistorySlug_ReturnsValidationError(t *testing
 }
 
 func TestCreatePageUseCase_PageExists_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 
@@ -886,6 +918,7 @@ func TestCreatePageUseCase_PageExists_ReturnsError(t *testing.T) {
 }
 
 func TestCreatePageUseCase_InvalidParent_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	invalidID := "not-real"
@@ -899,6 +932,7 @@ func TestCreatePageUseCase_InvalidParent_ReturnsError(t *testing.T) {
 }
 
 func TestCreatePageUseCase_RejectsCaseInsensitiveSlugConflict(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 
@@ -917,6 +951,7 @@ func TestCreatePageUseCase_RejectsCaseInsensitiveSlugConflict(t *testing.T) {
 }
 
 func TestCreatePageUseCase_RecordsPageCreatedRevision(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 
@@ -946,6 +981,7 @@ func TestCreatePageUseCase_RecordsPageCreatedRevision(t *testing.T) {
 }
 
 func TestUpdatePageUseCase_AllowsUppercaseSlug(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -976,6 +1012,7 @@ func TestUpdatePageUseCase_AllowsUppercaseSlug(t *testing.T) {
 }
 
 func TestDeletePageUseCase_EmptyID_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	deleteUC := pages.NewDeletePageUseCase(deps.tree, deps.revision, deps.assets, deps.favorites, deps.orchestrator(), slog.Default(), nil)
 
@@ -988,6 +1025,7 @@ func TestDeletePageUseCase_EmptyID_ReturnsError(t *testing.T) {
 }
 
 func TestPageQueries_FindByPath_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	queries := pages.NewPageQueries(deps.tree)
@@ -1008,6 +1046,7 @@ func TestPageQueries_FindByPath_HappyPath(t *testing.T) {
 }
 
 func TestPageQueries_FindByPath_NotFound_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	queries := pages.NewPageQueries(deps.tree)
 
@@ -1018,6 +1057,7 @@ func TestPageQueries_FindByPath_NotFound_ReturnsError(t *testing.T) {
 }
 
 func TestSortPagesUseCase_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	sortUC := pages.NewSortPagesUseCase(deps.tree)
@@ -1051,6 +1091,7 @@ func TestSortPagesUseCase_HappyPath(t *testing.T) {
 }
 
 func TestSuggestSlugUseCase_Unique(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewSuggestSlugUseCase(deps.tree, deps.slug)
 
@@ -1067,6 +1108,7 @@ func TestSuggestSlugUseCase_Unique(t *testing.T) {
 }
 
 func TestSuggestSlugUseCase_Conflict(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	uc := pages.NewSuggestSlugUseCase(deps.tree, deps.slug)
@@ -1090,6 +1132,7 @@ func TestSuggestSlugUseCase_Conflict(t *testing.T) {
 }
 
 func TestSuggestSlugUseCase_DeepHierarchy(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	uc := pages.NewSuggestSlugUseCase(deps.tree, deps.slug)
@@ -1137,6 +1180,7 @@ func TestSuggestSlugUseCase_DeepHierarchy(t *testing.T) {
 }
 
 func TestCopyPageUseCase_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	copyUC := pages.NewCopyPageUseCase(deps.tree, deps.slug, deps.orchestrator(), deps.assets, slog.Default())
@@ -1163,6 +1207,7 @@ func TestCopyPageUseCase_HappyPath(t *testing.T) {
 }
 
 func TestCopyPageUseCase_WithParent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	copyUC := pages.NewCopyPageUseCase(deps.tree, deps.slug, deps.orchestrator(), deps.assets, slog.Default())
@@ -1186,6 +1231,7 @@ func TestCopyPageUseCase_WithParent(t *testing.T) {
 }
 
 func TestCopyPageUseCase_NonExistentSource_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	copyUC := pages.NewCopyPageUseCase(deps.tree, deps.slug, deps.orchestrator(), deps.assets, slog.Default())
 
@@ -1198,6 +1244,7 @@ func TestCopyPageUseCase_NonExistentSource_ReturnsError(t *testing.T) {
 }
 
 func TestCopyPageUseCase_WithAssets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	copyUC := pages.NewCopyPageUseCase(deps.tree, deps.slug, deps.orchestrator(), deps.assets, slog.Default())
@@ -1233,6 +1280,7 @@ func TestCopyPageUseCase_WithAssets(t *testing.T) {
 }
 
 func TestCopyPageUseCase_RecordsContentRevision(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1278,6 +1326,7 @@ func TestCopyPageUseCase_RecordsContentRevision(t *testing.T) {
 }
 
 func TestCopyPageUseCase_IndexesOutgoingLinksOnCreate(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1324,6 +1373,7 @@ func TestCopyPageUseCase_IndexesOutgoingLinksOnCreate(t *testing.T) {
 }
 
 func TestUpdatePageUseCase_EventBeforeIsOmittedForLiveNodeSafety(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	effect := &captureEffect{}
 	orchestrator := pagesave.NewPageSaveOrchestrator(nil, effect)
@@ -1360,6 +1410,7 @@ func TestUpdatePageUseCase_EventBeforeIsOmittedForLiveNodeSafety(t *testing.T) {
 }
 
 func TestMovePageUseCase_EventBeforeIsOmittedForLiveNodeSafety(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	effect := &captureEffect{}
 	orchestrator := pagesave.NewPageSaveOrchestrator(nil, effect)
@@ -1407,6 +1458,7 @@ func TestMovePageUseCase_EventBeforeIsOmittedForLiveNodeSafety(t *testing.T) {
 }
 
 func TestPreviewPageRefactorUseCase_RenameListsAffectedPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1452,6 +1504,7 @@ func TestPreviewPageRefactorUseCase_RenameListsAffectedPages(t *testing.T) {
 }
 
 func TestApplyPageRefactorUseCase_RenameRewritesIncomingLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1535,6 +1588,7 @@ func TestApplyPageRefactorUseCase_RenameRewritesIncomingLinks(t *testing.T) {
 // that a refactor rejected for a stale version changes no other page: incoming
 // links must not point at a path the target never moved to.
 func TestApplyPageRefactorUseCase_StaleVersion_LeavesIncomingLinksUntouched(t *testing.T) {
+	testutil.ResetMySQL(t)
 	cases := []struct {
 		name  string
 		input func(target, archive *tree.Page) pages.RefactorPreviewInput
@@ -1600,6 +1654,7 @@ func TestApplyPageRefactorUseCase_StaleVersion_LeavesIncomingLinksUntouched(t *t
 }
 
 func TestApplyPageRefactorUseCase_RenameRewritesTitleBasedWikiLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1665,6 +1720,7 @@ func TestApplyPageRefactorUseCase_RenameRewritesTitleBasedWikiLinks(t *testing.T
 }
 
 func TestPreviewPageRefactorUseCase_UsesEmptyWarningArrays(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	previewUC := pages.NewPreviewPageRefactorUseCase(deps.tree, deps.slug, deps.links, slog.Default())
@@ -1699,6 +1755,7 @@ func TestPreviewPageRefactorUseCase_UsesEmptyWarningArrays(t *testing.T) {
 }
 
 func TestPreviewPageRefactorUseCase_Rename_ExcludesAmbiguousSentinelPagesFromPreview(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Scenario: two pages share the title "Grafana" ("grafana" and "grafana-1").
 	// A third page has [[Grafana]] in its content — this is an ambiguous sentinel
 	// (broken) because both pages match the title. When we rename "grafana" to
@@ -1761,6 +1818,7 @@ func TestPreviewPageRefactorUseCase_Rename_ExcludesAmbiguousSentinelPagesFromPre
 }
 
 func TestPreviewPageRefactorUseCase_Move_ExcludesMovedSubtreeFromOptionalAffectedPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1805,6 +1863,7 @@ func TestPreviewPageRefactorUseCase_Move_ExcludesMovedSubtreeFromOptionalAffecte
 }
 
 func TestApplyPageRefactorUseCase_Move_RewritesRelativeOutgoingLinksInMovedPage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1825,7 +1884,7 @@ func TestApplyPageRefactorUseCase_Move_RewritesRelativeOutgoingLinksInMovedPage(
 
 	contentA := "[To B](../page-b)"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: pageA.Page.ID, Version: pageA.Page.Version(), Title: pageA.Page.Title, Slug: pageA.Page.Slug, Content: &contentA, Kind: pageKind(),
+		UserID: "system", ID: pageA.Page.ID, Version: currentPageVersion(t, deps, pageA.Page.ID), Title: pageA.Page.Title, Slug: pageA.Page.Slug, Content: &contentA, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage(pageA) failed: %v", err)
 	}
@@ -1837,7 +1896,7 @@ func TestApplyPageRefactorUseCase_Move_RewritesRelativeOutgoingLinksInMovedPage(
 
 	updated, err := applyUC.Execute(context.Background(), pages.RefactorApplyInput{
 		UserID:  "system",
-		Version: pageA.Page.Version(),
+		Version: currentPageVersion(t, deps, pageA.Page.ID),
 		RefactorPreviewInput: pages.RefactorPreviewInput{
 			PageID:      pageA.Page.ID,
 			Kind:        pages.RefactorKindMove,
@@ -1893,6 +1952,7 @@ func TestApplyPageRefactorUseCase_Move_RewritesRelativeOutgoingLinksInMovedPage(
 }
 
 func TestApplyPageRefactorUseCase_Move_LeavesTitleBasedWikiLinksUnchanged(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -1962,6 +2022,7 @@ func TestApplyPageRefactorUseCase_Move_LeavesTitleBasedWikiLinksUnchanged(t *tes
 }
 
 func TestApplyPageRefactorUseCase_Move_RewritesPathHintWikiLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2032,6 +2093,7 @@ func TestApplyPageRefactorUseCase_Move_RewritesPathHintWikiLinks(t *testing.T) {
 }
 
 func TestEnsurePathUseCase_HealsLinksForAllCreatedSegments(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2116,6 +2178,7 @@ func TestEnsurePathUseCase_HealsLinksForAllCreatedSegments(t *testing.T) {
 }
 
 func TestDeletePageUseCase_NonRecursive_MarksIncomingBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2129,7 +2192,7 @@ func TestDeletePageUseCase_NonRecursive_MarksIncomingBroken(t *testing.T) {
 	}
 	contentA := "Link to B: [Go](/b)"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: a.Page.ID, Version: a.Page.Version(), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
+		UserID: "system", ID: a.Page.ID, Version: currentPageVersion(t, deps, a.Page.ID), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage A failed: %v", err)
 	}
@@ -2142,7 +2205,7 @@ func TestDeletePageUseCase_NonRecursive_MarksIncomingBroken(t *testing.T) {
 	}
 	contentB := "# Page B"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: b.Page.ID, Version: b.Page.Version(), Title: b.Page.Title, Slug: b.Page.Slug, Content: &contentB, Kind: pageKind(),
+		UserID: "system", ID: b.Page.ID, Version: currentPageVersion(t, deps, b.Page.ID), Title: b.Page.Title, Slug: b.Page.Slug, Content: &contentB, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage B failed: %v", err)
 	}
@@ -2151,7 +2214,7 @@ func TestDeletePageUseCase_NonRecursive_MarksIncomingBroken(t *testing.T) {
 		t.Fatalf("IndexAllPages failed: %v", err)
 	}
 	if err := deleteUC.Execute(context.Background(), pages.DeletePageInput{
-		UserID: "system", ID: b.Page.ID, Version: b.Page.Version(), Recursive: false,
+		UserID: "system", ID: b.Page.ID, Version: currentPageVersion(t, deps, b.Page.ID), Recursive: false,
 	}); err != nil {
 		t.Fatalf("DeletePage failed: %v", err)
 	}
@@ -2178,6 +2241,7 @@ func TestDeletePageUseCase_NonRecursive_MarksIncomingBroken(t *testing.T) {
 }
 
 func TestDeletePageUseCase_Recursive_RemovesOutgoingForSubtree_AndBreaksIncomingByPrefix(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2254,6 +2318,7 @@ func TestDeletePageUseCase_Recursive_RemovesOutgoingForSubtree_AndBreaksIncoming
 // Gap 1: deleting one of two same-title pages should heal [[Title]] sentinels
 // that are now unambiguous (exactly one page with that title remains).
 func TestDeletePageUseCase_SingleDelete_HealsSentinelWhenDuplicateTitleRemoved(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2322,6 +2387,7 @@ func TestDeletePageUseCase_SingleDelete_HealsSentinelWhenDuplicateTitleRemoved(t
 // Gap 1 (recursive): deleting a subtree that contains one of two same-title pages
 // should heal [[Title]] sentinels for titles that are now unambiguous.
 func TestDeletePageUseCase_Recursive_HealsSentinelWhenDuplicateTitleRemoved(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2407,6 +2473,7 @@ func TestDeletePageUseCase_Recursive_HealsSentinelWhenDuplicateTitleRemoved(t *t
 // reconciling via ReconcileTitle produce a healed sentinel (broken=0,
 // to_page_id=kafka1, to_path="wikilink:Kafka").
 func TestDeletePageUseCase_Recursive_MarksHealedWikiLinkSentinelBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2478,6 +2545,7 @@ func TestDeletePageUseCase_Recursive_MarksHealedWikiLinkSentinelBroken(t *testin
 }
 
 func TestUpdatePageUseCase_RenamePage_MarksOldBroken_HealsNewExactPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2487,7 +2555,7 @@ func TestUpdatePageUseCase_RenamePage_MarksOldBroken_HealsNewExactPath(t *testin
 	})
 	contentA := "Links: [B](/b) and [B2](/b2)"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: a.Page.ID, Version: a.Page.Version(), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
+		UserID: "system", ID: a.Page.ID, Version: currentPageVersion(t, deps, a.Page.ID), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage A failed: %v", err)
 	}
@@ -2497,7 +2565,7 @@ func TestUpdatePageUseCase_RenamePage_MarksOldBroken_HealsNewExactPath(t *testin
 	})
 	contentB := "# B"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: b.Page.ID, Version: b.Page.Version(), Title: b.Page.Title, Slug: b.Page.Slug, Content: &contentB, Kind: pageKind(),
+		UserID: "system", ID: b.Page.ID, Version: currentPageVersion(t, deps, b.Page.ID), Title: b.Page.Title, Slug: b.Page.Slug, Content: &contentB, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage B failed: %v", err)
 	}
@@ -2512,7 +2580,7 @@ func TestUpdatePageUseCase_RenamePage_MarksOldBroken_HealsNewExactPath(t *testin
 
 	contentB2 := "# B (renamed)"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: b.Page.ID, Version: b.Page.Version(), Title: b.Page.Title, Slug: "b2", Content: &contentB2, Kind: pageKind(),
+		UserID: "system", ID: b.Page.ID, Version: currentPageVersion(t, deps, b.Page.ID), Title: b.Page.Title, Slug: "b2", Content: &contentB2, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("Rename B failed: %v", err)
 	}
@@ -2540,6 +2608,7 @@ func TestUpdatePageUseCase_RenamePage_MarksOldBroken_HealsNewExactPath(t *testin
 }
 
 func TestUpdatePageUseCase_RenameSubtree_BreaksOldPrefix_HealsNewSubpaths(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2602,6 +2671,7 @@ func TestUpdatePageUseCase_RenameSubtree_BreaksOldPrefix_HealsNewSubpaths(t *tes
 }
 
 func TestMovePageUseCase_MarksOldBroken_HealsNewExactPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2612,7 +2682,7 @@ func TestMovePageUseCase_MarksOldBroken_HealsNewExactPath(t *testing.T) {
 	})
 	contentA := "Links: [B](/b) and [B2](/projects/b)"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: a.Page.ID, Version: a.Page.Version(), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
+		UserID: "system", ID: a.Page.ID, Version: currentPageVersion(t, deps, a.Page.ID), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage A failed: %v", err)
 	}
@@ -2622,7 +2692,7 @@ func TestMovePageUseCase_MarksOldBroken_HealsNewExactPath(t *testing.T) {
 	})
 	contentB := "# B"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: b.Page.ID, Version: b.Page.Version(), Title: b.Page.Title, Slug: b.Page.Slug, Content: &contentB, Kind: pageKind(),
+		UserID: "system", ID: b.Page.ID, Version: currentPageVersion(t, deps, b.Page.ID), Title: b.Page.Title, Slug: b.Page.Slug, Content: &contentB, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage B failed: %v", err)
 	}
@@ -2635,7 +2705,7 @@ func TestMovePageUseCase_MarksOldBroken_HealsNewExactPath(t *testing.T) {
 	}
 
 	if err := moveUC.Execute(context.Background(), pages.MovePageInput{
-		UserID: "system", ID: b.Page.ID, Version: b.Page.Version(), ParentID: projects.Page.ID,
+		UserID: "system", ID: b.Page.ID, Version: currentPageVersion(t, deps, b.Page.ID), ParentID: projects.Page.ID,
 	}); err != nil {
 		t.Fatalf("MovePage failed: %v", err)
 	}
@@ -2663,6 +2733,7 @@ func TestMovePageUseCase_MarksOldBroken_HealsNewExactPath(t *testing.T) {
 }
 
 func TestMovePageUseCase_MoveSubtree_BreaksOldPrefix_HealsNewSubpaths(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2726,6 +2797,7 @@ func TestMovePageUseCase_MoveSubtree_BreaksOldPrefix_HealsNewSubpaths(t *testing
 }
 
 func TestMovePageUseCase_ReindexesRelativeLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2739,7 +2811,7 @@ func TestMovePageUseCase_ReindexesRelativeLinks(t *testing.T) {
 	})
 	contentDocsShared := "# Docs Shared"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: docsShared.Page.ID, Version: docsShared.Page.Version(), Title: docsShared.Page.Title, Slug: docsShared.Page.Slug, Content: &contentDocsShared, Kind: pageKind(),
+		UserID: "system", ID: docsShared.Page.ID, Version: currentPageVersion(t, deps, docsShared.Page.ID), Title: docsShared.Page.Title, Slug: docsShared.Page.Slug, Content: &contentDocsShared, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage /docs/shared failed: %v", err)
 	}
@@ -2749,7 +2821,7 @@ func TestMovePageUseCase_ReindexesRelativeLinks(t *testing.T) {
 	})
 	contentA := "Relative: [S](../shared)"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: a.Page.ID, Version: a.Page.Version(), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
+		UserID: "system", ID: a.Page.ID, Version: currentPageVersion(t, deps, a.Page.ID), Title: a.Page.Title, Slug: a.Page.Slug, Content: &contentA, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage /docs/a failed: %v", err)
 	}
@@ -2762,7 +2834,7 @@ func TestMovePageUseCase_ReindexesRelativeLinks(t *testing.T) {
 	})
 	contentGuideShared := "# Guide Shared"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: guideShared.Page.ID, Version: guideShared.Page.Version(), Title: guideShared.Page.Title, Slug: guideShared.Page.Slug, Content: &contentGuideShared, Kind: pageKind(),
+		UserID: "system", ID: guideShared.Page.ID, Version: currentPageVersion(t, deps, guideShared.Page.ID), Title: guideShared.Page.Title, Slug: guideShared.Page.Slug, Content: &contentGuideShared, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage /guide/shared failed: %v", err)
 	}
@@ -2780,7 +2852,7 @@ func TestMovePageUseCase_ReindexesRelativeLinks(t *testing.T) {
 	}
 
 	if err := moveUC.Execute(context.Background(), pages.MovePageInput{
-		UserID: "system", ID: a.Page.ID, Version: a.Page.Version(), ParentID: guide.Page.ID,
+		UserID: "system", ID: a.Page.ID, Version: currentPageVersion(t, deps, a.Page.ID), ParentID: guide.Page.ID,
 	}); err != nil {
 		t.Fatalf("MovePage(a -> guide) failed: %v", err)
 	}
@@ -2795,6 +2867,7 @@ func TestMovePageUseCase_ReindexesRelativeLinks(t *testing.T) {
 }
 
 func TestAssetUseCases_RecordAssetRevisionForUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	uploadUC := wikiassets.NewUploadAssetUseCase(deps.tree, deps.assets, deps.revision, slog.Default())
@@ -2924,6 +2997,7 @@ func TestAssetUseCases_RecordAssetRevisionForUser(t *testing.T) {
 }
 
 func TestCheckIntegrityUseCase_Passthrough(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -2947,8 +3021,7 @@ func TestCheckIntegrityUseCase_Passthrough(t *testing.T) {
 	if err != nil || rev == nil {
 		t.Fatalf("GetLatestRevision failed: %#v %v", rev, err)
 	}
-	contentBlobPath := filepath.Join(deps.storageDir, ".leafdoc", "blobs", "content", pageOut.Page.ID, "sha256", rev.ContentHash[:2], rev.ContentHash)
-	if err := os.Remove(contentBlobPath); err != nil {
+	if err := database.DeleteRecord(deps.storageDir, "revision_content", pageOut.Page.ID+":"+rev.ContentHash); err != nil {
 		t.Fatalf("Remove content blob failed: %v", err)
 	}
 
@@ -2965,6 +3038,7 @@ func TestCheckIntegrityUseCase_Passthrough(t *testing.T) {
 }
 
 func TestEnsurePathUseCase_RecordsRevisionForEachCreatedSegment(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	uc := pages.NewEnsurePathUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default())
 
@@ -2997,6 +3071,7 @@ func TestEnsurePathUseCase_RecordsRevisionForEachCreatedSegment(t *testing.T) {
 }
 
 func TestMovePageUseCase_RecordsStructureRevision(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	moveUC := pages.NewMovePageUseCase(deps.tree, deps.orchestrator(), slog.Default(), nil)
@@ -3033,6 +3108,7 @@ func TestMovePageUseCase_RecordsStructureRevision(t *testing.T) {
 }
 
 func TestUpdatePageUseCase_TitleOnlyCreatesStructureRevision(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -3046,7 +3122,7 @@ func TestUpdatePageUseCase_TitleOnlyCreatesStructureRevision(t *testing.T) {
 
 	content := "same content"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: page.Page.ID, Version: page.Page.Version(), Title: page.Page.Title, Slug: page.Page.Slug, Content: &content, Kind: pageKind(),
+		UserID: "system", ID: page.Page.ID, Version: currentPageVersion(t, deps, page.Page.ID), Title: page.Page.Title, Slug: page.Page.Slug, Content: &content, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage(initial content) failed: %v", err)
 	}
@@ -3060,7 +3136,7 @@ func TestUpdatePageUseCase_TitleOnlyCreatesStructureRevision(t *testing.T) {
 	}
 
 	updatedPage, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: page.Page.ID, Version: page.Page.Version(), Title: "Renamed Title", Slug: page.Page.Slug, Content: nil, Kind: pageKind(),
+		UserID: "system", ID: page.Page.ID, Version: currentPageVersion(t, deps, page.Page.ID), Title: "Renamed Title", Slug: page.Page.Slug, Content: nil, Kind: pageKind(),
 	})
 	if err != nil {
 		t.Fatalf("UpdatePage(title only) failed: %v", err)
@@ -3090,6 +3166,7 @@ func TestUpdatePageUseCase_TitleOnlyCreatesStructureRevision(t *testing.T) {
 }
 
 func TestUpdatePageUseCase_TitleOnlyWithUnchangedContentCreatesStructureRevision(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -3103,7 +3180,7 @@ func TestUpdatePageUseCase_TitleOnlyWithUnchangedContentCreatesStructureRevision
 
 	content := "same content"
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: page.Page.ID, Version: page.Page.Version(), Title: page.Page.Title, Slug: page.Page.Slug, Content: &content, Kind: pageKind(),
+		UserID: "system", ID: page.Page.ID, Version: currentPageVersion(t, deps, page.Page.ID), Title: page.Page.Title, Slug: page.Page.Slug, Content: &content, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage(initial content) failed: %v", err)
 	}
@@ -3117,7 +3194,7 @@ func TestUpdatePageUseCase_TitleOnlyWithUnchangedContentCreatesStructureRevision
 	}
 
 	if _, err := updateUC.Execute(context.Background(), pages.UpdatePageInput{
-		UserID: "system", ID: page.Page.ID, Version: page.Page.Version(), Title: "Renamed Title", Slug: page.Page.Slug, Content: &content, Kind: pageKind(),
+		UserID: "system", ID: page.Page.ID, Version: currentPageVersion(t, deps, page.Page.ID), Title: "Renamed Title", Slug: page.Page.Slug, Content: &content, Kind: pageKind(),
 	}); err != nil {
 		t.Fatalf("UpdatePage(title only with unchanged content) failed: %v", err)
 	}
@@ -3138,6 +3215,7 @@ func TestUpdatePageUseCase_TitleOnlyWithUnchangedContentCreatesStructureRevision
 }
 
 func TestApplyPageRefactorUseCase_Move_LeavesIntraSubtreeRelativeLinksUnchanged(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -3198,6 +3276,7 @@ func TestApplyPageRefactorUseCase_Move_LeavesIntraSubtreeRelativeLinksUnchanged(
 }
 
 func TestApplyPageRefactorUseCase_Move_RewritesAbsoluteLinksInSubPagesPointingWithinSection(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -3257,6 +3336,7 @@ func TestApplyPageRefactorUseCase_Move_RewritesAbsoluteLinksInSubPagesPointingWi
 }
 
 func TestApplyPageRefactorUseCase_Move_RewritesLinksInSubPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
@@ -3345,6 +3425,7 @@ func TestApplyPageRefactorUseCase_Move_RewritesLinksInSubPages(t *testing.T) {
 }
 
 func TestApplyPageRefactorUseCase_Move_HonorsRequestedPosition(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := pages.NewCreatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), nil)
 	applyUC := pages.NewApplyPageRefactorUseCase(deps.tree, deps.slug, deps.revision, deps.links, slog.Default(), nil)
@@ -3403,6 +3484,7 @@ func TestApplyPageRefactorUseCase_Move_HonorsRequestedPosition(t *testing.T) {
 }
 
 func TestUpdatePageUseCase_EmitsSuccessMetrics(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	orchestrator := pagesave.NewPageSaveOrchestrator(
@@ -3446,6 +3528,7 @@ func TestUpdatePageUseCase_EmitsSuccessMetrics(t *testing.T) {
 }
 
 func TestUpdatePageUseCase_EmitsFailureMetrics(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	updateUC := pages.NewUpdatePageUseCase(deps.tree, deps.slug, deps.orchestrator(), slog.Default(), metrics)
@@ -3472,6 +3555,7 @@ func TestUpdatePageUseCase_EmitsFailureMetrics(t *testing.T) {
 }
 
 func TestApplyPageRefactorUseCase_EmitsRenameMetrics(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	orchestrator := pagesave.NewPageSaveOrchestrator(
@@ -3549,6 +3633,7 @@ func TestApplyPageRefactorUseCase_EmitsRenameMetrics(t *testing.T) {
 }
 
 func TestApplyPageRefactorUseCase_EmitsMoveMetrics(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	orchestrator := pagesave.NewPageSaveOrchestrator(
@@ -3604,4 +3689,14 @@ func TestApplyPageRefactorUseCase_EmitsMoveMetrics(t *testing.T) {
 			t.Errorf("expected refactor step duration metric for step %q, got: %s", step, body)
 		}
 	}
+}
+
+// currentPageVersion requests the current immutable page snapshot after a committed write.
+func currentPageVersion(t *testing.T, d *testDeps, id string) string {
+	t.Helper()
+	p, err := d.tree.GetPage(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p.Version()
 }

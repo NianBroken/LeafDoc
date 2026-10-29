@@ -1,8 +1,12 @@
 package auth
 
-import "testing"
+import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
+	"testing"
+)
 
 func TestUserService_InviteUser_CreatesUserWithMustSetPasswordTrue(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, err := service.InviteUser("bob", "bob@example.com", RoleEditor)
@@ -27,6 +31,7 @@ func TestUserService_InviteUser_CreatesUserWithMustSetPasswordTrue(t *testing.T)
 }
 
 func TestUserService_InviteUser_DuplicateUsername_ReturnsAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	if _, err := service.InviteUser("bob", "bob@example.com", RoleEditor); err != nil {
@@ -39,6 +44,7 @@ func TestUserService_InviteUser_DuplicateUsername_ReturnsAlreadyExists(t *testin
 }
 
 func TestUserService_CompleteInvite_ClearsMustSetPasswordAndSetsPassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, err := service.InviteUser("bob", "bob@example.com", RoleEditor)
@@ -69,6 +75,7 @@ func TestUserService_CompleteInvite_ClearsMustSetPasswordAndSetsPassword(t *test
 // pending state too, otherwise the account shows "Invitation pending" forever
 // even though it now has a usable password.
 func TestUserService_UpdateUser_AdminSetsPasswordForInvitedUser_ClearsMustSetPassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, err := service.InviteUser("bob", "bob@example.com", RoleEditor)
@@ -100,6 +107,7 @@ func TestUserService_UpdateUser_AdminSetsPasswordForInvitedUser_ClearsMustSetPas
 // A profile/role edit that does not set a password must leave an outstanding
 // invite pending — only an explicit password set completes it.
 func TestUserService_UpdateUser_NoPassword_KeepsInvitedUserPending(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, err := service.InviteUser("bob", "bob@example.com", RoleEditor)

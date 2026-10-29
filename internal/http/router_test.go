@@ -40,10 +40,11 @@ func createWikiTestInstance(t *testing.T) *wiki.Wiki {
 }
 
 func createWikiTestInstanceWithRevisionFlag(t *testing.T, enableRevision bool) *wiki.Wiki {
+	testutil.ResetMySQL(t)
 	w, err := wiki.NewWiki(&wiki.WikiOptions{
 		StorageDir:          t.TempDir(),
 		AdminPassword:       "adminpassword",
-		JWTSecret:           "secretkey",
+		JWTSecret:           "test-secret-key-with-at-least-32-characters",
 		AccessTokenTimeout:  15 * time.Minute,
 		RefreshTokenTimeout: 7 * 24 * time.Hour,
 		EnableRevision:      enableRevision,
@@ -356,9 +357,16 @@ func getAdminUserIDViaAPI(t *testing.T, router http.Handler) string {
 func writePageMarkdownForTest(t *testing.T, w *wiki.Wiki, page *apiPage, raw string) {
 	t.Helper()
 
-	pagePath := filepath.Join(w.GetStorageDir(), "root", filepath.FromSlash(page.Path)+".md")
-	if err := os.WriteFile(pagePath, []byte(raw), 0o644); err != nil {
-		t.Fatalf("WriteFile(page markdown) failed: %v", err)
+	svc := tree.NewTreeService(w.GetStorageDir())
+	if err := svc.LoadTree(); err != nil {
+		t.Fatalf("LoadTree: %v", err)
+	}
+	node, err := svc.FindPageByID(page.ID)
+	if err != nil {
+		t.Fatalf("FindPageByID: %v", err)
+	}
+	if err := tree.NewNodeStore(w.GetStorageDir()).UpsertContentPreservingFrontmatter(node, raw); err != nil {
+		t.Fatalf("Write MySQL page: %v", err)
 	}
 }
 
@@ -466,6 +474,7 @@ func brandingErrorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 // would have gone unnoticed.
 
 func TestBrandingUploadLogo_TooLarge_Returns413(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -509,6 +518,7 @@ func TestBrandingUploadLogo_TooLarge_Returns413(t *testing.T) {
 }
 
 func TestBrandingUploadLogo_MissingFile_Returns400(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -542,6 +552,7 @@ func TestBrandingUploadLogo_MissingFile_Returns400(t *testing.T) {
 }
 
 func TestBrandingUploadFavicon_TooLarge_Returns413(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -585,6 +596,7 @@ func TestBrandingUploadFavicon_TooLarge_Returns413(t *testing.T) {
 }
 
 func TestBrandingUploadFavicon_MissingFile_Returns400(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -666,6 +678,7 @@ func createZipFromDir(t *testing.T, root string) []byte {
 }
 
 func TestDisableRequestLog_DoesNotCrash(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
@@ -683,6 +696,7 @@ func TestDisableRequestLog_DoesNotCrash(t *testing.T) {
 }
 
 func TestMetricsEndpoint_IsNotExposedOnAppRouterByDefault(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -697,6 +711,7 @@ func TestMetricsEndpoint_IsNotExposedOnAppRouterByDefault(t *testing.T) {
 }
 
 func TestMetricsEndpoint_IsNotExposedOnAppRouterWhenMetricsEnabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithMetricsEnabled(w, t)
@@ -711,6 +726,7 @@ func TestMetricsEndpoint_IsNotExposedOnAppRouterWhenMetricsEnabled(t *testing.T)
 }
 
 func TestMeEndpoint_Unauthenticated_Returns200WithNullBody(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -728,6 +744,7 @@ func TestMeEndpoint_Unauthenticated_Returns200WithNullBody(t *testing.T) {
 }
 
 func TestMeEndpoint_Authenticated_ReturnsUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -751,6 +768,7 @@ func TestMeEndpoint_Authenticated_ReturnsUser(t *testing.T) {
 }
 
 func TestMeEndpoint_HasNoCacheHeaders(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -780,6 +798,7 @@ func TestMeEndpoint_HasNoCacheHeaders(t *testing.T) {
 }
 
 func TestCreatePageEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -814,6 +833,7 @@ func TestCreatePageEndpoint(t *testing.T) {
 }
 
 func TestConfigEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithAllowInsecure(w, false, t)
@@ -832,6 +852,7 @@ func TestConfigEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
 }
 
 func TestLoginEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithAllowInsecure(w, false, t)
@@ -852,6 +873,7 @@ func TestLoginEndpoint_ExplainsAllowInsecureRequirementOnHTTP(t *testing.T) {
 }
 
 func TestCreatePageEndpoint_MissingTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -865,6 +887,7 @@ func TestCreatePageEndpoint_MissingTitle(t *testing.T) {
 }
 
 func TestCreatePageEndpoint_InvalidJSON(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -878,6 +901,7 @@ func TestCreatePageEndpoint_InvalidJSON(t *testing.T) {
 }
 
 func TestCreatePageEndpoint_PageAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -897,6 +921,7 @@ func TestCreatePageEndpoint_PageAlreadyExists(t *testing.T) {
 }
 
 func TestGetTreeEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -931,6 +956,7 @@ func TestGetTreeEndpoint(t *testing.T) {
 }
 
 func TestConfigEndpoint_IncludesMaxAssetUploadSizeBytes(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -964,6 +990,7 @@ func TestConfigEndpoint_IncludesMaxAssetUploadSizeBytes(t *testing.T) {
 }
 
 func TestConfigEndpoint_IncludesEnableLinkRefactor(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -996,6 +1023,7 @@ func TestConfigEndpoint_IncludesEnableLinkRefactor(t *testing.T) {
 }
 
 func TestConfigEndpoint_IncludesEnableAPIKeyManagement(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1028,6 +1056,7 @@ func TestConfigEndpoint_IncludesEnableAPIKeyManagement(t *testing.T) {
 }
 
 func TestConfigEndpoint_EnableAPIKeyManagementDefaultsToFalse(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1059,6 +1088,7 @@ func TestConfigEndpoint_EnableAPIKeyManagementDefaultsToFalse(t *testing.T) {
 }
 
 func TestConfigEndpoint_IncludesUserManagementUrl(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1091,6 +1121,7 @@ func TestConfigEndpoint_IncludesUserManagementUrl(t *testing.T) {
 }
 
 func TestConfigEndpoint_UserManagementUrlDefaultsToEmpty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1122,6 +1153,7 @@ func TestConfigEndpoint_UserManagementUrlDefaultsToEmpty(t *testing.T) {
 }
 
 func TestConfigEndpoint_IncludesLoginAndLogoutUrl(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1162,6 +1194,7 @@ func TestConfigEndpoint_IncludesLoginAndLogoutUrl(t *testing.T) {
 }
 
 func TestConfigEndpoint_LoginAndLogoutUrlDefaultToEmpty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1200,6 +1233,7 @@ func TestConfigEndpoint_LoginAndLogoutUrlDefaultToEmpty(t *testing.T) {
 }
 
 func TestConfigEndpoint_IncludesDefaultLanguage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1232,6 +1266,7 @@ func TestConfigEndpoint_IncludesDefaultLanguage(t *testing.T) {
 }
 
 func TestConfigEndpoint_DefaultLanguageDefaultsToEmpty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1263,6 +1298,7 @@ func TestConfigEndpoint_DefaultLanguageDefaultsToEmpty(t *testing.T) {
 }
 
 func TestRefactorPreviewEndpoint_UsesFrontendJSONShape(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1315,6 +1351,7 @@ func TestRefactorPreviewEndpoint_UsesFrontendJSONShape(t *testing.T) {
 }
 
 func TestRefactorPreviewEndpoint_IsDisabledWhenFlagIsOff(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1331,6 +1368,7 @@ func TestRefactorPreviewEndpoint_IsDisabledWhenFlagIsOff(t *testing.T) {
 }
 
 func TestRefactorApply_DoesNotPersistRevisionsWhenRevisionDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstanceWithRevisionFlag(t, false)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1380,6 +1418,7 @@ func TestRefactorApply_DoesNotPersistRevisionsWhenRevisionDisabled(t *testing.T)
 }
 
 func TestUploadAssetEndpoint_RejectsFilesExceedingConfiguredLimit(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -1452,6 +1491,7 @@ func TestUploadAssetEndpoint_RejectsFilesExceedingConfiguredLimit(t *testing.T) 
 }
 
 func TestSuggestSlugEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithRevision(w, t)
@@ -1477,6 +1517,7 @@ func TestSuggestSlugEndpoint(t *testing.T) {
 }
 
 func TestCancelImportPlanEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -1583,6 +1624,7 @@ func TestCancelImportPlanEndpoint(t *testing.T) {
 }
 
 func TestImportExecuteEndpoint_WithZipUpload_ImportsPagesLinksAndAssets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -1754,6 +1796,7 @@ func TestImportExecuteEndpoint_WithZipUpload_ImportsPagesLinksAndAssets(t *testi
 }
 
 func TestImportExecuteEndpoint_UsesConfiguredAssetUploadLimit(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithMaxAssetUploadSize(w, t, 1024)
@@ -1903,6 +1946,7 @@ func TestImportExecuteEndpoint_UsesConfiguredAssetUploadLimit(t *testing.T) {
 }
 
 func TestSuggestSlugEndpoint_MissingTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -1915,6 +1959,7 @@ func TestSuggestSlugEndpoint_MissingTitle(t *testing.T) {
 }
 
 func TestDeletePageEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -1933,6 +1978,7 @@ func TestDeletePageEndpoint(t *testing.T) {
 }
 
 func TestDeletePageEndpoint_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -1945,6 +1991,7 @@ func TestDeletePageEndpoint_NotFound(t *testing.T) {
 }
 
 func TestDeletePageEndpoint_HasChildren(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -1960,6 +2007,7 @@ func TestDeletePageEndpoint_HasChildren(t *testing.T) {
 }
 
 func TestDeletePageEndpoint_Recursive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -1979,6 +2027,7 @@ func TestDeletePageEndpoint_Recursive(t *testing.T) {
 }
 
 func TestUpdatePageEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2016,6 +2065,7 @@ func TestUpdatePageEndpoint(t *testing.T) {
 }
 
 func TestUpdatePageEndpoint_WritesTagsAndStringProperties(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2065,6 +2115,7 @@ func TestUpdatePageEndpoint_WritesTagsAndStringProperties(t *testing.T) {
 }
 
 func TestUpdatePageEndpoint_RemovesTagsWhenEmptyListIsSent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2136,6 +2187,7 @@ func TestUpdatePageEndpoint_RemovesTagsWhenEmptyListIsSent(t *testing.T) {
 }
 
 func TestUpdatePageEndpoint_IndexesTagsForTagsEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2175,6 +2227,7 @@ func TestUpdatePageEndpoint_IndexesTagsForTagsEndpoint(t *testing.T) {
 }
 
 func TestGetTagsEndpoint_CountsSuggestionsWithinSelectedTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2224,6 +2277,7 @@ func TestGetTagsEndpoint_CountsSuggestionsWithinSelectedTags(t *testing.T) {
 }
 
 func TestGetTagsEndpoint_AcceptsRepeatedSelectedParams(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2262,6 +2316,7 @@ func TestGetTagsEndpoint_AcceptsRepeatedSelectedParams(t *testing.T) {
 }
 
 func TestSearchEndpoint_FiltersResultsByTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2322,6 +2377,7 @@ func TestSearchEndpoint_FiltersResultsByTags(t *testing.T) {
 }
 
 func TestSearchEndpoint_ReturnsTagMatchesWithoutQuery(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2381,6 +2437,7 @@ func TestSearchEndpoint_ReturnsTagMatchesWithoutQuery(t *testing.T) {
 }
 
 func TestSearchEndpoint_NormalizesTagOnlyPaginationBounds(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2432,6 +2489,7 @@ func TestSearchEndpoint_NormalizesTagOnlyPaginationBounds(t *testing.T) {
 }
 
 func TestSearchEndpoint_TagFacetsShrinkWithAdditionalFilters(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2521,6 +2579,7 @@ func TestSearchEndpoint_TagFacetsShrinkWithAdditionalFilters(t *testing.T) {
 }
 
 func TestGetPagesByTagsEndpoint_ReturnsExcerpt(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2571,6 +2630,7 @@ func TestGetPagesByTagsEndpoint_ReturnsExcerpt(t *testing.T) {
 }
 
 func TestGetPagesByTagsEndpoint_AcceptsRepeatedTagsParams(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2615,6 +2675,7 @@ func TestGetPagesByTagsEndpoint_AcceptsRepeatedTagsParams(t *testing.T) {
 }
 
 func TestUpdatePage_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2627,6 +2688,7 @@ func TestUpdatePage_NotFound(t *testing.T) {
 }
 
 func TestUpdatePage_SlugRemainsIfUnchanged(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2660,6 +2722,7 @@ func TestUpdatePage_SlugRemainsIfUnchanged(t *testing.T) {
 }
 
 func TestUpdatePage_PageAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2683,6 +2746,7 @@ func TestUpdatePage_PageAlreadyExists(t *testing.T) {
 }
 
 func TestUpdatePage_InvalidJSON(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2696,6 +2760,7 @@ func TestUpdatePage_InvalidJSON(t *testing.T) {
 }
 
 func TestUpdatePage_MissingTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2708,6 +2773,7 @@ func TestUpdatePage_MissingTitle(t *testing.T) {
 }
 
 func TestUpdatePage_MissingSlug(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2721,6 +2787,7 @@ func TestUpdatePage_MissingSlug(t *testing.T) {
 }
 
 func TestUpdatePage_InvalidProperties(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2769,6 +2836,7 @@ func TestUpdatePage_InvalidProperties(t *testing.T) {
 }
 
 func TestGetPageEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2837,6 +2905,7 @@ Body
 }
 
 func TestGetPageEndpoint_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2849,6 +2918,7 @@ func TestGetPageEndpoint_NotFound(t *testing.T) {
 }
 
 func TestGetPageEndpoint_MissingID(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2861,6 +2931,7 @@ func TestGetPageEndpoint_MissingID(t *testing.T) {
 }
 
 func TestGetPageByPathEndpoint_MissingPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2873,6 +2944,7 @@ func TestGetPageByPathEndpoint_MissingPath(t *testing.T) {
 }
 
 func TestGetPageByPathEndpoint_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2885,6 +2957,7 @@ func TestGetPageByPathEndpoint_NotFound(t *testing.T) {
 }
 
 func TestGetPageByPathEndpoint_PageReturnsNoChildren(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2913,6 +2986,7 @@ func TestGetPageByPathEndpoint_PageReturnsNoChildren(t *testing.T) {
 }
 
 func TestGetPageByPathEndpoint_SectionReturnsDirectChildrenOnly(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2952,6 +3026,7 @@ func TestGetPageByPathEndpoint_SectionReturnsDirectChildrenOnly(t *testing.T) {
 }
 
 func TestGetPagePermalinkEndpoint_ReturnsCurrentPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -2987,6 +3062,7 @@ func TestGetPagePermalinkEndpoint_ReturnsCurrentPath(t *testing.T) {
 }
 
 func TestGetPagePermalinkEndpoint_PublicAccessAllowsUnauthenticatedReads(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
@@ -3018,6 +3094,7 @@ func TestGetPagePermalinkEndpoint_PublicAccessAllowsUnauthenticatedReads(t *test
 // every read endpoint that used to be duplicated, across public on/off and
 // anonymous/authenticated — without depending on seeded business data.
 func TestReadRouteAccessMatrix(t *testing.T) {
+	testutil.ResetMySQL(t)
 	buildRouter := func(t *testing.T, public bool) (*gin.Engine, *wiki.Wiki) {
 		t.Helper()
 		w := createWikiTestInstance(t)
@@ -3152,6 +3229,7 @@ func anonStatus(router http.Handler, method, path string) int {
 // "no restart" regression pin: one *gin.Engine, an anonymous GET /api/tree
 // goes 401 → 200 → 401 as the toggle endpoint is called.
 func TestPublicAccessToggle_SettingsManaged_FlipsReadAccessOnTheSameEngine(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
@@ -3187,6 +3265,7 @@ func TestPublicAccessToggle_SettingsManaged_FlipsReadAccessOnTheSameEngine(t *te
 }
 
 func TestPublicAccessToggle_ConfigEndpointReflectsTheChange(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
@@ -3228,6 +3307,7 @@ func TestPublicAccessToggle_ConfigEndpointReflectsTheChange(t *testing.T) {
 }
 
 func TestPublicAccessToggle_EnvManaged_Returns409AndDoesNotChange(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc := publicaccess.NewEnvManaged(false)
@@ -3246,6 +3326,7 @@ func TestPublicAccessToggle_EnvManaged_Returns409AndDoesNotChange(t *testing.T) 
 }
 
 func TestPublicAccessToggle_RequiresAdmin(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
@@ -3269,6 +3350,7 @@ func TestPublicAccessToggle_RequiresAdmin(t *testing.T) {
 }
 
 func TestPublicAccessToggle_BadPayload_Returns400(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := publicaccess.NewSettingsManaged(t.TempDir())
@@ -3286,6 +3368,7 @@ func TestPublicAccessToggle_BadPayload_Returns400(t *testing.T) {
 }
 
 func TestTocDisplayToggle_ConfigEndpointReflectsTheChangeOnTheSameEngine(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := tocdisplay.New(t.TempDir())
@@ -3332,6 +3415,7 @@ func TestTocDisplayToggle_ConfigEndpointReflectsTheChangeOnTheSameEngine(t *test
 }
 
 func TestTocDisplayToggle_RequiresAdmin(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := tocdisplay.New(t.TempDir())
@@ -3355,6 +3439,7 @@ func TestTocDisplayToggle_RequiresAdmin(t *testing.T) {
 }
 
 func TestTocDisplayToggle_BadPayload_Returns400(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	svc, err := tocdisplay.New(t.TempDir())
@@ -3372,6 +3457,7 @@ func TestTocDisplayToggle_BadPayload_Returns400(t *testing.T) {
 }
 
 func TestMovePageEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3395,6 +3481,7 @@ func TestMovePageEndpoint(t *testing.T) {
 }
 
 func TestMovePageEndpoint_NotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3407,6 +3494,7 @@ func TestMovePageEndpoint_NotFound(t *testing.T) {
 }
 
 func TestMovePageEndpoint_InvalidJSON(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3419,6 +3507,7 @@ func TestMovePageEndpoint_InvalidJSON(t *testing.T) {
 }
 
 func TestMovePageEndpoint_MissingParentID(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3431,6 +3520,7 @@ func TestMovePageEndpoint_MissingParentID(t *testing.T) {
 }
 
 func TestMovePageEndpoint_ParentNotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3448,6 +3538,7 @@ func TestMovePageEndpoint_ParentNotFound(t *testing.T) {
 }
 
 func TestMovePageEndpoint_CircularReference(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3456,7 +3547,7 @@ func TestMovePageEndpoint_CircularReference(t *testing.T) {
 	b := createPageViaAPI(t, router, "Section B", "section-b", &a.ID, pageNodeKind())
 
 	// Verschiebe a → unter b
-	rec := authenticatedRequest(t, router, http.MethodPut, "/api/pages/"+b.ID+"/move", strings.NewReader(`{"version":"`+b.Version+`","parentId":"`+a.ID+`"}`))
+	rec := authenticatedRequest(t, router, http.MethodPut, "/api/pages/"+a.ID+"/move", strings.NewReader(`{"version":"`+a.Version+`","parentId":"`+b.ID+`"}`))
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("Expected status 400, got %d", rec.Code)
@@ -3464,6 +3555,7 @@ func TestMovePageEndpoint_CircularReference(t *testing.T) {
 }
 
 func TestMovePage_FailsIfTargetAlreadyHasPageWithSameSlug(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3483,6 +3575,7 @@ func TestMovePage_FailsIfTargetAlreadyHasPageWithSameSlug(t *testing.T) {
 }
 
 func TestMovePage_InTheSamePlace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3497,6 +3590,7 @@ func TestMovePage_InTheSamePlace(t *testing.T) {
 }
 
 func TestSortPagesEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3552,6 +3646,7 @@ func TestSortPagesEndpoint(t *testing.T) {
 }
 
 func TestAuthLoginEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3578,6 +3673,7 @@ func TestAuthLoginEndpoint(t *testing.T) {
 }
 
 func TestAuthLogin_InvalidCredentials(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3595,6 +3691,7 @@ func TestAuthLogin_InvalidCredentials(t *testing.T) {
 }
 
 func TestAuthRefreshToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3675,6 +3772,7 @@ func TestAuthRefreshToken(t *testing.T) {
 }
 
 func TestCreateUserEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3688,6 +3786,7 @@ func TestCreateUserEndpoint(t *testing.T) {
 }
 
 func TestCreateUser_DuplicateEmailOrUsername(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3712,6 +3811,7 @@ func TestCreateUser_DuplicateEmailOrUsername(t *testing.T) {
 }
 
 func TestCreateUser_InvalidRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3725,6 +3825,7 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 }
 
 func TestCreateUser_WithViewerRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3738,6 +3839,7 @@ func TestCreateUser_WithViewerRole(t *testing.T) {
 }
 
 func TestUpdateUser_RoleToViewer(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3763,6 +3865,7 @@ func TestUpdateUser_RoleToViewer(t *testing.T) {
 }
 
 func TestViewer_CannotCreatePage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3781,6 +3884,7 @@ func TestViewer_CannotCreatePage(t *testing.T) {
 }
 
 func TestViewer_CannotUploadAsset(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3805,6 +3909,7 @@ func TestViewer_CannotUploadAsset(t *testing.T) {
 }
 
 func TestViewer_CannotUpdatePage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3830,6 +3935,7 @@ func TestViewer_CannotUpdatePage(t *testing.T) {
 }
 
 func TestViewer_CannotDeletePage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3854,6 +3960,7 @@ func TestViewer_CannotDeletePage(t *testing.T) {
 }
 
 func TestViewer_CannotMovePage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3875,6 +3982,7 @@ func TestViewer_CannotMovePage(t *testing.T) {
 }
 
 func TestViewer_CannotSortPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3901,6 +4009,7 @@ func TestViewer_CannotSortPages(t *testing.T) {
 }
 
 func TestGetUsersEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3921,6 +4030,7 @@ func TestGetUsersEndpoint(t *testing.T) {
 }
 
 func TestUpdateUserEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3957,6 +4067,7 @@ func loginStatus(t *testing.T, router http.Handler, identifier, password string)
 }
 
 func TestUpdateUserEndpoint_NonAdminOnOwnAccount_Forbidden(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -3978,6 +4089,7 @@ func TestUpdateUserEndpoint_NonAdminOnOwnAccount_Forbidden(t *testing.T) {
 }
 
 func TestUpdateUserEndpoint_AdminOwnPassword_Rejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4067,6 +4179,7 @@ func (s testSession) do(router http.Handler, method, url, body string) *httptest
 }
 
 func TestChangeOwnPasswordEndpoint_RevokesOtherSessionsKeepsCurrent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4091,6 +4204,7 @@ func TestChangeOwnPasswordEndpoint_RevokesOtherSessionsKeepsCurrent(t *testing.T
 }
 
 func TestUpdateUserEndpoint_AdminSetsPassword_RevokesTargetSessions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4114,6 +4228,7 @@ func TestUpdateUserEndpoint_AdminSetsPassword_RevokesTargetSessions(t *testing.T
 }
 
 func TestUpdateUserEndpoint_AdminEditsProfileOnly_KeepsTargetSessions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4137,6 +4252,7 @@ func TestUpdateUserEndpoint_AdminEditsProfileOnly_KeepsTargetSessions(t *testing
 }
 
 func TestChangeOwnPasswordEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4183,6 +4299,7 @@ func TestChangeOwnPasswordEndpoint(t *testing.T) {
 }
 
 func TestDeleteUserEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4201,6 +4318,7 @@ func TestDeleteUserEndpoint(t *testing.T) {
 }
 
 func TestDeleteAdminUser_ShouldFail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4229,6 +4347,7 @@ func TestDeleteAdminUser_ShouldFail(t *testing.T) {
 }
 
 func TestRequireAdminMiddleware(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4243,6 +4362,7 @@ func TestRequireAdminMiddleware(t *testing.T) {
 }
 
 func TestRequireAdminMiddleware_BlockedWhenAuthDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -4282,6 +4402,7 @@ func TestRequireAdminMiddleware_BlockedWhenAuthDisabled(t *testing.T) {
 }
 
 func TestRequireAuthMiddleware_Unauthorized(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4299,6 +4420,7 @@ func TestRequireAuthMiddleware_Unauthorized(t *testing.T) {
 }
 
 func TestRequireAuthMiddleware_InvalidToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4316,6 +4438,7 @@ func TestRequireAuthMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestAssetEndpoints(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -4452,6 +4575,7 @@ func TestAssetEndpoints(t *testing.T) {
 }
 
 func TestAssetMutationRevisionsUseAuthenticatedUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstanceWithRevision(w, t)
@@ -4595,6 +4719,7 @@ func TestAssetMutationRevisionsUseAuthenticatedUser(t *testing.T) {
 
 // Lets check the indexing status
 func TestIndexingStatusEndpoint(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Lets call /api/search/status
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
@@ -4733,6 +4858,7 @@ func uploadTestAsset(t *testing.T, router *gin.Engine, w *wiki.Wiki, content str
 
 // TestAssetAccessControl tests the access control for static asset routes
 func TestAssetAccessControl(t *testing.T) {
+	testutil.ResetMySQL(t)
 	t.Run("PrivateMode_UnauthenticatedAccess_Returns401", func(t *testing.T) {
 		w := createWikiTestInstance(t)
 		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
@@ -4844,6 +4970,7 @@ func TestAssetAccessControl(t *testing.T) {
 }
 
 func TestBuildCustomStylesheetTag(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tag := httpinternal.BuildCustomStylesheetTag("/wiki", "/tmp/custom.css")
 
 	expected := `<link rel="stylesheet" href="/wiki/custom.css">`
@@ -4853,6 +4980,7 @@ func TestBuildCustomStylesheetTag(t *testing.T) {
 }
 
 func TestBuildCustomStylesheetTag_EmptyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tag := httpinternal.BuildCustomStylesheetTag("", "")
 	if tag != "" {
 		t.Fatalf("expected empty tag, got %q", tag)
@@ -4860,6 +4988,7 @@ func TestBuildCustomStylesheetTag_EmptyPath(t *testing.T) {
 }
 
 func TestInjectIntoHead(t *testing.T) {
+	testutil.ResetMySQL(t)
 	html := "<html><head></head><body></body></html>"
 	got := httpinternal.InjectIntoHead(html, `<link rel="stylesheet" href="/custom.css">`)
 
@@ -4869,6 +4998,7 @@ func TestInjectIntoHead(t *testing.T) {
 }
 
 func TestBuildFrontendFaviconHref(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tests := []struct {
 		name        string
 		basePath    string
@@ -4909,6 +5039,7 @@ func TestBuildFrontendFaviconHref(t *testing.T) {
 }
 
 func TestCustomStylesheetRoute(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -4939,6 +5070,7 @@ func TestCustomStylesheetRoute(t *testing.T) {
 }
 
 func TestCustomStylesheetRoute_RejectsPathOutsideStorageDir(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -4961,6 +5093,7 @@ func TestCustomStylesheetRoute_RejectsPathOutsideStorageDir(t *testing.T) {
 }
 
 func TestCustomStylesheetRoute_RejectsNonCSSFile(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -4983,6 +5116,7 @@ func TestCustomStylesheetRoute_RejectsNonCSSFile(t *testing.T) {
 }
 
 func TestBrandingAssetRoute_DisablesClientCache(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -5003,6 +5137,7 @@ func TestBrandingAssetRoute_DisablesClientCache(t *testing.T) {
 }
 
 func TestFaviconRoute_DisablesClientCache(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -5028,6 +5163,7 @@ func TestFaviconRoute_DisablesClientCache(t *testing.T) {
 }
 
 func TestFaviconICORoute_ServesCustomBrandingFavicon(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -5052,6 +5188,7 @@ func TestFaviconICORoute_ServesCustomBrandingFavicon(t *testing.T) {
 }
 
 func TestFaviconICORoute_FallsBackToDefaultICO(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -5075,6 +5212,7 @@ func TestFaviconICORoute_FallsBackToDefaultICO(t *testing.T) {
 }
 
 func TestBuildCustomStylesheetTag_WhitespacePath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tag := httpinternal.BuildCustomStylesheetTag("/wiki", "   ")
 	if tag != "" {
 		t.Fatalf("expected empty tag for whitespace path, got %q", tag)
@@ -5082,6 +5220,7 @@ func TestBuildCustomStylesheetTag_WhitespacePath(t *testing.T) {
 }
 
 func TestBrokenLinksEndpoint_AdminGetsLinksArray(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)
@@ -5104,6 +5243,7 @@ func TestBrokenLinksEndpoint_AdminGetsLinksArray(t *testing.T) {
 }
 
 func TestBrokenLinksEndpoint_ViewerForbidden(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	router := createRouterTestInstance(w, t)

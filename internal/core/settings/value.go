@@ -22,7 +22,7 @@ type Value[T any] interface {
 	Get() T
 
 	// Put persists v and updates the cache. A Fixed value rejects every
-	// write with ErrEnvManaged and touches nothing on disk.
+	// write with ErrEnvManaged and does not modify persisted settings.
 	Put(v T) error
 
 	// EnvManaged reports whether this value is env/flag-pinned (and thus

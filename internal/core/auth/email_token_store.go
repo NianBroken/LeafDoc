@@ -4,15 +4,13 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
-	_ "modernc.org/sqlite"
 )
 
 // Token purposes. A token issued for one purpose is never valid for the
@@ -50,46 +48,26 @@ type EmailToken struct {
 	tokenHash string
 }
 
-// EmailTokenStore persists password-reset and invite tokens in their own
-// SQLite file (email_tokens.db), modeled directly on SessionStore: own
-// cleanup goroutine with the same ctx/cancel/done shutdown pattern, no
-// suspend/replace machinery (these tokens are ephemeral and fine to lose on
-// a restore, exactly like sessions.db already is).
+// EmailTokenStore persists expiring invitation and reset tokens in MySQL.
 type EmailTokenStore struct {
 	mu         sync.Mutex
 	storageDir string
-	filename   string
 	db         *sql.DB
 	cancel     context.CancelFunc
 	done       chan struct{}
 	log        *slog.Logger
 }
 
-func emailTokenDatabasePath(storageDir, filename string) string {
-	normalizedStorageDir := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
-	return filepath.Join(normalizedStorageDir, filename)
-}
-
 func NewEmailTokenStore(storageDir string) (*EmailTokenStore, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &EmailTokenStore{
 		storageDir: storageDir,
-		filename:   "email_tokens.db",
 		cancel:     cancel,
 		done:       make(chan struct{}),
 		log:        slog.Default().With("component", "EmailTokenStore"),
 	}
 
-	err := sqliteutil.OpenWithPolicy(emailTokenDatabasePath(s.storageDir, s.filename), sqliteutil.QuarantineOnCorruption, func() error {
-		if err := s.ensureSchema(); err != nil {
-			if s.db != nil {
-				_ = s.db.Close()
-				s.db = nil
-			}
-			return err
-		}
-		return nil
-	})
+	err := s.ensureSchema()
 	if err != nil {
 		cancel()
 		return nil, err
@@ -119,7 +97,7 @@ func (s *EmailTokenStore) withDB(fn func(db *sql.DB) error) error {
 	defer s.mu.Unlock()
 
 	if s.db == nil {
-		db, err := sql.Open("sqlite", emailTokenDatabasePath(s.storageDir, s.filename)+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+		db, err := database.Open(s.storageDir)
 		if err != nil {
 			return err
 		}
@@ -130,23 +108,7 @@ func (s *EmailTokenStore) withDB(fn func(db *sql.DB) error) error {
 }
 
 func (s *EmailTokenStore) ensureSchema() error {
-	return s.withDB(func(db *sql.DB) error {
-		_, err := db.Exec(`
-			CREATE TABLE IF NOT EXISTS email_tokens (
-				id TEXT PRIMARY KEY,
-				token_hash TEXT NOT NULL,
-				user_id TEXT NOT NULL,
-				purpose TEXT NOT NULL,
-				created_at INTEGER NOT NULL,
-				expires_at INTEGER NOT NULL,
-				consumed_at INTEGER
-			);
-
-			CREATE INDEX IF NOT EXISTS email_tokens_user_id_idx
-				ON email_tokens(user_id);
-		`)
-		return err
-	})
+	return s.withDB(func(db *sql.DB) error { return db.Ping() })
 }
 
 func (s *EmailTokenStore) Close() error {

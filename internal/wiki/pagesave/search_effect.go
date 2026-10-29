@@ -2,6 +2,8 @@ package pagesave
 
 import (
 	"context"
+	"errors"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"strings"
 
@@ -12,13 +14,13 @@ import (
 
 // SearchIndexSideEffect updates the search index after every page mutation.
 type SearchIndexSideEffect struct {
-	index   *search.SQLiteIndex
+	index   *search.MySQLIndex
 	tree    *tree.TreeService // only used by IndexAllPages for the initial walk
 	log     *slog.Logger
 	metrics *httpmetrics.HTTPMetrics
 }
 
-func NewSearchIndexSideEffect(index *search.SQLiteIndex, treeService *tree.TreeService, log *slog.Logger, metrics *httpmetrics.HTTPMetrics) *SearchIndexSideEffect {
+func NewSearchIndexSideEffect(index *search.MySQLIndex, treeService *tree.TreeService, log *slog.Logger, metrics *httpmetrics.HTTPMetrics) *SearchIndexSideEffect {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -29,42 +31,54 @@ func (e *SearchIndexSideEffect) Name() string {
 	return "search"
 }
 
-func (e *SearchIndexSideEffect) Apply(event PageSaveEvent) {
-	if e.index == nil {
-		return
+func (e *SearchIndexSideEffect) WithExecutor(exec database.Executor, boundTree *tree.TreeService) PageSideEffect {
+	copy := *e
+	copy.tree = boundTree
+	if e.index != nil {
+		copy.index = e.index.WithExecutor(exec)
 	}
+	return &copy
+}
+func (e *SearchIndexSideEffect) Apply(event PageSaveEvent) {
+	if err := e.ApplyTransactional(event); err != nil {
+		e.log.Error("search index update failed", "error", err)
+		e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
+	}
+}
 
+// ApplyTransactional propagates indexing failures to the page transaction.
+func (e *SearchIndexSideEffect) ApplyTransactional(event PageSaveEvent) error {
+	if e.index == nil {
+		return nil
+	}
 	switch event.Operation {
 	case PageOperationCreate, PageOperationUpdate, PageOperationRestore:
 		if event.After != nil {
-			e.indexPage(event.After, event.Operation)
+			input := buildIndexInput(event.After)
+			return e.index.IndexPage(input.Path, input.FilePath, input.PageID, input.Title, input.Kind, input.Raw)
 		}
-
 	case PageOperationMove:
-		inputs := make([]search.IndexPageInput, 0, len(event.AffectedPages))
+		inputs := []search.IndexPageInput{}
 		for _, page := range event.AffectedPages {
 			inputs = append(inputs, buildIndexInput(page))
 		}
 		failures, err := e.index.IndexPages(inputs)
 		if err != nil {
-			e.log.Warn("failed to batch-update search index for moved subtree", "pageCount", len(inputs), "error", err)
-			e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
+			return err
 		}
-		for _, f := range failures {
-			e.log.Warn("failed to update search index for page", "pageID", f.PageID, "error", f.Err)
-			e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
+		causes := []error{}
+		for _, failure := range failures {
+			causes = append(causes, failure.Err)
 		}
-
+		return errors.Join(causes...)
 	case PageOperationDelete:
-		ids := make([]string, 0, len(event.AffectedPages))
+		ids := []string{}
 		for _, page := range event.AffectedPages {
 			ids = append(ids, page.ID)
 		}
-		if err := e.index.RemovePages(ids); err != nil {
-			e.log.Warn("failed to batch-remove deleted subtree from search index", "pageCount", len(ids), "error", err)
-			e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
-		}
+		return e.index.RemovePages(ids)
 	}
+	return nil
 }
 
 // buildIndexInput computes the (path, filePath) pair IndexPage/IndexPages
@@ -114,31 +128,11 @@ func (e *SearchIndexSideEffect) IndexAllPagesContext(ctx context.Context) error 
 			return err
 		}
 		if errs[i] != nil {
-			e.log.Warn("skipping page during search bootstrap", "pageID", ids[i], "error", errs[i])
-			continue
+			return errs[i]
 		}
-		e.writeToIndex(page, page.RawContent, "")
+		if err := e.ApplyTransactional(PageSaveEvent{Operation: PageOperationCreate, After: page}); err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-func (e *SearchIndexSideEffect) indexPage(page *tree.Page, operation PageOperationType) {
-	if page == nil {
-		return
-	}
-	e.writeToIndex(page, page.RawContent, operation)
-}
-
-func (e *SearchIndexSideEffect) writeToIndex(page *tree.Page, content string, operation PageOperationType) {
-	path := strings.TrimPrefix(page.CalculatePath(), "/")
-	filePath := path
-	if filePath != "" {
-		filePath += ".md"
-	}
-	if err := e.index.IndexPage(path, filePath, page.ID, page.Title, page.Kind, content); err != nil {
-		e.log.Warn("failed to update search index for page", "pageID", page.ID, "error", err)
-		if operation != "" {
-			e.metrics.IncPageSaveSideEffectFailure(string(operation), e.Name())
-		}
-	}
 }

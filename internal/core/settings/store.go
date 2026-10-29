@@ -1,77 +1,45 @@
+// Package settings persists typed instance configuration in MySQL.
 package settings
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"os"
-	"path/filepath"
 	"sync"
-
-	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
-// Reloadable is anything internal/core/restore can re-read from disk after a
-// snapshot restore swaps files in place, instead of the caller having to
-// know each settings-backed service individually. *Store[T] satisfies it
-// directly; a feature's own service (e.g. BrandingService) usually just
-// forwards to its embedded store.
-type Reloadable interface {
-	Reload() error
-}
+// Reloadable refreshes a service's configuration after database restoration.
+type Reloadable interface{ Reload() error }
 
-// Store is an atomic, RWMutex-cached JSON file living in the data directory.
-// A missing file is not an error: Get returns the zero value passed to New
-// until the first Put.
+// Store caches one typed MySQL setting; the key is stable across operating systems.
 type Store[T any] struct {
-	path   string
-	perm   os.FileMode
-	onLoad func(*T)
-
-	mu  sync.RWMutex
-	val T
+	directory, key string
+	onLoad         func(*T)
+	mu             sync.RWMutex
+	val, zero      T
 }
 
-// New builds a Store for <dir>/<filename>, loading the current on-disk value
-// (or zero if the file doesn't exist yet). perm is used for every write
-// (e.g. 0600 for a file carrying no secrets but kept restrictive, 0644 for
-// one that's fine to be world-readable). onLoad, if non-nil, is called after
-// every successful load or Reload — it exists for fields that must be
-// populated at runtime but never persisted (json:"-"), mirroring what
-// internal/core/branding's BrandingStore.Load did by hand.
-func New[T any](dir, filename string, perm os.FileMode, zero T, onLoad func(*T)) (*Store[T], error) {
-	s := &Store[T]{
-		path:   filepath.Join(dir, filename),
-		perm:   perm,
-		onLoad: onLoad,
-		val:    zero,
-	}
+// New loads the database record and materializes the supplied defaults when absent.
+func New[T any](dir, key string, _ os.FileMode, zero T, onLoad func(*T)) (*Store[T], error) {
+	s := &Store[T]{directory: dir, key: key, onLoad: onLoad, val: zero, zero: zero}
 	if err := s.reloadLocked(); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
-
-// Get returns the current in-memory value.
-func (s *Store[T]) Get() T {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.val
-}
-
-// Put marshals v as indented JSON, writes it atomically, and updates the
-// in-memory cache on success. onLoad is applied to the cached copy so Get
-// reflects the same runtime-injected fields a fresh Reload would produce.
+func (s *Store[T]) Get() T { s.mu.RLock(); defer s.mu.RUnlock(); return s.val }
 func (s *Store[T]) Put(v T) error {
-	data, err := json.MarshalIndent(v, "", "  ")
+	raw, err := json.Marshal(v)
 	if err != nil {
-		return fmt.Errorf("marshal %s: %w", filepath.Base(s.path), err)
+		return err
 	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	if err := shared.WriteFileAtomic(s.path, data, s.perm); err != nil {
-		return fmt.Errorf("write %s: %w", filepath.Base(s.path), err)
+	if err = database.WriteRecord(s.directory, "settings", s.key, raw); err != nil {
+		return err
 	}
 	s.val = v
 	if s.onLoad != nil {
@@ -80,11 +48,6 @@ func (s *Store[T]) Put(v T) error {
 	notifyCommitted()
 	return nil
 }
-
-// Reload re-reads the file from disk into the in-memory cache, satisfying
-// Reloadable. A missing file leaves the current in-memory value untouched
-// (matching every existing store's "missing file ⇒ default, not an error"
-// behavior — the default was already established at New time).
 func (s *Store[T]) Reload() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -94,24 +57,23 @@ func (s *Store[T]) Reload() error {
 	notifyCommitted()
 	return nil
 }
-
 func (s *Store[T]) reloadLocked() error {
-	data, err := os.ReadFile(s.path)
-	switch {
-	case err == nil:
-		var v T
-		if err := json.Unmarshal(data, &v); err != nil {
-			return fmt.Errorf("parse %s: %w", filepath.Base(s.path), err)
+	raw, err := database.ReadRecord(s.directory, "settings", s.key)
+	if errors.Is(err, sql.ErrNoRows) {
+		s.val = s.zero
+		raw, err = json.Marshal(s.zero)
+		if err != nil {
+			return err
 		}
-		s.val = v
-	case os.IsNotExist(err):
-		// Keep the current in-memory value (the zero passed to New on first
-		// load). onLoad below still runs so a missing file gets the same
-		// runtime-injected fields a present one would.
-	default:
-		return fmt.Errorf("read %s: %w", filepath.Base(s.path), err)
+		if err = database.WriteRecord(s.directory, "settings", s.key, raw); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return fmt.Errorf("read setting %s: %w", s.key, err)
 	}
-
+	if err = json.Unmarshal(raw, &s.val); err != nil {
+		return err
+	}
 	if s.onLoad != nil {
 		s.onLoad(&s.val)
 	}

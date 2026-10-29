@@ -127,7 +127,10 @@ export default function ApiKeysManagement() {
                     <SettingsTableCell className="settings__table-cell">
                       {formatTimestamp(apiKey.lastUsedAt)}
                     </SettingsTableCell>
-                    <SettingsTableCell className="settings__actions-cell">
+                    <SettingsTableCell
+                      className="settings__actions-cell"
+                      content="controls"
+                    >
                       <div className="settings__actions">
                         {apiKey.revokedAt ? (
                           <span className="settings__table-body-message">

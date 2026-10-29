@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"time"
 
@@ -39,7 +40,17 @@ func NewMovePageUseCase(
 }
 
 // Execute moves the page and fires post-save side effects for the whole subtree.
-func (uc *MovePageUseCase) Execute(_ context.Context, in MovePageInput) (err error) {
+func (uc *MovePageUseCase) Execute(ctx context.Context, in MovePageInput) (err error) {
+	if !uc.tree.InUnitOfWork() {
+		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.orchestrator = o
+			return copy.Execute(ctx, in)
+		})
+		return err
+	}
+
 	started := time.Now()
 	defer func() {
 		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationMove), err, started)
@@ -101,7 +112,9 @@ func (uc *MovePageUseCase) Execute(_ context.Context, in MovePageInput) (err err
 		event.AffectedPages = append(event.AffectedPages, p)
 	}
 
-	uc.orchestrator.Run(event)
+	if err := uc.orchestrator.Run(event); err != nil {
+		return err
+	}
 
 	return nil
 }

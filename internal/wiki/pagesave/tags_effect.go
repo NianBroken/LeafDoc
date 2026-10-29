@@ -1,14 +1,14 @@
 package pagesave
 
 import (
-	"log/slog"
-
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/tags"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	"log/slog"
 )
 
-// TagsSideEffect updates the tag index after every page mutation.
+// TagsSideEffect keeps the derived tags index in the page mutation transaction.
 type TagsSideEffect struct {
 	svc     *tags.TagsService
 	log     *slog.Logger
@@ -21,39 +21,37 @@ func NewTagsSideEffect(svc *tags.TagsService, log *slog.Logger, metrics *httpmet
 	}
 	return &TagsSideEffect{svc: svc, log: log, metrics: metrics}
 }
-
-func (e *TagsSideEffect) Name() string {
-	return "tags"
+func (e *TagsSideEffect) Name() string { return "tags" }
+func (e *TagsSideEffect) WithExecutor(exec database.Executor, _ *tree.TreeService) PageSideEffect {
+	copy := *e
+	if e.svc != nil {
+		copy.svc = e.svc.WithExecutor(exec)
+	}
+	return &copy
+}
+func (e *TagsSideEffect) Apply(event PageSaveEvent) {
+	if err := e.ApplyTransactional(event); err != nil {
+		e.log.Error("page index update failed", "index", e.Name(), "error", err)
+		e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
+	}
 }
 
-func (e *TagsSideEffect) Apply(event PageSaveEvent) {
+// ApplyTransactional propagates failure to the owner of the page transaction.
+func (e *TagsSideEffect) ApplyTransactional(event PageSaveEvent) error {
 	if e.svc == nil {
-		return
+		return nil
 	}
 	switch event.Operation {
 	case PageOperationCreate, PageOperationUpdate, PageOperationRestore:
 		if event.After != nil {
-			e.setTags(event.After, event.Operation)
+			return e.svc.IndexPageContent(event.After.ID, event.After.RawContent)
 		}
-
-	case PageOperationMove:
-		// page_id is stable across moves; tags in frontmatter are unchanged — no-op.
-
 	case PageOperationDelete:
-		ids := make([]string, 0, len(event.AffectedPages))
-		for _, p := range event.AffectedPages {
-			ids = append(ids, p.ID)
+		ids := []string{}
+		for _, page := range event.AffectedPages {
+			ids = append(ids, page.ID)
 		}
-		if err := e.svc.DeletePageIndexes(ids); err != nil {
-			e.log.Warn("failed to batch-delete tag index for deleted subtree", "pageCount", len(ids), "error", err)
-			e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
-		}
+		return e.svc.DeletePageIndexes(ids)
 	}
-}
-
-func (e *TagsSideEffect) setTags(p *tree.Page, operation PageOperationType) {
-	if err := e.svc.IndexPageContent(p.ID, p.RawContent); err != nil {
-		e.log.Warn("failed to index page content", "pageID", p.ID, "error", err)
-		e.metrics.IncPageSaveSideEffectFailure(string(operation), e.Name())
-	}
+	return nil
 }

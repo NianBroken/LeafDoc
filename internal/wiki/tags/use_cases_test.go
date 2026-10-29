@@ -70,6 +70,7 @@ func createAndIndexPage(t *testing.T, ts *tree.TreeService, svc *coretags.TagsSe
 // ─── GetPagesByTagsUseCase ─────────────────────────────────────────────────────
 
 func TestGetPagesByTagsUseCase_ReturnsMatchingPages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc, ts := setupUseCases(t)
 
 	id1 := createAndIndexPage(t, ts, svc, "React Guide", "react-guide", []string{"react", "frontend"}, "React guide body.")
@@ -88,6 +89,7 @@ func TestGetPagesByTagsUseCase_ReturnsMatchingPages(t *testing.T) {
 }
 
 func TestGetPagesByTagsUseCase_ExcerptComesFromDB_NoDiskRead(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc, ts := setupUseCases(t)
 
 	createAndIndexPage(t, ts, svc, "Excerpt Page", "excerpt-page", []string{"docs"}, "This is the excerpt content.")
@@ -108,6 +110,7 @@ func TestGetPagesByTagsUseCase_ExcerptComesFromDB_NoDiskRead(t *testing.T) {
 }
 
 func TestGetPagesByTagsUseCase_ANDLogic(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc, ts := setupUseCases(t)
 
 	id1 := createAndIndexPage(t, ts, svc, "Both Tags", "both", []string{"react", "typescript"}, "body")
@@ -123,6 +126,7 @@ func TestGetPagesByTagsUseCase_ANDLogic(t *testing.T) {
 }
 
 func TestGetPagesByTagsUseCase_EmptyTagsReturnsEmpty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, _, _ := setupUseCases(t)
 
 	out, err := uc.Execute(context.Background(), GetPagesByTagsInput{Tags: []string{}})
@@ -135,6 +139,7 @@ func TestGetPagesByTagsUseCase_EmptyTagsReturnsEmpty(t *testing.T) {
 }
 
 func TestGetPagesByTagsUseCase_NormalizesInputTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc, ts := setupUseCases(t)
 
 	createAndIndexPage(t, ts, svc, "Go Page", "go-page", []string{"go"}, "body")
@@ -149,6 +154,7 @@ func TestGetPagesByTagsUseCase_NormalizesInputTags(t *testing.T) {
 }
 
 func TestGetPagesByTagsUseCase_NoMatchReturnsEmpty(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc, ts := setupUseCases(t)
 
 	createAndIndexPage(t, ts, svc, "Go Page", "go-page", []string{"go"}, "body")
@@ -163,6 +169,7 @@ func TestGetPagesByTagsUseCase_NoMatchReturnsEmpty(t *testing.T) {
 }
 
 func TestGetPagesByTagsUseCase_PageTagsReturnedInResult(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc, svc, ts := setupUseCases(t)
 
 	createAndIndexPage(t, ts, svc, "Multi Tag", "multi", []string{"go", "testing", "backend"}, "body")

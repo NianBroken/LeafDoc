@@ -44,20 +44,10 @@ const apiKeyTokenPrefix = "lw_"
 const apiKeyLastUsedThrottle = 5 * time.Minute
 
 type APIKeyService struct {
-	// mu guards only store — it's the one field Replace swaps after a restore
-	// (api_keys.db is part of the snapshot ZIP, mirroring AuthService.mu /
-	// userService).
+	// mu guards the API key store handle during restoration.
 	mu    sync.RWMutex
 	store *APIKeyStore
-	// authService is depended on (rather than caching a *UserService copy)
-	// specifically so owner lookups (Resolve, CreateAPIKey) always go through
-	// AuthService.UserService(), which already tracks a live restore's
-	// ReplaceUserStore swap. A cached *UserService here would silently go
-	// stale after the first restore — users.db is AuthService's data, not
-	// APIKeyService's; only api_keys.db is swapped directly by this service
-	// (see Replace). NewAPIKeyService is only ever called with a non-nil
-	// AuthService (wiki.go constructs API key management inside the same
-	// !AuthDisabled block that builds AuthService first).
+	// authService resolves owners through the active account store.
 	authService *AuthService
 	log         *slog.Logger
 }
@@ -81,22 +71,12 @@ func (s *APIKeyService) Close() error {
 	return s.currentStore().Close()
 }
 
-// PauseForSwap closes the current APIKeyStore's *sql.DB connection and
-// prevents it from reconnecting, releasing any OS-level file lock on
-// api_keys.db before a live restore renames it. Mirrors
-// AuthService.PauseUserStoreForSwap — see that doc comment and
-// APIKeyStore.suspend for the full Windows-rename rationale.
+// PauseForSwap prevents key access during restoration.
 func (s *APIKeyService) PauseForSwap() error {
 	return s.currentStore().suspend()
 }
 
-// Replace opens a fresh APIKeyStore against storageDir/api_keys.db and swaps
-// it in, closing the previous one afterward. Used by a live restore after
-// api_keys.db has been swapped in on disk (or left untouched, if this
-// snapshot didn't capture one) — either way a fresh store re-reads whatever is
-// actually on disk now, and NewAPIKeyStore's ensureSchema call brings a
-// pre-existing-but-older api_keys.db up to the current schema. Mirrors
-// AuthService.ReplaceUserStore.
+// Replace opens a fresh MySQL key-store connection after restoration.
 func (s *APIKeyService) Replace(storageDir string) error {
 	newStore, err := NewAPIKeyStore(storageDir)
 	if err != nil {

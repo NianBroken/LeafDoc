@@ -50,7 +50,7 @@
   "createNow": "Crear copia de seguridad ahora",
   "creating": "Creando…",
   "listSectionTitle": "Copias de seguridad disponibles",
-  "listSectionDescription": "Descarga una copia de seguridad para restaurarla manualmente: detén el servidor, extrae el ZIP en el directorio de datos y reinícialo.",
+  "listSectionDescription": "Descarga copias para guardarlas o restaura la base de datos y los recursos desde una copia.",
   "listEmpty": "Todavía no hay copias de seguridad.",
   "columnDate": "Creada",
   "columnSize": "Tamaño",
@@ -66,5 +66,7 @@
     "backupTriggerFailed": "No se pudo iniciar la copia de seguridad",
     "deleteSuccess": "Copia de seguridad eliminada",
     "deleteFailed": "No se pudo eliminar la copia de seguridad"
-  }
+  },
+  "columnName": "Nombre de la copia",
+  "columnActions": "Acciones"
 }

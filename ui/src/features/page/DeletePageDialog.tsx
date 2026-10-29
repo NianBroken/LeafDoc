@@ -33,7 +33,7 @@ export function DeletePageDialog({
   const [loading, setLoading] = useState(false)
   const [deleteRecursive, setDeleteRecursive] = useState(false)
   const [pageModifiedWarning, setPageModifiedWarning] = useState(false)
-  const [backlinksLoading, setBacklinksLoading] = useState(false)
+  const [backlinksLoading, setBacklinksLoading] = useState(enableLinkRefactor)
   const [backlinksError, setBacklinksError] = useState<string | null>(null)
   const [backlinks, setBacklinks] = useState<Backlink[]>([])
   const [, setFieldErrors] = useState<Record<string, string>>({})
@@ -88,9 +88,17 @@ export function DeletePageDialog({
       : t('common.sectionCapitalized')
 
   const handleDelete = async (): Promise<boolean> => {
+    if (loading || backlinksLoading) return false
     setLoading(true)
     try {
       await deletePage(pageId, deleteRecursive, page?.version ?? '')
+      const viewer = useViewerStore.getState()
+      if (
+        viewer.page?.id === pageId ||
+        (deleteRecursive && viewer.page?.path.startsWith(`${page.path}/`))
+      ) {
+        viewer.clear()
+      }
       toast.success(
         t('deleteDialog.deletedToast', { item: itemLabelCapitalized }),
       )
@@ -151,7 +159,7 @@ export function DeletePageDialog({
           actionType: 'confirm',
           autoFocus: false,
           loading,
-          disabled: loading,
+          disabled: loading || backlinksLoading,
           variant: 'destructive',
         },
       ]}

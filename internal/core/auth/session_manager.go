@@ -104,6 +104,10 @@ func (s *SessionManager) RefreshToken(refreshToken string) (*AuthToken, error) {
 		return nil, ErrInvalidToken
 	}
 
+	if err := s.validateGeneration(claims); err != nil {
+		return nil, err
+	}
+
 	typ, ok := claims["typ"].(string)
 	if !ok || typ != "refresh" {
 		return nil, ErrInvalidToken
@@ -220,6 +224,10 @@ func (s *SessionManager) ValidateToken(tokenString string) (*User, error) {
 		return nil, ErrInvalidToken
 	}
 
+	if err := s.validateGeneration(claims); err != nil {
+		return nil, err
+	}
+
 	typ, ok := claims["typ"].(string)
 	if !ok || typ != "access" {
 		return nil, ErrInvalidToken
@@ -277,19 +285,45 @@ func (s *SessionManager) generateToken(user *User, duration time.Duration, typ s
 	if err != nil {
 		return "", "", 0, err
 	}
+	if s.sessionStore == nil {
+		return "", "", 0, ErrInvalidToken
+	}
+	generation, err := s.sessionStore.Generation()
+	if err != nil {
+		return "", "", 0, err
+	}
+
 	expiresAt := s.now().Add(duration).Unix()
 	claims := jwt.MapClaims{
-		"sub":   user.ID,
-		"role":  user.Role,
-		"email": user.Email,
-		"exp":   expiresAt,
-		"iat":   s.now().Unix(),
-		"typ":   typ,
-		"jti":   jti, // Unique identifier for the token
+		"sub":             user.ID,
+		"role":            user.Role,
+		"email":           user.Email,
+		"exp":             expiresAt,
+		"iat":             s.now().Unix(),
+		"typ":             typ,
+		"jti":             jti, // Unique identifier for the token
+		"auth_generation": generation,
 	}
 	signed, err := s.signClaims(claims)
 	if err != nil {
 		return "", "", 0, err
 	}
 	return signed, jti, expiresAt, nil
+}
+
+// validateGeneration rejects every token issued before a database restoration,
+// even when the restored user has the same identifier and the JWT has not expired.
+func (s *SessionManager) validateGeneration(claims jwt.MapClaims) error {
+	claimed, ok := claims["auth_generation"].(string)
+	if !ok || claimed == "" || s.sessionStore == nil {
+		return ErrInvalidToken
+	}
+	generation, err := s.sessionStore.Generation()
+	if err != nil {
+		return err
+	}
+	if claimed != generation {
+		return ErrInvalidToken
+	}
+	return nil
 }

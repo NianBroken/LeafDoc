@@ -1,7 +1,8 @@
 import { APIRequestContext, expect, request } from '@playwright/test';
 import { toAppPath } from '../pages/appPath';
+import { e2eBaseUrl } from './servicePorts';
 
-const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const baseURL = e2eBaseUrl;
 export const adminUser = process.env.E2E_ADMIN_USER || 'admin';
 export const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'admin';
 

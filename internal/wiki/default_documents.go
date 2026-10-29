@@ -2,14 +2,13 @@ package wiki
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/defaultdocs"
-	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	wikipages "github.com/NianBroken/LeafDoc/internal/wiki/pages"
 )
@@ -24,9 +23,9 @@ type defaultDocumentsState struct {
 // EnsureDefaultDocuments initializes empty instances once, resuming interrupted writes.
 // Existing nonempty instances are left intact. Completed instances never recreate deleted pages.
 func (w *Wiki) EnsureDefaultDocuments() error {
-	statePath := filepath.Join(w.storageDir, defaultDocumentsStateFile)
+	stateKey := defaultDocumentsStateFile
 	state := defaultDocumentsState{}
-	data, err := os.ReadFile(statePath)
+	data, err := database.ReadRecord(w.storageDir, "instance_state", stateKey)
 	if err == nil {
 		if err := json.Unmarshal(data, &state); err != nil {
 			return fmt.Errorf("read default document state: %w", err)
@@ -34,13 +33,13 @@ func (w *Wiki) EnsureDefaultDocuments() error {
 		if state.Complete {
 			return nil
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	} else {
 		if w.tree.HasPages() {
-			return shared.WriteFileAtomic(statePath, []byte("{\"complete\":true}\n"), 0o644)
+			return database.WriteRecord(w.storageDir, "instance_state", stateKey, []byte("{\"complete\":true}\n"))
 		}
-		if err := shared.WriteFileAtomic(statePath, []byte("{\"complete\":false}\n"), 0o644); err != nil {
+		if err := database.WriteRecord(w.storageDir, "instance_state", stateKey, []byte("{\"complete\":false}\n")); err != nil {
 			return err
 		}
 	}
@@ -80,5 +79,5 @@ func (w *Wiki) EnsureDefaultDocuments() error {
 			return err
 		}
 	}
-	return shared.WriteFileAtomic(statePath, []byte("{\"complete\":true}\n"), 0o644)
+	return database.WriteRecord(w.storageDir, "instance_state", stateKey, []byte("{\"complete\":true}\n"))
 }

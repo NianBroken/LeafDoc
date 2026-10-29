@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"log/slog"
 	"net"
 	"regexp"
@@ -186,6 +187,7 @@ func setupEmailUseCases(t *testing.T, smtpAddr string) (*coreauth.EmailTokenServ
 // whether or not the identifier resolves to a real user, so a caller cannot
 // enumerate valid usernames/emails via this endpoint.
 func TestRequestPasswordResetUseCase_Execute_SameResponseForKnownAndUnknownIdentifier(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users, _, _ := setupEmailUseCases(t, "127.0.0.1:1") // unreachable: dispatch is async, so this must not matter
 	uc := NewRequestPasswordResetUseCase(func() *coreauth.EmailTokenService { return svc })
 
@@ -210,6 +212,7 @@ func TestRequestPasswordResetUseCase_Execute_SameResponseForKnownAndUnknownIdent
 // depended on SMTP round-trip time would leak the same information via a
 // timing side channel even while returning an identical body.
 func TestRequestPasswordResetUseCase_Execute_DoesNotBlockOnSlowSMTP(t *testing.T) {
+	testutil.ResetMySQL(t)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to start listener: %v", err)
@@ -258,6 +261,7 @@ func TestRequestPasswordResetUseCase_Execute_DoesNotBlockOnSlowSMTP(t *testing.T
 }
 
 func TestRequestPasswordResetUseCase_Execute_EmailDisabled_ReturnsErrEmailDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc := NewRequestPasswordResetUseCase(func() *coreauth.EmailTokenService { return nil })
 
 	if err := uc.Execute(context.Background(), RequestPasswordResetInput{Identifier: "alice"}); err != coreauth.ErrEmailDisabled {
@@ -266,6 +270,7 @@ func TestRequestPasswordResetUseCase_Execute_EmailDisabled_ReturnsErrEmailDisabl
 }
 
 func TestConfirmPasswordResetUseCase_Execute_WeakPassword_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _, _, _ := setupEmailUseCases(t, "127.0.0.1:1")
 	uc := NewConfirmPasswordResetUseCase(func() *coreauth.EmailTokenService { return svc })
 
@@ -276,6 +281,7 @@ func TestConfirmPasswordResetUseCase_Execute_WeakPassword_ReturnsValidationError
 }
 
 func TestInviteUserUseCase_Execute_InvalidRole_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, users, resolver, _ := setupEmailUseCases(t, "127.0.0.1:1")
 	usersFn := func() *coreauth.UserService { return users }
 	uc := NewInviteUserUseCase(usersFn, func() *coreauth.EmailTokenService { return svc }, resolver, slog.Default())
@@ -287,6 +293,7 @@ func TestInviteUserUseCase_Execute_InvalidRole_ReturnsValidationError(t *testing
 }
 
 func TestInviteUserUseCase_Execute_EmailDisabled_ReturnsErrEmailDisabledWithoutCreatingUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	_, users, resolver, _ := setupEmailUseCases(t, "127.0.0.1:1")
 	usersFn := func() *coreauth.UserService { return users }
 	uc := NewInviteUserUseCase(usersFn, func() *coreauth.EmailTokenService { return nil }, resolver, slog.Default())
@@ -301,6 +308,7 @@ func TestInviteUserUseCase_Execute_EmailDisabled_ReturnsErrEmailDisabledWithoutC
 }
 
 func TestConfirmInviteUseCase_Execute_ValidToken_IssuesSession(t *testing.T) {
+	testutil.ResetMySQL(t)
 	srv := startFakeInviteSMTPServer(t)
 	svc, users, resolver, authSvc := setupEmailUseCases(t, srv.addr)
 	usersFn := func() *coreauth.UserService { return users }
@@ -329,6 +337,7 @@ func TestConfirmInviteUseCase_Execute_ValidToken_IssuesSession(t *testing.T) {
 }
 
 func TestConfirmInviteUseCase_Execute_InvalidToken_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _, _, authSvc := setupEmailUseCases(t, "127.0.0.1:1")
 	confirmUC := NewConfirmInviteUseCase(func() *coreauth.EmailTokenService { return svc }, authSvc)
 

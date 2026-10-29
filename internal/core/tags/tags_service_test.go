@@ -10,24 +10,28 @@ import (
 // ─── ExtractTagsFromContent ──────────────────────────────────────────────────
 
 func TestExtractTagsFromContent_BlockListSyntax(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags:\n  - react\n  - typescript\n---\n\n# Page"
 	got := ExtractTagsFromContent(content)
 	assertStringSliceEqual(t, got, []string{"react", "typescript"})
 }
 
 func TestExtractTagsFromContent_InlineListSyntax(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags: [react, typescript]\n---\n\n# Page"
 	got := ExtractTagsFromContent(content)
 	assertStringSliceEqual(t, got, []string{"react", "typescript"})
 }
 
 func TestExtractTagsFromContent_NormalizesToLowercase(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags:\n  - React\n  - TypeScript\n  - GO\n---\n"
 	got := ExtractTagsFromContent(content)
 	assertStringSliceEqual(t, got, []string{"react", "typescript", "go"})
 }
 
 func TestExtractTagsFromContent_DeduplicatesCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags:\n  - react\n  - React\n  - REACT\n---\n"
 	got := ExtractTagsFromContent(content)
 	if len(got) != 1 {
@@ -39,6 +43,7 @@ func TestExtractTagsFromContent_DeduplicatesCaseInsensitive(t *testing.T) {
 }
 
 func TestExtractTagsFromContent_TrimsWhitespace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags:\n  - \" react \"\n  - \" go \"\n---\n"
 	got := ExtractTagsFromContent(content)
 	for _, tag := range got {
@@ -49,6 +54,7 @@ func TestExtractTagsFromContent_TrimsWhitespace(t *testing.T) {
 }
 
 func TestExtractTagsFromContent_NoFrontmatterReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "# Page\n\nJust content, no frontmatter."
 	got := ExtractTagsFromContent(content)
 	if got != nil {
@@ -57,6 +63,7 @@ func TestExtractTagsFromContent_NoFrontmatterReturnsNil(t *testing.T) {
 }
 
 func TestExtractTagsFromContent_EmptyContentReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	got := ExtractTagsFromContent("")
 	if got != nil {
 		t.Errorf("expected nil for empty content, got %v", got)
@@ -64,6 +71,7 @@ func TestExtractTagsFromContent_EmptyContentReturnsNil(t *testing.T) {
 }
 
 func TestExtractTagsFromContent_FrontmatterWithoutTagsFieldReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntitle: My Page\nauthor: Alice\n---\n\n# Content"
 	got := ExtractTagsFromContent(content)
 	if got != nil {
@@ -72,6 +80,7 @@ func TestExtractTagsFromContent_FrontmatterWithoutTagsFieldReturnsNil(t *testing
 }
 
 func TestExtractTagsFromContent_EmptyTagsListReturnsNil(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags: []\n---\n\n# Content"
 	got := ExtractTagsFromContent(content)
 	if len(got) != 0 {
@@ -80,6 +89,7 @@ func TestExtractTagsFromContent_EmptyTagsListReturnsNil(t *testing.T) {
 }
 
 func TestExtractTagsFromContent_SkipsEmptyTagEntries(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := "---\ntags:\n  - react\n  - \"\"\n  - typescript\n---\n"
 	got := ExtractTagsFromContent(content)
 	for _, tag := range got {
@@ -93,6 +103,7 @@ func TestExtractTagsFromContent_SkipsEmptyTagEntries(t *testing.T) {
 }
 
 func TestExtractTagsFromContent_TagsKeyIsCaseInsensitive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Frontmatter keys like "Tags" or "TAGS" should still be found.
 	content := "---\nTags:\n  - react\n---\n"
 	got := ExtractTagsFromContent(content)
@@ -173,6 +184,7 @@ func indexAllPages(t *testing.T, svc *TagsService, ts *tree.TreeService) {
 }
 
 func TestTagsService_IndexAllPages_BuildsIndex(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupTagsService(t)
 
 	id1 := createPageWithTags(t, ts, "Page React", "react-page", []string{"react", "typescript"})
@@ -198,6 +210,7 @@ func TestTagsService_IndexAllPages_BuildsIndex(t *testing.T) {
 }
 
 func TestTagsService_IndexAllPages_IsIdempotent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupTagsService(t)
 	createPageWithTags(t, ts, "Page A", "page-a", []string{"go"})
 
@@ -218,6 +231,7 @@ func TestTagsService_IndexAllPages_IsIdempotent(t *testing.T) {
 }
 
 func TestTagsService_IndexAllPages_PagesWithoutTagsAreSkipped(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupTagsService(t)
 
 	idPtr, err := ts.CreateNode("system", nil, "No Tags Page", "no-tags", pageKind())
@@ -241,6 +255,7 @@ func TestTagsService_IndexAllPages_PagesWithoutTagsAreSkipped(t *testing.T) {
 }
 
 func TestTagsService_IndexAllPages_NormalizesTagsToLowercase(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupTagsService(t)
 	createPageWithTags(t, ts, "Mixed Case", "mixed", []string{"React", "TypeScript"})
 
@@ -259,6 +274,7 @@ func TestTagsService_IndexAllPages_NormalizesTagsToLowercase(t *testing.T) {
 }
 
 func TestTagsService_IndexAllPages_ReadsTagsFromRawFrontmatter(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupTagsService(t)
 	pageID := createPageWithTags(t, ts, "Tagged Page", "tagged-page", []string{"react"})
 
@@ -282,6 +298,7 @@ func TestTagsService_IndexAllPages_ReadsTagsFromRawFrontmatter(t *testing.T) {
 }
 
 func TestTagsService_SetAndDeleteTagsForPage(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTagsService(t)
 
 	if err := svc.SetTagsForPage("page-x", []string{"go", "test"}); err != nil {
@@ -301,6 +318,7 @@ func TestTagsService_SetAndDeleteTagsForPage(t *testing.T) {
 }
 
 func TestTagsService_GetTagsForPages_ReturnsCorrectTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTagsService(t)
 
 	_ = svc.SetTagsForPage("p1", []string{"go", "testing"})
@@ -318,6 +336,7 @@ func TestTagsService_GetTagsForPages_ReturnsCorrectTags(t *testing.T) {
 // ─── IndexPageContent ─────────────────────────────────────────────────────────
 
 func TestTagsService_IndexPageContent_StoresTagsAndExcerpt(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTagsService(t)
 
 	raw := "---\ntags:\n  - go\n  - testing\n---\n\nThis is the page body."
@@ -343,6 +362,7 @@ func TestTagsService_IndexPageContent_StoresTagsAndExcerpt(t *testing.T) {
 }
 
 func TestTagsService_IndexPageContent_NoFrontmatterStoresEmptyTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTagsService(t)
 
 	raw := "# Just a page\n\nSome content without frontmatter."
@@ -368,6 +388,7 @@ func TestTagsService_IndexPageContent_NoFrontmatterStoresEmptyTags(t *testing.T)
 }
 
 func TestTagsService_IndexPageContent_UpdatesExistingEntry(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := setupTagsService(t)
 
 	if err := svc.IndexPageContent("page-1", "---\ntags:\n  - go\n---\n\nFirst version."); err != nil {
@@ -395,6 +416,7 @@ func TestTagsService_IndexPageContent_UpdatesExistingEntry(t *testing.T) {
 }
 
 func TestTagsService_IndexAllPages_StoresExcerpts(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, ts := setupTagsService(t)
 
 	pageID := createPageWithTags(t, ts, "Excerpt Page", "excerpt-page", []string{"go"})

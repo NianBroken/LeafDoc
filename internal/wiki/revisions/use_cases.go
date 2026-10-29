@@ -2,6 +2,7 @@ package revisions
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"time"
 
@@ -313,7 +314,21 @@ func NewRestoreRevisionUseCase(r *revision.Service, t *tree.TreeService, o *page
 	return &RestoreRevisionUseCase{revision: r, tree: t, orchestrator: o, log: log, metrics: metrics}
 }
 
-func (uc *RestoreRevisionUseCase) Execute(_ context.Context, in RestoreRevisionInput) (out *RestoreRevisionOutput, err error) {
+func (uc *RestoreRevisionUseCase) Execute(ctx context.Context, in RestoreRevisionInput) (out *RestoreRevisionOutput, err error) {
+	if !uc.tree.InUnitOfWork() {
+		var result *RestoreRevisionOutput
+		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.orchestrator = o
+			copy.revision = uc.revision.WithExecutor(exec, bound)
+			var inner error
+			result, inner = copy.Execute(ctx, in)
+			return inner
+		})
+		return result, err
+	}
+
 	started := time.Now()
 	defer func() {
 		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationRestore), err, started)
@@ -334,11 +349,13 @@ func (uc *RestoreRevisionUseCase) Execute(_ context.Context, in RestoreRevisionI
 	if err != nil {
 		return nil, err
 	}
-	uc.orchestrator.Run(pagesave.PageSaveEvent{
+	if err := uc.orchestrator.Run(pagesave.PageSaveEvent{
 		Operation: pagesave.PageOperationRestore,
 		UserID:    in.UserID,
 		After:     page,
-	})
+	}); err != nil {
+		return nil, err
+	}
 	return &RestoreRevisionOutput{Page: page}, nil
 }
 

@@ -1,12 +1,16 @@
 package restore
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -55,13 +59,20 @@ var ErrWritesDisabled = sharederrors.NewLocalizedError(
 // the whole operation over a slow request.
 const gateDrainTimeout = 10 * time.Second
 
+// progressTokenTTL bounds the capability to a single restore observation window.
+const progressTokenTTL = time.Hour
+
 // DefaultMaxUploadSizeBytes is used by TriggerRestoreFromUpload's HTTP
 // handler (POST /restore/upload) when Config.MaxUploadSizeBytes is unset.
 const DefaultMaxUploadSizeBytes int64 = 500 * 1024 * 1024 // 500 MiB
 
 type Manager struct {
-	cfg Config
-	job *Job
+	progressMu        sync.Mutex
+	progressTokenHash [sha256.Size]byte
+	hasProgressToken  bool
+	progressExpiresAt time.Time
+	cfg               Config
+	job               *Job
 	// wg tracks the in-flight runLocked goroutine (if any), so callers that
 	// need the process to shut down cleanly (main.go) can wait for a restore
 	// to finish before closing the services it depends on (AuthService,
@@ -78,16 +89,55 @@ func NewManager(cfg Config) *Manager {
 // or ErrRestoreNeedsIntervention if a previous restore left the instance in
 // a state where a new one must not be started (see ErrRestoreNeedsIntervention).
 func (m *Manager) TriggerRestore(id string) error {
+	_, err := m.TriggerRestoreWithStatusToken(id)
+	return err
+}
+
+// TriggerRestoreWithStatusToken grants read-only access to this job's progress.
+func (m *Manager) TriggerRestoreWithStatusToken(id string) (string, error) {
+	m.progressMu.Lock()
+	defer m.progressMu.Unlock()
+	token, err := m.startProgressJob()
+	if err != nil {
+		return "", err
+	}
+	m.wg.Go(func() { m.runLocked(id) })
+	return token, nil
+}
+
+// startProgressJob runs under progressMu so token rotation and job start are atomic.
+func (m *Manager) startProgressJob() (string, error) {
 	if m.job.Status().NeedsIntervention {
-		return ErrRestoreNeedsIntervention
+		return "", ErrRestoreNeedsIntervention
+	}
+	if m.job.Status().Running {
+		return "", ErrRestoreAlreadyRunning
+	}
+	var random [32]byte
+	if _, err := rand.Read(random[:]); err != nil {
+		return "", fmt.Errorf("generate restore progress credential: %w", err)
 	}
 	if !m.job.Start() {
-		return ErrRestoreAlreadyRunning
+		return "", ErrRestoreAlreadyRunning
 	}
-	m.wg.Go(func() {
-		m.runLocked(id)
-	})
-	return nil
+	token := hex.EncodeToString(random[:])
+	m.progressTokenHash = sha256.Sum256([]byte(token))
+	m.hasProgressToken = true
+	m.progressExpiresAt = time.Now().Add(progressTokenTTL)
+	return token, nil
+}
+
+// ProgressStatus accepts only the current job's credential. Fixed-size hash
+// comparison is constant time; neither credential nor hash enters job JSON.
+func (m *Manager) ProgressStatus(token string) (JobStatus, bool) {
+	candidate := sha256.Sum256([]byte(token))
+	m.progressMu.Lock()
+	defer m.progressMu.Unlock()
+	matches := subtle.ConstantTimeCompare(candidate[:], m.progressTokenHash[:])
+	if !m.hasProgressToken || matches != 1 || !time.Now().Before(m.progressExpiresAt) {
+		return JobStatus{}, false
+	}
+	return m.job.Status(), true
 }
 
 // TriggerRestoreFromUpload starts a restore job asynchronously from an
@@ -102,26 +152,28 @@ func (m *Manager) TriggerRestore(id string) error {
 // the HTTP handler, since the actual restore then runs in a background
 // goroutine after the handler (and its response) has already completed.
 func (m *Manager) TriggerRestoreFromUpload(r io.Reader) error {
-	if m.job.Status().NeedsIntervention {
-		return ErrRestoreNeedsIntervention
-	}
-	if !m.job.Start() {
-		return ErrRestoreAlreadyRunning
-	}
+	_, err := m.TriggerRestoreFromUploadWithStatusToken(r)
+	return err
+}
 
+// TriggerRestoreFromUploadWithStatusToken stages the request before granting
+// a credential, and retains that credential after sessions are invalidated.
+func (m *Manager) TriggerRestoreFromUploadWithStatusToken(r io.Reader) (string, error) {
+	m.progressMu.Lock()
+	defer m.progressMu.Unlock()
+	token, err := m.startProgressJob()
+	if err != nil {
+		return "", err
+	}
 	zipPath, cleanup, err := m.stageUpload(r)
 	if err != nil {
 		m.job.Finish(err)
-		return err
+		return "", err
 	}
-
 	m.wg.Go(func() {
-		m.runGuarded(func() {
-			defer cleanup()
-			m.runFromZipPath(zipPath, coreshared.DefaultZipExtractionLimits, cleanup)
-		})
+		m.runGuarded(func() { defer cleanup(); m.runFromZipPath(zipPath, coreshared.DefaultZipExtractionLimits, cleanup) })
 	})
-	return nil
+	return token, nil
 }
 
 // stageUpload drains r into a fresh temp file inside dataDir (the same
@@ -230,146 +282,56 @@ func (m *Manager) runGuarded(fn func()) {
 	fn()
 }
 
-// runFromZipPath performs the full validate -> gate -> swap -> reopen-auth ->
-// invalidate-sessions -> reload-branding -> commit -> resync sequence against
-// an already-resolved zip file on disk. Shared by the by-id and by-upload
-// restore entrypoints once each has produced a concrete zipPath; limits is
-// coreshared.DefaultZipExtractionLimits for the by-upload path (untrusted
-// input) and coreshared.UnrestrictedExtractionLimits for the by-id path
-// (the server's own snapshot).
+// runFromZipPath validates the archive before the shared maintenance barrier.
 func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLimits, releaseUpload func()) {
 	m.job.SetPhase(PhaseValidating)
-	stagingDir, meta, err := extractAndValidateWithLimits(zipPath, m.cfg.DataDir, limits)
-	// Extraction closes the ZIP before upload cleanup and before any completion status.
+	staging, _, err := extractAndValidateWithLimits(zipPath, m.cfg.DataDir, limits)
 	if releaseUpload != nil {
 		releaseUpload()
 	}
 	if err != nil {
-		m.job.Finish(fmt.Errorf("snapshot validation failed: %w", err))
+		m.job.Finish(err)
 		return
 	}
-	defer func() { _ = os.RemoveAll(stagingDir) }()
-
-	if meta.Version != "" && m.cfg.WikiVersion != "" && meta.Version != m.cfg.WikiVersion {
-		m.job.SetVersionWarning(fmt.Sprintf("snapshot was created by version %s, this server is running %s", meta.Version, m.cfg.WikiVersion))
-	}
-
-	m.job.SetPhase(PhaseSwapping)
+	defer os.RemoveAll(staging)
+	database.MaintenanceMu.Lock()
+	defer database.MaintenanceMu.Unlock()
 	m.cfg.WriteGate.Engage()
 	if !m.cfg.WriteGate.WaitForDrain(gateDrainTimeout) {
-		slog.Default().Warn("restore: timed out waiting for in-flight requests to drain, proceeding anyway")
-	}
-
-	// Each store's OS-level handle must be released before SwapAll renames
-	// its file — on Windows an open handle (even one a GET request lazily
-	// reopened mid-swap) blocks the rename with a sharing violation, which
-	// POSIX doesn't have. Nothing on disk has been touched yet at this
-	// point, so a pause failure doesn't need a rollback — but PauseForSwap /
-	// PauseUserStoreForSwap marks a store suspended even when it fails, so a
-	// failed pause here would otherwise leave that store (and every store
-	// paused before it) permanently unable to serve requests. Recover via
-	// reopenAllStores before reporting the (retryable) failure; only if that
-	// recovery itself fails does this need NeedsIntervention.
-	if m.cfg.AuthService != nil {
-		if err := m.cfg.AuthService.PauseUserStoreForSwap(); err != nil {
-			m.cfg.WriteGate.Disengage()
-			if repErr := m.reopenAllStores(); repErr != nil {
-				m.job.FinishNeedsIntervention(fmt.Errorf("failed to release users.db before swap: %w (and failed to recover stores: %v)", err, repErr))
-				return
-			}
-			m.job.Finish(fmt.Errorf("failed to release users.db before swap: %w", err))
-			return
-		}
-	}
-	for _, s := range m.cfg.Stores {
-		if err := s.Store.PauseForSwap(); err != nil {
-			m.cfg.WriteGate.Disengage()
-			if repErr := m.reopenAllStores(); repErr != nil {
-				m.job.FinishNeedsIntervention(fmt.Errorf("failed to release %s before swap: %w (and failed to recover stores: %v)", s.File, err, repErr))
-				return
-			}
-			m.job.Finish(fmt.Errorf("failed to release %s before swap: %w", s.File, err))
-			return
-		}
-	}
-
-	// Nothing on disk has been touched yet at this point (the pause calls
-	// above only close each store's in-process connection), so a failure
-	// here is recovered the same way as a pause failure, without needing a
-	// rollback. See removeStaleWALSidecars for why this runs before SwapAll.
-	// Only a database this snapshot actually staged gets its live sidecars
-	// cleaned. A database SwapAll will leave untouched (see newSwapper's doc
-	// comment) may have a live WAL holding real committed-but-uncheckpointed
-	// data, which deleting the sidecar would discard for good.
-	for _, name := range walSidecarDBNames {
-		if _, err := os.Stat(filepath.Join(stagingDir, name)); err != nil {
-			continue
-		}
-		if err := removeStaleWALSidecars(filepath.Join(m.cfg.DataDir, name)); err != nil {
-			m.cfg.WriteGate.Disengage()
-			if repErr := m.reopenAllStores(); repErr != nil {
-				m.job.FinishNeedsIntervention(fmt.Errorf("failed to clean up stale %s WAL files before swap: %w (and failed to recover stores: %v)", name, err, repErr))
-				return
-			}
-			m.job.Finish(fmt.Errorf("failed to clean up stale %s WAL files before swap: %w", name, err))
-			return
-		}
-	}
-
-	sw := newSwapper(m.cfg.DataDir, stagingDir)
-	if err := sw.SwapAll(); err != nil {
-		m.rollbackOrIntervene(sw, fmt.Errorf("failed to swap restored files: %w", err))
+		m.cfg.WriteGate.Disengage()
+		m.job.Finish(fmt.Errorf("maintenance drain timed out"))
 		return
 	}
-
-	// AuthService is nil when the server runs with --disable-auth: there's no
-	// user/session state to reopen or invalidate in that mode.
-	if m.cfg.AuthService != nil {
-		m.job.SetPhase(PhaseReopeningAuth)
-		if err := m.cfg.AuthService.ReplaceUserStore(m.cfg.DataDir); err != nil {
-			m.rollbackOrIntervene(sw, fmt.Errorf("failed to reopen user database: %w", err))
+	m.job.SetPhase(PhaseSwapping)
+	if err := restoreStaged(m.cfg.DataDir, staging); err != nil {
+		var intervention *interventionError
+		if errors.As(err, &intervention) {
+			m.job.FinishNeedsIntervention(err)
 			return
 		}
-
-		m.job.SetPhase(PhaseInvalidatingSessions)
-		if err := m.cfg.AuthService.InvalidateAllSessions(); err != nil {
-			// sessions.db isn't part of the restored content, so a failure here
-			// doesn't leave restored data inconsistent — log and continue rather
-			// than rolling back an otherwise-successful restore over it.
-			slog.Default().Warn("restore: failed to invalidate sessions", "error", err)
-		}
-
-		// UserResolver.userService already tracks AuthService's swapped
-		// pointer live, but its own in-memory author-label cache doesn't —
-		// reload it so labels resolved before the restore don't linger.
-		// Same non-fatal treatment as InvalidateAllSessions above: stale
-		// author-name labels are a cosmetic papercut, not a data-integrity
-		// problem worth failing an otherwise-successful restore over.
-		if m.cfg.UserResolver != nil {
-			if err := m.cfg.UserResolver.Reload(); err != nil {
-				slog.Default().Warn("restore: failed to reload user resolver cache", "error", err)
-			}
-		}
+		m.cfg.WriteGate.Disengage()
+		m.job.Finish(err)
+		return
 	}
-
-	for _, s := range m.cfg.Stores {
-		if err := s.Store.Replace(m.cfg.DataDir); err != nil {
-			m.rollbackOrIntervene(sw, fmt.Errorf("failed to reopen %s: %w", s.File, err))
-			return
-		}
-	}
-
-	m.job.SetPhase(PhaseReloadingBranding)
 	if err := m.reloadAll(); err != nil {
-		m.rollbackOrIntervene(sw, fmt.Errorf("failed to reload settings: %w", err))
+		m.job.FinishNeedsIntervention(err)
 		return
 	}
-
-	sw.CommitAll()
-	m.cfg.WriteGate.Disengage()
-	if m.cfg.TriggerResync != nil {
+	if m.cfg.UserResolver != nil {
+		if err := m.cfg.UserResolver.Reload(); err != nil {
+			m.job.FinishNeedsIntervention(err)
+			return
+		}
+	}
+	if m.cfg.ReloadRuntime != nil {
+		if err := m.cfg.ReloadRuntime(); err != nil {
+			m.job.FinishNeedsIntervention(err)
+			return
+		}
+	} else if m.cfg.TriggerResync != nil {
 		m.cfg.TriggerResync()
 	}
+	m.cfg.WriteGate.Disengage()
 	m.job.Finish(nil)
 }
 
@@ -385,98 +347,6 @@ func (m *Manager) reloadAll() error {
 		}
 		if err := r.Reload(); err != nil {
 			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
-}
-
-// rollbackOrIntervene is the shared failure path for every phase after
-// SwapAll starts: it attempts to roll every swapped item back to its
-// pre-restore state. If that succeeds, the gate is disengaged and the job
-// reports a normal (retryable) failure — live data is exactly as it was
-// before the restore was triggered. If rollback itself fails, the instance
-// may be left in a partially-restored state, so the gate stays engaged (fail
-// closed: no mutating request should land in inconsistent state) and the job
-// is marked NeedsIntervention — self-restart (a fresh cold boot reading
-// whatever is actually on disk) is the supported way out.
-func (m *Manager) rollbackOrIntervene(sw *swapper, cause error) {
-	// By the time this runs, each store is either still suspended from
-	// before SwapAll, or — if a later phase (e.g. branding-reload) is what
-	// failed — already reopened against the swapped-in files. RollbackAll
-	// renames/removes those live files next; an already-reopened store still
-	// holding an open handle to one would block that on Windows (POSIX
-	// allows renaming/removing an open file, which is why this was never an
-	// issue there). Pausing again is a safe no-op for a store that's already
-	// suspended.
-	m.pauseAllStoresForRollback()
-
-	if rbErr := sw.RollbackAll(); rbErr != nil {
-		slog.Default().Error("restore: rollback failed after a failed restore phase, instance needs manual intervention",
-			"cause", cause, "rollback_error", rbErr)
-		m.job.FinishNeedsIntervention(fmt.Errorf("%w (rollback also failed: %v)", cause, rbErr))
-		return
-	}
-
-	// Re-point every store at whatever is actually on disk now (the
-	// just-restored originals) so none of them can drift from disk reality.
-	if err := m.reopenAllStores(); err != nil {
-		slog.Default().Error("restore: rollback succeeded but re-syncing stores against the restored files failed, instance needs manual intervention",
-			"cause", cause, "resync_error", err)
-		m.job.FinishNeedsIntervention(fmt.Errorf("%w (rollback succeeded but re-syncing stores failed: %v)", cause, err))
-		return
-	}
-
-	m.cfg.WriteGate.Disengage()
-	m.job.Finish(cause)
-}
-
-// pauseAllStoresForRollback closes every configured store's OS-level handle
-// (nil-safe, one per store) before a rollback renames files back to their
-// pre-restore originals — see rollbackOrIntervene. Best-effort: a failure to
-// pause one store is logged and doesn't stop the others, since RollbackAll
-// itself already tolerates and accumulates per-item failures rather than
-// requiring every pre-condition to be perfect.
-func (m *Manager) pauseAllStoresForRollback() {
-	if m.cfg.AuthService != nil {
-		if err := m.cfg.AuthService.PauseUserStoreForSwap(); err != nil {
-			slog.Default().Warn("restore: failed to pause user store before rollback", "error", err)
-		}
-	}
-	for _, s := range m.cfg.Stores {
-		if err := s.Store.PauseForSwap(); err != nil {
-			slog.Default().Warn("restore: failed to pause store before rollback", "file", s.File, "error", err)
-		}
-	}
-}
-
-// reopenAllStores re-opens every configured store (nil-safe, one per store)
-// against whatever is currently on disk at m.cfg.DataDir, accumulating every
-// failure rather than stopping at the first. Safe to call on a store that
-// was never paused or already reopened: Replace/ReplaceUserStore open a
-// fresh *sql.DB first and only close the old one after swapping the pointer
-// in, so there's briefly two connections to the same file — SQLite supports
-// concurrent connections to one file natively on both POSIX and Windows,
-// which is a different concern than the OS-level "rename an open file"
-// problem PauseForSwap/PauseUserStoreForSwap exist for. Used to recover from
-// a pause or WAL-cleanup failure (nothing on disk touched yet) and, after a
-// successful rollback, to re-sync every store against the restored files.
-func (m *Manager) reopenAllStores() error {
-	var errs []error
-	if m.cfg.AuthService != nil {
-		if err := m.cfg.AuthService.ReplaceUserStore(m.cfg.DataDir); err != nil {
-			errs = append(errs, fmt.Errorf("user store: %w", err))
-		} else if m.cfg.UserResolver != nil {
-			// UserResolver.userService already tracks AuthService's swapped
-			// pointer live, but its own in-memory author-label cache
-			// doesn't — reload it so stale labels don't linger.
-			if err := m.cfg.UserResolver.Reload(); err != nil {
-				slog.Default().Warn("restore: failed to reload user resolver cache", "error", err)
-			}
-		}
-	}
-	for _, s := range m.cfg.Stores {
-		if err := s.Store.Replace(m.cfg.DataDir); err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", s.File, err))
 		}
 	}
 	return errors.Join(errs...)

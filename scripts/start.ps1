@@ -15,8 +15,39 @@ $ErrorActionPreference = 'Stop'
 $readinessAttempts = 120
 $readinessIntervalMilliseconds = 500
 $requestTimeoutSeconds = 5
-$portDiscoveryAttempts = 64
+$processExitTimeoutMilliseconds = 10000
 $root = Split-Path $PSScriptRoot -Parent
+# Private UTF-8 values fill unset process variables without evaluating shell code.
+$environmentFile = Join-Path $root '.env'
+if (Test-Path -LiteralPath $environmentFile -PathType Leaf) {
+    foreach ($line in [IO.File]::ReadAllLines($environmentFile, [Text.Encoding]::UTF8)) {
+        $entry = $line.Trim()
+        if (-not $entry -or $entry.StartsWith('#')) { continue }
+        if ($entry -notmatch '^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+            throw 'Invalid environment assignment in .env.'
+        }
+        $name = $Matches[1]
+        $value = $Matches[2].Trim()
+        if ($value.Length -ge 2 -and (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+            ($value.StartsWith("'") -and $value.EndsWith("'")))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        if ($null -eq [Environment]::GetEnvironmentVariable($name, 'Process')) {
+            [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+        }
+    }
+}
+if (-not $PSBoundParameters.ContainsKey('DataDirectory')) { $DataDirectory = $env:LEAFDOC_DATA_DIR }
+if (-not $PSBoundParameters.ContainsKey('CertificatePath')) { $CertificatePath = $env:LEAFDOC_TLS_CERT }
+if (-not $PSBoundParameters.ContainsKey('KeyPath')) { $KeyPath = $env:LEAFDOC_TLS_KEY }
+if (-not $PSBoundParameters.ContainsKey('BasePath')) { $BasePath = $env:LEAFDOC_BASE_PATH }
+$ports = Get-Content -LiteralPath (Join-Path $root 'internal/core/serviceports/ports.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($Port -ne 0 -and $Port -ne $ports.frontend) {
+    throw 'The frontend port must match the shared fixed service allocation.'
+}
+$Port = [int]$ports.frontend
+$backendPort = [int]$ports.backend
+$adminPort = [int]$ports.gatewayAdmin
 # Machine-wide certificate files are discovered without requiring registry writes.
 $systemTlsDirectory = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'LeafDoc/tls'
 if (-not $CertificatePath) { $CertificatePath = Join-Path $systemTlsDirectory 'server.crt' }
@@ -37,8 +68,10 @@ function Stop-SavedProcesses($state) {
         # JSON readers can return timestamps as either strings or DateTime values.
         if ($process -and $process.Path -eq $entry.path -and
             [Math]::Abs(($process.StartTime.ToUniversalTime() - ([DateTime]$entry.started).ToUniversalTime()).TotalSeconds) -lt 1) {
-            Stop-Process -Id $process.Id
-            $process.WaitForExit()
+            Stop-Process -Id $process.Id -Force
+            if (-not $process.WaitForExit($processExitTimeoutMilliseconds)) {
+                throw 'A saved service did not stop within the allowed time.'
+            }
         }
     }
 }
@@ -56,9 +89,6 @@ if ($Stop) {
         Remove-Item -LiteralPath $statePath
     }
     return
-}
-if (Test-Path -LiteralPath $statePath) {
-    throw 'A saved runtime exists. Stop it with this script and -Stop before starting again.'
 }
 # Resolve executables from the current process and refreshed machine environment.
 function Resolve-Executable([string]$Name) {
@@ -83,42 +113,16 @@ $CertificatePath = (Resolve-Path -LiteralPath $CertificatePath).Path
 $KeyPath = (Resolve-Path -LiteralPath $KeyPath).Path
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 
-# HTTPS also needs a UDP listener for HTTP/3; probe both protocols when requested.
-function Get-FreePort([switch]$RequireUdp) {
-    for ($attempt = 0; $attempt -lt $portDiscoveryAttempts; $attempt++) {
-        $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
-        $udp = $null
-        try {
-            $listener.Start()
-            $candidate = $listener.LocalEndpoint.Port
-            if ($RequireUdp) {
-                $udp = [Net.Sockets.UdpClient]::new()
-                $udp.ExclusiveAddressUse = $true
-                $udp.Client.Bind([Net.IPEndPoint]::new([Net.IPAddress]::Loopback, $candidate))
-            }
-            return $candidate
-        } catch [Net.Sockets.SocketException] {
-            # Windows can reserve a port for one protocol while the other remains free.
-        } finally {
-            if ($udp) { $udp.Dispose() }
-            $listener.Stop()
-        }
-    }
-    throw 'No available service port was found.'
+# The fixed listeners are reclaimed from saved services and direct TCP/UDP owners.
+if (Test-Path -LiteralPath $statePath) {
+    Stop-SavedProcesses (Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json)
+    Remove-Item -LiteralPath $statePath
 }
-if ($Port -eq 0) { $Port = Get-FreePort -RequireUdp }
-$backendPort = Get-FreePort
-while ($backendPort -eq $Port) { $backendPort = Get-FreePort }
-$probe = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $Port)
-$udpProbe = [Net.Sockets.UdpClient]::new()
-try {
-    $probe.Start()
-    $udpProbe.ExclusiveAddressUse = $true
-    $udpProbe.Client.Bind([Net.IPEndPoint]::new([Net.IPAddress]::Loopback, $Port))
-} finally {
-    $udpProbe.Dispose()
-    $probe.Stop()
+$requiredServices = @('frontend', 'backend', 'gatewayAdmin')
+if ($env:LEAFDOC_ENABLE_METRICS -in @('true', '1')) {
+    $requiredServices += 'metrics'
 }
+& (Join-Path $PSScriptRoot 'release-service-ports.ps1') -Services ($requiredServices -join ',')
 
 if ($Build -or -not (Test-Path -LiteralPath $binary)) {
     Push-Location (Join-Path $root 'ui')
@@ -148,9 +152,7 @@ if (-not (Test-Path -LiteralPath $secretPath)) {
     [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(64)) |
         Set-Content -LiteralPath $secretPath -Encoding UTF8 -NoNewline
 }
-# Each instance owns a separate loopback administration listener.
-$adminPort = Get-FreePort
-while ($adminPort -eq $Port -or $adminPort -eq $backendPort) { $adminPort = Get-FreePort }
+# The gateway's administration listener follows the shared service allocation.
 $gatewayConfig = Join-Path $runtime 'Caddyfile'
 @"
 {
@@ -196,7 +198,7 @@ function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
 
 try {
     $env:LEAFDOC_JWT_SECRET = Get-Content -LiteralPath $secretPath -Raw -Encoding UTF8
-    $backendArguments = @('--host', '127.0.0.1', '--port', "$backendPort", '--data-dir', "`"$DataDirectory`"", '--enable-revision')
+    $backendArguments = @('--host', '127.0.0.1', '--port', "$backendPort", '--data-dir', "`"$DataDirectory`"", '--enable-revision', '--snapshot', '--metrics-port', "$($ports.metrics)")
     if ($BasePath) { $backendArguments += @('--base-path', $BasePath) }
     $backend = Start-Process -FilePath $binary -ArgumentList $backendArguments -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'backend.stdout.log') -RedirectStandardError (Join-Path $runtime 'backend.stderr.log') -PassThru
     $processes += $backend

@@ -21,6 +21,7 @@ import (
 
 // Disabling login does not remove the public avatar service or its account validation.
 func TestAvatarRoutes_DefaultWithAuthDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w, err := wiki.NewWiki(&wiki.WikiOptions{StorageDir: t.TempDir(), AuthDisabled: true})
 	if err != nil {
 		t.Fatal(err)
@@ -131,6 +132,7 @@ func avatarErrorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 }
 
 func TestAvatarRoutes_UploadRejections_ReturnStatusAndCode(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tooLarge := make([]byte, coreavatar.MaxUploadSize+1024)
 
 	tests := []struct {
@@ -172,6 +174,7 @@ func TestAvatarRoutes_UploadRejections_ReturnStatusAndCode(t *testing.T) {
 }
 
 func TestAvatarRoutes_Unauthenticated_WritesRejected(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tests := []struct {
 		name   string
 		method string
@@ -194,6 +197,7 @@ func TestAvatarRoutes_Unauthenticated_WritesRejected(t *testing.T) {
 }
 
 func TestAvatarRoutes_UploadServeDelete_RoundTrip(t *testing.T) {
+	testutil.ResetMySQL(t)
 	_, router, adminID := newAvatarRouterTest(t)
 	avatarURL := "/avatars/" + adminID
 
@@ -228,6 +232,7 @@ func TestAvatarRoutes_UploadServeDelete_RoundTrip(t *testing.T) {
 }
 
 func TestAvatarRoutes_Serve_UnknownOrUnsafeID_Returns404(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tests := []struct {
 		name string
 		path string

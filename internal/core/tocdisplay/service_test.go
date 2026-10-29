@@ -2,14 +2,16 @@ package tocdisplay
 
 import (
 	"encoding/json"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"testing"
 )
 
 func TestService_NoFile_DisabledByDefault(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, err := New(t.TempDir())
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -20,6 +22,7 @@ func TestService_NoFile_DisabledByDefault(t *testing.T) {
 }
 
 func TestService_SetAlwaysShow_PersistsAcrossReconstruction(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 
 	svc, err := New(dir)
@@ -53,43 +56,34 @@ func TestService_SetAlwaysShow_PersistsAcrossReconstruction(t *testing.T) {
 	}
 }
 
-func TestService_SetAlwaysShow_WritesModeSixHundredJSON(t *testing.T) {
+func TestService_SetAlwaysShow_PersistsMySQLWithoutLocalConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	svc, err := New(dir)
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatal(err)
 	}
 	if err := svc.SetAlwaysShow(true); err != nil {
-		t.Fatalf("SetAlwaysShow(true): %v", err)
+		t.Fatal(err)
 	}
-
-	path := filepath.Join(dir, "toc-display.json")
-	info, err := os.Stat(path)
+	data, err := database.ReadRecord(dir, "settings", "toc-display.json")
 	if err != nil {
-		t.Fatalf("stat toc-display.json: %v", err)
+		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" {
-		if perm := info.Mode().Perm(); perm != 0o600 {
-			t.Fatalf("expected toc-display.json mode 0600, got %o", perm)
-		}
+	var value map[string]bool
+	if err := json.Unmarshal(data, &value); err != nil {
+		t.Fatal(err)
 	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read toc-display.json: %v", err)
+	if !value["alwaysShow"] {
+		t.Fatalf("unexpected persisted configuration: %s", data)
 	}
-	var cfg struct {
-		AlwaysShow bool `json:"alwaysShow"`
-	}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Fatalf("unmarshal toc-display.json: %v", err)
-	}
-	if !cfg.AlwaysShow {
-		t.Fatalf("expected {\"alwaysShow\": true} on disk, got %s", data)
+	if _, err := os.Stat(filepath.Join(dir, "toc-display.json")); !os.IsNotExist(err) {
+		t.Fatalf("local config exists: %v", err)
 	}
 }
 
 func TestService_Reload_PicksUpExternalFileChange(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	svc, err := New(dir)
 	if err != nil {
@@ -100,7 +94,7 @@ func TestService_Reload_PicksUpExternalFileChange(t *testing.T) {
 	}
 
 	// Simulate a restore dropping in a different toc-display.json.
-	if err := os.WriteFile(filepath.Join(dir, "toc-display.json"), []byte(`{"alwaysShow": true}`), 0o600); err != nil {
+	if err := database.WriteRecord(dir, "settings", "toc-display.json", []byte(`{"alwaysShow": true}`)); err != nil {
 		t.Fatalf("write external file: %v", err)
 	}
 	if svc.AlwaysShow() {
@@ -116,8 +110,9 @@ func TestService_Reload_PicksUpExternalFileChange(t *testing.T) {
 }
 
 func TestService_Load_CorruptFileIsAnError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "toc-display.json"), []byte("not json"), 0o600); err != nil {
+	if err := database.WriteRecord(dir, "settings", "toc-display.json", []byte("not json")); err != nil {
 		t.Fatalf("write corrupt file: %v", err)
 	}
 	if _, err := New(dir); err == nil {
@@ -126,6 +121,7 @@ func TestService_Load_CorruptFileIsAnError(t *testing.T) {
 }
 
 func TestService_ConcurrentAccess_IsRaceFree(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, err := New(t.TempDir())
 	if err != nil {
 		t.Fatalf("New: %v", err)

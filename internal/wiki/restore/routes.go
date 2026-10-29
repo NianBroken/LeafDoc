@@ -39,12 +39,15 @@ func NewRoutes(manager *restore.Manager, authService *coreauth.AuthService) *Rou
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	opts := ctx.Opts
 
+	// Progress uses its own job-scoped credential and never grants admin access.
+	ctx.Base.GET("/api/restore/progress", r.handleProgress)
+
 	authGroup := ctx.APIAuthGroup(r.authService)
 
 	adminGroup := authGroup.Group("/admin")
 	adminGroup.Use(authmw.RequireAdmin(opts.AuthDisabled))
 
-	// A restore replaces users.db and api_keys.db, so it is browser-session
+	// A restore replaces MySQL account and API key records, so it is browser-session
 	// only: an API key must not be able to swap in its own credentials.
 	sessionOnly := authmw.RequireCookieSession()
 
@@ -68,11 +71,13 @@ func (r *Routes) handleTrigger(c *gin.Context) {
 		return
 	}
 	id := c.Param("id")
-	if err := r.manager.TriggerRestore(id); err != nil {
+	statusToken, err := r.manager.TriggerRestoreWithStatusToken(id)
+	if err != nil {
 		respondWithRestoreError(c, err)
 		return
 	}
-	c.JSON(http.StatusAccepted, gin.H{"ok": true})
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusAccepted, gin.H{"ok": true, "statusToken": statusToken})
 }
 
 // handleTriggerUpload starts a restore from an uploaded backup ZIP and
@@ -114,11 +119,13 @@ func (r *Routes) handleTriggerUpload(c *gin.Context) {
 	}
 	defer func() { _ = file.Close() }()
 
-	if err := r.manager.TriggerRestoreFromUpload(file); err != nil {
+	statusToken, err := r.manager.TriggerRestoreFromUploadWithStatusToken(file)
+	if err != nil {
 		respondWithRestoreError(c, err)
 		return
 	}
-	c.JSON(http.StatusAccepted, gin.H{"ok": true})
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusAccepted, gin.H{"ok": true, "statusToken": statusToken})
 }
 
 // handleStatus returns the current restore job state for client polling.
@@ -152,4 +159,20 @@ func (r *Routes) handleSelfRestart(c *gin.Context) {
 	err := r.manager.SelfRestart()
 	slog.Default().Error("restore: self-restart failed", "error", err)
 	respondWithRestoreStatusError(c, http.StatusInternalServerError, ErrCodeRestoreInternalError, "Failed to restart server", "failed to restart server")
+}
+
+// handleProgress exposes only the current restore job to its bearer credential.
+// Credentials travel in headers and responses carry no-store to prevent caching.
+func (r *Routes) handleProgress(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	if r.manager == nil {
+		r.respondNotEnabled(c)
+		return
+	}
+	status, valid := r.manager.ProgressStatus(c.GetHeader("X-Restore-Token"))
+	if !valid {
+		respondWithRestoreStatusError(c, http.StatusUnauthorized, "restore_progress_unauthorized", "Invalid restore progress credential", "invalid restore progress credential")
+		return
+	}
+	c.JSON(http.StatusOK, status)
 }

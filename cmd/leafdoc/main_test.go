@@ -310,7 +310,7 @@ func TestRootCommand_EmptyEnvVarIsUnset(t *testing.T) {
 		if got, want := cfg.server.host, "127.0.0.1"; got != want {
 			t.Fatalf("host = %q, want %q", got, want)
 		}
-		if got, want := cfg.server.port, "8080"; got != want {
+		if got, want := cfg.server.port, "24692"; got != want {
 			t.Fatalf("port = %q, want %q", got, want)
 		}
 		if !cfg.backup.snapshot {

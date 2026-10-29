@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 	"time"
 )
@@ -41,6 +42,7 @@ func setupTestAuthService(t *testing.T) *AuthService {
 }
 
 func TestAuthService_LoginAndValidateToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authService := setupTestAuthService(t)
 
 	tokens, err := authService.Login("testuser", "securepass")
@@ -63,6 +65,7 @@ func TestAuthService_LoginAndValidateToken(t *testing.T) {
 }
 
 func TestAuthService_RevokeRefreshToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authService := setupTestAuthService(t)
 
 	// Login to get a refresh token
@@ -103,6 +106,7 @@ func TestAuthService_RevokeRefreshToken(t *testing.T) {
 }
 
 func TestAuthService_RevokeRefreshToken_InvalidToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authService := setupTestAuthService(t)
 
 	// Try to revoke an invalid token
@@ -117,6 +121,7 @@ func TestAuthService_RevokeRefreshToken_InvalidToken(t *testing.T) {
 }
 
 func TestAuthService_RevokeRefreshToken_AccessToken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authService := setupTestAuthService(t)
 
 	// Login to get tokens
@@ -137,6 +142,7 @@ func TestAuthService_RevokeRefreshToken_AccessToken(t *testing.T) {
 }
 
 func TestAuthService_RevokeAllUserSessions(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authService := setupTestAuthService(t)
 
 	// Create multiple sessions by logging in multiple times
@@ -186,6 +192,7 @@ func TestAuthService_RevokeAllUserSessions(t *testing.T) {
 }
 
 func TestAuthService_RevokeAllUserSessions_MultipleUsers(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authService := setupTestAuthService(t)
 
 	// Create a second user
@@ -232,6 +239,7 @@ func TestAuthService_RevokeAllUserSessions_MultipleUsers(t *testing.T) {
 }
 
 func TestAuthService_Close_ClosesSessionAndUserStores(t *testing.T) {
+	testutil.ResetMySQL(t)
 	authService := setupTestAuthService(t)
 
 	if authService.sessions == nil || authService.sessions.sessionStore == nil {

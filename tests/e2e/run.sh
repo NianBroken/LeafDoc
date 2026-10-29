@@ -4,8 +4,17 @@ set -euo pipefail
 
 current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$current_dir/../.." && pwd)"
-app_port="${E2E_PORT:-8085}"
-app_url="${E2E_BASE_URL:-http://localhost:${app_port}}"
+# The wrapper creates and drops one owned test database before any app process starts.
+if [ -z "${LEAFDOC_E2E_DATABASE_OWNED:-}" ]; then
+  exec node "$current_dir/run-mysql.mjs" "$@"
+fi
+if [[ ! "$LEAFDOC_E2E_DATABASE_OWNED" =~ ^[0-9a-f]{24}$ ]] ||
+   [ "${LEAFDOC_MYSQL_DATABASE:-}" != "leafdoc_test_migration_$LEAFDOC_E2E_DATABASE_OWNED" ]; then
+  echo "The browser runner requires its own isolated MySQL database." >&2
+  exit 1
+fi
+app_port="$(node -p 'require(process.argv[1]).backend' "$repo_root/internal/core/serviceports/ports.json")"
+app_url="http://localhost:${app_port}"
 run_mode="${E2E_RUN_MODE:-docker}"
 server_pid=""
 server_log=""
@@ -72,16 +81,17 @@ start_docker() {
   docker volume create "$docker_data_volume" >/dev/null
 
   docker run -d \
-    -p "$app_port:8080" \
+    -p "$app_port:$app_port" \
     --name wiki-e2e-tests \
+    -e LEAFDOC_MYSQL_HOST -e LEAFDOC_MYSQL_PORT -e LEAFDOC_MYSQL_DATABASE \
+    -e LEAFDOC_MYSQL_USER -e LEAFDOC_MYSQL_PASSWORD \
+    -e LEAFDOC_ADMIN_USERNAME -e LEAFDOC_ADMIN_PASSWORD -e LEAFDOC_JWT_SECRET \
     -v "$docker_data_volume":/app/data \
     wiki-e2e-tests \
     --allow-insecure=true \
     --enable-revision=true \
     --enable-link-refactor=true \
-    --revision-coalesce-window=0 \
-    --jwt-secret=e2e-tests-secret \
-    --admin-password=admine2epassword
+    --revision-coalesce-window=0
 
   echo "✅ Container started on $app_url"
 }
@@ -126,9 +136,7 @@ start_local() {
       --allow-insecure=true \
       --enable-revision=true \
       --enable-link-refactor=true \
-      --revision-coalesce-window=0 \
-      --jwt-secret=e2e-tests-secret \
-      --admin-password=admine2epassword
+      --revision-coalesce-window=0
   ) >"$server_log" 2>&1 &
 
   server_pid=$!
@@ -224,17 +232,17 @@ if nc -z localhost "$app_port" >/dev/null 2>&1; then
     echo "⚠️ Port $app_port already in use by an existing E2E container – restarting it..."
     stop_docker
   else
-    echo "❌ Port $app_port is already in use. Stop the existing process or choose another E2E_PORT."
+    echo "❌ Fixed port $app_port remained occupied after reclaiming its owner. No alternate port is permitted."
     exit 1
   fi
 fi
 
+trap cleanup_runner EXIT
 if [ "$run_mode" = "docker" ]; then
   start_docker
 else
   start_local
 fi
-trap cleanup_runner EXIT
 
 wait_until_reachable
 run_playwright_tests "$@"

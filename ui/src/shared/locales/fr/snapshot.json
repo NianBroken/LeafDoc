@@ -50,7 +50,7 @@
   "createNow": "Créer une sauvegarde maintenant",
   "creating": "Création…",
   "listSectionTitle": "Sauvegardes disponibles",
-  "listSectionDescription": "Téléchargez une sauvegarde pour la restaurer manuellement : arrêtez le serveur, extrayez le ZIP dans votre répertoire de données, puis redémarrez.",
+  "listSectionDescription": "Téléchargez les sauvegardes ou restaurez la base de données et les ressources depuis une sauvegarde.",
   "listEmpty": "Aucune sauvegarde pour le moment.",
   "columnDate": "Créée le",
   "columnSize": "Taille",
@@ -66,5 +66,7 @@
     "backupTriggerFailed": "Impossible de déclencher la sauvegarde",
     "deleteSuccess": "Sauvegarde supprimée",
     "deleteFailed": "Impossible de supprimer la sauvegarde"
-  }
+  },
+  "columnName": "Nom de la sauvegarde",
+  "columnActions": "Actions"
 }

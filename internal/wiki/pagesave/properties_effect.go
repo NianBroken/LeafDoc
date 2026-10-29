@@ -1,14 +1,14 @@
 package pagesave
 
 import (
-	"log/slog"
-
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/properties"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	"log/slog"
 )
 
-// PropertiesSideEffect updates the properties index after every page mutation.
+// PropertiesSideEffect keeps the derived properties index in the page mutation transaction.
 type PropertiesSideEffect struct {
 	svc     *properties.PropertiesService
 	log     *slog.Logger
@@ -21,42 +21,37 @@ func NewPropertiesSideEffect(svc *properties.PropertiesService, log *slog.Logger
 	}
 	return &PropertiesSideEffect{svc: svc, log: log, metrics: metrics}
 }
-
-func (e *PropertiesSideEffect) Name() string {
-	return "properties"
+func (e *PropertiesSideEffect) Name() string { return "properties" }
+func (e *PropertiesSideEffect) WithExecutor(exec database.Executor, _ *tree.TreeService) PageSideEffect {
+	copy := *e
+	if e.svc != nil {
+		copy.svc = e.svc.WithExecutor(exec)
+	}
+	return &copy
+}
+func (e *PropertiesSideEffect) Apply(event PageSaveEvent) {
+	if err := e.ApplyTransactional(event); err != nil {
+		e.log.Error("page index update failed", "index", e.Name(), "error", err)
+		e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
+	}
 }
 
-func (e *PropertiesSideEffect) Apply(event PageSaveEvent) {
+// ApplyTransactional propagates failure to the owner of the page transaction.
+func (e *PropertiesSideEffect) ApplyTransactional(event PageSaveEvent) error {
 	if e.svc == nil {
-		return
+		return nil
 	}
 	switch event.Operation {
 	case PageOperationCreate, PageOperationUpdate, PageOperationRestore:
 		if event.After != nil {
-			e.setProperties(event.After, event.Operation)
+			return e.svc.SetPropertiesForPage(event.After.ID, properties.ExtractPropertiesFromContent(event.After.RawContent))
 		}
-
-	case PageOperationMove:
-		// page_id is stable across moves; properties in frontmatter are unchanged — no-op.
-
 	case PageOperationDelete:
-		for _, p := range event.AffectedPages {
-			e.deleteProperties(p, event.Operation)
+		for _, page := range event.AffectedPages {
+			if err := e.svc.DeletePropertiesForPage(page.ID); err != nil {
+				return err
+			}
 		}
 	}
-}
-
-func (e *PropertiesSideEffect) setProperties(p *tree.Page, operation PageOperationType) {
-	props := properties.ExtractPropertiesFromContent(p.RawContent)
-	if err := e.svc.SetPropertiesForPage(p.ID, props); err != nil {
-		e.log.Warn("failed to set properties for page", "pageID", p.ID, "error", err)
-		e.metrics.IncPageSaveSideEffectFailure(string(operation), e.Name())
-	}
-}
-
-func (e *PropertiesSideEffect) deleteProperties(p *tree.Page, operation PageOperationType) {
-	if err := e.svc.DeletePropertiesForPage(p.ID); err != nil {
-		e.log.Warn("failed to delete properties for page", "pageID", p.ID, "error", err)
-		e.metrics.IncPageSaveSideEffectFailure(string(operation), e.Name())
-	}
+	return nil
 }

@@ -1,54 +1,44 @@
 package links
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
-func TestLinksStore_CreatesDatabaseInStorageDir(t *testing.T) {
-	tmp := t.TempDir()
-	store, err := NewLinksStore(tmp)
+func TestLinksStore_CreatesNoLocalDatabase(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	store, err := NewLinksStore(dir)
 	if err != nil {
-		t.Fatalf("NewLinksStore err: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	if _, err := os.Stat(filepath.Join(tmp, "links.db")); err != nil {
-		t.Fatalf("expected links.db in storage dir, got err: %v", err)
+	defer store.Close()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unexpected local persistence: %v", entries)
 	}
 }
 
-func TestLinksStore_UsesWALJournalMode(t *testing.T) {
-	tmp := t.TempDir()
-	store, err := NewLinksStore(tmp)
+func TestLinksStore_UsesInnoDB(t *testing.T) {
+	testutil.ResetMySQL(t)
+	store, err := NewLinksStore(t.TempDir())
 	if err != nil {
-		t.Fatalf("NewLinksStore err: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	var mode string
-	if err := store.db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
-		t.Fatalf("failed to read journal_mode: %v", err)
+	defer store.Close()
+	var engine string
+	if err := store.db.QueryRow("SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", "links").Scan(&engine); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.EqualFold(mode, "wal") {
-		t.Fatalf("journal_mode = %q, want %q", mode, "wal")
+	if engine != "InnoDB" {
+		t.Fatalf("engine=%s", engine)
 	}
 }
 
@@ -60,6 +50,7 @@ func TestLinksStore_UsesWALJournalMode(t *testing.T) {
 // RLock would show up as a race here against Close/AddLinks-style
 // mutation, which -race is what would catch).
 func TestLinksStore_ConcurrentReadsDoNotRace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	store, err := NewLinksStore(tmp)
 	if err != nil {
@@ -117,15 +108,8 @@ func TestLinksStore_ConcurrentReadsDoNotRace(t *testing.T) {
 	}
 }
 
-func TestLinksDatabasePath_WindowsPath(t *testing.T) {
-	got := strings.ReplaceAll(linksDatabasePath(`C:\wiki\data`, "links.db"), `\`, `/`)
-	want := `C:/wiki/data/links.db`
-	if got != want {
-		t.Fatalf("path = %q, want %q", got, want)
-	}
-}
-
 func TestLinksStore_GetOutgoingLinksForPages_BatchesLargeInputs(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	store, err := NewLinksStore(tmp)
 	if err != nil {
@@ -173,6 +157,7 @@ func TestLinksStore_GetOutgoingLinksForPages_BatchesLargeInputs(t *testing.T) {
 }
 
 func TestLinksStore_GetBrokenLinks_ReturnsOnlyBrokenOrderedByToPathThenFromTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	store, err := NewLinksStore(tmp)
 	if err != nil {
@@ -223,6 +208,7 @@ func TestLinksStore_GetBrokenLinks_ReturnsOnlyBrokenOrderedByToPathThenFromTitle
 }
 
 func TestLinksStore_GetBrokenLinks_EmptyWhenNoneBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	store, err := NewLinksStore(tmp)
 	if err != nil {
@@ -252,69 +238,6 @@ func TestLinksStore_GetBrokenLinks_EmptyWhenNoneBroken(t *testing.T) {
 
 // A links.db from before the 3-state column (boolean `broken`) is dropped and
 // recreated: the index is rebuilt from the markdown files on every startup.
-func TestLinksStore_LegacyBrokenColumn_IsRecreatedWithStateColumn(t *testing.T) {
-	dir := t.TempDir()
-
-	legacy, err := sql.Open("sqlite", linksDatabasePath(dir, "links.db"))
-	if err != nil {
-		t.Fatalf("open legacy db: %v", err)
-	}
-	if _, err := legacy.Exec(`
-		CREATE TABLE links (from_page_id TEXT NOT NULL, to_page_id TEXT, to_path TEXT NOT NULL, from_title TEXT, broken INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (from_page_id, to_path));
-		CREATE INDEX idx_links_broken ON links(broken);
-		INSERT INTO links VALUES ('p1', NULL, 'wikilink:Kafka', 'P1', 1);
-	`); err != nil {
-		t.Fatalf("seed legacy db: %v", err)
-	}
-	_ = legacy.Close()
-
-	store, err := NewLinksStore(dir)
-	if err != nil {
-		t.Fatalf("NewLinksStore on legacy db failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	if err := store.AddLinks("p1", "P1", []TargetLink{{TargetPagePath: "wikilink:Kafka", State: LinkAmbiguous}}); err != nil {
-		t.Fatalf("AddLinks after migration failed: %v", err)
-	}
-	outs, err := store.GetOutgoingLinksForPage("p1")
-	if err != nil {
-		t.Fatalf("GetOutgoingLinksForPage failed: %v", err)
-	}
-	if len(outs) != 1 || outs[0].State != LinkAmbiguous {
-		t.Fatalf("expected exactly the freshly added ambiguous row, got %#v", outs)
-	}
-}
 
 // links.db is a derived index (ADR-0001): a corrupt file is deleted with its
 // sidecars and rebuilt empty, unlike real-state stores (ADR-0013).
-func TestNewLinksStore_CorruptFile_Rebuilds(t *testing.T) {
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "links.db")
-	testutil.WriteCorruptSQLiteDB(t, dbPath)
-
-	store, err := NewLinksStore(dir)
-	if err != nil {
-		t.Fatalf("NewLinksStore: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
-
-	var tables int
-	if err := store.db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table'`).Scan(&tables); err != nil {
-		t.Fatalf("query rebuilt database: %v", err)
-	}
-	if tables == 0 {
-		t.Fatal("expected the rebuilt links.db to have its schema")
-	}
-	testutil.AssertNoSQLiteQuarantine(t, dbPath)
-}

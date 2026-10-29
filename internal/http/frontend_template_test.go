@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"html"
 	"net/http/httptest"
 	"regexp"
@@ -19,6 +20,7 @@ func frontendTemplateRouter(tb testing.TB, base string) *gin.Engine {
 	return NewRouter(nil, FrontendConfig{}, RouterOptions{BasePath: base, DisableRequestLog: true})
 }
 func TestFrontendTemplate_DynamicBrandingAndDeepRoute_PreserveValues(t *testing.T) {
+	testutil.ResetMySQL(t)
 	if _, err := frontend.Open("dist/index.html"); err != nil {
 		t.Skip("requires built frontend (make ui)")
 	}

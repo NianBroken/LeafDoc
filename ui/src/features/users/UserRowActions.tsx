@@ -1,6 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { MoreHorizontal } from 'lucide-react'
-import { Button } from '@/shared/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,14 +18,13 @@ export function UserRowActions({ user }: { user: User }) {
     <div className="users__actions">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            size="icon"
-            className="h-7 w-7"
-            variant="outline"
+          <button
+            type="button"
+            className="settings__text-action"
             aria-label={t('actions.moreFor', { username: user.username })}
           >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+            {t('columns.actions')}
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <CreateEditUserButton user={user} menuItem />

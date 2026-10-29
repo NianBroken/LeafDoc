@@ -59,7 +59,7 @@ doctor:
 	@./scripts/doctor.sh
 
 # Backend and Vite dev server together; Ctrl-C stops both. ARGS go to the
-# backend.
+# backend. Listener values come from the shared service allocation.
 dev:
 	@./scripts/dev.sh $(ARGS)
 
@@ -168,7 +168,7 @@ help:
 	@echo "  make setup                – Install npm dependencies (frontend and tests/e2e)"
 	@echo "  make setup-e2e            – make setup plus the Playwright browser for local E2E runs"
 	@echo "  make doctor               – Show Go, Node, npm and mise versions; check them against go.mod and .nvmrc"
-	@echo "  make dev                  – Run backend and Vite dev server together (http://localhost:5173)"
+	@echo "  make dev                  – Run backend and Vite on the shared fixed service ports"
 	@echo "                              Optional: ARGS=\"<backend flags>\""
 	@echo "  make build                – Build self-contained binary with embedded UI (needs Node.js)"
 	@echo "  make build-api            – Build API-only binary (use with Vite in Dev Setup)"

@@ -1,6 +1,7 @@
 package tags
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"strings"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 )
 
 func TestExtractExcerptFromContent_PlainText(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: Hello\n---\n\nThis is the page body."
 	got := ExtractExcerptFromContent(raw)
 	if got != "This is the page body." {
@@ -16,6 +18,7 @@ func TestExtractExcerptFromContent_PlainText(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_NoFrontmatter(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "Just plain content here."
 	got := ExtractExcerptFromContent(raw)
 	if got != "Just plain content here." {
@@ -24,6 +27,7 @@ func TestExtractExcerptFromContent_NoFrontmatter(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_EmptyBody(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: Hello\n---\n\n"
 	got := ExtractExcerptFromContent(raw)
 	if got != "" {
@@ -32,6 +36,7 @@ func TestExtractExcerptFromContent_EmptyBody(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_EmptyContent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	got := ExtractExcerptFromContent("")
 	if got != "" {
 		t.Errorf("expected empty, got %q", got)
@@ -39,6 +44,7 @@ func TestExtractExcerptFromContent_EmptyContent(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_StripsFencedCode(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: T\n---\n\nBefore.\n\n```go\nfunc main() {}\n```\n\nAfter."
 	got := ExtractExcerptFromContent(raw)
 	if strings.Contains(got, "func main") {
@@ -50,6 +56,7 @@ func TestExtractExcerptFromContent_StripsFencedCode(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_StripsMarkdownHeadings(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: T\n---\n\n# Heading One\n\nSome body text."
 	got := ExtractExcerptFromContent(raw)
 	if strings.Contains(got, "#") {
@@ -61,6 +68,7 @@ func TestExtractExcerptFromContent_StripsMarkdownHeadings(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_StripsImageSyntax(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: T\n---\n\n![alt text](image.png) Some text."
 	got := ExtractExcerptFromContent(raw)
 	if strings.Contains(got, "![") || strings.Contains(got, "image.png") {
@@ -72,6 +80,7 @@ func TestExtractExcerptFromContent_StripsImageSyntax(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_StripsLinkSyntax(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: T\n---\n\n[Click here](https://example.com) for more."
 	got := ExtractExcerptFromContent(raw)
 	if strings.Contains(got, "https://example.com") || strings.Contains(got, "](") {
@@ -83,6 +92,7 @@ func TestExtractExcerptFromContent_StripsLinkSyntax(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_TruncatesLongContent(t *testing.T) {
+	testutil.ResetMySQL(t)
 	body := strings.Repeat("word ", 200)
 	raw := "---\ntitle: T\n---\n\n" + body
 	got := ExtractExcerptFromContent(raw)
@@ -96,6 +106,7 @@ func TestExtractExcerptFromContent_TruncatesLongContent(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_ShortContentNotTruncated(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: T\n---\n\nShort body."
 	got := ExtractExcerptFromContent(raw)
 	if strings.HasSuffix(got, "...") {
@@ -104,6 +115,7 @@ func TestExtractExcerptFromContent_ShortContentNotTruncated(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_CollapsesWhitespace(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: T\n---\n\nLine one.\n\nLine two.\n\nLine three."
 	got := ExtractExcerptFromContent(raw)
 	if strings.Contains(got, "\n") {
@@ -115,6 +127,7 @@ func TestExtractExcerptFromContent_CollapsesWhitespace(t *testing.T) {
 }
 
 func TestExtractExcerptFromContent_StripsHTMLTags(t *testing.T) {
+	testutil.ResetMySQL(t)
 	raw := "---\ntitle: T\n---\n\n<strong>Bold</strong> text."
 	got := ExtractExcerptFromContent(raw)
 	if strings.Contains(got, "<strong>") || strings.Contains(got, "</strong>") {

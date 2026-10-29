@@ -2,55 +2,13 @@ package auth
 
 import (
 	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
-func TestDatabasePath_WindowsPath(t *testing.T) {
-	got := strings.ReplaceAll(databasePath(`C:\wiki\data`, "users.db"), `\`, `/`)
-	want := `C:/wiki/data/users.db`
-	if got != want {
-		t.Fatalf("path = %q, want %q", got, want)
-	}
-}
-
 // A legacy credential schema must retain accounts while discarding obsolete secrets.
-func TestUserStoreCredentialMigrationPreservesAccount(t *testing.T) {
-	store := setupTestUserStore(t)
-	user := &User{ID: "migration-user", Username: "migration-user", Password: "stored-password-hash", Email: "migration@example.test", Role: "admin"}
-	if err := store.CreateUser(user); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.db.Exec(`ALTER TABLE users ADD COLUMN totp_secret TEXT; ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0; UPDATE users SET totp_secret='obsolete-secret', totp_enabled=1;`); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.ensureSchema(); err != nil {
-		t.Fatal(err)
-	}
-	columns, err := store.existingColumns()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for column := range columns {
-		if strings.HasPrefix(column, "totp_") {
-			t.Fatalf("obsolete credential column remains: %s", column)
-		}
-	}
-	actual, err := store.GetUserByID(user.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if actual.Username != user.Username || actual.Password != user.Password || actual.Role != user.Role || actual.MustChangePassword {
-		t.Fatalf("account changed during credential migration: %#v", actual)
-	}
-}
 
 func setupTestUserStore(t *testing.T) *UserStore {
 	t.Helper()
@@ -68,30 +26,25 @@ func setupTestUserStore(t *testing.T) *UserStore {
 	return userStore
 }
 
-func TestUserStore_UsesWALJournalMode(t *testing.T) {
-	userStore := setupTestUserStore(t)
-	defer testutil.WrapCloseWithErrorCheck(userStore.Close, t)
-
-	if err := userStore.Connect(); err != nil {
-		t.Fatalf("Connect: %v", err)
+func TestUserStore_UsesInnoDB(t *testing.T) {
+	testutil.ResetMySQL(t)
+	store, err := NewUserStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	var mode string
-	if err := userStore.db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
-		t.Fatalf("failed to read journal_mode: %v", err)
+	defer store.Close()
+	var engine string
+	if err := store.db.QueryRow("SELECT ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", "users").Scan(&engine); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.EqualFold(mode, "wal") {
-		t.Fatalf("journal_mode = %q, want %q", mode, "wal")
+	if engine != "InnoDB" {
+		t.Fatalf("engine=%s", engine)
 	}
 }
 
-// Pins the invariant restore's live-swap path depends on: UserStore.suspend
-// (which this test approximates via the exported Close) must leave users.db
-// self-consistent on its own, since restore/swap.go's removeStaleWALSidecars
-// deletes any leftover -wal/-shm before a fresh store reopens the file — if
-// WAL content weren't checkpointed into the main file on close, that data
-// would be silently lost the moment the sidecar is removed.
+// Account and session records persist in MySQL across store reopening.
 func TestUserStore_DataSurvivesCloseAndFreshReopen(t *testing.T) {
+	testutil.ResetMySQL(t)
 	storageDir := t.TempDir()
 	userStore, err := NewUserStore(storageDir)
 	if err != nil {
@@ -134,25 +87,25 @@ func TestUserStore_DataSurvivesCloseAndFreshReopen(t *testing.T) {
 	}
 }
 
-func TestUserStore_CreatesDatabaseInStorageDir(t *testing.T) {
-	storageDir := t.TempDir()
-	userStore, err := NewUserStore(storageDir)
+func TestUserStore_CreatesNoLocalDatabase(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	store, err := NewUserStore(dir)
 	if err != nil {
-		t.Fatalf("Failed to create user store: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := userStore.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	defer testutil.WrapCloseWithErrorCheck(userStore.Close, t)
-
-	if _, err := os.Stat(filepath.Join(storageDir, "users.db")); err != nil {
-		t.Fatalf("expected users.db in storage dir, got err: %v", err)
+	defer store.Close()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unexpected local persistence: %v", entries)
 	}
 }
 
 func TestUserStore_CreateUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -193,6 +146,7 @@ func TestUserStore_CreateUser(t *testing.T) {
 }
 
 func TestUserStore_CreateUser_EmailAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user1 := &User{
@@ -227,6 +181,7 @@ func TestUserStore_CreateUser_EmailAlreadyExists(t *testing.T) {
 }
 
 func TestUserStore_CreateUser_UsernameAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user1 := &User{
@@ -258,6 +213,7 @@ func TestUserStore_CreateUser_UsernameAlreadyExists(t *testing.T) {
 }
 
 func TestUserStore_GetUserByID_NotExisting(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user := &User{
@@ -292,6 +248,7 @@ func TestUserStore_GetUserByID_NotExisting(t *testing.T) {
 }
 
 func TestUserStore_UpdateUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user := &User{
@@ -343,6 +300,7 @@ func TestUserStore_UpdateUser(t *testing.T) {
 }
 
 func TestUserStore_UpdateUser_LastAdminCannotBeDemoted(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -365,6 +323,7 @@ func TestUserStore_UpdateUser_LastAdminCannotBeDemoted(t *testing.T) {
 }
 
 func TestUserStore_UpdateUser_EMailAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -413,6 +372,7 @@ func TestUserStore_UpdateUser_EMailAlreadyExists(t *testing.T) {
 }
 
 func TestUserStore_UpdateUser_UsernameAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -461,6 +421,7 @@ func TestUserStore_UpdateUser_UsernameAlreadyExists(t *testing.T) {
 }
 
 func TestUserStore_DeleteUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 	user := &User{
@@ -511,6 +472,7 @@ func TestUserStore_DeleteUser(t *testing.T) {
 
 }
 func TestUserStore_DeleteUser_NotExisting(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -525,6 +487,7 @@ func TestUserStore_DeleteUser_NotExisting(t *testing.T) {
 }
 
 func TestUserStore_GetAllUsers(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -585,6 +548,7 @@ func TestUserStore_GetAllUsers(t *testing.T) {
 
 }
 func TestUserStore_GetUserCount(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -626,6 +590,7 @@ func TestUserStore_GetUserCount(t *testing.T) {
 }
 
 func TestUserStore_GetUserByEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -677,6 +642,7 @@ func TestUserStore_GetUserByEmail(t *testing.T) {
 }
 
 func TestUserStore_GetUserByUsername(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -728,6 +694,7 @@ func TestUserStore_GetUserByUsername(t *testing.T) {
 }
 
 func TestUserStoreUpdatePassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 	defer testutil.WrapCloseWithErrorCheck(store.Close, t)
 
@@ -761,14 +728,9 @@ func TestUserStoreUpdatePassword(t *testing.T) {
 
 }
 
-// TestUserStore_Suspend_ClosesDBAndBlocksReconnect is the regression test for
-// the root cause of the Windows live-restore bug: a plain Close() lets the
-// very next query silently reopen a new *sql.DB (Connect() reopens whenever
-// f.db is nil), which would race a reconnect against restore.SwapAll's
-// os.Rename of users.db. suspend() must close the connection AND make
-// Connect() refuse to reopen it, so a query landing during the swap window
-// fails fast instead of grabbing a fresh OS-level file handle.
+// Account and session records persist in MySQL across store reopening.
 func TestUserStore_Suspend_ClosesDBAndBlocksReconnect(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store := setupTestUserStore(t)
 
 	user := &User{

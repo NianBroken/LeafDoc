@@ -1,6 +1,7 @@
 package pagesave
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 
 	"github.com/NianBroken/LeafDoc/internal/core/links"
@@ -49,6 +50,7 @@ func backlinkCount(t *testing.T, svc *links.LinkService, pageID string) int {
 // [[Title]] into an ambiguous one (not broken, backlink on both pages) without
 // the source being re-saved.
 func TestLinkIndexSideEffect_Create_DuplicateTitle_ResolvedBecomesAmbiguous(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect, svc, ts := setupLinkEffect(t)
 
 	sourceID := createEffectPage(t, ts, nil, "Source", "source")
@@ -73,6 +75,7 @@ func TestLinkIndexSideEffect_Create_DuplicateTitle_ResolvedBecomesAmbiguous(t *t
 // Title-only rename (slug unchanged): links under the old title must stop
 // pointing at the renamed page, links under the new title must resolve to it.
 func TestLinkIndexSideEffect_TitleOnlyRename_ReconcilesOldAndNewTitle(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect, svc, ts := setupLinkEffect(t)
 
 	sourceID := createEffectPage(t, ts, nil, "Source", "source")
@@ -112,6 +115,7 @@ func TestLinkIndexSideEffect_TitleOnlyRename_ReconcilesOldAndNewTitle(t *testing
 }
 
 func TestLinkIndexSideEffect_Delete_OneOfTwo_AmbiguousBecomesResolved(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect, svc, ts := setupLinkEffect(t)
 
 	sourceID := createEffectPage(t, ts, nil, "Source", "source")
@@ -137,6 +141,7 @@ func TestLinkIndexSideEffect_Delete_OneOfTwo_AmbiguousBecomesResolved(t *testing
 }
 
 func TestLinkIndexSideEffect_Delete_LastMatch_BecomesBroken(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect, svc, ts := setupLinkEffect(t)
 
 	sourceID := createEffectPage(t, ts, nil, "Source", "source")
@@ -194,6 +199,7 @@ func mustPath(t *testing.T, ts *tree.TreeService, id string) string {
 // Invariant: after any sequence of page operations the incrementally
 // maintained link states equal what a full rebuild (resync) produces.
 func TestLinkIndexSideEffect_IncrementalState_EqualsFullRebuild(t *testing.T) {
+	testutil.ResetMySQL(t)
 	effect, svc, ts := setupLinkEffect(t)
 
 	sourceID := createEffectPage(t, ts, nil, "Source", "source")

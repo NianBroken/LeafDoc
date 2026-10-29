@@ -10,21 +10,15 @@ import {
 
 type SettingsTableProps = ComponentProps<'table'> & { columns: number }
 
-// Headers use the same content box as badges and bordered action buttons.
+// Headers and cells share their left inset; content never adds compensating padding.
 export function SettingsTableHeader({
   children,
-  content = 'text',
 }: {
   children: React.ReactNode
-  content?: 'text' | 'role' | 'actions'
 }) {
   return (
     <th scope="col" className="settings__table-header-cell">
-      <span
-        className={`settings__table-heading settings__table-heading--${content}`}
-      >
-        {children}
-      </span>
+      <span className="settings__table-heading">{children}</span>
     </th>
   )
 }
@@ -110,15 +104,20 @@ export function TableCellContent({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Semantic cells share overflow measurement and keyboard-accessible full text.
+// Text uses an accessible overflow hint; controls retain their own layout and focus.
 export function SettingsTableCell({
   children,
   className,
+  content = 'text',
   ...props
-}: ComponentProps<'td'>) {
+}: ComponentProps<'td'> & { content?: 'text' | 'controls' }) {
   return (
     <td {...props} className={cn('settings__table-cell', className)}>
-      <TableCellContent>{children}</TableCellContent>
+      {content === 'controls' ? (
+        <div className="settings__table-controls">{children}</div>
+      ) : (
+        <TableCellContent>{children}</TableCellContent>
+      )}
     </td>
   )
 }

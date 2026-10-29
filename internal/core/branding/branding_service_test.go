@@ -2,6 +2,7 @@ package branding
 
 import (
 	"bytes"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -24,6 +25,7 @@ func newTestBrandingService(t *testing.T) (*BrandingService, string) {
 }
 
 func TestBrandingService_DeleteLogo_NoLogo_NoOp(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	// Ensure config persisted with empty logo
@@ -48,6 +50,7 @@ func TestBrandingService_DeleteLogo_NoLogo_NoOp(t *testing.T) {
 }
 
 func TestBrandingService_DeleteFavicon_NoFavicon_NoOp(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	store, err := NewBrandingStore(dir)
@@ -70,6 +73,7 @@ func TestBrandingService_DeleteFavicon_NoFavicon_NoOp(t *testing.T) {
 }
 
 func TestBrandingService_DeleteLogo_RemovesFileAndClearsConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 	assetsDir := filepath.Join(dir, "branding")
 
@@ -111,6 +115,7 @@ func TestBrandingService_DeleteLogo_RemovesFileAndClearsConfig(t *testing.T) {
 }
 
 func TestBrandingService_DeleteFavicon_RemovesFileAndClearsConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 	assetsDir := filepath.Join(dir, "branding")
 
@@ -148,6 +153,7 @@ func TestBrandingService_DeleteFavicon_RemovesFileAndClearsConfig(t *testing.T) 
 }
 
 func TestBrandingService_DeleteLogo_FileMissingStillClearsConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	// Reference a file that doesn't exist
@@ -175,6 +181,7 @@ func TestBrandingService_DeleteLogo_FileMissingStillClearsConfig(t *testing.T) {
 }
 
 func TestBrandingService_Reload_PicksUpExternallyWrittenConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	cfg, err := svc.GetBranding()
@@ -212,6 +219,7 @@ func TestBrandingService_Reload_PicksUpExternallyWrittenConfig(t *testing.T) {
 }
 
 func TestBrandingService_GetBrandingUsesAvailableBrandAssets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	t.Run("configured assets are shown only while their files exist", func(t *testing.T) {
 		svc, dir := newTestBrandingService(t)
 		assetsDir := filepath.Join(dir, "branding")
@@ -264,6 +272,7 @@ func TestBrandingService_GetBrandingUsesAvailableBrandAssets(t *testing.T) {
 }
 
 func TestBrandingService_DeleteLogo_InvalidPath_ReturnsErrorAndDoesNotDeleteExternalFile(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 	externalFile := filepath.Join(t.TempDir(), "logo.png")
 	if err := os.WriteFile(externalFile, []byte("logo"), 0644); err != nil {
@@ -301,6 +310,7 @@ func TestBrandingService_DeleteLogo_InvalidPath_ReturnsErrorAndDoesNotDeleteExte
 }
 
 func TestBrandingService_DeleteFavicon_FileMissingStillClearsConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	svc.mu.Lock()
@@ -327,6 +337,7 @@ func TestBrandingService_DeleteFavicon_FileMissingStillClearsConfig(t *testing.T
 }
 
 func TestBrandingService_DeleteFavicon_InvalidPath_ReturnsErrorAndDoesNotDeleteExternalFile(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 	externalFile := filepath.Join(t.TempDir(), "favicon.ico")
 	if err := os.WriteFile(externalFile, []byte("fav"), 0644); err != nil {
@@ -364,6 +375,7 @@ func TestBrandingService_DeleteFavicon_InvalidPath_ReturnsErrorAndDoesNotDeleteE
 }
 
 func TestContainsPathTraversal_RejectsWindowsVolumePath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	if runtime.GOOS != "windows" {
 		t.Skip("filepath volume paths are only recognized on Windows")
 	}
@@ -374,6 +386,7 @@ func TestContainsPathTraversal_RejectsWindowsVolumePath(t *testing.T) {
 }
 
 func TestBrandingService_UploadThenDeleteLogo_EndToEnd(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 	assetsDir := filepath.Join(dir, "branding")
 
@@ -425,6 +438,7 @@ func TestBrandingService_UploadThenDeleteLogo_EndToEnd(t *testing.T) {
 }
 
 func TestBrandingService_UploadThenDeleteFavicon_EndToEnd(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 	assetsDir := filepath.Join(dir, "branding")
 
@@ -474,6 +488,7 @@ func TestBrandingService_UploadThenDeleteFavicon_EndToEnd(t *testing.T) {
 }
 
 func TestBrandingService_GetBranding_ReturnsResponseWithConstraints(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 
 	resp, err := svc.GetBranding()
@@ -495,6 +510,7 @@ func TestBrandingService_GetBranding_ReturnsResponseWithConstraints(t *testing.T
 }
 
 func TestBrandingService_UpdateBranding_PersistsToDisk(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	if err := svc.UpdateBranding("My Wiki"); err != nil {
@@ -513,6 +529,7 @@ func TestBrandingService_UpdateBranding_PersistsToDisk(t *testing.T) {
 }
 
 func TestBrandingService_UpdateBranding_TrimsSiteName(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	if err := svc.UpdateBranding("  Trimmed Wiki  "); err != nil {
@@ -530,6 +547,7 @@ func TestBrandingService_UpdateBranding_TrimsSiteName(t *testing.T) {
 }
 
 func TestBrandingService_UpdateBranding_EmptySiteName_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 
 	err := svc.UpdateBranding("")
@@ -547,6 +565,7 @@ func TestBrandingService_UpdateBranding_EmptySiteName_ReturnsValidationError(t *
 }
 
 func TestBrandingService_UpdateBranding_WhitespaceOnlySiteName_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 
 	err := svc.UpdateBranding("   ")
@@ -564,6 +583,7 @@ func TestBrandingService_UpdateBranding_WhitespaceOnlySiteName_ReturnsValidation
 }
 
 func TestBrandingService_UpdateBranding_TooLongSiteName_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 
 	// Create a site name that exceeds the max length (default is 100)
@@ -587,6 +607,7 @@ func TestBrandingService_UpdateBranding_TooLongSiteName_ReturnsValidationError(t
 }
 
 func TestBrandingService_UpdateBranding_MaxLengthSiteName_Success(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	// Create a site name exactly at max length (default is 100)
@@ -607,6 +628,7 @@ func TestBrandingService_UpdateBranding_MaxLengthSiteName_Success(t *testing.T) 
 }
 
 func TestBrandingService_UpdateBranding_ControlCharacters_ReturnsValidationError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 
 	// Test with null character (control character)
@@ -630,6 +652,7 @@ func TestBrandingService_UpdateBranding_ControlCharacters_ReturnsValidationError
 }
 
 func TestBrandingService_UpdateBranding_ValidSpecialCharacters_Success(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	// Test with common special characters that should be allowed
@@ -650,6 +673,7 @@ func TestBrandingService_UpdateBranding_ValidSpecialCharacters_Success(t *testin
 }
 
 func TestBrandingService_UploadLogo_InvalidExtension_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 
 	// bytes.Reader implements io.Reader, but UploadLogo expects multipart.File.
@@ -680,6 +704,7 @@ func TestBrandingService_UploadLogo_InvalidExtension_ReturnsError(t *testing.T) 
 }
 
 func TestBrandingService_UploadFavicon_InvalidExtension_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, _ := newTestBrandingService(t)
 
 	f, err := os.CreateTemp(t.TempDir(), "badfav-*")
@@ -707,6 +732,7 @@ func TestBrandingService_UploadFavicon_InvalidExtension_ReturnsError(t *testing.
 }
 
 func TestBrandingService_UploadLogo_WritesFileAndUpdatesConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 	// Uploads recreate an unused storage directory removed by housekeeping.
 	if err := os.Remove(filepath.Join(dir, "branding")); err != nil {
@@ -759,6 +785,7 @@ func TestBrandingService_UploadLogo_WritesFileAndUpdatesConfig(t *testing.T) {
 }
 
 func TestBrandingService_UploadFavicon_WritesFileAndUpdatesConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 	// Favicons support the same directory lifecycle as logos.
 	if err := os.Remove(filepath.Join(dir, "branding")); err != nil {
@@ -808,6 +835,7 @@ func TestBrandingService_UploadFavicon_WritesFileAndUpdatesConfig(t *testing.T) 
 }
 
 func TestBrandingService_UploadLogo_RemovesOldLogoVariants(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	assetsDir := filepath.Join(dir, "branding")
@@ -856,6 +884,7 @@ func TestBrandingService_UploadLogo_RemovesOldLogoVariants(t *testing.T) {
 }
 
 func TestBrandingService_UploadFavicon_RemovesOldFaviconVariants(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	assetsDir := filepath.Join(dir, "branding")
@@ -904,6 +933,7 @@ func TestBrandingService_UploadFavicon_RemovesOldFaviconVariants(t *testing.T) {
 }
 
 func TestBrandingService_UploadLogo_TooLarge_ReturnsErrorAndDoesNotUpdateConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	// BrandingConstraints is re-derived from DefaultBrandingConfig() on every
@@ -946,6 +976,7 @@ func TestBrandingService_UploadLogo_TooLarge_ReturnsErrorAndDoesNotUpdateConfig(
 }
 
 func TestBrandingService_UploadFavicon_TooLarge_ReturnsErrorAndDoesNotUpdateConfig(t *testing.T) {
+	testutil.ResetMySQL(t)
 	svc, dir := newTestBrandingService(t)
 
 	// BrandingConstraints is re-derived from DefaultBrandingConfig() on every
@@ -987,6 +1018,7 @@ func TestBrandingService_UploadFavicon_TooLarge_ReturnsErrorAndDoesNotUpdateConf
 
 // Discovered files are removable even when branding.json has no file reference.
 func TestBrandingService_DeleteDiscoveredAssets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	for _, kind := range []string{"logo", "favicon"} {
 		t.Run(kind, func(t *testing.T) {
 			svc, dir := newTestBrandingService(t)

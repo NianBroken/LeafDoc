@@ -1,6 +1,7 @@
 package revisions
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -54,6 +55,7 @@ func newRevisionAssetRouter(t *testing.T, files map[string]string) (*gin.Engine,
 }
 
 func TestHandleGetRevisionAsset_ActiveContent_IsForcedDownload(t *testing.T) {
+	testutil.ResetMySQL(t)
 	const payload = `<script>alert(document.domain)</script>`
 	engine, pageID, revID := newRevisionAssetRouter(t, map[string]string{
 		"poc.html":  payload,
@@ -83,6 +85,7 @@ func TestHandleGetRevisionAsset_ActiveContent_IsForcedDownload(t *testing.T) {
 }
 
 func TestHandleGetRevisionAsset_SafeMedia_StaysInline(t *testing.T) {
+	testutil.ResetMySQL(t)
 	engine, pageID, revID := newRevisionAssetRouter(t, map[string]string{
 		"doc.pdf":  "%PDF-1.4",
 		"pic.png":  "\x89PNG",

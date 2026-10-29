@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -78,6 +79,7 @@ func proxyRouter(cfg authmw.RemoteUserConfig) *gin.Engine {
 }
 
 func TestInjectRemoteUser_Disabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -102,6 +104,7 @@ func TestInjectRemoteUser_Disabled(t *testing.T) {
 }
 
 func TestInjectRemoteUser_UntrustedIP(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -126,6 +129,7 @@ func TestInjectRemoteUser_UntrustedIP(t *testing.T) {
 }
 
 func TestInjectRemoteUser_TrustedIP_NoHeader(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -150,6 +154,7 @@ func TestInjectRemoteUser_TrustedIP_NoHeader(t *testing.T) {
 }
 
 func TestInjectRemoteUser_TrustedIP_ValidUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -176,6 +181,7 @@ func TestInjectRemoteUser_TrustedIP_ValidUser(t *testing.T) {
 }
 
 func TestInjectRemoteUser_TrustedIP_ValidUser_ByEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -203,6 +209,7 @@ func TestInjectRemoteUser_TrustedIP_ValidUser_ByEmail(t *testing.T) {
 }
 
 func TestInjectRemoteUser_TrustedIP_UnknownUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -226,6 +233,7 @@ func TestInjectRemoteUser_TrustedIP_UnknownUser(t *testing.T) {
 }
 
 func TestInjectRemoteUser_CustomHeaderName(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -249,6 +257,7 @@ func TestInjectRemoteUser_CustomHeaderName(t *testing.T) {
 }
 
 func TestInjectRemoteUser_CIDRMatch(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -272,6 +281,7 @@ func TestInjectRemoteUser_CIDRMatch(t *testing.T) {
 }
 
 func TestInjectRemoteUser_MisconfiguredTrustedProxies(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -298,6 +308,7 @@ func TestInjectRemoteUser_MisconfiguredTrustedProxies(t *testing.T) {
 }
 
 func TestInjectRemoteUser_MisconfiguredUserService(t *testing.T) {
+	testutil.ResetMySQL(t)
 	cfg := authmw.RemoteUserConfig{
 		Enabled:        true,
 		HeaderName:     "Remote-User",
@@ -327,6 +338,7 @@ func TestInjectRemoteUser_MisconfiguredUserService(t *testing.T) {
 // AuthService.ReplaceUserStore swap. A resolver func must be called fresh on
 // every request instead.
 func TestInjectRemoteUser_ReflectsLiveRestore(t *testing.T) {
+	testutil.ResetMySQL(t)
 	preDir := t.TempDir()
 	preStore, err := coreauth.NewUserStore(preDir)
 	if err != nil {
@@ -400,6 +412,7 @@ func TestInjectRemoteUser_ReflectsLiveRestore(t *testing.T) {
 }
 
 func TestInjectRemoteUser_AutoCreateDisabled_UnknownUserStill401s(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -424,6 +437,7 @@ func TestInjectRemoteUser_AutoCreateDisabled_UnknownUserStill401s(t *testing.T) 
 }
 
 func TestInjectRemoteUser_AutoCreateEnabled_ProvisionsUnknownUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -463,6 +477,7 @@ func TestInjectRemoteUser_AutoCreateEnabled_ProvisionsUnknownUser(t *testing.T) 
 }
 
 func TestInjectRemoteUser_AutoCreateEnabled_UsesEmailHeader(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -498,6 +513,7 @@ func TestInjectRemoteUser_AutoCreateEnabled_UsesEmailHeader(t *testing.T) {
 }
 
 func TestInjectRemoteUser_AutoCreateEnabled_EmailConflictWithDifferentUserReturns401(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -531,6 +547,7 @@ func TestInjectRemoteUser_AutoCreateEnabled_EmailConflictWithDifferentUserReturn
 }
 
 func TestInjectRemoteUser_AutoCreateEnabled_SecondRequestReusesSameUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 
@@ -576,6 +593,7 @@ func TestInjectRemoteUser_AutoCreateEnabled_SecondRequestReusesSameUser(t *testi
 // TestInjectRemoteUser_WithRequireAuth verifies the full middleware chain:
 // InjectRemoteUser sets the user, then RequireAuth short-circuits JWT validation.
 func TestInjectRemoteUser_WithRequireAuth(t *testing.T) {
+	testutil.ResetMySQL(t)
 	f := createProxyFixture(t)
 	cleanupWithErrorCheck(t, "proxy fixture", f.close)
 

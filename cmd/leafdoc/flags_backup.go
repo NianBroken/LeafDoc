@@ -24,7 +24,7 @@ func (o *backupOptions) Flags() []cli.Flag {
 			Name:        "snapshot",
 			Destination: &o.snapshot,
 			Category:    catSnapshots,
-			Usage:       "full backup snapshots (ZIP incl. the SQLite database); disable with --snapshot=false",
+			Usage:       "full backup snapshots (ZIP incl. MySQL records and file resources); disable with --snapshot=false",
 			Value:       true,
 			DefaultText: "true",
 			Sources:     envBoolVars("LEAFDOC_SNAPSHOT"),

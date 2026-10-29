@@ -1,82 +1,80 @@
 package pagesave
 
 import (
-	"log/slog"
-
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/revision"
+	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
+	"log/slog"
 )
 
-// RevisionSideEffect records revision history entries after page mutations.
+// RevisionSideEffect records history in the same transaction as the page body.
 type RevisionSideEffect struct {
 	svc     *revision.Service
 	log     *slog.Logger
 	metrics *httpmetrics.HTTPMetrics
 }
 
-// NewRevisionSideEffect creates a RevisionSideEffect.
 func NewRevisionSideEffect(svc *revision.Service, log *slog.Logger, metrics *httpmetrics.HTTPMetrics) *RevisionSideEffect {
 	if log == nil {
 		log = slog.Default()
 	}
 	return &RevisionSideEffect{svc: svc, log: log, metrics: metrics}
 }
-
-func (e *RevisionSideEffect) Name() string {
-	return "revision"
+func (e *RevisionSideEffect) Name() string { return "revision" }
+func (e *RevisionSideEffect) WithExecutor(exec database.Executor, boundTree *tree.TreeService) PageSideEffect {
+	copy := *e
+	if e.svc != nil {
+		copy.svc = e.svc.WithExecutor(exec, boundTree)
+	}
+	return &copy
+}
+func (e *RevisionSideEffect) Apply(event PageSaveEvent) {
+	if err := e.ApplyTransactional(event); err != nil {
+		e.log.Error("revision recording failed", "error", err)
+		e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
+	}
 }
 
-func (e *RevisionSideEffect) Apply(event PageSaveEvent) {
+// ApplyTransactional leaves restoration history to RestoreRevision itself.
+func (e *RevisionSideEffect) ApplyTransactional(event PageSaveEvent) error {
 	if e.svc == nil {
-		return
+		return nil
+	}
+	structure := func(id string) error { _, _, err := e.svc.RecordStructureChange(id, event.UserID, ""); return err }
+	content := func(id string) error {
+		_, _, err := e.svc.RecordContentUpdate(id, event.UserID, event.Summary)
+		return err
 	}
 	switch event.Operation {
 	case PageOperationCreate:
 		if event.After != nil {
-			e.recordContent(event.After.ID, event.UserID, event.Summary, event.Operation)
+			return content(event.After.ID)
 		}
-
 	case PageOperationUpdate:
 		if event.SlugChanged {
-			for _, p := range event.AffectedPages {
-				if event.ContentChanged && p.ID == event.After.ID {
-					// Root page with content change: record content revision instead.
+			for _, page := range event.AffectedPages {
+				if event.ContentChanged && event.After != nil && page.ID == event.After.ID {
 					continue
 				}
-				e.recordStructure(p.ID, event.UserID, event.Operation)
+				if err := structure(page.ID); err != nil {
+					return err
+				}
 			}
-		} else if event.TitleChanged && !event.ContentChanged {
-			if event.After != nil {
-				e.recordStructure(event.After.ID, event.UserID, event.Operation)
+		} else if event.TitleChanged && !event.ContentChanged && event.After != nil {
+			if err := structure(event.After.ID); err != nil {
+				return err
 			}
 		}
 		if event.ContentChanged && event.After != nil {
-			e.recordContent(event.After.ID, event.UserID, event.Summary, event.Operation)
+			return content(event.After.ID)
 		}
-
 	case PageOperationMove:
-		for _, p := range event.AffectedPages {
-			e.recordStructure(p.ID, event.UserID, event.Operation)
+		for _, page := range event.AffectedPages {
+			if err := structure(page.ID); err != nil {
+				return err
+			}
 		}
-
-	case PageOperationDelete:
-		// No revision entry on delete; data cleanup is handled by the use case.
-
-	case PageOperationRestore:
-		// RestoreRevision already writes a RevisionTypeRestore entry internally.
 	}
-}
-
-func (e *RevisionSideEffect) recordContent(pageID, userID, summary string, operation PageOperationType) {
-	if _, _, err := e.svc.RecordContentUpdate(pageID, userID, summary); err != nil {
-		e.log.Warn("failed to record content revision", "pageID", pageID, "error", err)
-		e.metrics.IncPageSaveSideEffectFailure(string(operation), e.Name())
-	}
-}
-
-func (e *RevisionSideEffect) recordStructure(pageID, userID string, operation PageOperationType) {
-	if _, _, err := e.svc.RecordStructureChange(pageID, userID, ""); err != nil {
-		e.log.Warn("failed to record structure revision", "pageID", pageID, "error", err)
-		e.metrics.IncPageSaveSideEffectFailure(string(operation), e.Name())
-	}
+	return nil
 }

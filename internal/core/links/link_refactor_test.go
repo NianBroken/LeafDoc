@@ -1,11 +1,13 @@
 package links
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"strings"
 	"testing"
 )
 
 func TestMarkdownRefactorEngine_Rewrite_RewritesAbsoluteAndRelativeTargets(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `
 [Absolute](/docs/b)
 [Relative](../b)
@@ -40,6 +42,7 @@ func TestMarkdownRefactorEngine_Rewrite_RewritesAbsoluteAndRelativeTargets(t *te
 }
 
 func TestMarkdownRefactorEngine_Rewrite_UsesMovedSourcePathForRelativeLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `[Relative](../shared)`
 
 	result := NewMarkdownRefactorEngine().Rewrite(content, "/docs/a/page", []RewriteRule{{
@@ -56,6 +59,7 @@ func TestMarkdownRefactorEngine_Rewrite_UsesMovedSourcePathForRelativeLinks(t *t
 }
 
 func TestMarkdownRefactorEngine_Rewrite_IgnoresAssetLinks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	content := `
 [AssetAbs](/assets/abc/manual.pdf)
 [AssetRel](assets/abc/manual.pdf)

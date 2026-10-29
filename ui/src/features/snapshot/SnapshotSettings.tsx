@@ -5,6 +5,11 @@ import {
 } from '@/shared/lib/selectPlacement'
 import { Checkbox } from '@/shared/components/ui/checkbox'
 import {
+  SettingsTable,
+  SettingsTableCell,
+  SettingsTableHeader,
+} from '@/shared/components/SettingsTable'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,13 +42,11 @@ import { snapshotDownloadUrl } from '@/shared/lib/api/snapshot'
 
 import {
   AlertTriangle,
-  Download,
   FileUp,
   HardDriveDownload,
   History,
   Loader2,
   SaveIcon,
-  Trash2,
 } from 'lucide-react'
 
 export default function SnapshotSettings() {
@@ -471,104 +474,123 @@ export default function SnapshotSettings() {
             ) : snapshots.length === 0 ? (
               <p className="settings__hint">{t('listEmpty')}</p>
             ) : (
-              <div className="flex flex-col gap-2">
-                {snapshots.map((snap) => (
-                  <div key={snap.id} className="settings__preview">
-                    <div className="flex flex-col">
-                      <span className="text-interface-text text-sm font-medium">
-                        {formatDateTime(snap.createdAt) || snap.id}
-                      </span>
-                      <span className="text-muted text-xs">
-                        {formatBytes(snap.sizeBytes)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={snapshotDownloadUrl(snap.id)} download>
-                          <Download className="mr-2 h-3.5 w-3.5" />
-                          {t('download')}
-                        </a>
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              isRestoring ||
-                              restoringId === snap.id ||
-                              needsIntervention
-                            }
-                          >
-                            {restoringId === snap.id ? (
-                              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <History className="mr-2 h-3.5 w-3.5" />
-                            )}
-                            {tRestore('restoreButton')}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              {tRestore('restoreConfirmTitle')}
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {tRestore('restoreConfirmDescription')}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>
-                              {tRestore('restoreConfirmCancel')}
-                            </AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleRestore(snap.id)}
-                            >
-                              {tRestore('restoreConfirmAction')}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={deletingId === snap.id}
-                            className="text-error hover:bg-error/10"
-                          >
-                            {deletingId === snap.id ? (
-                              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="mr-2 h-3.5 w-3.5" />
-                            )}
-                            {t('delete')}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              {t('deleteConfirmTitle')}
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {t('deleteConfirmDescription')}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>
-                              {t('deleteConfirmCancel')}
-                            </AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(snap.id)}
-                            >
-                              {t('deleteConfirmAction')}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                ))}
+              <div className="settings__table-card">
+                <div className="settings__table-scroll">
+                  <SettingsTable columns={4} className="snapshot__table">
+                    <thead className="settings__table-head">
+                      <tr>
+                        <SettingsTableHeader>
+                          {t('columnName')}
+                        </SettingsTableHeader>
+                        <SettingsTableHeader>
+                          {t('columnDate')}
+                        </SettingsTableHeader>
+                        <SettingsTableHeader>
+                          {t('columnSize')}
+                        </SettingsTableHeader>
+                        <SettingsTableHeader>
+                          {t('columnActions')}
+                        </SettingsTableHeader>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {snapshots.map((snap) => (
+                        <tr key={snap.id} className="settings__table-row">
+                          <SettingsTableCell>{snap.id}</SettingsTableCell>
+                          <SettingsTableCell>
+                            {formatDateTime(snap.createdAt) || snap.id}
+                          </SettingsTableCell>
+                          <SettingsTableCell>
+                            {formatBytes(snap.sizeBytes)}
+                          </SettingsTableCell>
+                          <SettingsTableCell content="controls">
+                            <div className="settings__table-actions">
+                              <a
+                                className="settings__text-action"
+                                href={snapshotDownloadUrl(snap.id)}
+                                download
+                              >
+                                {t('download')}
+                              </a>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="settings__text-action"
+                                    disabled={
+                                      isRestoring ||
+                                      restoringId === snap.id ||
+                                      needsIntervention
+                                    }
+                                  >
+                                    {restoringId === snap.id ? (
+                                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    {tRestore('restoreButton')}
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      {tRestore('restoreConfirmTitle')}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {tRestore('restoreConfirmDescription')}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      {tRestore('restoreConfirmCancel')}
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleRestore(snap.id)}
+                                    >
+                                      {tRestore('restoreConfirmAction')}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    type="button"
+                                    disabled={deletingId === snap.id}
+                                    className="settings__text-action text-error"
+                                  >
+                                    {deletingId === snap.id ? (
+                                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    {t('delete')}
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      {t('deleteConfirmTitle')}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {t('deleteConfirmDescription')}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      {t('deleteConfirmCancel')}
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(snap.id)}
+                                    >
+                                      {t('deleteConfirmAction')}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </SettingsTableCell>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </SettingsTable>
+                </div>
               </div>
             )}
           </div>

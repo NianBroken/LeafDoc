@@ -3,8 +3,6 @@ package tree
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -102,7 +100,7 @@ func (t *TreeService) createNodeLocked(userID string, parentID *string, title st
 		},
 	}
 
-	// Create on disk depending on kind
+	// Persist the node according to its kind
 	switch k {
 	case NodeKindPage:
 		if err := t.store.CreatePage(parent, entry); err != nil {
@@ -157,13 +155,6 @@ func (t *TreeService) rollbackCreatedNodeLocked(parent *PageNode, entry *PageNod
 	}
 
 	if parentWasConverted && len(parent.Children) == 0 {
-		orderPath, err := t.store.dirPathForNode(parent)
-		if err != nil {
-			return err
-		}
-		if err := os.Remove(filepath.Join(orderPath, orderFilename)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("remove parent order file before fold-back: %w", err)
-		}
 		if err := t.store.ConvertNode(parent, NodeKindPage); err != nil {
 			return err
 		}
@@ -268,79 +259,37 @@ type UpdateNodeInput struct {
 	PreserveFrontmatter bool
 }
 
-// UpdateNode updates a node (page/section) in the tree and syncs disk state via NodeStore.
+// UpdateNode updates a node (page/section) in the tree and commits content and metadata through NodeStore.
 func (t *TreeService) UpdateNode(in UpdateNodeInput) error {
 	return t.withLockedTree(func() error {
 		if t.tree == nil {
 			return ErrTreeNotLoaded
 		}
-
-		// Find node
 		node := t.getNodeByIDLocked(in.ID)
 		if node == nil {
 			return ErrPageNotFound
 		}
-
 		if err := checkNodeVersion(node, in.ExpectedVersion); err != nil {
 			return err
 		}
-
-		// Slug must be unique under same parent (when changed)
 		if in.Slug != node.Slug && node.Parent != nil {
 			existing := t.findChildBySlugInParentLocked(node.Parent, in.Slug)
 			if existing != nil && existing.ID != node.ID {
 				return ErrPageAlreadyExists
 			}
 		}
-
-		// Content update?
-		if in.Content != nil {
-			t.log.Info("updating node content", "nodeID", node.ID)
-			var upsertErr error
-			// Priority: PreserveFrontmatter wins over Tags/Properties; callers must not set both.
-			switch {
-			case in.PreserveFrontmatter:
-				upsertErr = t.store.UpsertContentPreservingFrontmatter(node, *in.Content)
-			case in.Tags != nil || in.Properties != nil:
-				upsertErr = t.store.UpsertContentAndMetadata(node, *in.Content, in.Tags, in.Properties)
-			default:
-				upsertErr = t.store.UpsertContent(node, *in.Content)
-			}
-			if upsertErr != nil {
-				return fmt.Errorf("could not upsert content: %w", upsertErr)
-			}
+		updated, err := t.store.UpdateRecord(node, in)
+		if err != nil {
+			return err
 		}
-
-		// Rename slug on disk (must happen while node still has old slug)
-		if in.Slug != node.Slug {
-			t.log.Info("renaming node slug", "nodeID", node.ID, "oldSlug", node.Slug, "newSlug", in.Slug)
-			if err := t.store.RenameNode(node, in.Slug); err != nil {
-				return fmt.Errorf("could not rename node: %w", err)
-			}
-			node.Slug = in.Slug
-			if node.Parent != nil {
-				t.rebuildChildSlugIndexForParentLocked(node.Parent)
-			}
-		}
-
-		// Update title in tree
 		t.removeTitleIndexForNodeLocked(node)
-		node.Title = in.Title
+		*node = *updated
 		t.addTitleIndexForNodeLocked(node)
-
-		// Update metadata
-		node.Metadata.UpdatedAt = time.Now().UTC()
-		node.Metadata.LastAuthorID = in.UserID
-
-		// Keep frontmatter in sync *if file exists* (important when title changed but content == nil)
-		if err := t.store.SyncFrontmatterIfExists(node); err != nil {
-			return fmt.Errorf("could not sync frontmatter: %w", err)
+		if node.Parent != nil {
+			t.rebuildChildSlugIndexForParentLocked(node.Parent)
 		}
-
-		// Save tree
 		return nil
 	})
-
 }
 
 func (t *TreeService) ConvertNode(userID string, id string, kind NodeKind, expectedVersion string) error {
@@ -380,7 +329,7 @@ func (t *TreeService) ConvertNode(userID string, id string, kind NodeKind, expec
 		node.Metadata.UpdatedAt = time.Now().UTC()
 		node.Metadata.LastAuthorID = userID
 
-		// Keep frontmatter in sync *if file exists* (important when kind changed but content == nil)
+		// Persist the document descriptor after a structural change.
 		if err := t.store.SyncFrontmatterIfExists(node); err != nil {
 			return fmt.Errorf("could not sync frontmatter: %w", err)
 		}
@@ -397,7 +346,7 @@ type BulkContentUpdate struct {
 }
 
 // BulkUpdateContent updates content for multiple pages under a single write lock,
-// running disk writes in parallel. Returns per-item errors; nil means success.
+// running independent database writes in parallel. Returns per-item errors; nil means success.
 // Only content and metadata timestamps are updated; slug and title are unchanged.
 func (t *TreeService) BulkUpdateContent(userID string, updates []BulkContentUpdate) []error {
 	errs := make([]error, len(updates))
@@ -431,7 +380,7 @@ func (t *TreeService) BulkUpdateContent(userID string, updates []BulkContentUpda
 			continue
 		}
 		oldMetadata := node.Metadata
-		// Update in-memory metadata before disk write so UpsertContent writes the correct timestamps.
+		// Include the current author and timestamp in the committed document.
 		node.Metadata.UpdatedAt = now
 		node.Metadata.LastAuthorID = userID
 		tasks = append(tasks, task{index: i, node: node, content: u.Content, oldMetadata: oldMetadata})
@@ -441,7 +390,17 @@ func (t *TreeService) BulkUpdateContent(userID string, updates []BulkContentUpda
 		return errs
 	}
 
-	// Each page lives in its own file — writes are independent and safe to parallelise.
+	if t.InUnitOfWork() {
+		for _, tk := range tasks {
+			errs[tk.index] = t.store.UpsertContent(tk.node, tk.content)
+			if errs[tk.index] != nil {
+				tk.node.Metadata = tk.oldMetadata
+			}
+		}
+		return errs
+	}
+
+	// Each page is a separate database record, allowing independent writes.
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(tasks))
@@ -587,6 +546,9 @@ func (t *TreeService) MoveNodeToPosition(userID string, id string, parentID stri
 	}
 
 	// Same slug collision under new parent
+	if newParent.ID == oldParent.ID && position < 0 {
+		return &InvalidOpError{Op: "MoveNode", Reason: "page already belongs to the destination parent"}
+	}
 	if existing := t.findChildBySlugInParentLocked(newParent, node.Slug); existing != nil && existing.ID != node.ID {
 		return fmt.Errorf("child with the same slug already exists: %w", ErrPageAlreadyExists)
 	}
@@ -622,7 +584,7 @@ func (t *TreeService) MoveNodeToPosition(userID string, id string, parentID stri
 	previousMetadata := node.Metadata
 
 	if err := t.store.MoveNode(node, newParent); err != nil {
-		return fmt.Errorf("could not move node on disk: %w", err)
+		return fmt.Errorf("could not persist parent change: %w", err)
 	}
 
 	for i, e := range oldParent.Children {
@@ -709,7 +671,7 @@ func (t *TreeService) rollbackMovedNodeLocked(node *PageNode, oldParent *PageNod
 	var rollbackErr error
 
 	if moveErr := t.store.MoveNode(node, oldParent); moveErr != nil {
-		rollbackErr = errors.Join(rollbackErr, fmt.Errorf("move node back on disk: %w", moveErr))
+		rollbackErr = errors.Join(rollbackErr, fmt.Errorf("restore parent record: %w", moveErr))
 	}
 
 	restoreChildSnapshot(oldParent, previousOldChildren, previousOldPositions)
@@ -725,14 +687,6 @@ func (t *TreeService) rollbackMovedNodeLocked(node *PageNode, oldParent *PageNod
 	node.Metadata = previousMetadata
 
 	if newParentWasConverted && newParent != nil && newParent.ID != "root" && len(newParent.Children) == 0 {
-		newParentDir, dirErr := t.store.dirPathForNode(newParent)
-		if dirErr != nil {
-			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("resolve converted parent dir: %w", dirErr))
-		} else {
-			if removeErr := os.RemoveAll(filepath.Join(newParentDir, orderFilename)); removeErr != nil {
-				rollbackErr = errors.Join(rollbackErr, fmt.Errorf("remove child order before parent rollback: %w", removeErr))
-			}
-		}
 		if convertErr := t.store.ConvertNode(newParent, NodeKindPage); convertErr != nil {
 			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("convert destination parent back to page: %w", convertErr))
 		} else {

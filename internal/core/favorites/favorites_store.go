@@ -6,16 +6,13 @@ package favorites
 import (
 	"database/sql"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
-	_ "modernc.org/sqlite"
 )
 
 const logCloseRowsFailed = "could not close rows"
@@ -37,49 +34,22 @@ func errFavoritesStoreUnavailable() error {
 }
 
 type FavoritesStore struct {
-	mu sync.Mutex
-	db *sql.DB
+	executor database.Executor
+	mu       sync.Mutex
+	db       *sql.DB
 	// suspended is set by PauseForSwap and makes withDB refuse to serve
 	// queries against a possibly-stale db handle until Replace reopens it.
 	suspended bool
 	log       *slog.Logger
 }
 
+// NewFavoritesStore connects the domain store to the configured MySQL database.
 func NewFavoritesStore(storageDir string, log *slog.Logger) (*FavoritesStore, error) {
-	normalized := filepath.FromSlash(strings.ReplaceAll(storageDir, `\`, `/`))
-	dbPath := filepath.Join(normalized, "favorites.db")
-
-	s := &FavoritesStore{log: log}
-	err := sqliteutil.OpenWithPolicy(dbPath, sqliteutil.QuarantineOnCorruption, func() error {
-		db, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
-		if err != nil {
-			return fmt.Errorf("failed to open favorites database: %w", err)
-		}
-		s.db = db
-		if err := s.ensureSchema(); err != nil {
-			_ = db.Close()
-			s.db = nil
-			return err
-		}
-		return nil
-	})
+	db, err := database.Open(storageDir)
 	if err != nil {
 		return nil, err
 	}
-	return s, nil
-}
-
-func (s *FavoritesStore) ensureSchema() error {
-	_, err := s.db.Exec(`
-		CREATE TABLE IF NOT EXISTS favorites (
-			user_id    TEXT NOT NULL,
-			page_id    TEXT NOT NULL,
-			created_at TIMESTAMP NOT NULL,
-			PRIMARY KEY (user_id, page_id)
-		);
-		CREATE INDEX IF NOT EXISTS favorites_user_id_idx ON favorites(user_id);
-	`)
-	return err
+	return &FavoritesStore{db: db, log: log}, nil
 }
 
 // withDB runs fn against the current db handle, or returns
@@ -97,9 +67,9 @@ func (s *FavoritesStore) withDB(fn func(db *sql.DB) error) error {
 
 // Add favorites pageID for userID. Idempotent — favoriting an already-favorited page is a no-op.
 func (s *FavoritesStore) Add(userID, pageID string) error {
-	err := s.withDB(func(db *sql.DB) error {
+	err := s.withExecutor(func(db database.Executor) error {
 		_, err := db.Exec(
-			`INSERT OR IGNORE INTO favorites (user_id, page_id, created_at) VALUES (?, ?, ?)`,
+			`INSERT INTO favorites (user_id, page_id, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE created_at=favorites.created_at`,
 			userID, pageID, time.Now().UTC(),
 		)
 		return err
@@ -112,7 +82,7 @@ func (s *FavoritesStore) Add(userID, pageID string) error {
 
 // Remove un-favorites pageID for userID. Idempotent — removing a non-favorited page is a no-op.
 func (s *FavoritesStore) Remove(userID, pageID string) error {
-	err := s.withDB(func(db *sql.DB) error {
+	err := s.withExecutor(func(db database.Executor) error {
 		_, err := db.Exec(`DELETE FROM favorites WHERE user_id = ? AND page_id = ?`, userID, pageID)
 		return err
 	})
@@ -125,7 +95,7 @@ func (s *FavoritesStore) Remove(userID, pageID string) error {
 // ListPageIDsForUser returns the page IDs favorited by userID, most recently favorited first.
 func (s *FavoritesStore) ListPageIDsForUser(userID string) ([]string, error) {
 	var pageIDs []string
-	err := s.withDB(func(db *sql.DB) error {
+	err := s.withExecutor(func(db database.Executor) error {
 		rows, err := db.Query(
 			`SELECT page_id FROM favorites WHERE user_id = ? ORDER BY created_at DESC`,
 			userID,
@@ -152,7 +122,7 @@ func (s *FavoritesStore) ListPageIDsForUser(userID string) ([]string, error) {
 
 // DeleteAllForPage removes every user's favorite of pageID. Called on page delete.
 func (s *FavoritesStore) DeleteAllForPage(pageID string) error {
-	err := s.withDB(func(db *sql.DB) error {
+	err := s.withExecutor(func(db database.Executor) error {
 		_, err := db.Exec(`DELETE FROM favorites WHERE page_id = ?`, pageID)
 		return err
 	})
@@ -164,7 +134,7 @@ func (s *FavoritesStore) DeleteAllForPage(pageID string) error {
 
 // DeleteAllForUser removes every favorite belonging to userID. Called on user delete.
 func (s *FavoritesStore) DeleteAllForUser(userID string) error {
-	err := s.withDB(func(db *sql.DB) error {
+	err := s.withExecutor(func(db database.Executor) error {
 		_, err := db.Exec(`DELETE FROM favorites WHERE user_id = ?`, userID)
 		return err
 	})
@@ -174,11 +144,7 @@ func (s *FavoritesStore) DeleteAllForUser(userID string) error {
 	return nil
 }
 
-// PauseForSwap closes the current *sql.DB connection and marks the store
-// suspended so withDB refuses to serve queries against a possibly-stale
-// handle, releasing any OS-level file lock on favorites.db before a live
-// restore renames it. Idempotent: a second call is a safe no-op. Mirrors
-// APIKeyStore.suspend.
+// PauseForSwap prevents access while restored records are committed.
 func (s *FavoritesStore) PauseForSwap() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -192,13 +158,7 @@ func (s *FavoritesStore) PauseForSwap() error {
 	return err
 }
 
-// Replace reopens favorites.db from storageDir and swaps the new connection
-// in, closing the previous one afterward — used by a live restore once
-// favorites.db has been swapped in on disk (or left untouched, if this
-// snapshot didn't capture one). Preserves this FavoritesStore's identity: no
-// caller needs to be told about the new connection, they already hold this
-// pointer. Mirrors APIKeyService.Replace, adapted for the fact that
-// FavoritesStore has no separate service-layer indirection to swap.
+// Replace opens a fresh MySQL handle and resumes favorite access.
 func (s *FavoritesStore) Replace(storageDir string) error {
 	fresh, err := NewFavoritesStore(storageDir, s.log)
 	if err != nil {
@@ -230,4 +190,16 @@ func (s *FavoritesStore) Close() error {
 		s.db = nil
 	}
 	return nil
+}
+
+// WithExecutor creates a transaction-scoped favorite store without owning its connection.
+func (s *FavoritesStore) WithExecutor(executor database.Executor) *FavoritesStore {
+	return &FavoritesStore{executor: executor, log: s.log}
+}
+
+func (s *FavoritesStore) withExecutor(fn func(database.Executor) error) error {
+	if s.executor != nil {
+		return fn(s.executor)
+	}
+	return s.withDB(func(db *sql.DB) error { return fn(db) })
 }

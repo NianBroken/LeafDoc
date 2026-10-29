@@ -2,6 +2,7 @@ package apikeys
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 	"time"
 
@@ -65,6 +66,7 @@ func setupAPIKeyUseCases(t *testing.T) (*CreateAPIKeyUseCase, *ListAPIKeysUseCas
 }
 
 func TestCreateAPIKey_HappyPath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, _, users := setupAPIKeyUseCases(t)
 	owner, err := users.CreateUser("alice", "alice@example.com", "password123", coreauth.RoleEditor)
 	if err != nil {
@@ -86,6 +88,7 @@ func TestCreateAPIKey_HappyPath(t *testing.T) {
 }
 
 func TestCreateAPIKey_RejectsEmptyName(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, _, users := setupAPIKeyUseCases(t)
 	owner, err := users.CreateUser("bob", "bob@example.com", "password123", coreauth.RoleViewer)
 	if err != nil {
@@ -106,6 +109,7 @@ func TestCreateAPIKey_RejectsEmptyName(t *testing.T) {
 }
 
 func TestCreateAPIKey_RejectsMissingUserID(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, _, _ := setupAPIKeyUseCases(t)
 
 	_, err := create.Execute(context.Background(), CreateAPIKeyInput{Name: "k", UserID: "", CreatedBy: "admin1"})
@@ -119,6 +123,7 @@ func TestCreateAPIKey_RejectsMissingUserID(t *testing.T) {
 }
 
 func TestCreateAPIKey_RejectsInvalidRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, _, users := setupAPIKeyUseCases(t)
 	owner, err := users.CreateUser("carol", "carol@example.com", "password123", coreauth.RoleAdmin)
 	if err != nil {
@@ -136,6 +141,7 @@ func TestCreateAPIKey_RejectsInvalidRole(t *testing.T) {
 }
 
 func TestCreateAPIKey_RejectsNonFutureExpiry(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, _, users := setupAPIKeyUseCases(t)
 	owner, err := users.CreateUser("dave2", "dave2@example.com", "password123", coreauth.RoleViewer)
 	if err != nil {
@@ -154,6 +160,7 @@ func TestCreateAPIKey_RejectsNonFutureExpiry(t *testing.T) {
 }
 
 func TestCreateAPIKey_AcceptsFutureExpiry(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, _, users := setupAPIKeyUseCases(t)
 	owner, err := users.CreateUser("dave3", "dave3@example.com", "password123", coreauth.RoleViewer)
 	if err != nil {
@@ -171,6 +178,7 @@ func TestCreateAPIKey_AcceptsFutureExpiry(t *testing.T) {
 }
 
 func TestCreateAPIKey_PropagatesUnknownUserError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, _, _ := setupAPIKeyUseCases(t)
 
 	_, err := create.Execute(context.Background(), CreateAPIKeyInput{Name: "k", UserID: "no-such-user", CreatedBy: "admin1"})
@@ -180,6 +188,7 @@ func TestCreateAPIKey_PropagatesUnknownUserError(t *testing.T) {
 }
 
 func TestListAPIKeys(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, list, _, users := setupAPIKeyUseCases(t)
 	owner, err := users.CreateUser("dave", "dave@example.com", "password123", coreauth.RoleViewer)
 	if err != nil {
@@ -199,6 +208,7 @@ func TestListAPIKeys(t *testing.T) {
 }
 
 func TestRevokeAPIKey(t *testing.T) {
+	testutil.ResetMySQL(t)
 	create, _, revoke, users := setupAPIKeyUseCases(t)
 	owner, err := users.CreateUser("erin", "erin@example.com", "password123", coreauth.RoleViewer)
 	if err != nil {
@@ -215,6 +225,7 @@ func TestRevokeAPIKey(t *testing.T) {
 }
 
 func TestRevokeAPIKey_PropagatesNotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	_, _, revoke, _ := setupAPIKeyUseCases(t)
 
 	err := revoke.Execute(context.Background(), RevokeAPIKeyInput{ID: "missing"})
@@ -231,6 +242,7 @@ func TestRevokeAPIKey_PropagatesNotFound(t *testing.T) {
 // case defends its own invariant rather than trusting the caller.
 
 func TestCreateAPIKey_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc := NewCreateAPIKeyUseCase(nil)
 	_, err := uc.Execute(context.Background(), CreateAPIKeyInput{Name: "k", UserID: "u1", CreatedBy: "admin1"})
 	if err != ErrAPIKeysDisabled {
@@ -239,6 +251,7 @@ func TestCreateAPIKey_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
 }
 
 func TestListAPIKeys_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc := NewListAPIKeysUseCase(nil)
 	_, err := uc.Execute(context.Background())
 	if err != ErrAPIKeysDisabled {
@@ -247,6 +260,7 @@ func TestListAPIKeys_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
 }
 
 func TestRevokeAPIKey_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
+	testutil.ResetMySQL(t)
 	uc := NewRevokeAPIKeyUseCase(nil)
 	err := uc.Execute(context.Background(), RevokeAPIKeyInput{ID: "k1"})
 	if err != ErrAPIKeysDisabled {

@@ -102,7 +102,7 @@ func (m *Manager) RunOnce(ctx context.Context) error {
 // SetSuccess/SetError) once both the snapshot and pruning are done, so a
 // concurrent RunOnce/TriggerSnapshot cannot start while pruning is still
 // in flight. A panic anywhere in this chain (e.g. a corrupted-input panic
-// inside zip/sqlite handling) is recovered here — not just logged by the
+// inside archive or MySQL handling) is recovered here — not just logged by the
 // Scheduler — so IsRunning is always reset and the feature never gets stuck.
 func (m *Manager) runOnceLocked(ctx context.Context) (err error) {
 	defer func() {

@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"time"
 
@@ -46,7 +47,21 @@ func NewDeletePageUseCase(
 }
 
 // Execute deletes the page, cleaning up links (via orchestrator), assets, and revision data.
-func (uc *DeletePageUseCase) Execute(_ context.Context, in DeletePageInput) (err error) {
+func (uc *DeletePageUseCase) Execute(ctx context.Context, in DeletePageInput) (err error) {
+	if !uc.tree.InUnitOfWork() {
+		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
+			copy := *uc
+			copy.tree = bound
+			copy.orchestrator = o
+			copy.revision = uc.revision.WithExecutor(exec, bound)
+			if uc.favorites != nil {
+				copy.favorites = uc.favorites.WithExecutor(exec)
+			}
+			return copy.Execute(ctx, in)
+		})
+		return err
+	}
+
 	started := time.Now()
 	defer func() {
 		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationDelete), err, started)
@@ -93,13 +108,15 @@ func (uc *DeletePageUseCase) Execute(_ context.Context, in DeletePageInput) (err
 			return err
 		}
 
-		uc.orchestrator.Run(pagesave.PageSaveEvent{
+		if err := uc.orchestrator.Run(pagesave.PageSaveEvent{
 			Operation:     pagesave.PageOperationDelete,
 			UserID:        in.UserID,
 			Before:        page,
 			OldPath:       oldPath,
 			AffectedPages: affectedPages,
-		})
+		}); err != nil {
+			return err
+		}
 
 		for _, p := range affectedPages {
 			if err := uc.assets.DeleteAllAssetsForPage(p.PageNode); err != nil {
@@ -120,13 +137,15 @@ func (uc *DeletePageUseCase) Execute(_ context.Context, in DeletePageInput) (err
 		return err
 	}
 
-	uc.orchestrator.Run(pagesave.PageSaveEvent{
+	if err := uc.orchestrator.Run(pagesave.PageSaveEvent{
 		Operation:     pagesave.PageOperationDelete,
 		UserID:        in.UserID,
 		Before:        page,
 		OldPath:       oldPath,
 		AffectedPages: []*tree.Page{page},
-	})
+	}); err != nil {
+		return err
+	}
 
 	if err := uc.assets.DeleteAllAssetsForPage(page.PageNode); err != nil {
 		uc.log.Warn("failed to delete assets for page", "pageID", page.ID, "error", err)

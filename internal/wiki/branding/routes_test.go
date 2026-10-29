@@ -1,6 +1,7 @@
 package branding
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"io"
 	"log/slog"
 	"net/http"
@@ -31,6 +32,7 @@ func newTestRoutes(t *testing.T) (*Routes, *corebranding.BrandingConfigResponse)
 }
 
 func TestResolveBrandingAssetPath_RejectsAbsolutePath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	routes, cfg := newTestRoutes(t)
 
 	absolutePath := filepath.Join(t.TempDir(), "logo.png")
@@ -41,6 +43,7 @@ func TestResolveBrandingAssetPath_RejectsAbsolutePath(t *testing.T) {
 }
 
 func TestResolveBrandingAssetPath_RejectsWindowsVolumePath(t *testing.T) {
+	testutil.ResetMySQL(t)
 	if runtime.GOOS != "windows" {
 		t.Skip("filepath volume paths are only recognized on Windows")
 	}

@@ -2,20 +2,18 @@ package wiki
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 
-	"github.com/NianBroken/LeafDoc/internal/core/restore"
-	"github.com/NianBroken/LeafDoc/internal/core/shared/sqliteutil"
+	"encoding/json"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 
@@ -108,6 +106,7 @@ func deletePageForTest(t *testing.T, w *Wiki, userID, id string, recursive bool)
 }
 
 func TestWiki_DeletePage_Simple(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	page := createPageForTest(t, w, "system", nil, "Trash", "trash", pageNodeKind())
@@ -118,6 +117,7 @@ func TestWiki_DeletePage_Simple(t *testing.T) {
 }
 
 func TestWiki_DeletePage_WithChildren(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	parent := createPageForTest(t, w, "system", nil, "Parent", "parent", pageNodeKind())
@@ -133,6 +133,7 @@ func TestWiki_DeletePage_WithChildren(t *testing.T) {
 }
 
 func TestWiki_DeletePage_Recursive(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 	parent := createPageForTest(t, w, "system", nil, "Parent", "parent", pageNodeKind())
@@ -148,6 +149,7 @@ func TestWiki_DeletePage_Recursive(t *testing.T) {
 }
 
 func TestWiki_TriggerResyncAsync_EmitsMetrics(t *testing.T) {
+	testutil.ResetMySQL(t)
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	w := createWikiTestInstanceWithMetrics(t, metrics)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
@@ -176,6 +178,7 @@ func TestWiki_TriggerResyncAsync_EmitsMetrics(t *testing.T) {
 }
 
 func TestWiki_DeletePage_PurgesRevisionData(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -195,6 +198,7 @@ func TestWiki_DeletePage_PurgesRevisionData(t *testing.T) {
 }
 
 func TestWiki_InitDefaultAdmin_UsesGivenPassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -205,6 +209,7 @@ func TestWiki_InitDefaultAdmin_UsesGivenPassword(t *testing.T) {
 }
 
 func TestWiki_InitDefaultAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:          t.TempDir(),
 		AdminUsername:       "root",
@@ -228,50 +233,10 @@ func TestWiki_InitDefaultAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
 	}
 }
 
-// Regression test: an unreadable users.db used to be replaced by an empty
 // one, and InitDefaultAdmin then created a fresh admin from the startup
 // flags. NewWiki must fail before that and leave the file alone (ADR-0013).
-func TestNewWiki_CorruptUsersDB_FailsWithoutCreatingDefaultAdmin(t *testing.T) {
-	dir := t.TempDir()
-	files := testutil.WriteCorruptSQLiteDB(t, filepath.Join(dir, "users.db"))
-
-	w, err := NewWiki(&WikiOptions{
-		StorageDir:          dir,
-		AdminPassword:       "adminpassword",
-		JWTSecret:           "secretkey",
-		AccessTokenTimeout:  15 * time.Minute,
-		RefreshTokenTimeout: 7 * 24 * time.Hour,
-	})
-
-	if err == nil {
-		_ = w.Close()
-		t.Fatal("NewWiki: expected an error for a corrupt users.db, got nil")
-	}
-	var corrupt *sqliteutil.CorruptDatabaseError
-	if !errors.As(err, &corrupt) {
-		t.Fatalf("NewWiki error = %v (%T), want it to wrap *sqliteutil.CorruptDatabaseError", err, err)
-	}
-	testutil.AssertFilesUnchanged(t, files)
-}
-
-// assertNoOpenSQLiteDBs fails for every *.db-wal file left in dir. SQLite
-// removes the WAL file when the last connection to a database closes, so a
-// leftover one means some store's handle was never closed — which on Windows
-// keeps the file locked.
-func assertNoOpenSQLiteDBs(t *testing.T, dir string) {
-	t.Helper()
-	leftovers, err := filepath.Glob(filepath.Join(dir, "*.db-wal"))
-	if err != nil {
-		t.Fatalf("glob WAL files: %v", err)
-	}
-	for _, wal := range leftovers {
-		t.Errorf("%s still open after Close (WAL file left behind)", strings.TrimSuffix(filepath.Base(wal), "-wal"))
-	}
-}
-
-// Regression test: tags.db and properties.db were opened at startup but
-// never closed by Wiki.Close.
 func TestWiki_Close_ClosesAllDatabases(t *testing.T) {
+	testutil.ResetMySQL(t)
 	dir := t.TempDir()
 	w, err := NewWiki(&WikiOptions{
 		StorageDir:             dir,
@@ -290,35 +255,15 @@ func TestWiki_Close_ClosesAllDatabases(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	assertNoOpenSQLiteDBs(t, dir)
+	if _, err := os.Stat(filepath.Join(dir, "users.db")); !os.IsNotExist(err) {
+		t.Fatal("local database was generated")
+	}
 }
 
 // Regression test: when a later boot step failed, NewWiki returned the error
 // but left the databases opened by earlier steps open.
-func TestNewWiki_FailedBoot_ClosesOpenedDatabases(t *testing.T) {
-	dir := t.TempDir()
-	// A regular file where the content directory belongs makes the tree
-	// load fail after the auth stores are already open.
-	if err := os.WriteFile(filepath.Join(dir, "root"), []byte("not a directory"), 0o644); err != nil {
-		t.Fatalf("write root file: %v", err)
-	}
-
-	w, err := NewWiki(&WikiOptions{
-		StorageDir:          dir,
-		AdminPassword:       "adminpassword",
-		JWTSecret:           "secretkey",
-		AccessTokenTimeout:  15 * time.Minute,
-		RefreshTokenTimeout: 7 * 24 * time.Hour,
-	})
-	if err == nil {
-		_ = w.Close()
-		t.Fatal("NewWiki: expected an error when root is not a directory, got nil")
-	}
-
-	assertNoOpenSQLiteDBs(t, dir)
-}
-
 func TestWiki_Login_SuccessAndFailure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -339,6 +284,7 @@ func TestWiki_Login_SuccessAndFailure(t *testing.T) {
 }
 
 func TestWiki_AuthDisabled_Initialization(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a wiki instance with AuthDisabled set to true
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:          t.TempDir(),
@@ -365,6 +311,7 @@ func TestWiki_AuthDisabled_Initialization(t *testing.T) {
 // --disable-auth could keep authenticating (and narrowing/blocking)
 // requests in a mode where auth is supposed to be irrelevant.
 func TestWiki_AuthDisabled_APIKeysUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:   t.TempDir(),
 		AuthDisabled: true,
@@ -388,6 +335,7 @@ func TestWiki_AuthDisabled_APIKeysUnavailable(t *testing.T) {
 // Bearer middleware never gets registered and the admin CRUD routes report
 // the feature as disabled.
 func TestWiki_APIKeyManagementDisabled_APIKeysUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:             t.TempDir(),
 		AdminPassword:          "adminpassword",
@@ -410,6 +358,7 @@ func TestWiki_APIKeyManagementDisabled_APIKeysUnavailable(t *testing.T) {
 // EnableAPIKeyManagement actually constructs the service (auth must also be
 // enabled, since API keys are meaningless without it).
 func TestWiki_APIKeyManagementEnabled_APIKeysAvailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:             t.TempDir(),
 		AdminPassword:          "adminpassword",
@@ -429,6 +378,7 @@ func TestWiki_APIKeyManagementEnabled_APIKeysAvailable(t *testing.T) {
 }
 
 func TestWiki_AuthDisabled_LoginUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a wiki instance with AuthDisabled set to true
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:   t.TempDir(),
@@ -446,6 +396,7 @@ func TestWiki_AuthDisabled_LoginUnavailable(t *testing.T) {
 }
 
 func TestWiki_AuthDisabled_LogoutUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a wiki instance with AuthDisabled set to true
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:   t.TempDir(),
@@ -463,6 +414,7 @@ func TestWiki_AuthDisabled_LogoutUnavailable(t *testing.T) {
 }
 
 func TestWiki_AuthDisabled_RefreshTokenUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a wiki instance with AuthDisabled set to true
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:   t.TempDir(),
@@ -480,6 +432,7 @@ func TestWiki_AuthDisabled_RefreshTokenUnavailable(t *testing.T) {
 }
 
 func TestWiki_AuthDisabled_CoreFunctionalityWorks(t *testing.T) {
+	testutil.ResetMySQL(t)
 	// Create a wiki instance with AuthDisabled set to true
 	wikiInstance, err := NewWiki(&WikiOptions{
 		StorageDir:   t.TempDir(),
@@ -520,6 +473,7 @@ func TestWiki_AuthDisabled_CoreFunctionalityWorks(t *testing.T) {
 }
 
 func TestWiki_EnsureBaselineRevisions_SkipsUnreadablePages(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
@@ -533,9 +487,9 @@ func TestWiki_EnsureBaselineRevisions_SkipsUnreadablePages(t *testing.T) {
 		t.Fatalf("DeletePageData(brokenPage) failed: %v", err)
 	}
 
-	brokenPath := filepath.Join(w.storageDir, "root", "broken.md")
-	if err := os.Remove(brokenPath); err != nil {
-		t.Fatalf("Remove(%s) failed: %v", brokenPath, err)
+	brokenKey := brokenPage.ID
+	if err := database.DeleteRecord(w.storageDir, "page_nodes", brokenKey); err != nil {
+		t.Fatalf("Remove(%s) failed: %v", brokenKey, err)
 	}
 
 	w.ensureBaselineRevisions()
@@ -557,55 +511,16 @@ func TestWiki_EnsureBaselineRevisions_SkipsUnreadablePages(t *testing.T) {
 	}
 }
 
-func TestWiki_ResyncRespectsLeafdocignore(t *testing.T) {
-	tmp := t.TempDir()
-
-	rootDir := filepath.Join(tmp, "root")
-	if err := os.MkdirAll(rootDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	// .leafdocignore goes in root/ alongside the markdown files
-	testutil.WriteFile(t, tmp, "root/.leafdocignore", "secret.md")
-	testutil.WriteFile(t, tmp, "root/public.md", "# Public Page")
-	testutil.WriteFile(t, tmp, "root/secret.md", "# Secret Page")
-
-	w, err := NewWiki(&WikiOptions{
-		StorageDir:          tmp,
-		AdminPassword:       "adminpassword",
-		JWTSecret:           "secretkey",
-		AccessTokenTimeout:  15 * time.Minute,
-		RefreshTokenTimeout: 7 * 24 * time.Hour,
-	})
-	if err != nil {
-		t.Fatalf("NewWiki: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
-
-	// Verify tree has only the public page
-	tree := w.tree.GetTree()
-	if len(tree.Children) != 1 {
-		t.Fatalf("expected 1 child in root, got %d", len(tree.Children))
-	}
-	if tree.Children[0].Slug != "public" {
-		t.Fatalf("expected child slug 'public', got %q", tree.Children[0].Slug)
-	}
-
-	// Verify ignored page is not findable
-	lookup, err := w.tree.LookupPagePath("secret")
-	if err != nil {
-		t.Fatalf("LookupPagePath: %v", err)
-	}
-	if lookup.Exists {
-		t.Fatal("expected ignored page 'secret' to not exist")
-	}
-}
-
 func TestWiki_ReloadWithProgress_PicksUpDiskChangesAndFinishesInSearchPhase(t *testing.T) {
+	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
-	if err := os.WriteFile(filepath.Join(w.GetStorageDir(), "root", "from-disk.md"), []byte("# From Disk\n"), 0o644); err != nil {
+	external := tree.NewTreeService(w.storageDir)
+	if err := external.LoadTree(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := external.CreateNode("system", nil, "From MySQL", "from-disk", pageNodeKind()); err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
 	}
 	if !w.resyncJob.Start() {
@@ -634,6 +549,7 @@ func TestWiki_ReloadWithProgress_PicksUpDiskChangesAndFinishesInSearchPhase(t *t
 }
 
 func TestWiki_ReloadWithProgress_CanceledContext_FinishesWithErrorAndFailureMetric(t *testing.T) {
+	testutil.ResetMySQL(t)
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	w := createWikiTestInstanceWithMetrics(t, metrics)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
@@ -680,194 +596,39 @@ func newWikiOnDir(dir string) (*Wiki, error) {
 // seedWikiWithUser boots a wiki on dir, adds the user alice with a favorite
 // and closes it again, as a previous run of the server would. Like
 // cmd/leafdoc, it creates the data dir first.
-func seedWikiWithUser(t *testing.T, dir string) {
-	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("mkdir %q: %v", dir, err)
+
+func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "wiki") }
+
+// An unavailable database must fail startup instead of creating local state.
+func TestMySQLWikiConnectionFailure(t *testing.T) {
+	testutil.ResetMySQL(t)
+	t.Setenv("LEAFDOC_MYSQL_PASSWORD", "invalid-test-password")
+	if w, err := newWikiOnDir(t.TempDir()); err == nil {
+		w.Close()
+		t.Fatal("startup succeeded with invalid database credentials")
 	}
-	w, err := newWikiOnDir(dir)
+}
+
+// All durable stores are covered by the credential-free database dump.
+func TestMySQLWikiBackupCoversBusinessTables(t *testing.T) {
+	testutil.ResetMySQL(t)
+	w := createWikiTestInstance(t)
+	defer w.Close()
+	raw, err := database.Export(context.Background(), w.storageDir)
 	if err != nil {
-		t.Fatalf("seed NewWiki: %v", err)
+		t.Fatal(err)
 	}
-	alice, err := w.UserService().CreateUser("alice", "alice@example.com", "alicepassword", "editor")
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
+	var dump database.Dump
+	if err = json.Unmarshal(raw, &dump); err != nil {
+		t.Fatal(err)
 	}
-	if err := w.Favorites().Add(alice.ID, "page-1"); err != nil {
-		t.Fatalf("Favorites.Add: %v", err)
+	names := map[string]bool{}
+	for _, table := range dump.Tables {
+		names[table.Name] = true
 	}
-	if _, err := w.auth.Login("alice", "alicepassword"); err != nil {
-		t.Fatalf("Login: %v", err)
-	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("seed Close: %v", err)
-	}
-}
-
-func TestNewWiki_CorruptQuarantinedStore_BootsAndKeepsUsers(t *testing.T) {
-	stores := []struct {
-		filename      string
-		wantFavorites int // favorites alice still has after the restart
-	}{
-		{filename: "sessions.db", wantFavorites: 1},
-		{filename: "favorites.db", wantFavorites: 0},
-	}
-
-	for _, relative := range []bool{false, true} {
-		for _, s := range stores {
-			name := "absolute/" + s.filename
-			if relative {
-				name = "relative/" + s.filename
-			}
-			t.Run(name, func(t *testing.T) {
-				dir := t.TempDir()
-				if relative {
-					t.Chdir(dir)
-					dir = "./data"
-				}
-				seedWikiWithUser(t, dir)
-				dbPath := filepath.Join(dir, s.filename)
-				files := testutil.WriteCorruptSQLiteDB(t, dbPath)
-
-				w, err := newWikiOnDir(dir)
-				if err != nil {
-					t.Fatalf("NewWiki with a corrupt %s: %v", s.filename, err)
-				}
-				defer testutil.WrapCloseWithErrorCheck(w.Close, t)
-
-				alice, err := w.UserService().GetUserByUsername("alice")
-				if err != nil {
-					t.Fatalf("alice lost after the restart: %v", err)
-				}
-				if _, err := w.auth.Login("alice", "alicepassword"); err != nil {
-					t.Fatalf("Login after the restart: %v", err)
-				}
-				favs, err := w.Favorites().ListPageIDsForUser(alice.ID)
-				if err != nil {
-					t.Fatalf("ListPageIDsForUser: %v", err)
-				}
-				if len(favs) != s.wantFavorites {
-					t.Fatalf("favorites = %v, want %d", favs, s.wantFavorites)
-				}
-				if err := w.Favorites().Add(alice.ID, "page-2"); err != nil {
-					t.Fatalf("Favorites.Add after the restart: %v", err)
-				}
-				testutil.AssertSQLiteQuarantined(t, dbPath, files)
-			})
+	for _, name := range []string{"users", "sessions", "favorites", "links", "page_tags", "page_properties", "content_records"} {
+		if !names[name] {
+			t.Errorf("backup missing %s", name)
 		}
-	}
-}
-
-// The default --data-dir is the relative ./data: a corrupt users.db there
-// must stop NewWiki with every byte (and the -wal) in place, and a healthy
-// one must keep its users across restarts (ADR-0013).
-func TestNewWiki_RelativeDataDir_UsersDB(t *testing.T) {
-	t.Run("healthy users.db keeps its users", func(t *testing.T) {
-		t.Chdir(t.TempDir())
-		seedWikiWithUser(t, "./data")
-
-		w, err := newWikiOnDir("./data")
-		if err != nil {
-			t.Fatalf("NewWiki: %v", err)
-		}
-		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
-		if _, err := w.UserService().GetUserByUsername("alice"); err != nil {
-			t.Fatalf("alice lost after the restart: %v", err)
-		}
-		testutil.AssertNoSQLiteQuarantine(t, filepath.Join("data", "users.db"))
-	})
-
-	t.Run("corrupt users.db fails and keeps every byte", func(t *testing.T) {
-		t.Chdir(t.TempDir())
-		seedWikiWithUser(t, "./data")
-		files := testutil.WriteCorruptSQLiteDB(t, filepath.Join("data", "users.db"))
-
-		w, err := newWikiOnDir("./data")
-
-		if err == nil {
-			_ = w.Close()
-			t.Fatal("NewWiki: expected an error for a corrupt users.db, got nil")
-		}
-		var corrupt *sqliteutil.CorruptDatabaseError
-		if !errors.As(err, &corrupt) {
-			t.Fatalf("NewWiki error = %v (%T), want *sqliteutil.CorruptDatabaseError", err, err)
-		}
-		testutil.AssertFilesUnchanged(t, files)
-		testutil.AssertNoSQLiteQuarantine(t, filepath.Join("data", "users.db"))
-	})
-}
-
-// Every store the composition root registers for live restore must also be
-// listed in restore.StateDBFiles, or snapshots would not capture its file and
-// a restore would not swap it. Its File label must also be the database the
-// store actually opens: the store packages name their files themselves, so a
-// renamed file or a mixed-up label would otherwise drop it from snapshots.
-func TestWiki_StateStores_AreRegisteredForBackupAndRestore(t *testing.T) {
-	tests := []struct {
-		name          string
-		enableAPIKeys bool
-		wantFiles     []string
-	}{
-		{name: "api key management on", enableAPIKeys: true, wantFiles: []string{"api_keys.db", "favorites.db"}},
-		{name: "api key management off", enableAPIKeys: false, wantFiles: []string{"favorites.db"}},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			storageDir := t.TempDir()
-			w, err := NewWiki(&WikiOptions{
-				StorageDir:             storageDir,
-				AdminPassword:          "adminpassword",
-				JWTSecret:              "secretkey",
-				AccessTokenTimeout:     15 * time.Minute,
-				RefreshTokenTimeout:    7 * 24 * time.Hour,
-				EnableAPIKeyManagement: tc.enableAPIKeys,
-			})
-			if err != nil {
-				t.Fatalf("NewWiki: %v", err)
-			}
-			t.Cleanup(func() { _ = w.Close() })
-
-			registered := map[string]bool{}
-			for _, f := range restore.StateDBFiles() {
-				registered[f] = true
-			}
-			var got []string
-			for _, s := range w.StateStores() {
-				if s.Store == nil || reflect.ValueOf(s.Store).IsNil() {
-					t.Errorf("StateStores lists %s with a nil store", s.File)
-				}
-				if !registered[s.File] {
-					t.Errorf("StateStores lists %s, which restore.StateDBFiles does not capture", s.File)
-				}
-				got = append(got, s.File)
-			}
-			if !reflect.DeepEqual(got, tc.wantFiles) {
-				t.Errorf("StateStores files = %v, want %v", got, tc.wantFiles)
-			}
-
-			// Release every store and delete its files, then reopen one store
-			// at a time: the file named by its label must be the one that
-			// comes back.
-			for _, s := range w.StateStores() {
-				if err := s.Store.PauseForSwap(); err != nil {
-					t.Fatalf("PauseForSwap %s: %v", s.File, err)
-				}
-			}
-			for _, f := range restore.StateDBFiles() {
-				for _, suffix := range []string{"", "-wal", "-shm"} {
-					if err := os.Remove(filepath.Join(storageDir, f+suffix)); err != nil && !os.IsNotExist(err) {
-						t.Fatalf("remove %s%s: %v", f, suffix, err)
-					}
-				}
-			}
-			for _, s := range w.StateStores() {
-				if err := s.Store.Replace(storageDir); err != nil {
-					t.Fatalf("Replace %s: %v", s.File, err)
-				}
-				if _, err := os.Stat(filepath.Join(storageDir, s.File)); err != nil {
-					t.Errorf("StateStores lists %s, but its store does not open that file: %v", s.File, err)
-				}
-			}
-		})
 	}
 }

@@ -2,6 +2,7 @@ package revisions_test
 
 import (
 	"context"
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -82,6 +83,7 @@ func sectionKind() *tree.NodeKind {
 }
 
 func TestRestoreRevisionUseCase_RestoresAssetsAndStructure(t *testing.T) {
+	testutil.ResetMySQL(t)
 	deps := newTestDeps(t)
 	createUC := wikipages.NewCreatePageUseCase(deps.tree, deps.slug, newTestOrchestrator(deps), nil, nil)
 	updateUC := wikipages.NewUpdatePageUseCase(deps.tree, deps.slug, newTestOrchestrator(deps), nil, nil)

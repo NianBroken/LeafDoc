@@ -1,10 +1,11 @@
 package importer
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"path/filepath"
 	"sync"
 	"time"
@@ -258,8 +259,8 @@ func (ps *PlanStore) load() error {
 		return nil
 	}
 
-	raw, err := os.ReadFile(ps.stateFile)
-	if errors.Is(err, os.ErrNotExist) {
+	raw, err := database.ReadRecord(filepath.Dir(ps.stateFile), "import_state", filepath.Base(ps.stateFile))
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
@@ -275,32 +276,20 @@ func (ps *PlanStore) load() error {
 	return nil
 }
 
+// persistLocked commits execution progress to MySQL; an unspecified key is an explicit ephemeral store.
 func (ps *PlanStore) persistLocked() error {
 	if ps.stateFile == "" {
 		return nil
 	}
-
-	if err := os.MkdirAll(filepath.Dir(ps.stateFile), 0o755); err != nil {
-		return err
-	}
-
+	directory, key := filepath.Dir(ps.stateFile), filepath.Base(ps.stateFile)
 	if ps.plan == nil {
-		if err := os.Remove(ps.stateFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		return nil
+		return database.DeleteRecord(directory, "import_state", key)
 	}
-
 	raw, err := json.Marshal(ps.plan)
 	if err != nil {
 		return err
 	}
-
-	tmpPath := ps.stateFile + ".tmp"
-	if err := os.WriteFile(tmpPath, raw, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmpPath, ps.stateFile)
+	return database.WriteRecord(directory, "import_state", key, raw)
 }
 
 func cloneStoredPlan(sp *StoredPlan) *StoredPlan {

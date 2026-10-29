@@ -24,6 +24,7 @@ func setupTestUserService(t *testing.T) *UserService {
 }
 
 func TestUserService_CreateUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, err := service.CreateUser("alice", "alice@example.com", "secure", "admin")
@@ -37,6 +38,7 @@ func TestUserService_CreateUser(t *testing.T) {
 }
 
 func TestUserService_CreateUser_Duplicate(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	_, _ = service.CreateUser("alice", "alice@example.com", "secure", "editor")
@@ -53,6 +55,7 @@ func TestUserService_CreateUser_Duplicate(t *testing.T) {
 }
 
 func TestUserService_CreateUser_InvalidRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	_, err := service.CreateUser("bob", "bob@example.com", "secure", "guest")
@@ -62,6 +65,7 @@ func TestUserService_CreateUser_InvalidRole(t *testing.T) {
 }
 
 func TestUserService_GetUserByEmailOrUsernameAndPassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	_, _ = service.CreateUser("alice", "alice@example.com", "mypassword", "editor")
 
@@ -82,6 +86,7 @@ func TestUserService_GetUserByEmailOrUsernameAndPassword(t *testing.T) {
 }
 
 func TestUserService_UpdateUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, _ := service.CreateUser("bob", "bob@example.com", "initial", "editor")
@@ -97,6 +102,7 @@ func TestUserService_UpdateUser(t *testing.T) {
 }
 
 func TestUserService_UpdateUser_EmptyRolePreservesExistingRole(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, _ := service.CreateUser("bob", "bob@example.com", "initial", RoleEditor)
@@ -114,6 +120,7 @@ func TestUserService_UpdateUser_EmptyRolePreservesExistingRole(t *testing.T) {
 	}
 }
 func TestUserService_UpdateUser_LastAdminCannotBeDemoted(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	admin, _ := service.CreateUser("admin", "admin@example.com", "pass", RoleAdmin)
@@ -125,6 +132,7 @@ func TestUserService_UpdateUser_LastAdminCannotBeDemoted(t *testing.T) {
 }
 
 func TestUserService_UpdateUser_AdminCanBeDemotedWhenAnotherAdminExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	admin1, _ := service.CreateUser("admin1", "admin1@example.com", "pass", RoleAdmin)
@@ -140,6 +148,7 @@ func TestUserService_UpdateUser_AdminCanBeDemotedWhenAnotherAdminExists(t *testi
 }
 
 func TestUserService_DeleteUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	// admin should not be deletable
@@ -157,6 +166,7 @@ func TestUserService_DeleteUser(t *testing.T) {
 }
 
 func TestUserService_InitDefaultAdmin(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, _ := NewUserStore(t.TempDir())
 	t.Cleanup(func() {
 		if err := store.Close(); err != nil {
@@ -177,6 +187,7 @@ func TestUserService_InitDefaultAdmin(t *testing.T) {
 }
 
 func TestUserService_InitDefaultAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, _ := NewUserStore(t.TempDir())
 	t.Cleanup(func() {
 		if err := store.Close(); err != nil {
@@ -197,6 +208,7 @@ func TestUserService_InitDefaultAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
 }
 
 func TestUserService_InitDefaultAdmin_PasswordTooShort_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, _ := NewUserStore(t.TempDir())
 	t.Cleanup(func() {
 		if err := store.Close(); err != nil {
@@ -217,6 +229,7 @@ func TestUserService_InitDefaultAdmin_PasswordTooShort_ReturnsError(t *testing.T
 }
 
 func TestUserService_InitDefaultAdmin_SkipsWhenAdminAlreadyExists(t *testing.T) {
+	testutil.ResetMySQL(t)
 	store, _ := NewUserStore(t.TempDir())
 	t.Cleanup(func() {
 		if err := store.Close(); err != nil {
@@ -241,6 +254,7 @@ func TestUserService_InitDefaultAdmin_SkipsWhenAdminAlreadyExists(t *testing.T) 
 }
 
 func TestUserService_ResetAdminUserPassword(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -282,6 +296,7 @@ func TestUserService_ResetAdminUserPassword(t *testing.T) {
 }
 
 func TestUserService_ResetAdminUserPassword_NoAdmin(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -313,6 +328,7 @@ func TestUserService_ResetAdminUserPassword_NoAdmin(t *testing.T) {
 }
 
 func TestUserService_ResetAdminUserPassword_NoAdmin_UsesGivenUsernameAndEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -345,6 +361,7 @@ func TestUserService_ResetAdminUserPassword_NoAdmin_UsesGivenUsernameAndEmail(t 
 // window saw a confusing "user not found" instead of "restore in progress".
 
 func TestUserService_GetUserByID_StoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, err := service.CreateUser("suspend-user", "suspend-user@example.com", "password1", RoleAdmin)
@@ -370,6 +387,7 @@ func TestUserService_GetUserByID_StoreSuspended_ReturnsStoreUnavailable(t *testi
 }
 
 func TestUserService_GetUserByID_UnknownID_ReturnsErrUserNotFound(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	_, err := service.GetUserByID("does-not-exist")
@@ -379,6 +397,7 @@ func TestUserService_GetUserByID_UnknownID_ReturnsErrUserNotFound(t *testing.T) 
 }
 
 func TestUserService_GetUserByUsername_StoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	_, err := service.CreateUser("suspend-user2", "suspend-user2@example.com", "password1", RoleAdmin)
@@ -404,6 +423,7 @@ func TestUserService_GetUserByUsername_StoreSuspended_ReturnsStoreUnavailable(t 
 }
 
 func TestUserService_GetUserByIdentifier_StoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	_, err := service.CreateUser("suspend-user3", "suspend-user3@example.com", "password1", RoleAdmin)
@@ -429,6 +449,7 @@ func TestUserService_GetUserByIdentifier_StoreSuspended_ReturnsStoreUnavailable(
 }
 
 func TestUserService_DeleteUser_StoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	user, err := service.CreateUser("suspend-user4", "suspend-user4@example.com", "password1", RoleEditor)
@@ -454,6 +475,7 @@ func TestUserService_DeleteUser_StoreSuspended_ReturnsStoreUnavailable(t *testin
 }
 
 func TestUserService_GetOrCreateRemoteUser_CreatesNewUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -468,6 +490,7 @@ func TestUserService_GetOrCreateRemoteUser_CreatesNewUser(t *testing.T) {
 }
 
 func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserOnSecondCall(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -501,6 +524,7 @@ func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserOnSecondCall(t *te
 }
 
 func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserByEmail(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -525,6 +549,7 @@ func TestUserService_GetOrCreateRemoteUser_ReturnsExistingUserByEmail(t *testing
 }
 
 func TestUserService_GetOrCreateRemoteUser_SynthesizesPlaceholderEmailWhenNoneGiven(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -540,6 +565,7 @@ func TestUserService_GetOrCreateRemoteUser_SynthesizesPlaceholderEmailWhenNoneGi
 }
 
 func TestUserService_GetOrCreateRemoteUser_InvalidRolePropagates(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -550,6 +576,7 @@ func TestUserService_GetOrCreateRemoteUser_InvalidRolePropagates(t *testing.T) {
 }
 
 func TestUserService_LookupRemoteUserByIdentifier_StoreErrorPropagates(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -569,6 +596,7 @@ func TestUserService_LookupRemoteUserByIdentifier_StoreErrorPropagates(t *testin
 }
 
 func TestUserService_GetOrCreateRemoteUser_EmailConflictWithDifferentUserReturnsDistinctError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -594,6 +622,7 @@ func TestUserService_GetOrCreateRemoteUser_EmailConflictWithDifferentUserReturns
 }
 
 func TestUserService_GetOrCreateRemoteUser_ConcurrentCallsCreateExactlyOneUser(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 	defer testutil.WrapCloseWithErrorCheck(service.Close, t)
 
@@ -668,6 +697,7 @@ func setupTestUserServiceWithEditorLimit(t *testing.T, limit int) *UserService {
 }
 
 func TestUserService_CreateUser_BootstrapFirstAdminUnderLimitOne_Succeeds(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserServiceWithEditorLimit(t, 1)
 
 	if err := service.InitDefaultAdmin("", "", "password123"); err != nil {
@@ -676,6 +706,7 @@ func TestUserService_CreateUser_BootstrapFirstAdminUnderLimitOne_Succeeds(t *tes
 }
 
 func TestUserService_CreateUser_EditorLimitReached_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserServiceWithEditorLimit(t, 1)
 
 	if _, err := service.CreateUser("admin", "admin@example.com", "secure123", RoleAdmin); err != nil {
@@ -688,6 +719,7 @@ func TestUserService_CreateUser_EditorLimitReached_ReturnsError(t *testing.T) {
 }
 
 func TestUserService_CreateUser_ViewerRoleNeverBlockedByLimit(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserServiceWithEditorLimit(t, 1)
 
 	if _, err := service.CreateUser("admin", "admin@example.com", "secure123", RoleAdmin); err != nil {
@@ -703,6 +735,7 @@ func TestUserService_CreateUser_ViewerRoleNeverBlockedByLimit(t *testing.T) {
 }
 
 func TestUserService_CreateUser_UnlimitedByDefault(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserService(t)
 
 	for i, username := range []string{"admin", "editor1", "editor2"} {
@@ -717,6 +750,7 @@ func TestUserService_CreateUser_UnlimitedByDefault(t *testing.T) {
 }
 
 func TestUserService_UpdateUser_PromoteViewerToEditor_EditorLimitReached_ReturnsError(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserServiceWithEditorLimit(t, 1)
 
 	if _, err := service.CreateUser("admin", "admin@example.com", "secure123", RoleAdmin); err != nil {
@@ -733,6 +767,7 @@ func TestUserService_UpdateUser_PromoteViewerToEditor_EditorLimitReached_Returns
 }
 
 func TestUserService_UpdateUser_EditorToAdmin_NotBlockedByLimit(t *testing.T) {
+	testutil.ResetMySQL(t)
 	service := setupTestUserServiceWithEditorLimit(t, 2)
 
 	if _, err := service.CreateUser("admin", "admin@example.com", "secure123", RoleAdmin); err != nil {
