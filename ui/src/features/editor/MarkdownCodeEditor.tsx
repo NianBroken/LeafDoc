@@ -11,7 +11,7 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorView, keymap } from '@codemirror/view'
 import { githubLight } from '@fsegurai/codemirror-theme-github-light'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useDesignModeStore } from '@/features/designtoggle/designmode'
+import { useResolvedDesignMode } from '@/features/designtoggle/useResolvedDesignMode'
 import {
   insertHeadingAtStart,
   insertWrappedText,
@@ -96,7 +96,7 @@ export default function MarkdownCodeEditor({
     initialValueRef.current = initialValue
   })
 
-  const designMode = useDesignModeStore((state) => state.mode)
+  const designMode = useResolvedDesignMode()
   const [themeCompartment] = useState(() => new Compartment())
   const [lineWrapCompartment] = useState(() => new Compartment())
 
@@ -280,6 +280,14 @@ export default function MarkdownCodeEditor({
             height: '100%',
             overflowX: 'auto',
             overflowY: 'auto',
+          },
+          // Native selections use readable foregrounds for every syntax token.
+          '.cm-content::selection, .cm-content *::selection': {
+            backgroundColor: 'hsl(var(--brand) / 0.25) !important',
+            color: 'hsl(var(--interface-text)) !important',
+          },
+          '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+            backgroundColor: 'hsl(var(--brand) / 0.25) !important',
           },
           '.cm-content': {
             lineHeight: '1.5',

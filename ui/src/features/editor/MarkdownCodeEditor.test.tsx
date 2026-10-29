@@ -70,7 +70,8 @@ vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@fsegurai/codemirror-theme-github-light', () => ({ githubLight: {} }))
 
 vi.mock('@/features/designtoggle/designmode', () => ({
-  useDesignModeStore: () => ({ mode: 'light' }),
+  useDesignModeStore: (selector: (state: { mode: string }) => unknown) =>
+    selector({ mode: 'light' }),
 }))
 
 vi.mock('@/features/editor/internalLinkCompletion', () => ({

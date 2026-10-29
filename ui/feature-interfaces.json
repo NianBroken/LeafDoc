@@ -2,7 +2,7 @@
   "apikeys": ["ApiKeysManagement"],
   "assets": ["AssetPreviewTooltip"],
   "branding": ["BrandingAsset", "BrandingSettings", "state/branding"],
-  "designtoggle": ["designmode"],
+  "designtoggle": ["designmode", "useResolvedDesignMode"],
   "editor": ["pageEditorStore"],
   "favorites": ["FavoriteToggleButton", "FavoritesSection", "state/favorites"],
   "history": ["PageHistoryContent", "pageHistory"],

@@ -67,6 +67,7 @@ export function AvatarPanel() {
         <Button
           variant="destructive"
           size="sm"
+          aria-label={t('account.avatar.deleteButton')}
           onClick={handleDelete}
           disabled={isLoading}
         >

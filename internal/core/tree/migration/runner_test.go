@@ -378,7 +378,7 @@ func TestTreeMigration_LoadTree_MigratesToV4_MaterializesMissingSectionIndex(t *
 }
 
 func TestTreeMigration_LoadTree_MigratesToV5_PageNodeWithChildrenPreservesChildOrder(t *testing.T) {
-	// Regression test for: https://github.com/perber/leafwiki/issues/932
+	// Slug migration preserves links when page paths change.
 	// Legacy trees could contain page nodes that have children when a folder and an .md file
 	// shared the same name. The V5 migration must coerce such nodes to section so that
 	// SaveChildOrder can write the .order.json and the legacy child ordering is preserved.

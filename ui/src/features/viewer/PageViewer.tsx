@@ -11,7 +11,6 @@ import {
   DIALOG_PAGE_PERMALINK,
 } from '@/shared/lib/registries/instances'
 import { buildHistoryUrl } from '@/shared/lib/routePath'
-import { FavoriteToggleButton } from '@/features/favorites/FavoriteToggleButton'
 import {
   getPageAttachments,
   type PageAttachment,
@@ -28,7 +27,6 @@ import {
 import { useConfigStore } from '@/shared/state/config'
 import { useDialogsStore } from '@/shared/state/dialogs'
 import { useHotKeysStore } from '@/shared/state/hotkeys'
-import { useSessionStore } from '@/shared/state/session'
 import { useTocPanelStore } from '@/features/preview/state/tocPanel'
 import { useTreeStore } from '@/features/tree/state/tree'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -76,7 +74,6 @@ export default function PageViewer() {
   const isPinned = useTreeStore((s) =>
     page ? (s.byId[page.id]?.pinned ?? false) : false,
   )
-  const isLoggedIn = useSessionStore((s) => s.user !== null)
 
   const actions = {
     pageKind: page?.kind,
@@ -242,13 +239,6 @@ export default function PageViewer() {
                     </div>
                   )}
                 </div>
-                {isLoggedIn && (
-                  <FavoriteToggleButton
-                    pageId={page.id}
-                    size={16}
-                    className="page-viewer__favorite-toggle"
-                  />
-                )}
               </div>
               {showRightPane && (
                 <div className="page-viewer__toc-button">

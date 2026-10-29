@@ -1,48 +1,10 @@
-import { useDesignModeStore } from '@/features/designtoggle/designmode'
-import { useLayoutEffect, useSyncExternalStore } from 'react'
+import { useLayoutEffect } from 'react'
+import { useResolvedDesignMode } from '@/features/designtoggle/useResolvedDesignMode'
 
-function applyDesignMode(mode: 'light' | 'dark' | 'system') {
-  const root = document.documentElement
-
-  let appliedMode: 'light' | 'dark'
-  if (mode === 'system') {
-    const prefersLight = window.matchMedia(
-      '(prefers-color-scheme: light)',
-    ).matches
-    appliedMode = prefersLight ? 'light' : 'dark'
-  } else {
-    appliedMode = mode
-  }
-
-  if (appliedMode === 'dark') {
-    root.classList.add('dark')
-  } else {
-    root.classList.remove('dark')
-  }
-}
-
+// The document and editor use the same resolved theme, including system changes.
 export default function useApplyDesignMode() {
-  const mode = useDesignModeStore((s) => s.mode)
-  const prefersLight = useSyncExternalStore(
-    (onStoreChange) => {
-      if (typeof window === 'undefined' || mode !== 'system') {
-        return () => {}
-      }
-
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: light)')
-      mediaQuery.addEventListener('change', onStoreChange)
-      return () => {
-        mediaQuery.removeEventListener('change', onStoreChange)
-      }
-    },
-    () => {
-      if (typeof window === 'undefined') return true
-      return window.matchMedia('(prefers-color-scheme: light)').matches
-    },
-    () => true,
-  )
-
+  const mode = useResolvedDesignMode()
   useLayoutEffect(() => {
-    applyDesignMode(mode)
-  }, [mode, prefersLight])
+    document.documentElement.classList.toggle('dark', mode === 'dark')
+  }, [mode])
 }

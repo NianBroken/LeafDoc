@@ -1,3 +1,4 @@
+import { TrashIcon } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import type { ApiKey } from '@/shared/lib/api/apikeys'
 import { DIALOG_DELETE_API_KEY_CONFIRMATION } from '@/shared/lib/registries/instances'
@@ -14,7 +15,10 @@ export function DeleteApiKeyButton({ apiKey }: DeleteApiKeyButtonProps) {
 
   return (
     <Button
-      size="sm"
+      size="icon"
+      className="h-7 w-7"
+      aria-label={t('delete.button')}
+      title={t('delete.button')}
       variant="destructive"
       onClick={() =>
         openDialog(DIALOG_DELETE_API_KEY_CONFIRMATION, {
@@ -23,7 +27,7 @@ export function DeleteApiKeyButton({ apiKey }: DeleteApiKeyButtonProps) {
         })
       }
     >
-      {t('delete.button')}
+      <TrashIcon className="h-4 w-4" />
     </Button>
   )
 }

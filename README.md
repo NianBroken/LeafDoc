@@ -1,5 +1,7 @@
 # LeafDoc
 
+项目地址：[LeafDoc](https://github.com/NianBroken/LeafDoc)
+
 LeafDoc 使用 Go 提供接口，使用 React 提供页面，将文档保存为 UTF-8 Markdown 文件，将账户、会话和检索数据保存在本机 SQLite 数据库中。
 
 ## 构建与运行

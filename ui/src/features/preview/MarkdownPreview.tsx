@@ -1,4 +1,6 @@
-import { useDesignModeStore } from '@/features/designtoggle/designmode'
+import { TableCellContent } from '@/shared/components/SettingsTable'
+import { TooltipProvider } from '@/shared/components/ui/tooltip'
+import { useResolvedDesignMode } from '@/features/designtoggle/useResolvedDesignMode'
 import { useTranslation } from 'react-i18next'
 import { normalizeAssetSrc } from '@/shared/lib/assetSrc'
 import {
@@ -13,6 +15,7 @@ import {
   BlockquoteHTMLAttributes,
   Children,
   ClassAttributes,
+  type ComponentProps,
   HTMLAttributes,
   ImgHTMLAttributes,
   VideoHTMLAttributes,
@@ -22,7 +25,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { JSX } from 'react/jsx-runtime'
@@ -84,28 +86,7 @@ export default function MarkdownPreview({
 }: Props) {
   const { i18n } = useTranslation('viewer')
   const treeById = useTreeStore((s) => s.byId)
-  const designMode = useDesignModeStore((state) => state.mode)
-  const prefersLight = useSyncExternalStore(
-    (onStoreChange) => {
-      if (typeof window === 'undefined' || designMode !== 'system') {
-        return () => {}
-      }
-
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: light)')
-      mediaQuery.addEventListener('change', onStoreChange)
-      return () => {
-        mediaQuery.removeEventListener('change', onStoreChange)
-      }
-    },
-    () => {
-      if (typeof window === 'undefined') return true
-      return window.matchMedia('(prefers-color-scheme: light)').matches
-    },
-    () => true,
-  )
-
-  const resolvedMode =
-    designMode === 'system' ? (prefersLight ? 'light' : 'dark') : designMode
+  const resolvedMode = useResolvedDesignMode()
 
   const markdownLink = useCallback(
     ({
@@ -352,12 +333,35 @@ export default function MarkdownPreview({
         HTMLAttributes<HTMLTableElement>) => {
         void node
         return (
-          <div className="table-wrapper custom-scrollbar">
-            <table
-              {...props}
-              className={`custom-scrollbar ${props.className ?? ''}`.trim()}
-            />
-          </div>
+          <TooltipProvider delayDuration={300}>
+            <div className="table-wrapper">
+              <table {...props} className={props.className} />
+            </div>
+          </TooltipProvider>
+        )
+      },
+      th: ({
+        node,
+        children,
+        ...props
+      }: MarkdownNodeProp & ComponentProps<'th'>) => {
+        void node
+        return (
+          <th {...props}>
+            <TableCellContent>{children}</TableCellContent>
+          </th>
+        )
+      },
+      td: ({
+        node,
+        children,
+        ...props
+      }: MarkdownNodeProp & ComponentProps<'td'>) => {
+        void node
+        return (
+          <td {...props}>
+            <TableCellContent>{children}</TableCellContent>
+          </td>
         )
       },
       pre: MarkdownCodeBlock,

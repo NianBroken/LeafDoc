@@ -16,6 +16,21 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useSetTitle } from '@/features/viewer/setTitle'
 
+// Both labels share intrinsic sizing so translations keep preview centers aligned.
+function BrandingPreviewLabel({ kind }: { kind: 'logo' | 'favicon' }) {
+  const { t } = useTranslation('branding')
+
+  return (
+    <span className="settings__preview-label settings__branding-label">
+      {(['logo', 'favicon'] as const).map((asset) => (
+        <span key={asset} aria-hidden={asset !== kind}>
+          {t(`${asset}.currentLabel`)}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export default function BrandingSettings() {
   const {
     siteName,
@@ -90,6 +105,7 @@ export default function BrandingSettings() {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
 
     try {
@@ -104,6 +120,7 @@ export default function BrandingSettings() {
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
 
     try {
@@ -146,24 +163,24 @@ export default function BrandingSettings() {
           </p>
 
           <div className="settings__preview settings__branding-preview">
-            <span className="settings__preview-label">
-              {t('logo.currentLabel')}
-            </span>
-            <div className="settings__branding-asset">
-              {!isLoaded && isLoading ? (
-                <Loader2
-                  className="h-4 w-4 animate-spin"
-                  aria-label={t('loading')}
-                />
-              ) : (
-                <BrandingAsset
-                  kind="logo"
-                  file={logoFile}
-                  version={logoVersion}
-                  alt={t('logo.title')}
-                  className="settings__preview-image"
-                />
-              )}
+            <BrandingPreviewLabel kind="logo" />
+            <div className="settings__branding-slot">
+              <div className="settings__branding-asset">
+                {!isLoaded && isLoading ? (
+                  <Loader2
+                    className="h-4 w-4 animate-spin"
+                    aria-label={t('loading')}
+                  />
+                ) : (
+                  <BrandingAsset
+                    kind="logo"
+                    file={logoFile}
+                    version={logoVersion}
+                    alt={t('logo.title')}
+                    className="preview-image settings__preview-image"
+                  />
+                )}
+              </div>
             </div>
             {logoFile && (
               <Button
@@ -210,24 +227,24 @@ export default function BrandingSettings() {
           </p>
 
           <div className="settings__preview settings__branding-preview">
-            <span className="settings__preview-label">
-              {t('favicon.currentLabel')}
-            </span>
-            <div className="settings__branding-asset">
-              {!isLoaded && isLoading ? (
-                <Loader2
-                  className="h-4 w-4 animate-spin"
-                  aria-label={t('loading')}
-                />
-              ) : (
-                <BrandingAsset
-                  kind="favicon"
-                  file={faviconFile}
-                  version={faviconVersion}
-                  alt={t('favicon.title')}
-                  className="settings__preview-favicon"
-                />
-              )}
+            <BrandingPreviewLabel kind="favicon" />
+            <div className="settings__branding-slot">
+              <div className="settings__branding-asset settings__branding-asset--favicon">
+                {!isLoaded && isLoading ? (
+                  <Loader2
+                    className="h-4 w-4 animate-spin"
+                    aria-label={t('loading')}
+                  />
+                ) : (
+                  <BrandingAsset
+                    kind="favicon"
+                    file={faviconFile}
+                    version={faviconVersion}
+                    alt={t('favicon.title')}
+                    className="preview-image settings__preview-favicon"
+                  />
+                )}
+              </div>
             </div>
             {faviconFile && (
               <Button

@@ -28,7 +28,7 @@ const AvatarImage = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
-    className={cn('aspect-square h-full w-full', className)}
+    className={cn('preview-image', className)}
     {...props}
   />
 ))
@@ -49,7 +49,7 @@ const AvatarFallback = React.forwardRef<
     <img
       src={withBasePath(DEFAULT_AVATAR_PATH)}
       alt=""
-      className="h-full w-full object-contain"
+      className="preview-image"
     />
   </AvatarPrimitive.Fallback>
 ))

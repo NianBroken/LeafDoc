@@ -58,11 +58,7 @@ export function SettingsTable({
 }
 
 // Only overflowing text enters the tab order and opens a portaled full-text hint.
-export function SettingsTableCell({
-  children,
-  className,
-  ...props
-}: ComponentProps<'td'>) {
+export function TableCellContent({ children }: { children: React.ReactNode }) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [overflowText, setOverflowText] = useState('')
 
@@ -79,6 +75,7 @@ export function SettingsTableCell({
     const resizeObserver =
       typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
     const mutationObserver = new MutationObserver(measure)
+    measure()
     resizeObserver?.observe(element)
     window.addEventListener('resize', measure)
     mutationObserver.observe(element, {
@@ -94,23 +91,34 @@ export function SettingsTableCell({
   }, [])
 
   return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          ref={contentRef}
+          className="settings__table-text table-cell-text"
+          tabIndex={overflowText ? 0 : undefined}
+        >
+          {children}
+        </div>
+      </TooltipTrigger>
+      {overflowText && (
+        <TooltipContent className="settings__table-tooltip">
+          {overflowText}
+        </TooltipContent>
+      )}
+    </Tooltip>
+  )
+}
+
+// Semantic cells share overflow measurement and keyboard-accessible full text.
+export function SettingsTableCell({
+  children,
+  className,
+  ...props
+}: ComponentProps<'td'>) {
+  return (
     <td {...props} className={cn('settings__table-cell', className)}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            ref={contentRef}
-            className="settings__table-text"
-            tabIndex={overflowText ? 0 : undefined}
-          >
-            {children}
-          </div>
-        </TooltipTrigger>
-        {overflowText && (
-          <TooltipContent className="settings__table-tooltip">
-            {overflowText}
-          </TooltipContent>
-        )}
-      </Tooltip>
+      <TableCellContent>{children}</TableCellContent>
     </td>
   )
 }

@@ -1,7 +1,6 @@
 import { useAppMode } from '@/shared/lib/useAppMode'
 import { createNavigationVisitState } from '@/shared/lib/navigationVisit'
 import { useTreeStore } from '@/features/tree/state/tree'
-import { FolderTree } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useViewerStore } from '@/features/viewer/viewer'
@@ -41,9 +40,6 @@ export default function Breadcrumbs() {
 
   return (
     <nav className="breadcrumbs-nav" aria-label={t('breadcrumbs.navAriaLabel')}>
-      <span className="breadcrumbs-nav__icon" aria-hidden="true">
-        <FolderTree size={14} strokeWidth={1.8} />
-      </span>
       <ol className="breadcrumbs-nav__list">
         {breadcrumbs.map((crumb, index) => (
           <li key={crumb.path} className="breadcrumbs-nav__item">

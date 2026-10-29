@@ -1,23 +1,12 @@
 import { Button } from '@/shared/components/ui/button'
 import { DIALOG_PAGE_QUICK_SWITCHER } from '@/shared/lib/registries/instances'
-import {
-  createHotkeyDefinition,
-  getShortcutDisplayLabel,
-} from '@/shared/lib/shortcuts/shortcutCatalog'
+import { createHotkeyDefinition } from '@/shared/lib/shortcuts/shortcutCatalog'
 import { useAppMode } from '@/shared/lib/useAppMode'
 import { useDialogsStore } from '@/shared/state/dialogs'
 import { useHotKeysStore } from '@/shared/state/hotkeys'
 import { FileSearch } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-
-const isMacOS =
-  typeof navigator !== 'undefined' &&
-  /Mac|iPhone|iPad|iPod/.test(navigator.platform)
-const quickSwitcherHotkeyLabel = getShortcutDisplayLabel(
-  'page.quickSwitcher.open',
-  isMacOS,
-)
 
 export function PageQuickSwitcherTrigger() {
   const { t } = useTranslation('viewer')
@@ -46,16 +35,11 @@ export function PageQuickSwitcherTrigger() {
       size="sm"
       onClick={() => openDialog(DIALOG_PAGE_QUICK_SWITCHER)}
       aria-label={t('pageSwitcher.trigger')}
-      title={t('pageSwitcher.triggerWithHotkey', {
-        hotkey: quickSwitcherHotkeyLabel,
-      })}
+      title={t('pageSwitcher.trigger')}
       className="max-md:px-2"
     >
       <FileSearch size={16} />
       <span className="max-md:hidden">{t('pageSwitcher.trigger')}</span>
-      <span className="text-muted-foreground ml-1 hidden text-xs md:inline">
-        {quickSwitcherHotkeyLabel}
-      </span>
     </Button>
   )
 }

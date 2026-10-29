@@ -87,7 +87,7 @@ export function ImagePreviewDialog({ src, alt }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex justify-center px-6 pb-6">
+        <div className="image-preview-frame">
           <img
             src={src}
             alt={alt}
@@ -95,8 +95,7 @@ export function ImagePreviewDialog({ src, alt }: Props) {
               const img = e.currentTarget
               setNatural({ w: img.naturalWidth, h: img.naturalHeight })
             }}
-            // Never scale up images beyond their natural size
-            className="bg-muted-surface h-auto max-h-[75vh] w-auto max-w-full rounded-lg object-contain"
+            className="preview-image bg-muted-surface rounded-lg"
           />
         </div>
       </DialogContent>

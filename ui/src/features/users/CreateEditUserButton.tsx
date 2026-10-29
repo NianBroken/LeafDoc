@@ -1,3 +1,4 @@
+import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu'
 import { Button } from '@/shared/components/ui/button'
 import { User } from '@/shared/lib/api/users'
 import { DIALOG_USER_FORM } from '@/shared/lib/registries/instances'
@@ -5,11 +6,22 @@ import { useDialogsStore } from '@/shared/state/dialogs'
 import { useTranslation } from 'react-i18next'
 type CreateEditUserButtonProps = {
   user?: User
+  menuItem?: boolean
 }
 
-export function CreateEditUserButton({ user }: CreateEditUserButtonProps) {
+export function CreateEditUserButton({
+  user,
+  menuItem,
+}: CreateEditUserButtonProps) {
   const { t } = useTranslation('users')
   const openDialog = useDialogsStore((s) => s.openDialog)
+  if (user && menuItem) {
+    return (
+      <DropdownMenuItem onSelect={() => openDialog(DIALOG_USER_FORM, { user })}>
+        {t('actions.edit')}
+      </DropdownMenuItem>
+    )
+  }
   return user ? (
     <Button
       size="sm"
