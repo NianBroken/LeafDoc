@@ -1,5 +1,6 @@
 # Node dependencies — installed fresh inside the container
-ui/node_modules/
+frontend/node_modules/
+frontend/dist/
 
 # Local test tooling
 hacks/
@@ -9,12 +10,12 @@ test-results/
 dist/
 releases/
 leafdoc
-internal/http/dist/*
-!internal/http/dist/.gitkeep
+backend/internal/http/dist/*
+!backend/internal/http/dist/.gitkeep
 
 # Runtime / local data
-data/
-cmd/leafdoc/data/
+other/data/
+backend/cmd/leafdoc/data/
 
 # Debug binaries dropped by dlv / GoLand
 **/__debug_bin*
@@ -30,7 +31,8 @@ public/
 local/
 
 # Misc
-.env
+other/.env
+other/.env.*
 *.db
 
 # Windows binaries never enter Linux build contexts.

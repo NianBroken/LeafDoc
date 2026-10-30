@@ -1,0 +1,12 @@
+# Linux-only tools and source snapshot; private runtime files stay outside the image.
+FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS go-toolchain
+FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS tools
+COPY --from=go-toolchain /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:${PATH}" GOOS=linux CGO_ENABLED=0
+RUN apk add --no-cache bash git make lsof procps file
+WORKDIR /workspace
+COPY ./backend/go.mod ./backend/go.sum ./backend/
+RUN cd /workspace/backend && go mod download
+COPY ./frontend/package*.json ./frontend/
+RUN --mount=type=cache,id=leafdoc-linux-npm,target=/root/.npm cd /workspace/frontend && npm ci --ignore-scripts --prefer-offline
+COPY . .

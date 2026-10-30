@@ -1,0 +1,58 @@
+#!/bin/bash
+# Fails when tracked files reference things outside the public repository:
+# a maintainer's private notes or absolute paths on someone's machine.
+# Comments reference public GitHub issues instead of private machine paths.
+set -euo pipefail
+
+. "$(dirname "$0")/lib/project-root.sh"
+ROOT="$(leafdoc_project_root)"
+cd "$ROOT"
+
+# Generic tokens only; matched case-insensitively.
+PRIVATE_NOTES='pleaf|ai-gen-infos'
+# Absolute home directories (Linux, macOS): /home/<name> or /Users/<name>, in
+# any case for the name, with or without a trailing slash. Windows paths are
+# left out: tests use them on purpose for path handling.
+HOME_PATHS='/(home|Users)/[A-Za-z_][A-Za-z0-9._-]*'
+
+EXCLUDED=(
+    ':(exclude)other/scripts/check-private-references.sh'
+    # In glob magic a leading **/ also matches zero directories, so these
+    # cover top-level testdata/ and fixtures/ as well.
+    ':(exclude,glob)**/testdata/**'
+    ':(exclude,glob)**/fixtures/**'
+    ':(exclude,glob)**/package-lock.json'
+)
+
+# git grep exits 0 on a match, 1 on none and >1 on an error; an error must
+# not pass as "nothing found".
+search() {
+    local status=0
+    # Container source snapshots have no private Git history; search their source files directly.
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git grep -n -I -E "$@" -- . "${EXCLUDED[@]}" || status=$?
+    else
+        git grep --no-index --exclude-standard -n -I -E "$@" -- . "${EXCLUDED[@]}" || status=$?
+    fi
+    if [[ "$status" -gt 1 ]]; then
+        echo "::error::git grep failed (exit $status); could not search source at $ROOT" >&2
+        exit 2
+    fi
+}
+
+hits="$(
+    search -i -e "$PRIVATE_NOTES"
+    search -e "$HOME_PATHS"
+)"
+
+if [[ -n "$hits" ]]; then
+    while IFS= read -r hit; do
+        file="${hit%%:*}"
+        rest="${hit#*:}"
+        line="${rest%%:*}"
+        echo "::error file=${file},line=${line}::Private reference: ${rest#*:}"
+    done <<< "$hits"
+    echo "Reference public GitHub issues instead of private machine paths."
+    exit 1
+fi
+echo "No private references found."

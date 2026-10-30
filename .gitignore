@@ -12,7 +12,7 @@
 *.test
 
 # Main binary
-/leafdoc
+/backend/leafdoc
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -20,22 +20,23 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 node_modules/
+frontend/node_modules/
 
 # Go workspace file
 go.work
 go.work.sum
 
 # env file
-.env
+other/.env
 
-releases/*
+other/releases/*
 
 
-dist/*
-!dist/.gitkeep
+other/dist/*
+!other/dist/.gitkeep
 
 # data dir
-data/
+other/data/
 
 # test database files
 *.db
@@ -66,8 +67,8 @@ desktop.ini
 coverage/
 
 # Generated embedded frontend output
-internal/http/dist/*
-!internal/http/dist/.gitkeep
+backend/internal/http/dist/*
+!backend/internal/http/dist/.gitkeep
 
 # Project instructions are versioned; personal agent overlays stay local.
 /AGENTS.local.md
@@ -76,10 +77,11 @@ internal/http/dist/*
 .github/
 
 # Local environment overrides
-.env.*
+other/.env.*
 
 # Generated build, tool cache and temporary output
-build/
+backend/build/
+other/build/
 dist-ssr/
 .vite/
 .turbo/
