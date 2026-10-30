@@ -17,7 +17,9 @@
       "uploadSuccess": "头像已上传",
       "uploadFailed": "头像上传失败",
       "deleteSuccess": "头像已移除",
-      "deleteFailed": "头像移除失败"
+      "deleteFailed": "头像移除失败",
+      "loadFailed": "无法读取头像状态",
+      "retry": "重新加载头像状态"
     },
     "passwordSectionTitle": "密码",
     "passwordSectionDescription": "修改你的密码，请务必牢记！",

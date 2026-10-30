@@ -32,18 +32,19 @@
     "unavailable": "没有可用站点图标",
     "deleteLabel": "删除自定义站点图标"
   },
-  "save": "保存设置",
+  "save": "保存站点名称",
   "toast": {
     "logoDeleted": "Logo 删除成功",
     "logoDeleteFailed": "删除 Logo 失败",
     "faviconDeleted": "站点图标删除成功",
     "faviconDeleteFailed": "删除站点图标失败",
-    "brandingSaved": "外观设置已保存",
+    "brandingSaved": "站点名称已保存",
     "brandingSaveFailed": "保存外观设置失败",
     "logoUploaded": "Logo 上传成功",
     "logoUploadFailed": "上传 Logo 失败",
     "faviconUploaded": "站点图标上传成功",
     "faviconUploadFailed": "上传站点图标失败"
   },
-  "loading": "正在加载当前资源"
+  "loading": "正在加载当前资源",
+  "assetsSavedImmediately": "上传或删除后立即保存。"
 }

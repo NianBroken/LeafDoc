@@ -21,7 +21,7 @@ export function Toolbar() {
   const overflowButtons = buttons.slice(VISIBLE_BUTTONS)
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2">
       {visibleButtons.map((button) => (
         <ToolbarButton
           key={button.id}

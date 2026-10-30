@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	coreavatar "github.com/NianBroken/LeafDoc/internal/core/avatar"
+	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"github.com/NianBroken/LeafDoc/internal/wiki"
 )
@@ -106,6 +107,27 @@ func avatarErrorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 	return resp.Error.Code
 }
 
+// assertAvatarStatus requires an explicit boolean so a missing JSON field cannot
+// masquerade as the default-avatar state through Go's zero value.
+func assertAvatarStatus(t *testing.T, rec *httptest.ResponseRecorder, want bool) {
+	t.Helper()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("avatar status: got %d, want 200 (body %s)", rec.Code, rec.Body.String())
+	}
+	var status struct {
+		HasCustomAvatar *bool `json:"hasCustomAvatar"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &status); err != nil {
+		t.Fatalf("decode avatar status: %v", err)
+	}
+	if status.HasCustomAvatar == nil || *status.HasCustomAvatar != want {
+		t.Errorf("avatar status body %s: want hasCustomAvatar=%t", rec.Body.String(), want)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("avatar status Cache-Control: got %q, want no-store", got)
+	}
+}
+
 func TestAvatarRoutes_UploadRejections_ReturnStatusAndCode(t *testing.T) {
 	testutil.ResetMySQL(t)
 	tooLarge := make([]byte, coreavatar.MaxUploadSize+1024)
@@ -148,12 +170,13 @@ func TestAvatarRoutes_UploadRejections_ReturnStatusAndCode(t *testing.T) {
 	}
 }
 
-func TestAvatarRoutes_Unauthenticated_WritesRejected(t *testing.T) {
+func TestAvatarRoutes_Unauthenticated_ManagementRejected(t *testing.T) {
 	testutil.ResetMySQL(t)
 	tests := []struct {
 		name   string
 		method string
 	}{
+		{name: "status", method: http.MethodGet},
 		{name: "upload", method: http.MethodPost},
 		{name: "delete", method: http.MethodDelete},
 	}
@@ -175,11 +198,13 @@ func TestAvatarRoutes_UploadServeDelete_RoundTrip(t *testing.T) {
 	testutil.ResetMySQL(t)
 	_, router, adminID := newAvatarRouterTest(t)
 	avatarURL := "/avatars/" + adminID
+	assertAvatarStatus(t, sendAvatarRequest(t, router, true, http.MethodGet, "/api/user/avatar", nil, ""), false)
 
 	body, ct := multipartBody(t, "file", "me.png", avatarTestPNG(t))
 	if rec := sendAvatarRequest(t, router, true, http.MethodPost, "/api/user/avatar", body, ct); rec.Code != http.StatusOK {
 		t.Fatalf("upload: got %d, want 200 (body %s)", rec.Code, rec.Body.String())
 	}
+	assertAvatarStatus(t, sendAvatarRequest(t, router, true, http.MethodGet, "/api/user/avatar", nil, ""), true)
 
 	served := sendAvatarRequest(t, router, false, http.MethodGet, avatarURL, nil, "")
 	if served.Code != http.StatusOK {
@@ -198,12 +223,24 @@ func TestAvatarRoutes_UploadServeDelete_RoundTrip(t *testing.T) {
 	if rec := sendAvatarRequest(t, router, true, http.MethodDelete, "/api/user/avatar", nil, ""); rec.Code != http.StatusOK {
 		t.Fatalf("delete: got %d, want 200 (body %s)", rec.Code, rec.Body.String())
 	}
+	assertAvatarStatus(t, sendAvatarRequest(t, router, true, http.MethodGet, "/api/user/avatar", nil, ""), false)
 	if rec := sendAvatarRequest(t, router, false, http.MethodGet, avatarURL, nil, ""); rec.Code != http.StatusOK {
 		t.Errorf("serve default after delete: got %d, want 200", rec.Code)
 	}
 	if rec := sendAvatarRequest(t, router, true, http.MethodDelete, "/api/user/avatar", nil, ""); rec.Code != http.StatusOK {
 		t.Errorf("second delete (nothing left): got %d, want 200", rec.Code)
 	}
+	assertAvatarStatus(t, sendAvatarRequest(t, router, true, http.MethodGet, "/api/user/avatar", nil, ""), false)
+}
+
+// A deployment prefix applies to the status endpoint just as it does to images.
+func TestAvatarRoutes_StatusWithBasePath(t *testing.T) {
+	w, rootRouter, _ := newAvatarRouterTest(t)
+	session := loginSession(t, rootRouter, "admin", "adminpassword")
+	router := newTestRouter(w, func(options *httpinternal.RouterOptions) {
+		options.BasePath = "/wiki"
+	})
+	assertAvatarStatus(t, session.send(router, http.MethodGet, "/wiki/api/user/avatar", nil), false)
 }
 
 func TestAvatarRoutes_Serve_UnknownOrUnsafeID_Returns404(t *testing.T) {

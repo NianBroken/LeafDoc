@@ -1,6 +1,11 @@
 import { withBasePath } from '@/shared/lib/routePath'
 import { fetchWithAuth } from '@/shared/lib/api/client'
 
+// The server reports stored custom images independently of image fallback loading.
+export function getAvatarStatus(): Promise<{ hasCustomAvatar: boolean }> {
+  return fetchWithAuth('/api/user/avatar', { cache: 'no-store' })
+}
+
 export async function uploadAvatar(file: File): Promise<void> {
   const formData = new FormData()
   formData.append('file', file)

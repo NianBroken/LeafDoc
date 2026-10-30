@@ -17,7 +17,9 @@
       "uploadSuccess": "Profilbild hochgeladen",
       "uploadFailed": "Profilbild konnte nicht hochgeladen werden",
       "deleteSuccess": "Profilbild entfernt",
-      "deleteFailed": "Profilbild konnte nicht entfernt werden"
+      "deleteFailed": "Profilbild konnte nicht entfernt werden",
+      "loadFailed": "Der Status des Profilbilds konnte nicht geladen werden",
+      "retry": "Bildstatus erneut laden"
     },
     "passwordSectionTitle": "Passwort",
     "passwordSectionDescription": "Ändern Sie Ihr Passwort. Merken Sie es sich gut!",

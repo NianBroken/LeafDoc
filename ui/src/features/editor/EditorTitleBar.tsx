@@ -61,7 +61,12 @@ export function EditorTitleBar() {
         className="editor-title-bar__button"
         data-testid="edit-page-metadata-button"
       >
-        <TooltipWrapper label={title} side="top" align="start">
+        <TooltipWrapper
+          label={title}
+          side="top"
+          align="start"
+          parentClassName="min-w-0 max-w-full items-center gap-2"
+        >
           {title && <span className="editor-title-bar__title">{title}</span>}
           <Pencil size={16} className="editor-title-bar__icon" />
           {dirty && !isMobile && (

@@ -32,18 +32,19 @@
     "unavailable": "Kein Website-Symbol verfügbar",
     "deleteLabel": "Benutzerdefiniertes Website-Symbol löschen"
   },
-  "save": "Einstellungen speichern",
+  "save": "Websitenamen speichern",
   "toast": {
     "logoDeleted": "Logo erfolgreich gelöscht",
     "logoDeleteFailed": "Logo konnte nicht gelöscht werden",
     "faviconDeleted": "Favicon erfolgreich gelöscht",
     "faviconDeleteFailed": "Favicon konnte nicht gelöscht werden",
-    "brandingSaved": "Branding-Einstellungen gespeichert",
+    "brandingSaved": "Websitename gespeichert",
     "brandingSaveFailed": "Branding-Einstellungen konnten nicht gespeichert werden",
     "logoUploaded": "Logo erfolgreich hochgeladen",
     "logoUploadFailed": "Logo konnte nicht hochgeladen werden",
     "faviconUploaded": "Favicon erfolgreich hochgeladen",
     "faviconUploadFailed": "Favicon konnte nicht hochgeladen werden"
   },
-  "loading": "Aktuelle Ressourcen werden geladen"
+  "loading": "Aktuelle Ressourcen werden geladen",
+  "assetsSavedImmediately": "Uploads und Löschungen werden sofort gespeichert."
 }

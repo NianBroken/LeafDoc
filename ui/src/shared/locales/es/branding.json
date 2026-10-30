@@ -32,18 +32,19 @@
     "unavailable": "No hay ningún icono disponible",
     "deleteLabel": "Eliminar icono personalizado"
   },
-  "save": "Guardar Configuración",
+  "save": "Guardar nombre del sitio",
   "toast": {
     "logoDeleted": "Logotipo eliminado correctamente",
     "logoDeleteFailed": "No se pudo eliminar el logotipo",
     "faviconDeleted": "Favicon eliminado correctamente",
     "faviconDeleteFailed": "No se pudo eliminar el favicon",
-    "brandingSaved": "Configuración de marca guardada",
+    "brandingSaved": "Nombre del sitio guardado",
     "brandingSaveFailed": "No se pudo guardar la configuración de marca",
     "logoUploaded": "Logotipo subido correctamente",
     "logoUploadFailed": "No se pudo subir el logotipo",
     "faviconUploaded": "Favicon subido correctamente",
     "faviconUploadFailed": "No se pudo subir el favicon"
   },
-  "loading": "Cargando recursos actuales"
+  "loading": "Cargando recursos actuales",
+  "assetsSavedImmediately": "Las cargas y eliminaciones se guardan inmediatamente."
 }

@@ -58,6 +58,7 @@ export default function BrandingSettings() {
 
   const [localSiteName, setLocalSiteName] = useState(siteName)
   const [saving, setSaving] = useState(false)
+  const saveInFlight = useRef(false)
 
   const logoInputRef = useRef<HTMLInputElement>(null)
   const faviconInputRef = useRef<HTMLInputElement>(null)
@@ -89,6 +90,8 @@ export default function BrandingSettings() {
   }
 
   const handleSave = async () => {
+    if (saveInFlight.current || isLoading) return
+    saveInFlight.current = true
     setSaving(true)
     try {
       await updateBranding({
@@ -98,6 +101,7 @@ export default function BrandingSettings() {
     } catch (err) {
       toast.error(mapApiError(err, t('toast.brandingSaveFailed')).message)
     } finally {
+      saveInFlight.current = false
       setSaving(false)
     }
   }
@@ -139,7 +143,13 @@ export default function BrandingSettings() {
             {error}
           </p>
         )}
-        <div className="settings__section">
+        <form
+          className="settings__section"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void handleSave()
+          }}
+        >
           <h2 id="site-name-heading" className="settings__section-title">
             {t('siteName.title')}
           </h2>
@@ -151,17 +161,29 @@ export default function BrandingSettings() {
               id="siteName"
               aria-labelledby="site-name-heading"
               value={localSiteName}
+              disabled={saving || !isLoaded}
               onChange={(e) => setLocalSiteName(e.target.value)}
               placeholder={t('siteName.placeholder')}
             />
           </div>
-        </div>
+          <div className="settings__actions">
+            <Button type="submit" disabled={saving || isLoading}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <SaveIcon className="mr-2 h-4 w-4" />
+              )}
+              {t('save')}
+            </Button>
+          </div>
+        </form>
 
         <div className="settings__section">
           <h2 className="settings__section-title">{t('logo.title')}</h2>
           <p className="settings__section-description">
             {t('logo.description')}
           </p>
+          <p className="settings__hint mb-4">{t('assetsSavedImmediately')}</p>
 
           <div className="settings__preview settings__branding-preview">
             <BrandingPreviewLabel kind="logo" />
@@ -226,6 +248,7 @@ export default function BrandingSettings() {
           <p className="settings__section-description">
             {t('favicon.description')}
           </p>
+          <p className="settings__hint mb-4">{t('assetsSavedImmediately')}</p>
 
           <div className="settings__preview settings__branding-preview">
             <BrandingPreviewLabel kind="favicon" />
@@ -283,17 +306,6 @@ export default function BrandingSettings() {
               })}
             </p>
           </div>
-        </div>
-
-        <div className="settings__actions">
-          <Button onClick={handleSave} disabled={saving || isLoading}>
-            {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <SaveIcon className="mr-2 h-4 w-4" />
-            )}
-            {t('save')}
-          </Button>
         </div>
       </div>
     </>

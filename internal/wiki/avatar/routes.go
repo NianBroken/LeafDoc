@@ -53,11 +53,21 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	base.GET("/avatars/:userId", r.handleServeAvatar)
 
 	authGroup := ctx.APIAuthGroup(r.authService)
+	authGroup.GET("/user/avatar", r.handleAvatarStatus)
 	authGroup.POST("/user/avatar", r.handleUploadAvatar)
 	authGroup.DELETE("/user/avatar", r.handleDeleteAvatar)
 }
 
 // ─── Handlers ───────────────────────────────────────────────────────────────
+
+// handleAvatarStatus distinguishes an uploaded file from the built-in image.
+// The authenticated identity is the only source of the requested account.
+func (r *Routes) handleAvatarStatus(c *gin.Context) {
+	user := authmw.MustGetUser(c)
+	_, found := r.avatarService.AvatarPath(user.ID)
+	disableClientCache(c)
+	c.JSON(http.StatusOK, gin.H{"hasCustomAvatar": found})
+}
 
 func (r *Routes) handleUploadAvatar(c *gin.Context) {
 	user := authmw.MustGetUser(c)

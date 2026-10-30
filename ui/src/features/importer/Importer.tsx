@@ -396,7 +396,7 @@ export default function Importer() {
                 </SettingsTable>
               </div>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="content-actions content-actions--start">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -562,7 +562,7 @@ export default function Importer() {
                 </p>
               </>
             )}
-            <div className="flex gap-2">
+            <div className="content-actions content-actions--start">
               <Button
                 variant="default"
                 onClick={() => {
@@ -684,7 +684,7 @@ export default function Importer() {
                 </SettingsTable>
               </div>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="content-actions content-actions--start">
               <Button
                 variant="outline"
                 onClick={() => {

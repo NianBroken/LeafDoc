@@ -17,7 +17,9 @@
       "uploadSuccess": "Profile picture uploaded",
       "uploadFailed": "Could not upload profile picture",
       "deleteSuccess": "Profile picture removed",
-      "deleteFailed": "Could not remove profile picture"
+      "deleteFailed": "Could not remove profile picture",
+      "loadFailed": "Could not load profile picture status",
+      "retry": "Retry picture status"
     },
     "passwordSectionTitle": "Password",
     "passwordSectionDescription": "Change your password. Make sure to remember it!",

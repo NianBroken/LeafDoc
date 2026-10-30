@@ -56,7 +56,7 @@ export default function EmptySectionChildrenList({
         </p>
       </div>
       {!isReadOnly && (
-        <div className="mb-2 flex w-full justify-end">
+        <div className="content-actions mb-2">
           <Button
             onClick={() =>
               openDialog(DIALOG_ADD_PAGE, {
@@ -79,7 +79,6 @@ export default function EmptySectionChildrenList({
             }
             variant="default"
             size="sm"
-            className="ml-2"
           >
             <FolderPlus size={16} />
             {t('section.addSection')}

@@ -103,6 +103,9 @@
   }
 
   :root {
+    /* Content actions share spacing across settings, lists and dialogs. */
+    --action-content-space: 1rem;
+    --action-item-space: 0.5rem;
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;
     --card: 210 40% 98%;
@@ -528,7 +531,7 @@
   }
 
   .app-layout__editor-toolbar-container {
-    @apply flex min-h-full items-center gap-4 max-sm:gap-2;
+    @apply flex min-h-full shrink-0 items-center gap-4 max-sm:gap-2;
   }
 
   .app-layout__header-spacer {
@@ -916,7 +919,7 @@
   }
 
   .editor-title-bar__title {
-    @apply inline-block max-w-[15vw] truncate max-sm:max-w-[35vw] sm:max-w-[40vw];
+    @apply inline-block max-w-full min-w-0 truncate sm:max-w-[40vw];
   }
 
   .history-title-bar__mode {
@@ -928,7 +931,7 @@
   }
 
   .editor-title-bar__icon {
-    @apply text-muted ml-1 shrink-0 transition-transform duration-200 ease-in-out sm:absolute sm:top-1/2 sm:-right-6 sm:ml-0 sm:-translate-y-1/2;
+    @apply text-muted shrink-0 transition-transform duration-200 ease-in-out;
   }
 
   .editor-title-bar__button:hover .editor-title-bar__icon {
@@ -3079,7 +3082,11 @@
   }
 
   .settings__preview {
-    @apply bg-surface-alt mb-4 flex items-center gap-3 rounded-md p-4;
+    @apply bg-surface-alt mb-4 flex min-w-0 flex-wrap items-center gap-3 rounded-md p-4;
+  }
+
+  .settings__preview > span {
+    @apply min-w-0 wrap-anywhere;
   }
 
   .settings__preview-label {
@@ -3141,7 +3148,8 @@
   }
 
   .settings__hint {
-    @apply text-muted mt-1 text-xs;
+    @apply text-muted text-xs wrap-anywhere;
+    margin-block-start: var(--action-item-space);
   }
 
   .settings__status-line {
@@ -3156,12 +3164,48 @@
     @apply border-surface-border bg-surface-alt text-muted my-4 flex flex-col gap-1 rounded-md border p-3 text-sm;
   }
 
+  /* Standalone action rows separate content from controls in either writing direction. */
+  .content-actions,
   .settings__actions {
-    @apply flex justify-end gap-2;
+    @apply flex min-w-0 flex-wrap items-center justify-end;
+    gap: var(--action-item-space);
+    margin-block-start: var(--action-content-space);
+  }
+
+  .content-actions--start {
+    @apply justify-start;
+  }
+
+  /* Existing field and description margins already provide the content separation. */
+  :is(
+      .settings__field,
+      .settings__preview,
+      .settings__section-description,
+      .settings__notice
+    )
+    + :is(.content-actions, .settings__actions) {
+    margin-block-start: 0;
+  }
+
+  :is(.content-actions, .settings__actions) > :is(button, a) {
+    @apply h-auto min-h-9 max-w-full whitespace-normal;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 639px) {
+    .content-actions,
+    .settings__actions {
+      @apply flex-col items-stretch;
+    }
+
+    :is(.content-actions, .settings__actions) > :is(button, a) {
+      @apply w-full;
+    }
   }
 
   .settings__header-actions {
-    @apply flex justify-end;
+    @apply flex flex-wrap items-center justify-end;
+    gap: var(--action-item-space);
   }
 
   .settings__table-card {
@@ -3250,7 +3294,11 @@
   }
 
   .settings__table .settings__actions {
-    @apply h-full flex-nowrap items-center justify-start;
+    @apply mt-0 h-full flex-row flex-nowrap items-center justify-start;
+  }
+
+  .settings__table .settings__actions > :is(button, a) {
+    @apply w-auto;
   }
 
   .importer .settings__table {
@@ -3429,7 +3477,8 @@
   }
 
   .settings__table-actions {
-    @apply flex items-center gap-3;
+    @apply flex items-center;
+    gap: var(--action-item-space);
   }
 
   .settings__table-head {
@@ -3562,7 +3611,7 @@
   }
 
   .browse-page__header {
-    @apply mb-6 flex items-center justify-between;
+    @apply mb-6 flex flex-wrap items-center justify-between gap-4;
   }
 
   .browse-page__title {

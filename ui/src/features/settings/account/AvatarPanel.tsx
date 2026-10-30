@@ -11,21 +11,34 @@ import { useAvatarStore } from '@/features/settings/account/state/avatar'
 import { useConfigStore } from '@/shared/state/config'
 import { useSessionStore } from '@/shared/state/session'
 import { TrashIcon, UploadIcon } from 'lucide-react'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 export function AvatarPanel() {
   const { t } = useTranslation('settings')
   const user = useSessionStore((s) => s.user)
-  const { avatarVersion, isLoading, uploadAvatar, deleteAvatar } =
-    useAvatarStore()
+  const {
+    avatarVersion,
+    hasCustomAvatar,
+    isLoading,
+    isStatusLoading,
+    statusError,
+    loadAvatarStatus,
+    uploadAvatar,
+    deleteAvatar,
+  } = useAvatarStore()
   const maxAvatarUploadSizeBytes = useConfigStore(
     (s) => s.maxAvatarUploadSizeBytes,
   )
   const avatarAllowedExts = useConfigStore((s) => s.avatarAllowedExts)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Re-entering the page rechecks server state, including changes in other tabs.
+  useEffect(() => {
+    if (user?.id) void loadAvatarStatus()
+  }, [user?.id, loadAvatarStatus])
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -64,16 +77,31 @@ export function AvatarPanel() {
           />
           <AvatarFallback>{user.username[0].toUpperCase()}</AvatarFallback>
         </Avatar>
-        <Button
-          variant="destructive"
-          size="sm"
-          aria-label={t('account.avatar.deleteButton')}
-          onClick={handleDelete}
-          disabled={isLoading}
-        >
-          <TrashIcon />
-        </Button>
+        {hasCustomAvatar === true && !isStatusLoading && !statusError && (
+          <Button
+            variant="destructive"
+            size="sm"
+            aria-label={t('account.avatar.deleteButton')}
+            onClick={handleDelete}
+            disabled={isLoading}
+          >
+            <TrashIcon />
+          </Button>
+        )}
       </div>
+
+      {statusError && (
+        <div className="settings__notice gap-2" role="alert">
+          <p>{statusError}</p>
+          <Button
+            variant="outline"
+            onClick={() => void loadAvatarStatus()}
+            disabled={isStatusLoading}
+          >
+            {t('account.avatar.retry')}
+          </Button>
+        </div>
+      )}
 
       <div className="settings__field">
         <input

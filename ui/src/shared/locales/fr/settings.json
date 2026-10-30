@@ -17,7 +17,9 @@
       "uploadSuccess": "Photo de profil téléversée",
       "uploadFailed": "Impossible de téléverser la photo de profil",
       "deleteSuccess": "Photo de profil supprimée",
-      "deleteFailed": "Impossible de supprimer la photo de profil"
+      "deleteFailed": "Impossible de supprimer la photo de profil",
+      "loadFailed": "Impossible de charger l’état de la photo de profil",
+      "retry": "Recharger l’état de la photo"
     },
     "passwordSectionTitle": "Mot de passe",
     "passwordSectionDescription": "Modifiez votre mot de passe. Assurez-vous de le retenir !",

@@ -17,7 +17,9 @@
       "uploadSuccess": "Foto de perfil subida",
       "uploadFailed": "No se pudo subir la foto de perfil",
       "deleteSuccess": "Foto de perfil eliminada",
-      "deleteFailed": "No se pudo eliminar la foto de perfil"
+      "deleteFailed": "No se pudo eliminar la foto de perfil",
+      "loadFailed": "No se pudo cargar el estado de la imagen de perfil",
+      "retry": "Reintentar estado de la imagen"
     },
     "passwordSectionTitle": "Contraseña",
     "passwordSectionDescription": "Cambia tu contraseña. ¡Asegúrate de recordarla!",

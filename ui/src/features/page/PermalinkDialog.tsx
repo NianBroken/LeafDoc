@@ -65,7 +65,7 @@ export function PermalinkDialog({ page }: PermalinkDialogProps) {
           testid="permalink-dialog-url-input"
           autoFocus={true}
         />
-        <div className="flex items-center justify-end gap-2">
+        <div className="content-actions">
           <Button
             type="button"
             variant="outline"

@@ -97,8 +97,8 @@ export default function BrokenLinks() {
       <h1 className="settings__title">{t('pageTitle')}</h1>
 
       <div className="w-full">
-        <div className="mb-6 flex items-start justify-between gap-6">
-          <div>
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 basis-64">
             <div className="flex items-center gap-3">
               <div className="border-error/20 bg-error/5 text-error grid h-9 w-9 shrink-0 place-items-center rounded-lg border">
                 <Link2Off className="h-4.5 w-4.5" />
@@ -111,7 +111,7 @@ export default function BrokenLinks() {
           </div>
 
           <Button
-            className="settings__actions mb-4"
+            className="max-w-full shrink-0 whitespace-normal"
             onClick={() => load(true)}
             disabled={loading || refreshing}
           >
@@ -149,7 +149,7 @@ export default function BrokenLinks() {
           />
         </div>
 
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="settings__section-title text-sm">{t('heading')}</h2>
 
           <span className="text-muted text-xs">{t('sortLabel')}</span>

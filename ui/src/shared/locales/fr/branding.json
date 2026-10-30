@@ -32,18 +32,19 @@
     "unavailable": "Aucune icône disponible",
     "deleteLabel": "Supprimer l’icône personnalisée"
   },
-  "save": "Enregistrer les paramètres",
+  "save": "Enregistrer le nom du site",
   "toast": {
     "logoDeleted": "Logo supprimé avec succès",
     "logoDeleteFailed": "Impossible de supprimer le logo",
     "faviconDeleted": "Favicon supprimé avec succès",
     "faviconDeleteFailed": "Impossible de supprimer le favicon",
-    "brandingSaved": "Paramètres de marque enregistrés",
+    "brandingSaved": "Nom du site enregistré",
     "brandingSaveFailed": "Impossible d'enregistrer les paramètres de marque",
     "logoUploaded": "Logo téléversé avec succès",
     "logoUploadFailed": "Impossible de téléverser le logo",
     "faviconUploaded": "Favicon téléversé avec succès",
     "faviconUploadFailed": "Impossible de téléverser le favicon"
   },
-  "loading": "Chargement des ressources actuelles"
+  "loading": "Chargement des ressources actuelles",
+  "assetsSavedImmediately": "Les envois et suppressions sont enregistrés immédiatement."
 }

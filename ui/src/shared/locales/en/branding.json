@@ -32,18 +32,19 @@
     "unavailable": "No available favicon",
     "deleteLabel": "Delete custom favicon"
   },
-  "save": "Save Settings",
+  "save": "Save site name",
   "toast": {
     "logoDeleted": "Logo deleted successfully",
     "logoDeleteFailed": "Failed to delete logo",
     "faviconDeleted": "Favicon deleted successfully",
     "faviconDeleteFailed": "Failed to delete favicon",
-    "brandingSaved": "Branding settings saved",
+    "brandingSaved": "Site name saved",
     "brandingSaveFailed": "Failed to save branding settings",
     "logoUploaded": "Logo uploaded successfully",
     "logoUploadFailed": "Failed to upload logo",
     "faviconUploaded": "Favicon uploaded successfully",
     "faviconUploadFailed": "Failed to upload favicon"
   },
-  "loading": "Loading current assets"
+  "loading": "Loading current assets",
+  "assetsSavedImmediately": "Uploads and deletions are saved immediately."
 }
