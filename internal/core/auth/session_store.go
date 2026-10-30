@@ -3,10 +3,11 @@ package auth
 import (
 	"context"
 	"database/sql"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 )
 
 type SessionStore struct {

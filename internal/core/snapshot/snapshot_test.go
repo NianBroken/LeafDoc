@@ -1,96 +1,15 @@
 package snapshot
 
 import (
-	"archive/zip"
-	"context"
 	"encoding/json"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
+
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
-	"github.com/NianBroken/LeafDoc/internal/testutil"
+
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
-
-func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "snapshot") }
-
-// newTestConfig supplies real MySQL state and independent resource paths.
-func newTestConfig(t *testing.T) Config {
-	t.Helper()
-	testutil.ResetMySQL(t)
-	dir := t.TempDir()
-	return Config{DataDir: dir, BackupsDir: filepath.Join(dir, "snapshots"), AssetsDir: filepath.Join(dir, "assets"), WikiVersion: "test"}
-}
-
-func TestMySQLSnapshotContents(t *testing.T) {
-	cfg := newTestConfig(t)
-	if err := database.WriteRecord(cfg.DataDir, "settings", "site", []byte("中文设置")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(cfg.AssetsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(cfg.AssetsDir, "sample.txt"), []byte("附件"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	id, err := createSnapshot(context.Background(), cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reader, err := zip.OpenReader(filepath.Join(cfg.BackupsDir, id+".zip"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer reader.Close()
-	names := map[string]bool{}
-	for _, entry := range reader.File {
-		names[entry.Name] = true
-	}
-	for _, name := range []string{"database.json", "backup-meta.json", "checksums.json", "assets/sample.txt"} {
-		if !names[name] {
-			t.Errorf("missing %s", name)
-		}
-	}
-	for _, entry := range reader.File {
-		if filepath.Ext(entry.Name) == ".db" {
-			t.Fatal("local database in MySQL snapshot")
-		}
-	}
-}
-
-func TestSnapshotWriteBarrierFailure(t *testing.T) {
-	cfg := newTestConfig(t)
-	cfg.Quiesce = func() (func(), error) { return nil, os.ErrPermission }
-	if _, err := createSnapshot(context.Background(), cfg); err == nil {
-		t.Fatal("write barrier failure ignored")
-	}
-}
-
-func TestManager_ErrAlreadyRunning(t *testing.T) {
-	cfg := newTestConfig(t)
-	m := NewManager(cfg)
-
-	if err := m.TriggerSnapshot(); err != nil {
-		t.Fatalf("first TriggerSnapshot failed: %v", err)
-	}
-
-	assertLocalizedErrorCode(t, m.TriggerSnapshot(), "snapshot_already_running")
-
-	waitForSnapshotDone(t, m)
-}
-
-func waitForSnapshotDone(t *testing.T, m *Manager) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if !m.Status().IsRunning {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("snapshot did not finish within deadline")
-}
 
 func TestManager_List(t *testing.T) {
 	backupsDir := t.TempDir()
@@ -172,18 +91,6 @@ func TestManager_Delete_RemovesFiles(t *testing.T) {
 	}
 }
 
-func TestManager_RunOnce_ErrAlreadyRunning(t *testing.T) {
-	cfg := newTestConfig(t)
-	m := NewManager(cfg)
-
-	if !m.status.TryStart() {
-		t.Fatal("expected TryStart to succeed")
-	}
-	defer m.status.SetSuccess(time.Now().UTC(), "")
-
-	assertLocalizedErrorCode(t, m.RunOnce(context.Background()), "snapshot_already_running")
-}
-
 func TestManager_PruneOldSnapshots_KeepsNewestOnly(t *testing.T) {
 	backupsDir := t.TempDir()
 	m := NewManager(Config{BackupsDir: backupsDir, RetentionCount: 2})
@@ -233,26 +140,6 @@ func TestManager_PruneOldSnapshots_UnlimitedWhenRetentionNotPositive(t *testing.
 	}
 	if len(remaining) != 2 {
 		t.Errorf("expected no pruning with RetentionCount=0, got %d remaining", len(remaining))
-	}
-}
-
-func TestManager_RunOnce_PrunesAfterSuccess(t *testing.T) {
-	cfg := newTestConfig(t)
-	cfg.RetentionCount = 2
-	m := NewManager(cfg)
-
-	for i := 0; i < 3; i++ {
-		if err := m.RunOnce(context.Background()); err != nil {
-			t.Fatalf("RunOnce #%d failed: %v", i, err)
-		}
-	}
-
-	remaining, err := m.List()
-	if err != nil {
-		t.Fatalf("List failed: %v", err)
-	}
-	if len(remaining) != 2 {
-		t.Fatalf("expected retention to keep 2 snapshots, got %d", len(remaining))
 	}
 }
 

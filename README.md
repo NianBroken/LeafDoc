@@ -6,9 +6,9 @@ LeafDoc 使用 Go 提供接口，使用 React 提供页面。MySQL 是全部业�
 
 ## 构建与运行
 
-Go 版本以 `go.mod` 的工具链声明为准，Node.js 主版本以 `.nvmrc` 为准。前端依赖使用 `ui/package-lock.json` 锁定。通过既有包管理方式恢复依赖后，在 `ui` 目录执行 `npm run build`。
+Go 版本以 `go.mod` 的工具链声明为准，Node.js 主版本以 `.nvmrc` 为准。前端依赖使用 `ui/package-lock.json` 锁定。全部依赖安装、编译和测试在 Linux 容器中执行，Windows 仅调用 Docker、Node.js 调度脚本和已安装的 Caddy，不生成 Windows 可执行产物。
 
-Windows 使用 `scripts/start.ps1` 构建内嵌前端并启动独立 HTTPS 服务。脚本从进程环境和系统环境解析 Go、Node.js 和 Caddy，不依赖固定安装目录。系统需要可连接的 MySQL 服务。
+Windows 使用 `scripts/start.ps1` 构建内嵌前端的 Linux 镜像并启动独立 HTTPS 服务。脚本从进程环境和系统环境解析 Docker、Node.js 和 Caddy，不依赖固定安装目录。Docker 必须使用 Linux 容器模式，系统需要可连接且预先创建的 MySQL 业务数据库。
 
 项目根目录的 `.env` 保存本机运行配置，该文件受 Git 忽略规则保护。已有进程环境变量优先于 `.env`。数据库参数如下，密码应填写实际值，不得提交到源码仓库。
 
@@ -48,11 +48,13 @@ HTTPS 证书默认从系统公共数据目录下的 `LeafDoc/tls/server.crt` 和
 ./scripts/start.ps1 -Stop
 ```
 
-进程记录位于数据目录中的 `.runtime/processes.json`，同目录保存后端和 HTTPS 网关日志。停止命令核对进程路径与创建时间，只停止匹配的实例。证书私钥、数据库密码、JWT 密钥、运行日志和构建产物不得进入 Git。
+运行记录位于数据目录中的 `.runtime/processes.json`，保存容器 ID 和网关进程身份。后端日志通过 `docker logs` 读取，HTTPS 网关日志保存在同目录。停止命令核对容器所属项目及进程路径与创建时间，只停止匹配的实例。后端容器使用 `unless-stopped`，终端退出后继续运行，Docker 恢复后自动启动。证书私钥、数据库密码、JWT 密钥、运行日志和构建产物不得进入 Git。
 
 ## 开发与容器
 
-在支持 Bash 的开发环境中，`make dev` 启动后端和 Vite。开发前端使用 `http://localhost:24691`，接口代理到后端 `24692`，严格端口检查阻止 Vite 自动递增端口。开发前端与正式 HTTPS 网关不能同时占用前端端口。
+`node scripts/container.mjs build` 构建 Linux 应用镜像，`node scripts/container.mjs release` 使用相同流程提供发布镜像。`make build` 和 `make release` 调用同一入口，不导出 Windows 程序。`make run` 和 `make dev` 调用 Windows 持久启动脚本。
+
+`Dockerfile.tools` 提供独立 Linux 检查环境，前端依赖保存在镜像中，不复用 Windows 的 `node_modules`。前端包声明仅支持 Linux，依赖安装由容器执行。业务数据库、`.env`、实例目录和证书私钥均不进入构建上下文。前端与后端通过同一个 HTTPS 入口访问。
 
 开发工具、预览服务与正式服务执行相同的身份验证和权限规则，不提供免登录编辑模式。公开访问仅允许匿名读取，写入始终要求有效身份与相应角色。可信反向代理认证和 API 密钥认证继续受权限校验约束。
 
@@ -77,24 +79,24 @@ Vite 开发与预览入口在返回 HTML 前读取后端品牌信息，后端必
 下载的 ZIP 不应直接解压覆盖运行目录。使用页面恢复功能，或在服务停止后使用相同的离线恢复入口。
 
 ```powershell
-./data/.runtime/leafdoc.exe --data-dir ./data restore-snapshot ./data/snapshots/backup.zip
+# 先停止服务，再将实际数据目录挂载到 Linux 容器。
+./scripts/start.ps1 -Stop
+docker run --rm --env-file .env --mount "type=bind,source=$((Resolve-Path ./data).Path),target=/app/data" leafdoc:local --data-dir /app/data restore-snapshot /app/data/snapshots/backup.zip
+./scripts/start.ps1
 ```
 
 离线恢复同样需要通过环境变量或 `.env` 提供 MySQL 配置。包含旧本地数据库文件的备份不受支持，恢复入口会明确拒绝不兼容格式。
 
 ## 验证
 
-后端集成测试需要真实 MySQL 测试数据库和结构管理权限。测试使用隔离数据库，清理测试所创建的数据，不能直接指向正式业务库。
+自动检查不创建测试数据库，不执行测试数据库迁移，不清空业务数据库。依赖隔离数据库的自动测试及其启动工具不属于项目提供的测试能力。保留的独立测试与前端检查统一在 Linux 容器运行。
 
 ```powershell
-go test ./...
-Push-Location ui
-npm.cmd test
-npm.cmd run lint
-npm.cmd run format:check
-npm.cmd run check:architecture
-npm.cmd run build
-Pop-Location
+node scripts/container.mjs test
+node scripts/container.mjs vet
+node scripts/container.mjs ui-check
+node scripts/container.mjs verify
+node scripts/container.mjs schema
 ```
 
 实际部署还应通过浏览器验证登录、用户操作、站点名称、默认图片、五篇教程、链接、搜索、页面创建和编辑、历史版本及完整备份恢复。在不同窗口宽度下截图核对表头与内容对齐，执行数据库重启持久化检查，完成后保留后台服务运行。仅构建成功不能代替浏览器访问验证。
@@ -106,8 +108,7 @@ Pop-Location
 `internal/core/database/default.sql` 是唯一的 SQL 默认文件，包含全部表结构、字段说明、索引、关联说明及初始化值。Go 建表定义和服务默认值是生成来源。手动 SQL 初始化使用已选定的空 MySQL 数据库，完成后正常启动应用，由应用生成教程和运行期随机标识。
 
 ```powershell
-go run ./cmd/schema-defaults
-go run ./cmd/schema-defaults -check
+node scripts/container.mjs schema
 ```
 
-前端初始默认值由同一命令生成，不能单独修改生成文件。完整配置来源与空值含义见 `docs/configuration-defaults.md`。文件路径按运行目录自动解析，邮件及代理等可选功能在未配置时禁用，数据库连接与证书使用实际部署配置。
+执行 `node scripts/container.mjs schema-write` 同时生成 SQL 和前端默认值，生成器不连接数据库。前端初始默认值与 SQL 使用同一 Go 生成器，不能单独修改生成文件。容器检查入口核对生成内容是否与定义一致。完整配置来源与空值含义见 `docs/configuration-defaults.md`。文件路径按运行目录自动解析，邮件及代理等可选功能在未配置时禁用，数据库连接与证书使用实际部署配置。

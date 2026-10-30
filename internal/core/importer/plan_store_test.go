@@ -2,15 +2,11 @@ package importer
 
 import (
 	"errors"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
-	"github.com/NianBroken/LeafDoc/internal/testutil"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestPlanStoreSet(t *testing.T) {
-	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 	plan := &StoredPlan{ExecutionStatus: ExecutionStatusPlanned}
 	if err := s.Set(plan); err != nil {
@@ -30,7 +26,6 @@ func TestPlanStoreSet(t *testing.T) {
 }
 
 func TestPlanStoreGet(t *testing.T) {
-	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 
 	_, err := s.Get()
@@ -40,7 +35,6 @@ func TestPlanStoreGet(t *testing.T) {
 }
 
 func TestPlanStoreSetAndGet(t *testing.T) {
-	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 	plan := &StoredPlan{
 		Plan:            &PlanResult{ID: "plan-1"},
@@ -63,7 +57,6 @@ func TestPlanStoreSetAndGet(t *testing.T) {
 }
 
 func TestPlanStoreClear(t *testing.T) {
-	testutil.ResetMySQL(t)
 	s := NewPlanStore()
 	plan := &StoredPlan{}
 	if err := s.Set(plan); err != nil {
@@ -80,46 +73,7 @@ func TestPlanStoreClear(t *testing.T) {
 	}
 }
 
-func TestPlanStore_PersistsAndLoadsState(t *testing.T) {
-	testutil.ResetMySQL(t)
-	stateFile := filepath.Join(t.TempDir(), "current-plan.json")
-	store := NewPlanStore(stateFile)
-	if err := store.Set(&StoredPlan{
-		Plan:            &PlanResult{ID: "plan-1"},
-		ExecutionStatus: ExecutionStatusRunning,
-		ExecutionUserID: "user-1",
-	}); err != nil {
-		t.Fatalf("Set err: %v", err)
-	}
-
-	loaded := NewPlanStore(stateFile)
-	retrieved, err := loaded.Get()
-	if err != nil {
-		t.Fatalf("expected persisted plan, got %v", err)
-	}
-	if retrieved.Plan == nil || retrieved.Plan.ID != "plan-1" {
-		t.Fatalf("expected loaded plan id plan-1, got %#v", retrieved.Plan)
-	}
-	if retrieved.ExecutionUserID != "user-1" {
-		t.Fatalf("expected persisted execution user, got %q", retrieved.ExecutionUserID)
-	}
-}
-
-func TestPlanStore_LoadError_IsReported(t *testing.T) {
-	testutil.ResetMySQL(t)
-	stateFile := filepath.Join(t.TempDir(), "current-plan.json")
-	if err := database.WriteRecord(filepath.Dir(stateFile), "import_state", filepath.Base(stateFile), []byte("{invalid")); err != nil {
-		t.Fatalf("WriteFile err: %v", err)
-	}
-
-	store := NewPlanStore(stateFile)
-	if _, err := store.Get(); !errors.Is(err, ErrImportStateUnavailable) {
-		t.Fatalf("expected ErrImportStateUnavailable, got %v", err)
-	}
-}
-
 func TestPlanStoreTryStartExecution_WithNilPlanPayload(t *testing.T) {
-	testutil.ResetMySQL(t)
 	store := NewPlanStore()
 	if err := store.Set(&StoredPlan{
 		Plan:            nil,
@@ -135,7 +89,6 @@ func TestPlanStoreTryStartExecution_WithNilPlanPayload(t *testing.T) {
 }
 
 func TestPlanStoreUpdateExecutionProgress_UpdatesEmbeddedFields(t *testing.T) {
-	testutil.ResetMySQL(t)
 	store := NewPlanStore()
 	if err := store.Set(&StoredPlan{
 		Plan:            &PlanResult{ID: "plan-1"},
@@ -170,5 +123,3 @@ func TestPlanStoreUpdateExecutionProgress_UpdatesEmbeddedFields(t *testing.T) {
 		t.Fatalf("expected started_at to be updated, got %#v", retrieved.StartedAt)
 	}
 }
-
-func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "importer") }

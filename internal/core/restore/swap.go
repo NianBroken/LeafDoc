@@ -79,13 +79,11 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 	}
 
 	if err := validateArchive(stagingDir); err != nil {
-		os.RemoveAll(stagingDir)
-		return "", backupMeta{}, err
+		return "", backupMeta{}, errors.Join(err, os.RemoveAll(stagingDir))
 	}
 	for _, name := range swapNames {
 		if err := os.MkdirAll(filepath.Join(stagingDir, name), 0o755); err != nil {
-			os.RemoveAll(stagingDir)
-			return "", backupMeta{}, err
+			return "", backupMeta{}, errors.Join(err, os.RemoveAll(stagingDir))
 		}
 	}
 

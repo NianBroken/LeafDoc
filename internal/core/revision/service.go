@@ -1,8 +1,9 @@
 package revision
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"sync"
 	"time"

@@ -17,7 +17,6 @@ import (
 const testAssetMaxBytes int64 = 1024
 
 func TestSaveAndListAsset(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "lonely-page", ID: "a7b3"}
 	// Create index.md page
@@ -61,7 +60,6 @@ func TestSaveAndListAsset(t *testing.T) {
 }
 
 func TestDeletePageAndEnsureAllAssetsAreDeleted(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "lonely-page", ID: "a7b3"}
 	// Create index.md page
@@ -106,7 +104,6 @@ func TestDeletePageAndEnsureAllAssetsAreDeleted(t *testing.T) {
 }
 
 func TestSlugCollision(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "collision-page"}
 	service := NewAssetService(tmp, tree.NewSlugService())
@@ -139,7 +136,6 @@ func TestSlugCollision(t *testing.T) {
 }
 
 func TestAssetRename(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "rename-page", ID: "c3d4"}
 	// Create index.md page
@@ -189,7 +185,6 @@ func TestAssetRename(t *testing.T) {
 }
 
 func TestDeleteMissingAssetReturnsNotFound(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "delete-page", ID: "delete-page-id"}
 	service := NewAssetService(tmp, tree.NewSlugService())
@@ -215,7 +210,6 @@ func TestDeleteMissingAssetReturnsNotFound(t *testing.T) {
 }
 
 func TestAssetDiskPaths_WindowsPath(t *testing.T) {
-	testutil.ResetMySQL(t)
 	if got, want := strings.ReplaceAll(assetPageDiskPath(`C:\wiki\data\assets`, "a7b3"), `\`, `/`), `C:/wiki/data/assets/a7b3`; got != want {
 		t.Fatalf("asset page path = %q, want %q", got, want)
 	}
@@ -225,7 +219,6 @@ func TestAssetDiskPaths_WindowsPath(t *testing.T) {
 }
 
 func TestValidateFilename(t *testing.T) {
-	testutil.ResetMySQL(t)
 	good := []string{"my-image.png", "file.jpg", "a", "foo-bar.webp"}
 	for _, name := range good {
 		if err := validateFilename(name); err != nil {
@@ -250,7 +243,6 @@ func TestValidateFilename(t *testing.T) {
 }
 
 func TestDeleteAsset_PathTraversal(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "test-page", ID: "traversal-delete"}
 	service := NewAssetService(tmp, tree.NewSlugService())
@@ -287,7 +279,6 @@ func TestDeleteAsset_PathTraversal(t *testing.T) {
 }
 
 func TestRenameAsset_OldFilenamePathTraversal(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "test-page", ID: "traversal-rename"}
 	service := NewAssetService(tmp, tree.NewSlugService())
@@ -324,7 +315,6 @@ func TestRenameAsset_OldFilenamePathTraversal(t *testing.T) {
 }
 
 func TestAssetPublicPath_UsesForwardSlashes(t *testing.T) {
-	testutil.ResetMySQL(t)
 	service := NewAssetService(t.TempDir(), tree.NewSlugService())
 	page := &tree.PageNode{ID: "a7b3"}
 
@@ -334,7 +324,6 @@ func TestAssetPublicPath_UsesForwardSlashes(t *testing.T) {
 }
 
 func TestSaveAssetForPage_TooLarge_DoesNotLeavePartialFile(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "limit-page", ID: "limit-page-id"}
 	service := NewAssetService(tmp, tree.NewSlugService())

@@ -1,5 +1,5 @@
 -- LeafDoc MySQL 8.0 完整结构和初始化默认值。
--- 生成来源：go run ./cmd/schema-defaults，核验：go run ./cmd/schema-defaults -check。
+-- 生成来源：node scripts/container.mjs schema-write，核验：node scripts/container.mjs schema。
 -- 在选定的空业务数据库执行，不包含 CREATE DATABASE、DROP 或服务器连接凭据。
 -- 未声明 DEFAULT 的非空业务字段必须由应用提供，不以空字符串冒充业务默认值。
 -- NULL 表示明确的未发生或未解析状态，时间戳精度和字段长度均以以下 DDL 为准。

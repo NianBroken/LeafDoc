@@ -1,0 +1,4 @@
+# The dispatcher supplies the pinned official Linux linter as a named build context.
+FROM lint-toolchain AS lint-binary
+FROM leafdoc-tools:local
+COPY --from=lint-binary /usr/bin/golangci-lint /usr/local/bin/golangci-lint

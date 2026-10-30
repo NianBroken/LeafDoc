@@ -1,12 +1,13 @@
 package pagesave
 
 import (
+	"log/slog"
+	"strings"
+
 	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/links"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
-	"log/slog"
-	"strings"
 )
 
 // LinkIndexSideEffect keeps outgoing links and incoming link resolution consistent.

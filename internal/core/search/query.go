@@ -2,15 +2,15 @@ package search
 
 import (
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"html"
 	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+
 	"github.com/NianBroken/LeafDoc/internal/core/excerpt"
-	"github.com/NianBroken/LeafDoc/internal/core/shared/htmlutil"
 )
 
 const defaultSearchLimit = 50
@@ -35,7 +35,7 @@ func (s *MySQLIndex) Search(query string, pageIDs []string, offset, limit int) (
 		return result, nil
 	}
 	where, args := buildSearchWhereClause(query, pageIDs)
-	err := s.withExecutorRead(func(db database.Executor) error {
+	err := s.withExecutorRead(func(db database.Executor) (resultErr error) {
 		if err := db.QueryRow("SELECT COUNT(*) FROM search_documents WHERE "+where, args...).Scan(&result.Count); err != nil {
 			return err
 		}
@@ -48,13 +48,13 @@ func (s *MySQLIndex) Search(query string, pageIDs []string, offset, limit int) (
 			rankArgs = append(rankArgs, literal, literal, displaySearchQuery(query))
 		}
 		statement := "SELECT pageID, path, kind, title, content, (" + rank + ") AS relevance FROM search_documents WHERE " + where + " ORDER BY relevance DESC, title ASC, pageID ASC LIMIT ? OFFSET ?"
-		queryArgs := append(rankArgs, args...)
+		queryArgs := append(append([]any{}, rankArgs...), args...)
 		queryArgs = append(queryArgs, limit, offset)
 		rows, err := db.Query(statement, queryArgs...)
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer database.CloseResource(rows, &resultErr)
 		for rows.Next() {
 			var item SearchResultItem
 			var content string
@@ -79,12 +79,12 @@ func (s *MySQLIndex) SearchPageIDs(query string, pageIDs []string) ([]string, er
 		return result, nil
 	}
 	where, args := buildSearchWhereClause(query, pageIDs)
-	err := s.withExecutorRead(func(db database.Executor) error {
+	err := s.withExecutorRead(func(db database.Executor) (resultErr error) {
 		rows, err := db.Query("SELECT pageID FROM search_documents WHERE "+where+" ORDER BY title, pageID", args...)
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer database.CloseResource(rows, &resultErr)
 		for rows.Next() {
 			var id string
 			if err := rows.Scan(&id); err != nil {
@@ -199,13 +199,6 @@ func searchExcerpt(content, query string) string {
 		result += "..."
 	}
 	return result
-}
-
-// sanitizeSearchTitle preserves the public title sanitization contract.
-func sanitizeSearchTitle(title string) string {
-	return htmlutil.EscapeTextWithAllowedMarkers(title,
-		htmlutil.AllowedMarker{Marker: "\u0002", HTML: "<b>"},
-		htmlutil.AllowedMarker{Marker: "\u0003", HTML: "</b>"})
 }
 
 // searchColumns is an allow-list of SQL identifiers accepted by column filters.

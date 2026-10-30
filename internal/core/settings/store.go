@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"os"
 	"sync"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 )
 
 // Reloadable refreshes a service's configuration after database restoration.

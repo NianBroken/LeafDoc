@@ -2,9 +2,10 @@ package auth
 
 import (
 	"database/sql"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"sync"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )

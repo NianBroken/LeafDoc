@@ -2,9 +2,10 @@ package auth
 
 import (
 	"database/sql"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"sync"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 )
 
 const logCloseRowsFailed = "could not close rows"
@@ -56,8 +57,6 @@ func (f *UserStore) suspend() error {
 	f.db = nil
 	return err
 }
-
-func (f *UserStore) ensureSchema() error { return f.Connect() }
 
 func (f *UserStore) Close() error {
 	f.mu.Lock()

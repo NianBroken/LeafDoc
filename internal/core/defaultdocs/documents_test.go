@@ -1,13 +1,14 @@
 package defaultdocs
 
 import (
+	"net/url"
+	"strings"
+	"testing"
+
 	"github.com/NianBroken/LeafDoc/internal/core/brandassets"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
-	"net/url"
-	"strings"
-	"testing"
 )
 
 // Every rendered document link resolves to another seeded page, a local asset,

@@ -1,4 +1,4 @@
-# Builds and runs an embedded frontend with a detached HTTPS gateway on Windows.
+# Runs a Linux application container with a detached HTTPS gateway on Windows.
 # Credentials come from the environment; runtime state stays in the ignored data directory.
 [CmdletBinding()]
 param(
@@ -56,13 +56,24 @@ if (-not $DataDirectory) { $DataDirectory = Join-Path $root 'data' }
 $DataDirectory = [IO.Path]::GetFullPath($DataDirectory)
 $runtime = Join-Path $DataDirectory '.runtime'
 $statePath = Join-Path $runtime 'processes.json'
-$binary = Join-Path $runtime 'leafdoc.exe'
+$image = 'leafdoc:local'
+$containerId = $null
 $BasePath = '/' + ([string]$BasePath).Trim().Trim('/')
 if ($BasePath -eq '/') { $BasePath = '' }
 if ($BasePath -match '[?#\s]') { throw 'The base path must be a URL path without query, fragment or whitespace.' }
 
 # Match both the executable and creation time before stopping a saved process.
 function Stop-SavedProcesses($state) {
+    if ($state.containerId) {
+        $existing = & docker ps -a --filter "id=$($state.containerId)" --format '{{.ID}}'
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect saved container.' }
+        if ($existing) {
+            $owner = & docker inspect --format '{{index .Config.Labels "leafdoc.source"}}' $state.containerId
+            if ($LASTEXITCODE -ne 0 -or $owner -ne $root) { throw 'Saved container ownership does not match this project.' }
+            & docker rm -f $state.containerId | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot stop saved container.' }
+        }
+    }
     foreach ($entry in $state.processes) {
         $process = Get-Process -Id $entry.id -ErrorAction SilentlyContinue
         # JSON readers can return timestamps as either strings or DateTime values.
@@ -102,7 +113,7 @@ function Resolve-Executable([string]$Name) {
     }
     throw "Required executable was not found: $Name"
 }
-$go = Resolve-Executable 'go.exe'
+$docker = Resolve-Executable 'docker.exe'
 $caddy = Resolve-Executable 'caddy.exe'
 foreach ($file in @($CertificatePath, $KeyPath)) {
     if (-not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
@@ -113,39 +124,23 @@ $CertificatePath = (Resolve-Path -LiteralPath $CertificatePath).Path
 $KeyPath = (Resolve-Path -LiteralPath $KeyPath).Path
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 
-# The fixed listeners are reclaimed from saved services and direct TCP/UDP owners.
+# Build and validate the Linux image before stopping the running instance.
+$dockerSystem = & $docker info --format '{{.OSType}}'
+if ($LASTEXITCODE -ne 0 -or $dockerSystem -ne 'linux') { throw 'Docker must be running Linux containers.' }
+$availableImage = & $docker image ls --quiet $image
+if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the application image.' }
+if ($Build -or -not $availableImage) {
+    $node = Resolve-Executable 'node.exe'
+    & $node (Join-Path $PSScriptRoot 'container.mjs') build
+    if ($LASTEXITCODE -ne 0) { throw 'Linux application image build failed.' }
+}
 if (Test-Path -LiteralPath $statePath) {
     Stop-SavedProcesses (Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json)
     Remove-Item -LiteralPath $statePath
 }
 $requiredServices = @('frontend', 'backend', 'gatewayAdmin')
-if ($env:LEAFDOC_ENABLE_METRICS -in @('true', '1')) {
-    $requiredServices += 'metrics'
-}
+if ($env:LEAFDOC_ENABLE_METRICS -in @('true', '1')) { $requiredServices += 'metrics' }
 & (Join-Path $PSScriptRoot 'release-service-ports.ps1') -Services ($requiredServices -join ',')
-
-if ($Build -or -not (Test-Path -LiteralPath $binary)) {
-    Push-Location (Join-Path $root 'ui')
-    try {
-        & npm.cmd run build
-        if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
-    } finally { Pop-Location }
-    $destination = Join-Path $root 'internal/http/dist'
-    # Only generated frontend output inside the project is replaced.
-    $expected = [IO.Path]::GetFullPath((Join-Path $root 'internal/http/dist'))
-    if ([IO.Path]::GetFullPath($destination) -ne $expected) { throw 'Invalid frontend output path.' }
-    Get-ChildItem -LiteralPath $destination -Force |
-        Where-Object Name -ne '.gitkeep' | Remove-Item -Recurse -Force
-    Copy-Item -Path (Join-Path $root 'ui/dist/*') -Destination $destination -Recurse
-    Push-Location $root
-    try {
-        $node = Resolve-Executable 'node.exe'
-        $version = (& $node (Join-Path $root 'scripts/resolve-version.mjs')).Trim()
-        if ($LASTEXITCODE -ne 0 -or -not $version) { throw 'Release version resolution failed.' }
-        & $go build -ldflags "-X main.Version=$version -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true" -o $binary ./cmd/leafdoc
-        if ($LASTEXITCODE -ne 0) { throw 'Backend build failed.' }
-    } finally { Pop-Location }
-}
 
 $secretPath = Join-Path $runtime 'jwt.key'
 if (-not (Test-Path -LiteralPath $secretPath)) {
@@ -178,6 +173,10 @@ $client.Timeout = [TimeSpan]::FromSeconds($requestTimeoutSeconds)
 # Probe the backend before exposing it through the gateway, then verify HTTPS.
 function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
     for ($attempt = 0; $attempt -lt $readinessAttempts; $attempt++) {
+        if ($containerId) {
+            $running = & $docker inspect --format '{{.State.Running}}' $containerId
+            if ($LASTEXITCODE -ne 0 -or $running -ne 'true') { throw 'Backend container exited. Inspect docker logs.' }
+        }
         foreach ($service in $Services) {
             if ($service.HasExited) { throw 'A service exited. Inspect the runtime logs.' }
         }
@@ -198,23 +197,45 @@ function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
 
 try {
     $env:LEAFDOC_JWT_SECRET = Get-Content -LiteralPath $secretPath -Raw -Encoding UTF8
-    $backendArguments = @('--host', '127.0.0.1', '--port', "$backendPort", '--data-dir', "`"$DataDirectory`"", '--enable-revision', '--snapshot', '--metrics-port', "$($ports.metrics)")
-    if ($BasePath) { $backendArguments += @('--base-path', $BasePath) }
-    $backend = Start-Process -FilePath $binary -ArgumentList $backendArguments -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'backend.stdout.log') -RedirectStandardError (Join-Path $runtime 'backend.stderr.log') -PassThru
-    $processes += $backend
-    Wait-ServiceReady "http://127.0.0.1:$backendPort$BasePath/api/health" $processes
+    # Application environment is passed by variable name, never as command-line secret values.
+    $identity = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($DataDirectory))).Substring(0, 12).ToLowerInvariant()
+    $arguments = @('run', '-d', '--name', "leafdoc-$identity", '--restart', 'unless-stopped', '--label', "leafdoc.source=$root",
+        '--mount', "type=bind,source=$DataDirectory,target=/app/data", '-p', "127.0.0.1:${backendPort}:${backendPort}",
+        '--health-cmd', "wget -qO- http://127.0.0.1:$backendPort$BasePath/api/health", '--health-interval', '10s', '--health-timeout', '5s', '--health-retries', '6')
+    foreach ($variable in Get-ChildItem Env: | Where-Object Name -like 'LEAFDOC_*') {
+        if ($variable.Name -notin @('LEAFDOC_DATA_DIR', 'LEAFDOC_MYSQL_HOST')) { $arguments += @('--env', $variable.Name) }
+    }
+    $databaseHost = $env:LEAFDOC_MYSQL_HOST
+    if ($databaseHost -in @('localhost', '127.0.0.1', '::1')) { $databaseHost = 'host.docker.internal' }
+    $arguments += @('--env', "LEAFDOC_MYSQL_HOST=$databaseHost", '--env', 'LEAFDOC_DATA_DIR=/app/data')
+    if ($env:LEAFDOC_ENABLE_METRICS -in @('true', '1')) { $arguments += @('-p', "127.0.0.1:$($ports.metrics):$($ports.metrics)") }
+    $arguments += @($image, '--host', '0.0.0.0', '--port', "$backendPort", '--data-dir', '/app/data', '--enable-revision', '--snapshot', '--metrics-port', "$($ports.metrics)")
+    if ($BasePath) { $arguments += @('--base-path', $BasePath) }
+    $containerId = (& $docker @arguments).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $containerId) { throw 'Backend container did not start.' }
+    Wait-ServiceReady "http://127.0.0.1:$backendPort$BasePath/api/health" @()
     $gateway = Start-Process -FilePath $caddy -ArgumentList @('run', '--config', "`"$gatewayConfig`"") -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'gateway.stdout.log') -RedirectStandardError (Join-Path $runtime 'gateway.stderr.log') -PassThru
     $processes += $gateway
     $url = "https://localhost:$Port$BasePath"
     Wait-ServiceReady "$url/api/config" $processes
-    $state = @{ url = $url; dataDirectory = $DataDirectory; processes = @(
+    $state = @{ url = $url; dataDirectory = $DataDirectory; containerId = $containerId; image = $image; processes = @(
         foreach ($process in $processes) {
             @{ id = $process.Id; path = $process.Path; started = $process.StartTime.ToUniversalTime().ToString('o') }
         }
     ) }
     $state | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $statePath -Encoding UTF8
+    # Only the obsolete project-owned Windows binary is retired after HTTPS readiness.
+    $obsoleteBinary = Join-Path $runtime 'leafdoc.exe'
+    if (Test-Path -LiteralPath $obsoleteBinary -PathType Leaf) {
+        Add-Type -AssemblyName Microsoft.VisualBasic.Core
+        [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($obsoleteBinary, 'OnlyErrorDialogs', 'SendToRecycleBin')
+    }
     Write-Output $url
 } catch {
+    if ($containerId) {
+        & $docker rm -f $containerId | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Error 'Failed to clean up the unsuccessful backend container.' }
+    }
     foreach ($process in $processes) {
         if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit() }
     }

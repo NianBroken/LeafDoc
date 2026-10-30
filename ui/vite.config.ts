@@ -1,9 +1,11 @@
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { runtimeHtml } from './runtimeHtml.ts'
 import path from 'path'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
+import { releaseFixedServicePorts } from '../scripts/release-service-ports.mjs'
 import { defineConfig, type ConfigEnv } from 'vite'
 
 const ports = JSON.parse(
@@ -37,28 +39,39 @@ function mermaidDistribution() {
   const prefix = '/static/mermaid/'
   return {
     name: 'mermaid-distribution',
-    generateBundle() {
-      const emit = (directory: string, relative: string) => {
-        for (const entry of fs.readdirSync(directory, {
+    async generateBundle() {
+      // Independent module reads run concurrently before their unchanged assets are emitted.
+      const emit = async (
+        directory: string,
+        relative: string,
+      ): Promise<void> => {
+        const entries = await fs.promises.readdir(directory, {
           withFileTypes: true,
-        })) {
-          const name = path.posix.join(relative, entry.name)
-          const file = path.join(directory, entry.name)
-          if (entry.isDirectory()) emit(file, name)
-          else if (entry.name.endsWith('.mjs'))
-            this.emitFile({
-              type: 'asset',
-              fileName: prefix.slice(1) + name,
-              source: fs.readFileSync(file),
-            })
-        }
+        })
+        await Promise.all(
+          entries.map(async (entry) => {
+            const name = path.posix.join(relative, entry.name)
+            const file = path.join(directory, entry.name)
+            if (entry.isDirectory()) await emit(file, name)
+            else if (entry.name.endsWith('.mjs')) {
+              const source = await fs.promises.readFile(file)
+              this.emitFile({
+                type: 'asset',
+                fileName: prefix.slice(1) + name,
+                source,
+              })
+            }
+          }),
+        )
       }
       this.emitFile({
         type: 'asset',
         fileName: prefix.slice(1) + 'mermaid.esm.min.mjs',
-        source: fs.readFileSync(path.join(root, 'mermaid.esm.min.mjs')),
+        source: await fs.promises.readFile(
+          path.join(root, 'mermaid.esm.min.mjs'),
+        ),
       })
-      emit(
+      await emit(
         path.join(root, 'chunks', 'mermaid.esm.min'),
         'chunks/mermaid.esm.min',
       )
@@ -100,17 +113,29 @@ export default defineConfig(({ command }: ConfigEnv) => ({
   base: command === 'build' ? './' : '/',
   plugins: [
     react(),
+    tailwindcss(),
     runtimeHtml(backendTarget),
     mermaidDistribution(),
     {
       name: 'release-metadata',
       configResolved(config) {
-        if (config.server.port !== ports.frontend || config.preview.port !== ports.frontend || !config.server.strictPort || !config.preview.strictPort) {
-          throw new Error('Frontend must use the fixed frontend port with strict port checking')
+        if (
+          config.server.port !== ports.frontend ||
+          config.preview.port !== ports.frontend ||
+          !config.server.strictPort ||
+          !config.preview.strictPort
+        ) {
+          throw new Error(
+            'Frontend must use the fixed frontend port with strict port checking',
+          )
         }
       },
-      configureServer() { execFileSync('go', ['run', './cmd/service-ports', 'frontend'], { cwd: path.resolve(import.meta.dirname, '..'), stdio: 'inherit' }) },
-      configurePreviewServer() { execFileSync('go', ['run', './cmd/service-ports', 'frontend'], { cwd: path.resolve(import.meta.dirname, '..'), stdio: 'inherit' }) },
+      configureServer() {
+        releaseFixedServicePorts(['frontend'])
+      },
+      configurePreviewServer() {
+        releaseFixedServicePorts(['frontend'])
+      },
       transformIndexHtml() {
         return [
           {

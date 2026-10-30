@@ -157,19 +157,16 @@ func Open(storageDir string) (*sql.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("MySQL connection failed: %w", err)
+		return nil, fmt.Errorf("MySQL connection failed: %w", errors.Join(err, db.Close()))
 	}
 	schemaMu.Lock()
 	defer schemaMu.Unlock()
 	if !initialized[dsn] {
 		if _, err := db.Exec(contentSchema); err != nil {
-			db.Close()
-			return nil, err
+			return nil, errors.Join(err, db.Close())
 		}
 		if err := EnsureStoreSchema(db); err != nil {
-			db.Close()
-			return nil, err
+			return nil, errors.Join(err, db.Close())
 		}
 		initialized[dsn] = true
 	}

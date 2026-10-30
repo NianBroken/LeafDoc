@@ -24,9 +24,6 @@ const (
 	errFailedToIssueCSRFCookie = "Failed to issue CSRF cookie"
 )
 
-// DisableRefreshTokenRateLimit can be set via ldflags for E2E/debug builds.
-var DisableRefreshTokenRateLimit = "false"
-
 // Routes is the RouteRegistrar for the auth domain.
 type Routes struct {
 	login             *LoginUseCase
@@ -99,12 +96,8 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	// Shares loginRateLimiter's per-IP budget with /auth/login: both steps of the
 	// same handshake draw from one bucket, since both are exposed to credential/code
 	// guessing before a session exists.
-	if DisableRefreshTokenRateLimit == "true" {
-		nonAuth.POST("/auth/refresh-token", r.handleRefreshToken(ctx))
-	} else {
-		refreshRateLimiter := security.NewRateLimiter(30, time.Minute, false)
-		nonAuth.POST("/auth/refresh-token", refreshRateLimiter, r.handleRefreshToken(ctx))
-	}
+	refreshRateLimiter := security.NewRateLimiter(30, time.Minute, false)
+	nonAuth.POST("/auth/refresh-token", refreshRateLimiter, r.handleRefreshToken(ctx))
 
 	// Config endpoint also lives here as it issues the CSRF cookie.
 	nonAuth.GET("/config", r.handleConfig(ctx))

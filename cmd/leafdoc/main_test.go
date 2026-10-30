@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"io"
 	"log/slog"
 	"net"
@@ -13,12 +12,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 
 	"github.com/urfave/cli/v3"
 
@@ -1094,10 +1094,7 @@ func TestDockerfileBuilder_GoBuildStage_DeclaresAppVersionArg(t *testing.T) {
 func TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue(t *testing.T) {
 	scriptPath := filepath.Join("..", "..", "scripts", "resolve-version.sh")
 
-	cmd := exec.Command(scriptPath)
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command(filepath.Join(os.Getenv("ProgramFiles"), "Git", "bin", "bash.exe"), scriptPath)
-	}
+	cmd := exec.Command("bash", scriptPath)
 	cmd.Env = append(os.Environ(), "APP_VERSION=v9.9.9-test")
 
 	out, err := cmd.Output()
@@ -1110,60 +1107,17 @@ func TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue(t *testing.T
 	}
 }
 
-// TestMakefile_BuildAndRunTargets_InjectVersionLdflags pins that the local
-// `make build`/`make run` targets inject main.Version the same way the
-// release/Docker targets do, instead of leaving local builds on the "dev"
-// default silently.
-func TestMakefile_BuildAndRunTargets_InjectVersionLdflags(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "..", "Makefile"))
+// TestContainerBuildUsesLinuxAndSharedVersion verifies the supported compilation boundary.
+func TestContainerBuildUsesLinuxAndSharedVersion(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "scripts", "container.mjs"))
 	if err != nil {
-		t.Fatalf("failed to read Makefile: %v", err)
+		t.Fatal(err)
 	}
-	content := string(raw)
-
-	for _, target := range []string{"build:", "run:"} {
-		idx := strings.Index(content, target)
-		if idx == -1 {
-			t.Fatalf("Makefile target %q not found", target)
-		}
-
-		recipeEnd := strings.Index(content[idx:], "\n\n")
-		if recipeEnd == -1 {
-			recipeEnd = len(content) - idx
-		}
-		recipe := content[idx : idx+recipeEnd]
-
-		if !strings.Contains(resolveMakeVars(content, recipe), "-X main.Version=$(VERSION)") {
-			t.Fatalf("expected Makefile %q recipe to inject main.Version from $(VERSION), got: %s", target, recipe)
+	for _, required := range []string{"resolve-version.mjs", "APP_VERSION=", "GOOS=linux", "'linux'"} {
+		if !strings.Contains(string(raw), required) {
+			t.Fatalf("container launcher missing %q", required)
 		}
 	}
-}
-
-var makeVarAssignment = regexp.MustCompile(`(?m)^([A-Za-z_][A-Za-z0-9_]*)\s*(?::=|\?=|=)\s*(.*)$`)
-
-// resolveMakeVars expands $(NAME) references in s using NAME's assignment
-// elsewhere in the Makefile, so the check above still works when a recipe
-// builds its ldflags from a variable (e.g. $(LDFLAGS)) instead of a literal
-// string. $(VERSION) itself is left unresolved since the test asserts on
-// that exact reference.
-func resolveMakeVars(content, s string) string {
-	assignments := map[string]string{}
-	for _, m := range makeVarAssignment.FindAllStringSubmatch(content, -1) {
-		assignments[m[1]] = m[2]
-	}
-	delete(assignments, "VERSION")
-
-	for changed := true; changed; {
-		changed = false
-		for name, value := range assignments {
-			token := "$(" + name + ")"
-			if strings.Contains(s, token) {
-				s = strings.ReplaceAll(s, token, value)
-				changed = true
-			}
-		}
-	}
-	return s
 }
 
 // TestViteConfig_ResolvesVersionViaSharedScript pins that the frontend

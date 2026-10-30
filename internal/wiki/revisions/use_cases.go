@@ -2,9 +2,10 @@ package revisions
 
 import (
 	"context"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/NianBroken/LeafDoc/internal/core/revision"

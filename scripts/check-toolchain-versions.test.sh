@@ -28,6 +28,7 @@ expect() {
     printf '%b' "$nvmrc" > "$dir/.nvmrc"
     printf '%b' "$dockerfile" > "$dir/Dockerfile"
     printf '%b' "$dockerfile" > "$dir/Dockerfile.builder"
+    printf '%b' "$dockerfile" > "$dir/Dockerfile.tools"
     if [[ $# -ge 6 ]]; then
         mkdir -p "$(dirname "$dir/$mise_file")"
         printf '%b' "$mise" > "$dir/$mise_file"

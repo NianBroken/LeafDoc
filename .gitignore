@@ -65,7 +65,7 @@ desktop.ini
 .cache/
 coverage/
 
-# local embedded frontend output for fast E2E runs
+# Generated embedded frontend output
 internal/http/dist/*
 !internal/http/dist/.gitkeep
 

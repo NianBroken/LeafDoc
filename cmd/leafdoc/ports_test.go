@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"github.com/urfave/cli/v3"
 	"io"
 	"testing"
+
+	"github.com/urfave/cli/v3"
 )
 
 // TestFixedPortFlags ensures invalid CLI and environment overrides never reach startup.

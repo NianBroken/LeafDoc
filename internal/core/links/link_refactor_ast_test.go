@@ -1,12 +1,10 @@
 package links
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 )
 
 func TestMarkdownRefactorEngine_Rewrite_SkipsInlineCodeAndCodeBlocks(t *testing.T) {
-	testutil.ResetMySQL(t)
 	content := "`[code](/docs/b)`\n\n```md\n[block](/docs/b)\n```\n\n[real](/docs/b)"
 
 	result := NewMarkdownRefactorEngine().Rewrite(content, "/docs/a", []RewriteRule{{
@@ -23,7 +21,6 @@ func TestMarkdownRefactorEngine_Rewrite_SkipsInlineCodeAndCodeBlocks(t *testing.
 }
 
 func TestMarkdownRefactorEngine_Rewrite_WarnsForReferenceLinks(t *testing.T) {
-	testutil.ResetMySQL(t)
 	content := "[Ref][docs]\n\n[docs]: /docs/b"
 
 	result := NewMarkdownRefactorEngine().Rewrite(content, "/docs/a", []RewriteRule{{

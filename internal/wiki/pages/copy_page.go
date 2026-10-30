@@ -2,9 +2,10 @@ package pages
 
 import (
 	"context"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"strings"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/assets"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"

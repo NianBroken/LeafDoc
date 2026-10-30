@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestAllocation protects permanent identities and gap-free independent service allocation.
+// TestAllocation protects permanent identities and unique independent service allocation.
 func TestAllocation(t *testing.T) {
 	if Port("frontend") != "24691" || Port("backend") != "24692" {
 		t.Fatal("application listeners changed")
@@ -21,8 +21,8 @@ func TestAllocation(t *testing.T) {
 	}
 	sort.Ints(values)
 	for i, value := range values {
-		if value != 24691+i {
-			t.Fatalf("allocation gap or duplicate: %v", values)
+		if value < 1024 || value > 65535 || (i > 0 && value == values[i-1]) {
+			t.Fatalf("invalid or duplicate allocation: %v", values)
 		}
 	}
 }

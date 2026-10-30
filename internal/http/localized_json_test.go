@@ -2,8 +2,9 @@
 package http
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/core/localization"
 	"testing"
+
+	"github.com/NianBroken/LeafDoc/internal/core/localization"
 )
 
 func TestValidationTranslationPreservesFields(t *testing.T) {

@@ -11,10 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func init() {
-	gin.SetMode(gin.TestMode)
-}
-
 // newTestRouter builds a minimal Gin engine wiring the real handler methods so
 // any change to handleTriggerResync or handleResyncStatus is exercised.
 func newTestRouter(job *ResyncJob, trigger func()) *gin.Engine {

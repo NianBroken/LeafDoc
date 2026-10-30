@@ -27,9 +27,14 @@ EXCLUDED=(
 # not pass as "nothing found".
 search() {
     local status=0
-    git grep -n -I -E "$@" -- . "${EXCLUDED[@]}" || status=$?
+    # Container source snapshots have no private Git history; search their source files directly.
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git grep -n -I -E "$@" -- . "${EXCLUDED[@]}" || status=$?
+    else
+        git grep --no-index --exclude-standard -n -I -E "$@" -- . "${EXCLUDED[@]}" || status=$?
+    fi
     if [[ "$status" -gt 1 ]]; then
-        echo "::error::git grep failed (exit $status); is $ROOT a git checkout?" >&2
+        echo "::error::git grep failed (exit $status); could not search source at $ROOT" >&2
         exit 2
     fi
 }

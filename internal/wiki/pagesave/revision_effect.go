@@ -1,11 +1,12 @@
 package pagesave
 
 import (
+	"log/slog"
+
 	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/revision"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
-	"log/slog"
 )
 
 // RevisionSideEffect records history in the same transaction as the page body.

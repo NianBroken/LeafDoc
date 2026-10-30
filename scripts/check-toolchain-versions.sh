@@ -12,7 +12,7 @@ cd "$ROOT"
 # shellcheck source=lib/toolchain-versions.sh
 . scripts/lib/toolchain-versions.sh
 
-DOCKERFILES=(Dockerfile Dockerfile.builder)
+DOCKERFILES=(Dockerfile Dockerfile.builder Dockerfile.tools)
 status=0
 
 fail() {

@@ -107,12 +107,13 @@ var (
 )
 
 func main() {
-	defer database.ClosePools()
 	// Errors that surface here come from flag parsing and validation, which
 	// happen before there is a configured logger - they are CLI diagnostics, so
 	// they go to stderr as plain text. Anything that fails once the logger is up
 	// logs itself and returns errLogged.
-	if err := newRootCommand().Run(context.Background(), os.Args); err != nil {
+	runErr := newRootCommand().Run(context.Background(), os.Args)
+	err := errors.Join(runErr, database.ClosePools())
+	if err != nil {
 		if !errors.Is(err, errLogged) && !errors.Is(err, errReported) {
 			fmt.Fprintln(os.Stderr, "Error:", err)
 		}

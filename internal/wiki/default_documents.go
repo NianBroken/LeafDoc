@@ -26,16 +26,17 @@ func (w *Wiki) EnsureDefaultDocuments() error {
 	stateKey := defaultDocumentsStateFile
 	state := defaultDocumentsState{}
 	data, err := database.ReadRecord(w.storageDir, "instance_state", stateKey)
-	if err == nil {
+	switch {
+	case err == nil:
 		if err := json.Unmarshal(data, &state); err != nil {
 			return fmt.Errorf("read default document state: %w", err)
 		}
 		if state.Complete {
 			return nil
 		}
-	} else if !errors.Is(err, sql.ErrNoRows) {
+	case !errors.Is(err, sql.ErrNoRows):
 		return err
-	} else {
+	default:
 		if w.tree.HasPages() {
 			return database.WriteRecord(w.storageDir, "instance_state", stateKey, []byte("{\"complete\":true}\n"))
 		}

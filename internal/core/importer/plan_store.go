@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 )
 
 const errWrapFmt = "%w: %v"

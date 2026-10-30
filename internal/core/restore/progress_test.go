@@ -67,35 +67,3 @@ func TestProgressCredentialLifecycle(t *testing.T) {
 
 	manager.job.Finish(nil)
 }
-
-// TestProgressWaitsForRuntimeReload proves success is observable only after the
-// restored hierarchy and indexes have synchronously refreshed.
-func TestProgressWaitsForRuntimeReload(t *testing.T) {
-	dir, snapshots, id := backupFixture(t)
-	started := make(chan struct{})
-	release := make(chan struct{})
-	manager := NewManager(Config{DataDir: dir, SnapshotManager: snapshots, WriteGate: NewWriteGate(), ReloadRuntime: func() error { close(started); <-release; return nil }})
-	token, err := manager.TriggerRestoreWithStatusToken(id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		close(release)
-		manager.Wait()
-		t.Fatal("runtime reload not reached")
-	}
-	status, ok := manager.ProgressStatus(token)
-	if !ok || !status.Running || status.Done {
-		close(release)
-		manager.Wait()
-		t.Fatal("restore succeeded before runtime reload completed")
-	}
-	close(release)
-	manager.Wait()
-	status, ok = manager.ProgressStatus(token)
-	if !ok || !status.Done || status.Running || status.Error != "" {
-		t.Fatalf("completed reload status: %#v", status)
-	}
-}

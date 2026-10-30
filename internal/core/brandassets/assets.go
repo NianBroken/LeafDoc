@@ -11,6 +11,7 @@ const (
 )
 
 // Files contains browser-ready resources and excludes the full-size source artwork.
+//
 //go:embed files/*
 var Files embed.FS
 

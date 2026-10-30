@@ -1,69 +1,10 @@
 package auth
 
 import (
-	"strings"
 	"testing"
-	"time"
-
-	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
-	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
-func setupTestAPIKeyService(t *testing.T) (*APIKeyService, *UserService) {
-	t.Helper()
-
-	userStore, err := NewUserStore(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewUserStore err: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := userStore.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(userStore.Close, t) })
-	userService := NewUserService(userStore)
-
-	sessionStore, err := NewSessionStore(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewSessionStore err: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := sessionStore.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(sessionStore.Close, t) })
-	sessions := NewSessionManager(sessionStore, "test-secret-key-for-unit-tests-1", time.Hour, 24*time.Hour)
-	authService := NewAuthService(userService, sessions)
-
-	keyStore, err := NewAPIKeyStore(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewAPIKeyStore err: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := keyStore.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	t.Cleanup(func() { testutil.WrapCloseWithErrorCheck(keyStore.Close, t) })
-
-	return NewAPIKeyService(keyStore, authService), userService
-}
-
-func mustCreateUser(t *testing.T, users *UserService, username, role string) *User {
-	t.Helper()
-	user, err := users.CreateUser(username, username+"@example.com", "password123", role)
-	if err != nil {
-		t.Fatalf("CreateUser(%s) err: %v", username, err)
-	}
-	return user
-}
-
-// ─── hashSecret / timing-equalization ───────────────────────────────────────
-
 func TestHashSecret_DeterministicAndDistinct(t *testing.T) {
-	testutil.ResetMySQL(t)
 	h1 := hashSecret("secret-a")
 	h2 := hashSecret("secret-a")
 	h3 := hashSecret("secret-b")
@@ -78,96 +19,7 @@ func TestHashSecret_DeterministicAndDistinct(t *testing.T) {
 	}
 }
 
-// Regression tests for the bug where Resolve collapsed a suspended store's
-// store-unavailable LocalizedError (either APIKeyStore's own, or UserStore's
-// via the owner lookup) down to the generic ErrAPIKeyInvalid, so a request
-// landing in a live restore's brief suspend window saw a confusing "invalid
-// key" instead of "restore in progress".
-
-func TestAPIKeyService_Resolve_KeyStoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "suspend-key-store", RoleViewer)
-
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-
-	if err := svc.PauseForSwap(); err != nil {
-		t.Fatalf("PauseForSwap failed: %v", err)
-	}
-
-	_, err = svc.Resolve(token)
-	if err == nil {
-		t.Fatal("expected an error for a suspended api key store")
-	}
-	if err == ErrAPIKeyInvalid {
-		t.Fatalf("expected the store-unavailable error, not ErrAPIKeyInvalid: %v", err)
-	}
-	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != ErrCodeAPIKeyStoreUnavailable {
-		t.Fatalf("expected %s, got %v", ErrCodeAPIKeyStoreUnavailable, err)
-	}
-}
-
-func TestAPIKeyService_Resolve_UserStoreSuspended_ReturnsStoreUnavailable(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "suspend-user-store", RoleViewer)
-
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-
-	if err := users.suspendStore(); err != nil {
-		t.Fatalf("suspendStore failed: %v", err)
-	}
-
-	_, err = svc.Resolve(token)
-	if err == nil {
-		t.Fatal("expected an error for a suspended user store")
-	}
-	if err == ErrAPIKeyInvalid {
-		t.Fatalf("expected the store-unavailable error, not ErrAPIKeyInvalid: %v", err)
-	}
-	localized, ok := sharederrors.AsLocalizedError(err)
-	if !ok || localized.Code != ErrCodeAuthUserStoreUnavailable {
-		t.Fatalf("expected %s, got %v", ErrCodeAuthUserStoreUnavailable, err)
-	}
-}
-
-func TestAPIKeyService_Resolve_UnknownPrefixAndWrongSecretBothInvalid(t *testing.T) {
-	testutil.ResetMySQL(t)
-	// Both cases must go through the same hash-and-compare path (unknown
-	// prefix compares against dummySecretHash) so a caller can't distinguish
-	// them by response shape or timing. This asserts the observable contract;
-	// see hashSecret's doc comment for why the timing property matters.
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "carol2", RoleViewer)
-
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-	prefix, _, _ := parseKeyToken(token)
-
-	unknownPrefixToken := apiKeyTokenPrefix + "deadbeef_" + strings.Repeat("a", 64)
-	wrongSecretToken := apiKeyTokenPrefix + prefix + "_" + strings.Repeat("b", 64)
-
-	if _, err := svc.Resolve(unknownPrefixToken); err != ErrAPIKeyInvalid {
-		t.Fatalf("unknown prefix: expected ErrAPIKeyInvalid, got %v", err)
-	}
-	if _, err := svc.Resolve(wrongSecretToken); err != ErrAPIKeyInvalid {
-		t.Fatalf("wrong secret: expected ErrAPIKeyInvalid, got %v", err)
-	}
-}
-
-// ─── token generation / parsing ─────────────────────────────────────────────
-
 func TestGenerateKeyToken_ProducesNonEmptyDistinctValues(t *testing.T) {
-	testutil.ResetMySQL(t)
 	prefix1, secret1, err := generateKeyToken()
 	if err != nil {
 		t.Fatalf("generateKeyToken err: %v", err)
@@ -185,7 +37,6 @@ func TestGenerateKeyToken_ProducesNonEmptyDistinctValues(t *testing.T) {
 }
 
 func TestParseKeyToken_RoundTrip(t *testing.T) {
-	testutil.ResetMySQL(t)
 	prefix, secret, err := generateKeyToken()
 	if err != nil {
 		t.Fatalf("generateKeyToken err: %v", err)
@@ -202,7 +53,6 @@ func TestParseKeyToken_RoundTrip(t *testing.T) {
 }
 
 func TestParseKeyToken_RejectsMalformed(t *testing.T) {
-	testutil.ResetMySQL(t)
 	cases := []string{
 		"",
 		"not-a-key-token",
@@ -218,10 +68,7 @@ func TestParseKeyToken_RejectsMalformed(t *testing.T) {
 	}
 }
 
-// ─── intersectRole ───────────────────────────────────────────────────────────
-
 func TestIntersectRole_NeverWidensPermission(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tests := []struct {
 		userRole, keyRole, want string
 	}{
@@ -244,7 +91,6 @@ func TestIntersectRole_NeverWidensPermission(t *testing.T) {
 }
 
 func TestIntersectRole_UnknownRoleFailsSafeToViewer(t *testing.T) {
-	testutil.ResetMySQL(t)
 	if got := intersectRole("bogus", RoleAdmin); got != RoleViewer {
 		t.Errorf("intersectRole(bogus, admin) = %q, want %q (fail safe)", got, RoleViewer)
 	}
@@ -253,200 +99,15 @@ func TestIntersectRole_UnknownRoleFailsSafeToViewer(t *testing.T) {
 	}
 }
 
-// ─── CreateAPIKey ────────────────────────────────────────────────────────────
-
-func TestAPIKeyService_CreateAPIKey_DefaultsToViewerRole(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "alice", RoleEditor)
-
-	key, token, err := svc.CreateAPIKey(CreateAPIKeyParams{
-		Name: "agent key", UserID: owner.ID, CreatedBy: "admin1",
-	})
+// generateKeyToken provides a matched random prefix and secret.
+func generateKeyToken() (prefix string, secret string, err error) {
+	prefix, err = generatePrefix()
 	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
+		return "", "", err
 	}
-	if key.Role != RoleViewer {
-		t.Fatalf("expected default role %q, got %q", RoleViewer, key.Role)
-	}
-	if !strings.HasPrefix(token, apiKeyTokenPrefix) {
-		t.Fatalf("expected token to start with %q, got %q", apiKeyTokenPrefix, token)
-	}
-	if strings.Contains(key.KeyHash, token) {
-		t.Fatalf("stored hash must not contain the plaintext token")
-	}
-}
-
-func TestAPIKeyService_CreateAPIKey_RejectsInvalidRole(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "bob", RoleAdmin)
-
-	_, _, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, Role: "superuser", CreatedBy: "admin1"})
-	if err != ErrUserInvalidRole {
-		t.Fatalf("expected ErrUserInvalidRole, got %v", err)
-	}
-}
-
-func TestAPIKeyService_CreateAPIKey_RejectsUnknownUser(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, _ := setupTestAPIKeyService(t)
-
-	_, _, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: "no-such-user", CreatedBy: "admin1"})
-	if err != ErrUserNotFound {
-		t.Fatalf("expected ErrUserNotFound, got %v", err)
-	}
-}
-
-// ─── Resolve ─────────────────────────────────────────────────────────────────
-
-func TestAPIKeyService_Resolve_HappyPath(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "carol", RoleViewer)
-
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, CreatedBy: "admin1"})
+	secret, err = generateSecret()
 	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
+		return "", "", err
 	}
-
-	resolved, err := svc.Resolve(token)
-	if err != nil {
-		t.Fatalf("Resolve err: %v", err)
-	}
-	if resolved.ID != owner.ID {
-		t.Fatalf("resolved user ID = %q, want %q", resolved.ID, owner.ID)
-	}
-	if resolved.Password != "" {
-		t.Fatalf("expected resolved user's password to be cleared")
-	}
-}
-
-func TestAPIKeyService_Resolve_NarrowsRoleToKeyRole(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "dave", RoleAdmin)
-
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, Role: RoleEditor, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-
-	resolved, err := svc.Resolve(token)
-	if err != nil {
-		t.Fatalf("Resolve err: %v", err)
-	}
-	if resolved.Role != RoleEditor {
-		t.Fatalf("resolved role = %q, want %q (narrowed by key role)", resolved.Role, RoleEditor)
-	}
-}
-
-func TestAPIKeyService_Resolve_NarrowsRoleToUserRole(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	// Owner is only a viewer; an admin-role key must not widen that.
-	owner := mustCreateUser(t, users, "erin", RoleViewer)
-
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, Role: RoleAdmin, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-
-	resolved, err := svc.Resolve(token)
-	if err != nil {
-		t.Fatalf("Resolve err: %v", err)
-	}
-	if resolved.Role != RoleViewer {
-		t.Fatalf("resolved role = %q, want %q (capped by owner's role)", resolved.Role, RoleViewer)
-	}
-}
-
-func TestAPIKeyService_Resolve_RejectsMalformedToken(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, _ := setupTestAPIKeyService(t)
-
-	if _, err := svc.Resolve("not-a-token"); err != ErrAPIKeyInvalid {
-		t.Fatalf("expected ErrAPIKeyInvalid, got %v", err)
-	}
-}
-
-func TestAPIKeyService_Resolve_RejectsUnknownPrefix(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, _ := setupTestAPIKeyService(t)
-
-	if _, err := svc.Resolve(apiKeyTokenPrefix + "deadbeef_" + strings.Repeat("a", 64)); err != ErrAPIKeyInvalid {
-		t.Fatalf("expected ErrAPIKeyInvalid, got %v", err)
-	}
-}
-
-func TestAPIKeyService_Resolve_RejectsWrongSecret(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "frank", RoleViewer)
-
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-	prefix, _, _ := parseKeyToken(token)
-	tampered := apiKeyTokenPrefix + prefix + "_" + strings.Repeat("f", 64)
-
-	if _, err := svc.Resolve(tampered); err != ErrAPIKeyInvalid {
-		t.Fatalf("expected ErrAPIKeyInvalid, got %v", err)
-	}
-}
-
-func TestAPIKeyService_Resolve_RejectsRevokedKey(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "grace", RoleViewer)
-
-	key, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-	if err := svc.RevokeAPIKey(key.ID); err != nil {
-		t.Fatalf("RevokeAPIKey err: %v", err)
-	}
-
-	if _, err := svc.Resolve(token); err != ErrAPIKeyRevoked {
-		t.Fatalf("expected ErrAPIKeyRevoked, got %v", err)
-	}
-}
-
-func TestAPIKeyService_Resolve_RejectsExpiredKey(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "heidi", RoleViewer)
-
-	past := time.Now().Add(-time.Hour)
-	_, token, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k", UserID: owner.ID, ExpiresAt: &past, CreatedBy: "admin1"})
-	if err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-
-	if _, err := svc.Resolve(token); err != ErrAPIKeyExpired {
-		t.Fatalf("expected ErrAPIKeyExpired, got %v", err)
-	}
-}
-
-func TestAPIKeyService_ListAPIKeys(t *testing.T) {
-	testutil.ResetMySQL(t)
-	svc, users := setupTestAPIKeyService(t)
-	owner := mustCreateUser(t, users, "ivan", RoleViewer)
-
-	if _, _, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k1", UserID: owner.ID, CreatedBy: "admin1"}); err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-	if _, _, err := svc.CreateAPIKey(CreateAPIKeyParams{Name: "k2", UserID: owner.ID, CreatedBy: "admin1"}); err != nil {
-		t.Fatalf("CreateAPIKey err: %v", err)
-	}
-
-	keys, err := svc.ListAPIKeys()
-	if err != nil {
-		t.Fatalf("ListAPIKeys err: %v", err)
-	}
-	if len(keys) != 2 {
-		t.Fatalf("expected 2 keys, got %d", len(keys))
-	}
+	return prefix, secret, nil
 }

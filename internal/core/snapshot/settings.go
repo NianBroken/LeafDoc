@@ -2,11 +2,12 @@ package snapshot
 
 import (
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/defaults"
-	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 )

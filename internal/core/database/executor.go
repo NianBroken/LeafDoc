@@ -3,7 +3,9 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io"
 )
 
 // Executor binds domain queries to either a pool or one request transaction.
@@ -77,7 +79,7 @@ func (r Records) Delete(namespace, key string) error {
 	_, err = e.Exec("DELETE FROM content_records WHERE namespace=? AND record_key=?", namespace, key)
 	return err
 }
-func (r Records) List(namespace string) (map[string][]byte, error) {
+func (r Records) List(namespace string) (result map[string][]byte, resultErr error) {
 	e, err := r.Connection()
 	if err != nil {
 		return nil, err
@@ -86,7 +88,7 @@ func (r Records) List(namespace string) (map[string][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer CloseResource(rows, &resultErr)
 	out := map[string][]byte{}
 	for rows.Next() {
 		var key string
@@ -97,4 +99,23 @@ func (r Records) List(namespace string) (map[string][]byte, error) {
 		out[key] = raw
 	}
 	return out, rows.Err()
+}
+
+// rollback releases an unfinished SQL transaction without treating commit as a failure.
+func rollback(tx Transaction) error {
+	err := tx.Rollback()
+	if errors.Is(err, sql.ErrTxDone) {
+		return nil
+	}
+	return err
+}
+
+// Rollback joins cleanup failures with the operation's existing error.
+func Rollback(tx Transaction, resultErr *error) {
+	*resultErr = errors.Join(*resultErr, rollback(tx))
+}
+
+// CloseResource preserves both the operation failure and the resource release failure.
+func CloseResource(resource io.Closer, resultErr *error) {
+	*resultErr = errors.Join(*resultErr, resource.Close())
 }

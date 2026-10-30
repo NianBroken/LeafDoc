@@ -1,6 +1,6 @@
 # LeafDoc 配置来源与默认行为
 
-本文件按命令行声明整理全部启动选项。实际程序声明是参数类型和校验的权威来源，`go run ./cmd/leafdoc --help` 可核查完整说明。实例可修改设置由 MySQL settings 记录保存，接口和页面读取同一份值。
+本文件按命令行声明整理全部启动选项。实际程序声明是参数类型和校验的权威来源，Linux 容器内的 `/app/leafdoc --help` 可核查完整说明。实例可修改设置由 MySQL settings 记录保存，接口和页面读取同一份值。
 
 ## 来源顺序
 
@@ -81,4 +81,4 @@ Windows 启动脚本从 `LEAFDOC_DATA_DIR` 或项目 data 目录解析实例目�
 
 ## 结构与默认值核查
 
-唯一 SQL 默认文件由 `go run ./cmd/schema-defaults` 从实际 Go 建表定义和服务默认值生成，同时生成前端默认值 JSON。`go run ./cmd/schema-defaults -check` 检查内容漂移。SQL 与应用建表结果通过隔离 MySQL 数据库对照验证，不包含生产连接密码和 TLS 私钥。
+唯一 SQL 默认文件由 Linux 容器内的 Go 生成器从实际建表定义和服务默认值生成，同时生成前端默认值 JSON。生成内容通过 `node scripts/container.mjs schema` 静态核对，不创建数据库或执行测试迁移，不包含生产连接密码和 TLS 私钥。

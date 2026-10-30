@@ -1,6 +1,9 @@
 package restore
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 type Phase string
 
@@ -110,4 +113,11 @@ func (j *Job) Status() JobStatus {
 		s.Error = j.err.Error()
 	}
 	return s
+}
+
+// recordCleanupError preserves the restore outcome while reporting failed resource cleanup.
+func (j *Job) recordCleanupError(err error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.err = errors.Join(j.err, err)
 }

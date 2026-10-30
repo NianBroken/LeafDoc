@@ -17,7 +17,6 @@ import (
 )
 
 const nodeNamespace = "page_nodes"
-const reconstructSystemUserID = "system"
 const errEntryRequired = "a page is required"
 const errParentEntryRequired = "a parent is required"
 

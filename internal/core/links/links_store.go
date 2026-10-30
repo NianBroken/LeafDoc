@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"strings"
 	"sync"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 )
 
 type LinksStore struct {

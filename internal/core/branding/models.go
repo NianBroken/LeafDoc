@@ -1,10 +1,11 @@
 package branding
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/core/brandassets"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/NianBroken/LeafDoc/internal/core/brandassets"
 )
 
 // BrandingConfig holds the branding configuration for the wiki

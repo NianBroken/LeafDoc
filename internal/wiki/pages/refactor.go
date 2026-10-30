@@ -3,11 +3,12 @@ package pages
 import (
 	"context"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/links"
 	"github.com/NianBroken/LeafDoc/internal/core/revision"
@@ -744,24 +745,6 @@ func ensureStrings(values []string) []string {
 		return []string{}
 	}
 	return values
-}
-
-func samplePageIDs(pages []*tree.Page, limit int) []string {
-	if limit <= 0 || len(pages) == 0 {
-		return []string{}
-	}
-	if len(pages) < limit {
-		limit = len(pages)
-	}
-
-	ids := make([]string, 0, limit)
-	for i := 0; i < limit; i++ {
-		if pages[i] == nil {
-			continue
-		}
-		ids = append(ids, pages[i].ID)
-	}
-	return ids
 }
 
 func (uc *ApplyPageRefactorUseCase) loadPagesByID(ids []string, warningMessage string) map[string]*tree.Page {

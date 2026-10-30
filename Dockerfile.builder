@@ -5,11 +5,12 @@ WORKDIR /app/ui
 
 COPY ./ui/package.json ./package.json
 COPY ./ui/package-lock.json ./package-lock.json
-RUN npm ci --ignore-scripts
+RUN --mount=type=cache,id=leafdoc-linux-npm,target=/root/.npm npm ci --ignore-scripts --prefer-offline
 
 COPY ./ui/ ./
 COPY ./scripts/sync-error-catalogs.mjs /app/scripts/sync-error-catalogs.mjs
 COPY ./scripts/resolve-version.mjs /app/scripts/resolve-version.mjs
+COPY ./scripts/release-service-ports.mjs ./scripts/release-service-ports.d.mts /app/scripts/
 COPY ./internal/core/serviceports/ports.json /app/internal/core/serviceports/ports.json
 RUN mkdir -p /app/internal/core/localization
 RUN VITE_API_URL=/ npm run build
@@ -18,12 +19,10 @@ RUN VITE_API_URL=/ npm run build
 FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS builder
 
 ARG APP_VERSION
-ARG GOOS
 ARG GOARCH
 ARG CGO_ENABLED=0
-ARG OUTPUT=leafdoc
 
-ENV GOOS=${GOOS}
+ENV GOOS=linux
 ENV GOARCH=${GOARCH}
 ENV CGO_ENABLED=${CGO_ENABLED}
 
@@ -37,6 +36,6 @@ COPY . .
 # Copy built frontend
 COPY --from=frontend /app/ui/dist ./internal/http/dist
 
-RUN go build \
+RUN --mount=type=cache,target=/root/.cache/go-build go build \
   -ldflags="-s -w -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production -X main.Version=${APP_VERSION}" \
-  -o /out/${OUTPUT} ./cmd/leafdoc
+  -o /out/leafdoc ./cmd/leafdoc

@@ -70,7 +70,7 @@ func translateResponse(value any, status int) {
 		}
 	}
 	for _, key := range []string{"message", "error"} {
-		if message, ok := root[key].(string); ok && !(key == "error" && message == "validation_error") {
+		if message, ok := root[key].(string); ok && (key != "error" || message != "validation_error") {
 			translated := localization.Message(strings.ToLower(message))
 			if translated != strings.ToLower(message) {
 				root[key] = translated
@@ -111,12 +111,4 @@ func translateResponse(value any, status int) {
 			translateResponse(value, status)
 		}
 	}
-}
-func containsHan(s string) bool {
-	for _, r := range s {
-		if r >= 0x4e00 && r <= 0x9fff {
-			return true
-		}
-	}
-	return false
 }

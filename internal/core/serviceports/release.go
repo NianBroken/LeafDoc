@@ -12,11 +12,7 @@ import (
 
 // Release identifies owning services and frees explicitly named fixed listeners.
 func Release(services ...string) error {
-	host := ""
-	if runtime.GOOS == "windows" {
-		host = "127.0.0.1"
-	}
-	return ReleaseAt(host, services...)
+	return ReleaseAt("", services...)
 }
 
 // ReleaseAt isolates concrete bind addresses while also detecting wildcard conflicts.
@@ -38,17 +34,12 @@ func ReleaseAt(host string, services ...string) error {
 		}
 		ports = append(ports, Port(service))
 	}
-	var command *exec.Cmd
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	switch runtime.GOOS {
-	case "windows":
-		command = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", windowsRelease+" '"+strings.Join(ports, ",")+"'")
-	case "linux":
-		command = exec.CommandContext(ctx, "bash", "-c", linuxRelease, "leafdoc-release", strings.Join(ports, " "))
-	default:
+	if runtime.GOOS != "linux" {
 		return fmt.Errorf("port reclamation unsupported on %s", runtime.GOOS)
 	}
+	command := exec.CommandContext(ctx, "bash", "-c", linuxRelease, "leafdoc-release", strings.Join(ports, " "))
 	command.Stdout, command.Stderr = os.Stdout, os.Stderr
 	command.Env = append(os.Environ(), "LEAFDOC_RELEASE_HOST="+host)
 	if err := command.Run(); err != nil {
@@ -56,39 +47,6 @@ func ReleaseAt(host string, services ...string) error {
 	}
 	return nil
 }
-
-// windowsRelease stops service ownership before killing residual process trees.
-const windowsRelease = `& {
-param([string]$allocation)
-$ErrorActionPreference='Stop'
-$ports=@($allocation.Split(',') | ForEach-Object { [int]$_ })
-function Owners {
- $all = $env:LEAFDOC_RELEASE_HOST -in @('', '0.0.0.0', '::')
- $addresses = @($env:LEAFDOC_RELEASE_HOST, '0.0.0.0', '::')
- if ($env:LEAFDOC_RELEASE_HOST -eq '127.0.0.1') { $addresses += '::1' }
- @(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in $ports -and ($all -or $_.LocalAddress -in $addresses) } | Select-Object -ExpandProperty OwningProcess
- Get-NetUDPEndpoint | Where-Object { $_.LocalPort -in $ports -and ($all -or $_.LocalAddress -in $addresses) } | Select-Object -ExpandProperty OwningProcess) | Sort-Object -Unique
-}
-foreach ($ownerId in @(Owners)) {
- if ($ownerId -le 4 -or $ownerId -eq $PID) { throw "Protected listener owner: $ownerId" }
- $process=Get-CimInstance Win32_Process -Filter "ProcessId=$ownerId"
- if (-not $process) {continue}
- Write-Output "Releasing fixed listener: PID=$ownerId executable=$($process.ExecutablePath)"
- foreach ($service in @(Get-CimInstance Win32_Service -Filter "ProcessId=$ownerId")) {
-  Write-Output "Stopping service $($service.Name)"
-  Stop-Service -Name $service.Name -Force
- }
- if (Get-Process -Id $ownerId -ErrorAction SilentlyContinue) {
-  & taskkill.exe /PID $ownerId /T /F
-  if ($LASTEXITCODE -ne 0) { throw "Cannot stop listener process $ownerId" }
- }
-}
-$deadline=[DateTime]::UtcNow.AddSeconds(10)
-while (@(Owners).Count -gt 0) {
- if ([DateTime]::UtcNow -ge $deadline) {throw 'Fixed listeners remain occupied'}
- Start-Sleep -Milliseconds 100
-}
-} `
 
 // linuxRelease inspects both protocols and resolves systemd ownership before termination.
 const linuxRelease = `set -euo pipefail

@@ -24,11 +24,6 @@ type MySQLStore struct {
 	log        *slog.Logger
 }
 
-const (
-	errInvalidPageID      = "invalid page ID: %w"
-	errReadRevisionFailed = "read revision %s: %w"
-)
-
 func NewMySQLStore(storageDir string, logger *slog.Logger) *MySQLStore {
 	if logger == nil {
 		logger = slog.Default()
@@ -239,7 +234,7 @@ func (s *MySQLStore) UpdateRevision(rev *Revision) error {
 // Descriptors are ordered by creation time and revision ID.
 // Content blobs and asset manifests are NOT deleted — they are content-addressed and
 // may be shared across multiple revisions.
-func (s *MySQLStore) PruneRevisions(pageID string, keepCount int) error {
+func (s *MySQLStore) PruneRevisions(pageID string, keepCount int) (resultErr error) {
 	if keepCount <= 0 {
 		return nil
 	}
@@ -258,7 +253,7 @@ func (s *MySQLStore) PruneRevisions(pageID string, keepCount int) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer database.Rollback(tx, &resultErr)
 	for _, rev := range items[keepCount:] {
 		if _, err = tx.Exec("DELETE FROM content_records WHERE namespace='revisions' AND record_key=?", pageID+":"+rev.ID); err != nil {
 			return err

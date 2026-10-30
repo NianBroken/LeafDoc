@@ -3,6 +3,7 @@ package tree
 import (
 	"context"
 	"database/sql"
+
 	"github.com/NianBroken/LeafDoc/internal/core/database"
 )
 
@@ -10,7 +11,7 @@ import (
 func (t *TreeService) InUnitOfWork() bool { return t.store.executor != nil }
 
 // WithUnitOfWork publishes a detached hierarchy only after every database mutation commits.
-func (t *TreeService) WithUnitOfWork(ctx context.Context, fn func(*TreeService, database.Executor) error) error {
+func (t *TreeService) WithUnitOfWork(ctx context.Context, fn func(*TreeService, database.Executor) error) (resultErr error) {
 	if t.InUnitOfWork() {
 		return fn(t, t.store.executor)
 	}
@@ -24,7 +25,7 @@ func (t *TreeService) WithUnitOfWork(ctx context.Context, fn func(*TreeService, 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer database.Rollback(tx, &resultErr)
 	bound := NewTreeService(t.storageDir)
 	bound.store.executor = tx
 	bound.store.ignoreCache = t.store.ignoreCache

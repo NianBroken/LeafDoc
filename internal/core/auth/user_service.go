@@ -3,9 +3,10 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 	"log/slog"
 	"strings"
+
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -29,12 +30,12 @@ type Dump struct {
 }
 
 // Export reads all tables in a repeatable-read transaction while writes are gated.
-func Export(ctx context.Context, dir string) ([]byte, error) {
+func Export(ctx context.Context, dir string) (result []byte, resultErr error) {
 	db, err := Open(dir)
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { resultErr = errors.Join(resultErr, db.Close()) }()
 	names, err := tableNames(ctx, db)
 	if err != nil {
 		return nil, err
@@ -43,7 +44,7 @@ func Export(ctx context.Context, dir string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer func() { resultErr = errors.Join(resultErr, rollback(tx)) }()
 	dump := Dump{Format: 1}
 	for _, name := range names {
 		rows, err := tx.QueryContext(ctx, "SELECT * FROM `"+name+"`")
@@ -52,8 +53,7 @@ func Export(ctx context.Context, dir string) ([]byte, error) {
 		}
 		columns, err := rows.Columns()
 		if err != nil {
-			rows.Close()
-			return nil, err
+			return nil, errors.Join(err, rows.Close())
 		}
 		table := TableDump{Name: name, Columns: columns, Rows: make([][][]byte, 0)}
 		for rows.Next() {
@@ -63,8 +63,7 @@ func Export(ctx context.Context, dir string) ([]byte, error) {
 				scan[i] = &values[i]
 			}
 			if err := rows.Scan(scan...); err != nil {
-				rows.Close()
-				return nil, err
+				return nil, errors.Join(err, rows.Close())
 			}
 			cells := make([][]byte, len(columns))
 			for i, value := range values {
@@ -97,12 +96,12 @@ func Export(ctx context.Context, dir string) ([]byte, error) {
 	return json.Marshal(dump)
 }
 
-func tableNames(ctx context.Context, db *sql.DB) ([]string, error) {
+func tableNames(ctx context.Context, db *sql.DB) (result []string, resultErr error) {
 	rows, err := db.QueryContext(ctx, "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE' ORDER BY TABLE_NAME")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { resultErr = errors.Join(resultErr, rows.Close()) }()
 	names := []string{}
 	for rows.Next() {
 		var name string
@@ -178,7 +177,7 @@ func Import(ctx context.Context, db *sql.DB, raw []byte) (*sql.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	fail := func(err error) (*sql.Tx, error) { tx.Rollback(); return nil, err }
+	fail := func(err error) (*sql.Tx, error) { return nil, errors.Join(err, rollback(tx)) }
 	for _, table := range dump.Tables {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM `"+table.Name+"`"); err != nil {
 			return fail(err)
@@ -201,8 +200,7 @@ func Import(ctx context.Context, db *sql.DB, raw []byte) (*sql.Tx, error) {
 				}
 			}
 			if _, err := stmt.ExecContext(ctx, values...); err != nil {
-				stmt.Close()
-				return fail(err)
+				return fail(errors.Join(err, stmt.Close()))
 			}
 		}
 		if err := stmt.Close(); err != nil {

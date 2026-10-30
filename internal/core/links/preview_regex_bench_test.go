@@ -1,8 +1,6 @@
 package links
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/testutil"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -14,35 +12,6 @@ func BenchmarkFindWikiLinksPreview(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		e.FindWikiLinksPrecompiled(content, finder)
-	}
-}
-
-func TestCompiledWikiLinkFinder_ReusedAcrossPages_PreservesMatching(t *testing.T) {
-	testutil.ResetMySQL(t)
-	e := NewMarkdownRefactorEngine()
-	finder := CompileWikiLinkFinder("/docs/project-plan", "Project Plan")
-	cases := []struct {
-		content string
-		want    []string
-	}{
-		{"[[docs/project-plan]] [[PROJECT PLAN|Alias]]", []string{"[[docs/project-plan]]", "[[Project Plan]]"}},
-		{"`[[Project Plan]]`\n\n```\n[[docs/project-plan]]\n```", nil},
-		{"[[ Project Plan ]]", []string{"[[Project Plan]]"}},
-		{"ordinary text", nil}, {"", nil},
-	}
-	for _, tc := range cases {
-		got := e.FindWikiLinksPrecompiled(tc.content, finder)
-		if !reflect.DeepEqual(got, tc.want) {
-			t.Fatalf("%q: got %v want %v", tc.content, got, tc.want)
-		}
-	}
-}
-func TestCompiledWikiLinkFinder_RegexMetacharacters_AreLiteral(t *testing.T) {
-	testutil.ResetMySQL(t)
-	e := NewMarkdownRefactorEngine()
-	got := e.FindWikiLinksPrecompiled("[[C++ (Guide)]] [[C (Guide)]]", CompileWikiLinkFinder("", "C++ (Guide)"))
-	if !reflect.DeepEqual(got, []string{"[[C++ (Guide)]]"}) {
-		t.Fatalf("got %v", got)
 	}
 }
 

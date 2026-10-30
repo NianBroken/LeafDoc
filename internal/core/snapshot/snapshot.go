@@ -6,11 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/NianBroken/LeafDoc/internal/core/database"
@@ -105,15 +107,16 @@ func uniqueSnapshotID(backupsDir string, t time.Time) (string, error) {
 }
 
 // writeSnapshotZip combines a database snapshot and checked resource files.
-func writeSnapshotZip(zipPath string, cfg Config, id string, createdAt time.Time, databaseBytes []byte) error {
+func writeSnapshotZip(zipPath string, cfg Config, id string, createdAt time.Time, databaseBytes []byte) (resultErr error) {
 	file, err := os.Create(zipPath)
 	if err != nil {
 		return err
 	}
 	writer := zip.NewWriter(file)
+	closeWriter := sync.OnceValue(writer.Close)
 	checksums := map[string]string{}
-	defer file.Close()
-	defer writer.Close()
+	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
+	defer func() { resultErr = errors.Join(resultErr, closeWriter()) }()
 	if err := addBytesToZip(writer, "database.json", databaseBytes, checksums); err != nil {
 		return err
 	}
@@ -137,13 +140,13 @@ func writeSnapshotZip(zipPath string, cfg Config, id string, createdAt time.Time
 	if err := addBytesToZip(writer, "checksums.json", manifest); err != nil {
 		return err
 	}
-	if err := writer.Close(); err != nil {
+	if err := closeWriter(); err != nil {
 		return err
 	}
 	if err := file.Sync(); err != nil {
 		return err
 	}
-	return file.Close()
+	return nil
 }
 
 // addDirToZip walks srcDir and adds every file under it to the zip, prefixed

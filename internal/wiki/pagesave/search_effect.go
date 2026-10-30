@@ -3,9 +3,10 @@ package pagesave
 import (
 	"context"
 	"errors"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"strings"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/search"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"

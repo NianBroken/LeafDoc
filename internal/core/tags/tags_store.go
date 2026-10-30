@@ -3,9 +3,10 @@ package tags
 import (
 	"database/sql"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"strings"
 	"sync"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )

@@ -9,6 +9,19 @@ import (
 	"testing"
 )
 
+// WriteFile creates a UTF-8-compatible text fixture below the supplied test directory.
+func WriteFile(t *testing.T, base, rel, content string) string {
+	t.Helper()
+	abs := filepath.Join(base, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	return abs
+}
+
 // CreateMultipartFile simulates a real file upload using multipart encoding
 func CreateMultipartFile(filename string, content []byte) (multipart.File, string, error) {
 	body := &bytes.Buffer{}
@@ -38,43 +51,4 @@ func CreateMultipartFile(filename string, content []byte) (multipart.File, strin
 
 	f, err := files[0].Open()
 	return f, files[0].Filename, err
-}
-
-func WriteFile(t *testing.T, base, rel, content string) string {
-	t.Helper()
-	abs := filepath.Join(base, filepath.FromSlash(rel))
-	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	return abs
-}
-
-func FixturePath(t *testing.T, rel string, candidates ...string) string {
-	t.Helper()
-
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-
-	for _, candidate := range candidates {
-		abs := filepath.Join(wd, candidate, rel)
-		if info, err := os.Stat(abs); err == nil && info.IsDir() {
-			return abs
-		}
-	}
-
-	t.Fatalf("fixture path not found for %q from working directory %q", rel, wd)
-	return ""
-}
-
-func WrapCloseWithErrorCheck(closer func() error, t *testing.T) {
-	t.Helper()
-	err := closer()
-	if err != nil {
-		t.Fatalf("failed to close resource: %v", err)
-	}
 }

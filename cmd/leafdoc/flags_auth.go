@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 
 	"github.com/urfave/cli/v3"
 )

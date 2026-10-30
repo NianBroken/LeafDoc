@@ -7,6 +7,8 @@ import (
 	"html"
 	"sync"
 
+	"strings"
+
 	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/excerpt"
 	"github.com/NianBroken/LeafDoc/internal/core/markdown"
@@ -14,7 +16,6 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
-	"strings"
 )
 
 // MySQLIndex keeps one independently owned database handle for search.

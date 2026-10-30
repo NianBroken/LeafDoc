@@ -1,14 +1,12 @@
 package auth_test
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
 
 	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 )
 
 func TestParseTrustedProxies_Empty(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tp, err := authmw.ParseTrustedProxies("")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -19,7 +17,6 @@ func TestParseTrustedProxies_Empty(t *testing.T) {
 }
 
 func TestParseTrustedProxies_SingleIP(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tp, err := authmw.ParseTrustedProxies("127.0.0.1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -33,7 +30,6 @@ func TestParseTrustedProxies_SingleIP(t *testing.T) {
 }
 
 func TestParseTrustedProxies_MultipleIPs(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tp, err := authmw.ParseTrustedProxies("127.0.0.1, ::1, 10.0.0.1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -49,7 +45,6 @@ func TestParseTrustedProxies_MultipleIPs(t *testing.T) {
 }
 
 func TestParseTrustedProxies_CIDR(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tp, err := authmw.ParseTrustedProxies("172.18.0.0/16")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -66,7 +61,6 @@ func TestParseTrustedProxies_CIDR(t *testing.T) {
 }
 
 func TestParseTrustedProxies_Mixed(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tp, err := authmw.ParseTrustedProxies("127.0.0.1, ::1, 172.18.0.0/16")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -83,7 +77,6 @@ func TestParseTrustedProxies_Mixed(t *testing.T) {
 }
 
 func TestParseTrustedProxies_InvalidIP(t *testing.T) {
-	testutil.ResetMySQL(t)
 	_, err := authmw.ParseTrustedProxies("not-an-ip")
 	if err == nil {
 		t.Error("expected error for invalid IP")
@@ -91,7 +84,6 @@ func TestParseTrustedProxies_InvalidIP(t *testing.T) {
 }
 
 func TestParseTrustedProxies_InvalidCIDR(t *testing.T) {
-	testutil.ResetMySQL(t)
 	_, err := authmw.ParseTrustedProxies("999.0.0.0/8")
 	if err == nil {
 		t.Error("expected error for invalid CIDR")
@@ -99,7 +91,6 @@ func TestParseTrustedProxies_InvalidCIDR(t *testing.T) {
 }
 
 func TestIsTrusted_WithPort(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tp, err := authmw.ParseTrustedProxies("127.0.0.1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -111,7 +102,6 @@ func TestIsTrusted_WithPort(t *testing.T) {
 }
 
 func TestIsTrusted_InvalidAddr(t *testing.T) {
-	testutil.ResetMySQL(t)
 	tp, err := authmw.ParseTrustedProxies("127.0.0.1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

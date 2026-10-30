@@ -2,9 +2,10 @@
 package preferences
 
 import (
+	"sync"
+
 	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
-	"sync"
 
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 )

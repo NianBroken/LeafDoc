@@ -6,10 +6,11 @@ package favorites
 import (
 	"database/sql"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"

@@ -2,9 +2,10 @@ package pages
 
 import (
 	"context"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/assets"
 	"github.com/NianBroken/LeafDoc/internal/core/favorites"

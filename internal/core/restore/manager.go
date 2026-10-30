@@ -7,12 +7,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"io"
 	"log/slog"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
@@ -293,7 +294,11 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 		m.job.Finish(err)
 		return
 	}
-	defer os.RemoveAll(staging)
+	defer func() {
+		if err := os.RemoveAll(staging); err != nil {
+			m.job.recordCleanupError(err)
+		}
+	}()
 	database.MaintenanceMu.Lock()
 	defer database.MaintenanceMu.Unlock()
 	m.cfg.WriteGate.Engage()

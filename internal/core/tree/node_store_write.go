@@ -3,13 +3,14 @@ package tree
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/markdown"
-	"time"
 )
 
 // SaveChildOrder persists all sibling positions in a single transaction.
-func (s *NodeStore) SaveChildOrder(parent *PageNode) error {
+func (s *NodeStore) SaveChildOrder(parent *PageNode) (resultErr error) {
 	if parent == nil {
 		return &InvalidOpError{Op: "SaveChildOrder", Reason: errParentEntryRequired}
 	}
@@ -21,7 +22,7 @@ func (s *NodeStore) SaveChildOrder(parent *PageNode) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer database.Rollback(tx, &resultErr)
 	for _, child := range parent.Children {
 		r, err := s.readRecord(child.ID)
 		if err != nil {
@@ -116,7 +117,7 @@ func (s *NodeStore) MoveNode(n, parent *PageNode) error {
 func (s *NodeStore) DeletePage(n *PageNode) error { return s.DeleteSection(n) }
 
 // DeleteSection removes the complete subtree in one transaction.
-func (s *NodeStore) DeleteSection(n *PageNode) error {
+func (s *NodeStore) DeleteSection(n *PageNode) (resultErr error) {
 	if n == nil {
 		return ErrPageNotFound
 	}
@@ -128,7 +129,7 @@ func (s *NodeStore) DeleteSection(n *PageNode) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer database.Rollback(tx, &resultErr)
 	var remove func(*PageNode) error
 	remove = func(node *PageNode) error {
 		for _, child := range node.Children {
@@ -190,7 +191,7 @@ func (s *NodeStore) SetPinnedFrontmatter(n *PageNode, pinned bool) (string, erro
 
 // UpdateRecord locks the persisted version and commits content plus metadata atomically.
 // The caller publishes the returned node to its in-memory indexes after commit.
-func (s *NodeStore) UpdateRecord(n *PageNode, in UpdateNodeInput) (*PageNode, error) {
+func (s *NodeStore) UpdateRecord(n *PageNode, in UpdateNodeInput) (result *PageNode, resultErr error) {
 	db, err := s.records().Connection()
 	if err != nil {
 		return nil, err
@@ -199,7 +200,7 @@ func (s *NodeStore) UpdateRecord(n *PageNode, in UpdateNodeInput) (*PageNode, er
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer database.Rollback(tx, &resultErr)
 	var payload []byte
 	if err = tx.QueryRow("SELECT payload FROM content_records WHERE namespace=? AND record_key=? FOR UPDATE", nodeNamespace, n.ID).Scan(&payload); err != nil {
 		return nil, err

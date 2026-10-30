@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"net"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 )
 
 // fakeSMTPServer is a minimal plaintext SMTP server that accepts exactly one

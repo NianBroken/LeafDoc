@@ -1,77 +1,16 @@
 package pagesave
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/NianBroken/LeafDoc/internal/core/links"
-	"github.com/NianBroken/LeafDoc/internal/core/revision"
-	"github.com/NianBroken/LeafDoc/internal/core/search"
-	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
-func TestNewLinkIndexSideEffect_DefaultsLogger(t *testing.T) {
-	testutil.ResetMySQL(t)
-	treeService := tree.NewTreeService(t.TempDir())
-	store, err := links.NewLinksStore(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewLinksStore failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	effect := NewLinkIndexSideEffect(links.NewLinkService(t.TempDir(), treeService, store), nil, nil)
-	if effect.log == nil {
-		t.Fatal("expected default logger to be set")
-	}
-	if effect.log != slog.Default() {
-		t.Fatal("expected slog.Default() logger")
-	}
-}
-
-func TestNewRevisionSideEffect_DefaultsLogger(t *testing.T) {
-	testutil.ResetMySQL(t)
-	treeService := tree.NewTreeService(t.TempDir())
-	effect := NewRevisionSideEffect(revision.NewService(t.TempDir(), treeService, nil, revision.ServiceOptions{}), nil, nil)
-	if effect.log == nil {
-		t.Fatal("expected default logger to be set")
-	}
-	if effect.log != slog.Default() {
-		t.Fatal("expected slog.Default() logger")
-	}
-}
-
-func TestNewSearchIndexSideEffect_DefaultsLogger(t *testing.T) {
-	testutil.ResetMySQL(t)
-	treeService := tree.NewTreeService(t.TempDir())
-	index, err := search.NewMySQLIndex(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewMySQLIndex failed: %v", err)
-	}
-	defer func() {
-		if err := index.Close(); err != nil {
-			t.Fatalf("Close failed: %v", err)
-		}
-	}()
-
-	effect := NewSearchIndexSideEffect(index, treeService, nil, nil)
-	if effect.log == nil {
-		t.Fatal("expected default logger to be set")
-	}
-	if effect.log != slog.Default() {
-		t.Fatal("expected slog.Default() logger")
-	}
-}
-
 func TestNewTagsSideEffect_DefaultsLogger(t *testing.T) {
-	testutil.ResetMySQL(t)
 	effect := NewTagsSideEffect(nil, nil, nil)
 	if effect.log == nil {
 		t.Fatal("expected default logger to be set")
@@ -82,7 +21,6 @@ func TestNewTagsSideEffect_DefaultsLogger(t *testing.T) {
 }
 
 func TestNewPropertiesSideEffect_DefaultsLogger(t *testing.T) {
-	testutil.ResetMySQL(t)
 	effect := NewPropertiesSideEffect(nil, nil, nil)
 	if effect.log == nil {
 		t.Fatal("expected default logger to be set")
@@ -92,16 +30,22 @@ func TestNewPropertiesSideEffect_DefaultsLogger(t *testing.T) {
 	}
 }
 
-type metricTestEffect struct {
-	metrics *httpmetrics.HTTPMetrics
-}
+func TestPageSaveOrchestrator_RecordsSideEffectDurationAndFailures(t *testing.T) {
+	metrics := httpmetrics.NewHTTPMetrics("test")
+	orchestrator := NewPageSaveOrchestrator(metrics, metricTestEffect{metrics: metrics})
 
-func (e metricTestEffect) Name() string {
-	return "search"
-}
+	if err := orchestrator.Run(PageSaveEvent{Operation: PageOperationUpdate}); err != nil {
+		t.Fatal(err)
+	}
 
-func (e metricTestEffect) Apply(event PageSaveEvent) {
-	e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
+	body := metricsBody(t, metrics)
+	if !strings.Contains(body, `leafdoc_pagesave_sideeffect_duration_seconds_bucket{operation="update",side_effect="search"`) {
+		t.Fatalf("expected side-effect duration metric, got: %s", body)
+	}
+	expectedFailure := `leafdoc_pagesave_sideeffect_failures_total{operation="update",side_effect="search"} 1`
+	if !strings.Contains(body, expectedFailure) {
+		t.Fatalf("expected side-effect failure metric %q, got: %s", expectedFailure, body)
+	}
 }
 
 func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
@@ -116,19 +60,14 @@ func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
 	return rec.Body.String()
 }
 
-func TestPageSaveOrchestrator_RecordsSideEffectDurationAndFailures(t *testing.T) {
-	testutil.ResetMySQL(t)
-	metrics := httpmetrics.NewHTTPMetrics("test")
-	orchestrator := NewPageSaveOrchestrator(metrics, metricTestEffect{metrics: metrics})
+type metricTestEffect struct {
+	metrics *httpmetrics.HTTPMetrics
+}
 
-	orchestrator.Run(PageSaveEvent{Operation: PageOperationUpdate})
+func (e metricTestEffect) Name() string {
+	return "search"
+}
 
-	body := metricsBody(t, metrics)
-	if !strings.Contains(body, `leafdoc_pagesave_sideeffect_duration_seconds_bucket{operation="update",side_effect="search"`) {
-		t.Fatalf("expected side-effect duration metric, got: %s", body)
-	}
-	expectedFailure := `leafdoc_pagesave_sideeffect_failures_total{operation="update",side_effect="search"} 1`
-	if !strings.Contains(body, expectedFailure) {
-		t.Fatalf("expected side-effect failure metric %q, got: %s", expectedFailure, body)
-	}
+func (e metricTestEffect) Apply(event PageSaveEvent) {
+	e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
 }

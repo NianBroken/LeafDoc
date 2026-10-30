@@ -10,10 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func init() {
-	gin.SetMode(gin.TestMode)
-}
-
 func newTestRouter(gate *restore.WriteGate) *gin.Engine {
 	r := gin.New()
 	r.Use(WriteGateMiddleware(gate))

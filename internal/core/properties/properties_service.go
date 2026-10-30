@@ -1,8 +1,9 @@
 package properties
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"strings"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	"github.com/NianBroken/LeafDoc/internal/core/markdown"
 )

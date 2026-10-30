@@ -1,11 +1,12 @@
 package pagesave
 
 import (
+	"log/slog"
+
 	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"github.com/NianBroken/LeafDoc/internal/core/properties"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
-	"log/slog"
 )
 
 // PropertiesSideEffect keeps the derived properties index in the page mutation transaction.

@@ -12,6 +12,7 @@ package tocdisplay
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 
 	"github.com/NianBroken/LeafDoc/internal/core/settings"

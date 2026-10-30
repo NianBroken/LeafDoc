@@ -3,10 +3,11 @@ package restore
 import (
 	"context"
 	"errors"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
-	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
 	"os"
 	"path/filepath"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
+	coreshared "github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 // interventionError keeps maintenance active when resource rollback is incomplete.
@@ -23,19 +24,19 @@ func rollbackResources(sw *swapper, cause error) error {
 }
 
 // RestoreOffline uses the same validation, database transaction and resource swap as live restore.
-func RestoreOffline(dataDir, zipPath string) error {
+func RestoreOffline(dataDir, zipPath string) (resultErr error) {
 	staging, _, err := extractAndValidateWithLimits(zipPath, dataDir, coreshared.UnrestrictedExtractionLimits)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(staging)
+	defer func() { resultErr = errors.Join(resultErr, os.RemoveAll(staging)) }()
 	database.MaintenanceMu.Lock()
 	defer database.MaintenanceMu.Unlock()
 	return restoreStaged(dataDir, staging)
 }
 
 // restoreStaged commits MySQL only after all resource moves succeed.
-func restoreStaged(dataDir, staging string) error {
+func restoreStaged(dataDir, staging string) (resultErr error) {
 	raw, err := os.ReadFile(filepath.Join(staging, "database.json"))
 	if err != nil {
 		return err
@@ -44,12 +45,12 @@ func restoreStaged(dataDir, staging string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer database.CloseResource(db, &resultErr)
 	tx, err := database.Import(context.Background(), db, raw)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer database.Rollback(tx, &resultErr)
 	sw := newSwapper(dataDir, staging)
 	if err := sw.SwapAll(); err != nil {
 		return rollbackResources(sw, err)

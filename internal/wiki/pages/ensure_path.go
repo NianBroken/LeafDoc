@@ -3,9 +3,10 @@ package pages
 import (
 	"context"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/database"
 	"log/slog"
 	"strings"
+
+	"github.com/NianBroken/LeafDoc/internal/core/database"
 
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/NianBroken/LeafDoc/internal/core/tree"

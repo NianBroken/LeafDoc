@@ -288,21 +288,6 @@ func generateSecret() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// generateKeyToken produces a fresh (prefix, secret) pair together. Kept as a
-// single call for callers (and tests) that don't need CreateAPIKey's
-// generate-secret-once / retry-only-the-prefix split.
-func generateKeyToken() (prefix string, secret string, err error) {
-	prefix, err = generatePrefix()
-	if err != nil {
-		return "", "", err
-	}
-	secret, err = generateSecret()
-	if err != nil {
-		return "", "", err
-	}
-	return prefix, secret, nil
-}
-
 // LooksLikeAPIKeyToken reports whether raw is shaped like a LeafDoc API key
 // token, without validating it. Used by the Bearer middleware to decide
 // whether an Authorization header is meant for API-key auth at all, so other
