@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"io"
 	"log/slog"
 	"net"
@@ -91,8 +92,7 @@ func TestRootCommand_AcceptsSingleDashLongFlags(t *testing.T) {
 		"-allow-insecure=true",
 		"-enable-metrics=true",
 		"-metrics-host=127.0.0.2",
-		"-metrics-port=9100",
-		"-unix-socket=/tmp/leafdoc.sock",
+		"-metrics-port=24694",
 	}, func(cfg *serverConfig) {
 		for _, tc := range []struct {
 			flag string
@@ -104,8 +104,7 @@ func TestRootCommand_AcceptsSingleDashLongFlags(t *testing.T) {
 			{"admin-username", cfg.auth.adminUsername, "test-admin"},
 			{"admin-email", cfg.auth.adminEmail, "test-admin@example.com"},
 			{"metrics-host", cfg.metrics.metricsHost, "127.0.0.2"},
-			{"metrics-port", cfg.metrics.metricsPort, "9100"},
-			{"unix-socket", cfg.server.unixSocket, "/tmp/leafdoc.sock"},
+			{"metrics-port", cfg.metrics.metricsPort, "24694"},
 		} {
 			if tc.got != tc.want {
 				t.Fatalf("expected --%s %q, got %q", tc.flag, tc.want, tc.got)
@@ -496,10 +495,9 @@ func TestValidateListenConfig(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:       "unix socket only is allowed",
+			name:       "unix socket only is rejected",
 			unixSocket: "/tmp/leafdoc.sock",
-
-			wantErr: false,
+			wantErr:    true,
 		},
 		{
 			name:       "unix socket with host is rejected",
@@ -541,8 +539,7 @@ func TestRootCommand_AcceptsDoubleDashLongFlags(t *testing.T) {
 		"--allow-insecure=true",
 		"--enable-metrics=true",
 		"--metrics-host=127.0.0.2",
-		"--metrics-port=9100",
-		"--unix-socket=/tmp/leafdoc.sock",
+		"--metrics-port=24694",
 	}, func(cfg *serverConfig) {
 		for _, tc := range []struct {
 			flag string
@@ -554,8 +551,7 @@ func TestRootCommand_AcceptsDoubleDashLongFlags(t *testing.T) {
 			{"admin-username", cfg.auth.adminUsername, "test-admin"},
 			{"admin-email", cfg.auth.adminEmail, "test-admin@example.com"},
 			{"metrics-host", cfg.metrics.metricsHost, "127.0.0.2"},
-			{"metrics-port", cfg.metrics.metricsPort, "9100"},
-			{"unix-socket", cfg.server.unixSocket, "/tmp/leafdoc.sock"},
+			{"metrics-port", cfg.metrics.metricsPort, "24694"},
 		} {
 			if tc.got != tc.want {
 				t.Fatalf("expected --%s %q, got %q", tc.flag, tc.want, tc.got)
@@ -572,7 +568,7 @@ func TestRootCommand_AcceptsDoubleDashLongFlags(t *testing.T) {
 
 func TestStartMetricsServer_ServesOnlyMetricsEndpoint(t *testing.T) {
 	metrics := httpmetrics.NewHTTPMetrics("test")
-	stopServer, addr, err := startMetricsServer(metrics, "127.0.0.1", "0")
+	stopServer, addr, err := startMetricsServer(metrics, "127.0.0.1", serviceports.Port("metricsTest"))
 	if err != nil {
 		t.Fatalf("startMetricsServer() error = %v", err)
 	}
@@ -714,7 +710,7 @@ func TestServeWithLifecycle_GracefulShutdownWaitsForInFlightRequest(t *testing.T
 		}),
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:"+serviceports.Port("httpTest"))
 	if err != nil {
 		t.Fatalf("listen failed: %v", err)
 	}
@@ -798,7 +794,7 @@ func TestServeWithLifecycle_ReloadSignalTriggersCallbackWithoutStoppingServer(t 
 		}),
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:"+serviceports.Port("httpTest"))
 	if err != nil {
 		t.Fatalf("listen failed: %v", err)
 	}
@@ -869,7 +865,7 @@ func TestServeWithLifecycle_ShutdownTimeoutStillRunsCleanup(t *testing.T) {
 		}),
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:"+serviceports.Port("httpTest"))
 	if err != nil {
 		t.Fatalf("listen failed: %v", err)
 	}
@@ -934,7 +930,7 @@ func TestServeWithLifecycle_ShutdownDoesNotWaitForInFlightReload(t *testing.T) {
 		}),
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:"+serviceports.Port("httpTest"))
 	if err != nil {
 		t.Fatalf("listen failed: %v", err)
 	}

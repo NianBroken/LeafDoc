@@ -29,7 +29,7 @@ func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
 	return rec.Body.String()
 }
 
-// setupAuthUseCases builds a real AuthService (backed by temp-dir SQLite
+// setupAuthUseCases builds a real AuthService (backed by isolated MySQL
 // stores, matching internal/core/auth's own test fixtures) together with a
 // fresh metrics registry, for exercising the wiki-layer use cases end to end.
 

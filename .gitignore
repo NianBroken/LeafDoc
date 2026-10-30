@@ -97,6 +97,17 @@ __pycache__/
 *.db-wal
 *.db-shm
 *.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.db3
+*.mdb
+*.ldb
+*.rdb
+*.aof
+*.sql.tmp
+*.sql.bak
 *.swp
 *.swo
 *~

@@ -1,9 +1,10 @@
 package health
 
 import (
+	"testing"
+
 	"github.com/NianBroken/LeafDoc/internal/core/search"
 	"github.com/NianBroken/LeafDoc/internal/testutil"
-	"testing"
 )
 
 func TestHealthReportsMySQLAndSearchReadiness(t *testing.T) {
@@ -13,7 +14,11 @@ func TestHealthReportsMySQLAndSearchReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer index.Close()
+	defer func() {
+		if err := index.Close(); err != nil {
+			t.Errorf("close MySQL index: %v", err)
+		}
+	}()
 	status := search.NewIndexingStatus()
 	status.Success()
 	status.Finish()
@@ -24,6 +29,9 @@ func TestHealthReportsMySQLAndSearchReadiness(t *testing.T) {
 	}
 	if _, exists := checks["sqlite"]; exists {
 		t.Fatal("health exposes a removed database engine")
+	}
+	if _, exists := checks["mysql"]; !exists {
+		t.Fatal("health must expose the MySQL connection")
 	}
 	if err := index.Close(); err != nil {
 		t.Fatal(err)

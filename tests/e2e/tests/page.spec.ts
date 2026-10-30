@@ -23,7 +23,7 @@ const markdownItSamplePath = join(currentDir, '..', 'assets', 'markdown-it-sampl
 
 // Default content follows the instance language, while its stable path remains unchanged.
 async function welcomePageTitle(page: import('@playwright/test').Page): Promise<string> {
-  const response = await page.request.get(toAppPath('/api/pages/by-path?path=welcome-to-leafdoc'));
+  const response = await page.request.get(toAppPath('/api/pages/by-path?path=markdown-getting-started'));
   expect(response.ok()).toBe(true);
   return (await response.json()).title;
 }
@@ -976,7 +976,7 @@ async function expectMarkdownLinkAutocompleteWorks(page: import('@playwright/tes
   await viewPage.clickEditPageButton();
 
   const editPage = new EditPage(page);
-  await editPage.writeContent('[Welcome](/wel');
+  await editPage.writeContent('[Welcome](/markdown-get');
 
   const completionList = page.locator('.cm-tooltip-autocomplete');
   await completionList.waitFor({ state: 'visible' });
@@ -991,7 +991,7 @@ async function expectMarkdownLinkAutocompleteWorks(page: import('@playwright/tes
   await editPage.savePage();
   await editPage.closeEditor();
 
-  const welcomeLink = page.locator(`article a[href="${toAppPath('/welcome-to-leafdoc')}"]`);
+  const welcomeLink = page.locator(`article a[href="${toAppPath('/markdown-getting-started')}"]`);
   await welcomeLink.getByText('Welcome').waitFor({ state: 'visible' });
 }
 
@@ -1051,7 +1051,7 @@ async function expectOpenedPageMarkedInNavigationDuringEditMode(
 ) {
   const title = await welcomePageTitle(page);
   const viewPage = new ViewPage(page);
-  await viewPage.goto('/welcome-to-leafdoc');
+  await viewPage.goto('/markdown-getting-started');
 
   const treeView = new TreeView(page);
   await treeView.expectPageHighlighted(title);
@@ -3007,7 +3007,7 @@ Paragraph outside the list.
     const notfoundPage = new NotFoundPage(page);
     const viewPage = new ViewPage(page);
 
-    await viewPage.goto('/welcome-to-leafdoc');
+    await viewPage.goto('/markdown-getting-started');
     await navigateWithinApp(page, `/e/${slug}`);
 
     await notfoundPage.expectVisible();
@@ -3019,7 +3019,7 @@ Paragraph outside the list.
     const notfoundPage = new NotFoundPage(page);
     const viewPage = new ViewPage(page);
 
-    await viewPage.goto('/welcome-to-leafdoc');
+    await viewPage.goto('/markdown-getting-started');
     await navigateWithinApp(page, `/history/${slug}`);
 
     await notfoundPage.expectVisible();
@@ -3039,7 +3039,7 @@ Paragraph outside the list.
 
   test('not-found-for-reserved-slug-hides-create-page-cta', async ({ page }) => {
     const notfoundPage = new NotFoundPage(page);
-    const reservedChildPath = '/welcome-to-leafdoc/settings';
+    const reservedChildPath = '/markdown-getting-started/settings';
 
     await notfoundPage.goto(reservedChildPath);
 
@@ -3782,7 +3782,7 @@ Paragraph outside the list.
     const initialQuery = 'alpha-query';
     const updatedQuery = 'beta-query';
 
-    await page.goto(toAppPath(`/welcome-to-leafdoc?q=${initialQuery}`));
+    await page.goto(toAppPath(`/markdown-getting-started?q=${initialQuery}`));
 
     const viewPage = new ViewPage(page);
     await viewPage.switchToSearchTab();

@@ -5,5 +5,13 @@
   "metrics": 24694,
   "proxyTest": 24695,
   "proxyAutoCreateTest": 24696,
-  "proxyTestMySQL": 24697
+  "proxyTestMySQL": 24697,
+  "httpTest": 24698,
+  "metricsTest": 24699,
+  "authSMTPTest": 24700,
+  "emailSMTPTest": 24701,
+  "wikiSMTPTest": 24702,
+  "ubuntu18SSH": 24703,
+  "ubuntu20SSH": 24704,
+  "ubuntu22SSH": 24705
 }

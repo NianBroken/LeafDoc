@@ -1,8 +1,9 @@
 package health
 
 import (
-	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"testing"
+
+	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
 func TestMain(m *testing.M) { testutil.RunMySQLTests(m, "health") }

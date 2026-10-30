@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"net"
 	"strconv"
@@ -28,7 +29,7 @@ type fakeSMTPServer struct {
 
 func startFakeSMTPServer(t *testing.T) *fakeSMTPServer {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", "127.0.0.1:"+serviceports.Port("authSMTPTest"))
 	if err != nil {
 		t.Fatalf("failed to start fake smtp listener: %v", err)
 	}

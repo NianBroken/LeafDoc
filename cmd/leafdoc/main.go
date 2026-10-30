@@ -29,6 +29,7 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/preferences"
 	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
 	"github.com/NianBroken/LeafDoc/internal/core/restore"
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 	"github.com/NianBroken/LeafDoc/internal/core/snapshot"
 	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
@@ -135,6 +136,14 @@ func runResetAdminPasswordCommand(cfg *serverConfig) error {
 // runServerCommand is the root action: with no subcommand given, leafdoc runs
 // the wiki server.
 func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) error {
+	if err := serviceports.ReleaseAt(cfg.server.host, "backend"); err != nil {
+		return err
+	}
+	if cfg.metrics.enableMetrics {
+		if err := serviceports.ReleaseAt(cfg.metrics.metricsHost, "metrics"); err != nil {
+			return err
+		}
+	}
 	basePath := normalizeBasePath(cfg.server.basePath)
 	maxAssetUploadSize := mustParseByteSize(cfg.frontend.maxAssetUploadSize, "max asset upload size")
 	restoreUploadMaxSize := mustParseByteSize(cfg.backup.restoreUploadMaxSize, "restore upload max size")
@@ -660,9 +669,9 @@ func validateListenConfig(unixSocket string, hostSet, portSet bool) error {
 		return nil
 	}
 	if hostSet || portSet {
-		return fmt.Errorf("--unix-socket cannot be used together with --host or --port")
+		return fmt.Errorf("unix sockets are disabled; use the fixed backend TCP port")
 	}
-	return nil
+	return fmt.Errorf("unix sockets are disabled; use the fixed backend TCP port")
 }
 
 // serveWithLifecycle runs the HTTP server while handling live reload signals and

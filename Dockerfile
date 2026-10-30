@@ -25,6 +25,7 @@ RUN CGO_ENABLED=0 go build \
 
 # Step 3: Final image (small)
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS final
+RUN apk add --no-cache bash lsof procps ca-certificates
 WORKDIR /app
 COPY --from=backend-build /out/leafdoc /app/leafdoc
 

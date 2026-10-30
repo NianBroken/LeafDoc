@@ -23,6 +23,13 @@ const environment = {
     process.env.LEAFDOC_ADMIN_PASSWORD ||
     randomBytes(24).toString('base64url'),
 };
+// Terminal color settings must not request incompatible output modes.
+if (Object.hasOwn(environment, 'NO_COLOR')) delete environment.FORCE_COLOR;
+if (process.platform === 'win32') {
+  const tlsRoot = path.join(process.env.ProgramData, 'LeafDoc', 'tls');
+  environment.LEAFDOC_TLS_CERT ||= path.join(tlsRoot, 'server.crt');
+  environment.LEAFDOC_TLS_KEY ||= path.join(tlsRoot, 'server.key');
+}
 environment.E2E_ADMIN_USER = environment.LEAFDOC_ADMIN_USERNAME;
 environment.E2E_ADMIN_PASSWORD = environment.LEAFDOC_ADMIN_PASSWORD;
 for (const key of ['LEAFDOC_MYSQL_HOST', 'LEAFDOC_MYSQL_USER', 'LEAFDOC_MYSQL_PASSWORD']) {
@@ -60,6 +67,13 @@ function query(sql) {
 let created = false;
 let owned = false;
 let exitCode = 1;
+const productionState = path.join(root, 'data', '.runtime', 'processes.json');
+const restoreProduction = process.platform === 'win32' && fs.existsSync(productionState);
+if (restoreProduction) {
+  const stopped = spawnSync('pwsh', ['-NoProfile', '-File', path.join(root, 'scripts/start.ps1'), '-Stop'], { cwd: root, stdio: 'inherit', windowsHide: true });
+  if (stopped.error) throw stopped.error;
+  if (stopped.status !== 0) throw new Error('Could not stop the saved production instance');
+}
 try {
   query(`CREATE DATABASE \`${schema}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
   created = true;
@@ -90,6 +104,11 @@ try {
     process.off('SIGTERM', forwardSignal);
   }
 } finally {
+  if (restoreProduction) {
+    const restored = spawnSync('pwsh', ['-NoProfile', '-File', path.join(root, 'scripts/start.ps1')], { cwd: root, stdio: 'inherit', windowsHide: true });
+    if (restored.error) throw restored.error;
+    if (restored.status !== 0) throw new Error('Could not restore the saved production instance');
+  }
   if (created) {
     if (
       owned &&

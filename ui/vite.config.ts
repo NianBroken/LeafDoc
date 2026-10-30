@@ -19,6 +19,10 @@ const ports = JSON.parse(
 const backendTarget =
   process.env.LEAFDOC_BACKEND_URL?.trim() || `http://localhost:${ports.backend}`
 
+// Explicit backend targets must retain the permanent API port.
+if (new URL(backendTarget).port !== String(ports.backend)) {
+  throw new Error('Backend target must use the fixed backend port')
+}
 // The shared resolver supplies identical release metadata on every platform.
 const appVersion = execFileSync(
   process.execPath,
@@ -100,6 +104,13 @@ export default defineConfig(({ command }: ConfigEnv) => ({
     mermaidDistribution(),
     {
       name: 'release-metadata',
+      configResolved(config) {
+        if (config.server.port !== ports.frontend || config.preview.port !== ports.frontend || !config.server.strictPort || !config.preview.strictPort) {
+          throw new Error('Frontend must use the fixed frontend port with strict port checking')
+        }
+      },
+      configureServer() { execFileSync('go', ['run', './cmd/service-ports', 'frontend'], { cwd: path.resolve(import.meta.dirname, '..'), stdio: 'inherit' }) },
+      configurePreviewServer() { execFileSync('go', ['run', './cmd/service-ports', 'frontend'], { cwd: path.resolve(import.meta.dirname, '..'), stdio: 'inherit' }) },
       transformIndexHtml() {
         return [
           {

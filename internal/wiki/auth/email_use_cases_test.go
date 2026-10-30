@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"log/slog"
 	"net"
@@ -29,7 +30,7 @@ type fakeInviteSMTPServer struct {
 
 func startFakeInviteSMTPServer(t *testing.T) *fakeInviteSMTPServer {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", "127.0.0.1:"+serviceports.Port("wikiSMTPTest"))
 	if err != nil {
 		t.Fatalf("failed to start fake smtp listener: %v", err)
 	}
@@ -103,7 +104,7 @@ func extractToken(t *testing.T, emailData string) string {
 	return m[1]
 }
 
-// setupEmailUseCases builds a real EmailTokenService (temp-dir SQLite stores,
+// setupEmailUseCases builds a real EmailTokenService (isolated MySQL stores,
 // matching this package's other test fixtures) pointed at an SMTP target at
 // smtpAddr — which callers are free to leave unreachable, since none of the
 // tests here need a send to actually succeed; RequestPasswordResetAsync's
@@ -213,7 +214,7 @@ func TestRequestPasswordResetUseCase_Execute_SameResponseForKnownAndUnknownIdent
 // timing side channel even while returning an identical body.
 func TestRequestPasswordResetUseCase_Execute_DoesNotBlockOnSlowSMTP(t *testing.T) {
 	testutil.ResetMySQL(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", "127.0.0.1:"+serviceports.Port("wikiSMTPTest"))
 	if err != nil {
 		t.Fatalf("failed to start listener: %v", err)
 	}

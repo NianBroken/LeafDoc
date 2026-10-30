@@ -34,13 +34,15 @@ func (o *metricsOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.StringFlag{
-			Name:        "metrics-port",
-			Destination: &o.metricsPort,
-			Category:    catMetrics,
-			Usage:       "port for the Prometheus metrics listener",
-			Value:       serviceports.Port("metrics"),
-			Sources:     envVars("LEAFDOC_METRICS_PORT"),
-			Config:      trimmed,
+			Name:             "metrics-port",
+			Destination:      &o.metricsPort,
+			Category:         catMetrics,
+			Usage:            "port for the Prometheus metrics listener",
+			Value:            serviceports.Port("metrics"),
+			Validator:        serviceports.Validator("metrics"),
+			ValidateDefaults: true,
+			Sources:          envVars("LEAFDOC_METRICS_PORT"),
+			Config:           trimmed,
 		},
 	}
 }

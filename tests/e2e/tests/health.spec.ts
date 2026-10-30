@@ -6,7 +6,7 @@ test('GET /api/health returns 200 with valid check fields', async ({ request }) 
 
   const body = (await resp.json()) as { status: string; checks: Record<string, string> };
   expect(body.status).toBe('ok');
-  expect(body.checks.sqlite).toBe('ok');
+  expect(body.checks.mysql).toBe('ok');
   expect(body.checks.data_dir).toBe('ok');
   // search may still be indexing on a fresh server
   expect(['ok', 'indexing']).toContain(body.checks.search);

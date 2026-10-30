@@ -14,7 +14,10 @@ if [[ ! "$LEAFDOC_E2E_DATABASE_OWNED" =~ ^[0-9a-f]{24}$ ]] ||
   exit 1
 fi
 app_port="$(node -p 'require(process.argv[1]).backend' "$repo_root/internal/core/serviceports/ports.json")"
-app_url="http://localhost:${app_port}"
+frontend_port="$(node -p 'require(process.argv[1]).frontend' "$repo_root/internal/core/serviceports/ports.json")"
+app_url="https://localhost:$frontend_port"
+gateway_pid=""
+gateway_config=""
 run_mode="${E2E_RUN_MODE:-docker}"
 server_pid=""
 server_log=""
@@ -163,6 +166,18 @@ stop_local() {
 }
 
 stop_runner() {
+  if [ -n "$gateway_pid" ] && kill -0 "$gateway_pid" 2>/dev/null; then
+    kill "$gateway_pid"
+    if wait "$gateway_pid"; then
+      :
+    else
+      gateway_status=$?
+      if [ "$gateway_status" -ne 143 ]; then
+        return "$gateway_status"
+      fi
+    fi
+  fi
+  if [ -n "$gateway_config" ]; then rm -f "$gateway_config"; fi
   if [ "$run_mode" = "docker" ]; then
     stop_docker
   else
@@ -208,7 +223,7 @@ wait_until_reachable() {
   local max_attempts=60
   local attempt=0
 
-  until curl -s "$app_url" >/dev/null; do
+  until curl --fail --silent "$app_url/api/health" >/dev/null; do
     printf '.'
     sleep 2
     attempt=$((attempt + 1))
@@ -244,5 +259,25 @@ else
   start_local
 fi
 
+# The browser always reaches the permanent frontend, including isolated test runs.
+command -v caddy >/dev/null
+: "${LEAFDOC_TLS_CERT:?Set the trusted test certificate path}"
+: "${LEAFDOC_TLS_KEY:?Set the trusted test private key path}"
+gateway_config="$(mktemp)"
+admin_port="$(node -p 'require(process.argv[1]).gatewayAdmin' "$repo_root/internal/core/serviceports/ports.json")"
+cat > "$gateway_config" <<EOF
+{
+    auto_https off
+    admin 127.0.0.1:$admin_port
+}
+https://localhost:$frontend_port {
+    bind 127.0.0.1
+    tls "$LEAFDOC_TLS_CERT" "$LEAFDOC_TLS_KEY"
+    reverse_proxy 127.0.0.1:$app_port
+}
+EOF
+node "$repo_root/scripts/release-service-ports.mjs" frontend gatewayAdmin
+caddy run --adapter caddyfile --config "$gateway_config" &
+gateway_pid=$!
 wait_until_reachable
 run_playwright_tests "$@"

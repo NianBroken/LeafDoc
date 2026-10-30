@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"github.com/urfave/cli/v3"
 )
 
@@ -25,8 +26,8 @@ const (
 	catEmail     = "Email (SMTP)"
 )
 
-const rootUsageText = `leafdoc --jwt-secret <SECRET> --admin-password <PASSWORD> [--host <HOST>] [--port <PORT>] [--unix-socket <PATH>] [--data-dir <DIR>]
-leafdoc [--host <HOST>] [--port <PORT>] [--unix-socket <PATH>] [--data-dir <DIR>]
+const rootUsageText = `leafdoc --jwt-secret <SECRET> --admin-password <PASSWORD> [--host <HOST>] [--port <PORT>] [--data-dir <DIR>]
+leafdoc [--host <HOST>] [--port <PORT>] [--data-dir <DIR>]
 leafdoc reset-admin-password
 leafdoc [--data-dir <DIR>] restore-snapshot <path-to-zip>
 leafdoc --help`
@@ -94,6 +95,16 @@ func newRootCommandWithConfig(cfg *serverConfig) *cli.Command {
 		OnUsageError: reportUsageError,
 		Flags:        cfg.flags(),
 		Commands: []*cli.Command{
+			{Name: "service-port", Usage: "Print a named fixed service port", Action: func(_ context.Context, cmd *cli.Command) error {
+				for _, name := range serviceports.Names() {
+					if cmd.Args().Len() == 1 && name == cmd.Args().First() {
+						_, err := fmt.Fprintln(cmd.Writer, serviceports.Port(name))
+						return err
+					}
+				}
+				return fmt.Errorf("one allocated service name is required")
+			}},
+			{Name: "release-ports", Usage: "Release explicitly named fixed service listeners", Action: func(_ context.Context, cmd *cli.Command) error { return serviceports.Release(cmd.Args().Slice()...) }},
 			newResetAdminPasswordCommand(cfg),
 			newRestoreSnapshotCommand(cfg),
 		},
@@ -171,6 +182,13 @@ func validateLogFormatValue(v string) error {
 		return fmt.Errorf("expected text or json, got %q", v)
 	}
 	return nil
+}
+
+func rejectUnixSocket(value string) error {
+	if value == "" {
+		return nil
+	}
+	return fmt.Errorf("unix sockets are disabled; use the fixed backend TCP port")
 }
 
 func validateByteSizeValue(v string) error {
