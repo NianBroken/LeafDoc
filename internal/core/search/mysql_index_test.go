@@ -12,6 +12,34 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
+// Long literals remain searchable without changing the supplied query text.
+func TestMySQLIndex_LongLiteral(t *testing.T) {
+	testutil.ResetMySQL(t)
+	index, err := NewMySQLIndex(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer testutil.WrapCloseWithErrorCheck(index.Close, t)
+	queries := []string{strings.Repeat("x", 127), strings.Repeat("y", 128), strings.Repeat("z", 129), "qwrwqew" + strings.Repeat("w", 350), strings.Repeat("英文word", 250), strings.Repeat("中文", 180)}
+	for i, query := range queries {
+		id := fmt.Sprintf("long-literal-%d", i)
+		if err := index.IndexPage(id, id, id, id, tree.NodeKindPage, query); err != nil {
+			t.Fatal(err)
+		}
+		result, err := index.Search(query, nil, 0, 10)
+		if err != nil {
+			t.Fatalf("long query: %v", err)
+		}
+		if result.Count != 1 || len(result.Items) != 1 || result.Items[0].PageID != id {
+			t.Fatalf("complete literal did not match its document: %+v", result)
+		}
+		ids, err := index.SearchPageIDs(query, nil)
+		if err != nil || len(ids) != 1 || ids[0] != id {
+			t.Fatalf("facet query lost its document: %v, %v", ids, err)
+		}
+	}
+}
+
 func TestMySQLIndex_IndexPage(t *testing.T) {
 	testutil.ResetMySQL(t)
 	tmpDir := t.TempDir()

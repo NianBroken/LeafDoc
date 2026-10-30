@@ -11,7 +11,11 @@ const preferences = {
 
 export default async function setup() {
   const api = await loggedIn();
+  let originalPreferences: unknown;
   try {
+    const original = await api.get(toAppPath('/api/config'));
+    expect(original.ok(), 'read original browser test preferences').toBe(true);
+    originalPreferences = (await original.json()).preferences;
     const response = await api.put(toAppPath('/api/admin/settings/preferences'), {
       headers: await csrfHeader(api),
       data: preferences,
@@ -22,4 +26,18 @@ export default async function setup() {
   } finally {
     await api.dispose();
   }
+
+  // Restore instance preferences even when a browser scenario fails.
+  return async () => {
+    const api = await loggedIn();
+    try {
+      const restored = await api.put(toAppPath('/api/admin/settings/preferences'), {
+        headers: await csrfHeader(api),
+        data: originalPreferences,
+      });
+      expect(restored.ok(), 'restore original browser test preferences').toBe(true);
+    } finally {
+      await api.dispose();
+    }
+  };
 }

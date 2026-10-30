@@ -55,6 +55,7 @@ const SearchResultCard = forwardRef<HTMLAnchorElement, SearchResultCardProps>(
       >
         <div
           className="search-result-card__title"
+          title={item.title}
           data-testid={`search-result-card-title-${item.page_id}`}
         >
           <HighlightedSearchTitle text={item.title} />

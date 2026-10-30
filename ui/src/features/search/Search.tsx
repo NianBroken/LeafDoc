@@ -12,7 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/shared/components/ui/accordion'
-import { Input } from '@/shared/components/ui/input'
+import { Input, InputGroup } from '@/shared/components/ui/input'
 import {
   searchPages,
   SearchResultItem,
@@ -299,7 +299,7 @@ export default function Search({ active = false }: SearchProps) {
 
   return (
     <div className="search">
-      <div className="search__input-wrapper">
+      <InputGroup className="search__input-wrapper">
         <Input
           ref={searchInputRef}
           autoFocus
@@ -366,6 +366,7 @@ export default function Search({ active = false }: SearchProps) {
         />
         {inputQuery && (
           <button
+            type="button"
             onClick={clearSearch}
             className="search__clear-button"
             title={t('input.clearButton')}
@@ -374,7 +375,7 @@ export default function Search({ active = false }: SearchProps) {
             <X size={16} />
           </button>
         )}
-      </div>
+      </InputGroup>
 
       {(visibleTags.length > 0 || availableTagsError) && (
         <Accordion
@@ -422,7 +423,10 @@ export default function Search({ active = false }: SearchProps) {
                         aria-pressed={isActive}
                         data-testid={`tags-filter-${tag}`}
                       >
-                        <span className="browse-tags__tag-filter-label">
+                        <span
+                          className="browse-tags__tag-filter-label"
+                          title={tag}
+                        >
                           {tag}
                         </span>
                         <span className="browse-tags__tag-filter-count">
@@ -451,7 +455,10 @@ export default function Search({ active = false }: SearchProps) {
                     components={{ bold: <strong /> }}
                   />
                 </span>
-                <span className="browse-results__summary-text">
+                <span
+                  className="browse-results__summary-text"
+                  title={activeFilterLabel}
+                >
                   {' '}
                   <strong>{activeFilterLabel}</strong>
                 </span>

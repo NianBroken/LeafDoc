@@ -155,7 +155,9 @@ export function PageSelect({
                   onClick={() => onChange(page.id)}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  {page.title}
+                  <span className="min-w-0 truncate" title={page.title}>
+                    {page.title}
+                  </span>
                 </button>
               </li>
             )

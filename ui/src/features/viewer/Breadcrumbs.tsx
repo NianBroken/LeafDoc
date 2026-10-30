@@ -45,12 +45,15 @@ export default function Breadcrumbs() {
           <li key={crumb.path} className="breadcrumbs-nav__item">
             <span className="breadcrumbs-nav__separator">/</span>
             {index === breadcrumbs.length - 1 ? (
-              <span className="breadcrumbs-nav__current">{crumb.title}</span>
+              <span className="breadcrumbs-nav__current" title={crumb.title}>
+                {crumb.title}
+              </span>
             ) : (
               <Link
                 to={crumb.path}
                 state={createNavigationVisitState()}
                 className="breadcrumbs-nav__link"
+                title={crumb.title}
               >
                 {crumb.title}
               </Link>

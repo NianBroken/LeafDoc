@@ -15,6 +15,10 @@ import (
 
 const defaultSearchLimit = 50
 
+// InnoDB supports at most 128 tokens per phrase. A rune bound also covers
+// ngram_token_size=1; longer literals use the complete substring predicate.
+const maxFullTextPhraseRunes = 128
+
 // Search queries MySQL, applies the caller's page filter, and escapes rendered text.
 // Full-text matches use ngram indexing; literal substring matching also handles
 // single characters, code punctuation, and words omitted by full-text stop rules.
@@ -114,7 +118,8 @@ func buildSearchWhereClause(query string, pageIDs []string) (string, []any) {
 		}
 		literal := "%" + escapeSearchLike(term) + "%"
 		clause := column + " LIKE ? ESCAPE '='"
-		if scope == "" && utf8.RuneCountInString(term) >= 2 && isSearchWord(term) {
+		termRunes := utf8.RuneCountInString(term)
+		if scope == "" && termRunes >= 2 && termRunes <= maxFullTextPhraseRunes && isSearchWord(term) {
 			clause = "(MATCH(title, headings, content) AGAINST (? IN BOOLEAN MODE) OR " + clause + ")"
 			args = append(args, `"`+term+`"*`)
 		}

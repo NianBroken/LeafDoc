@@ -381,7 +381,7 @@ function TagInputWithSuggestions({
               variant === 'browse' ? `tags-selected-chip-${tag}` : undefined
             }
           >
-            <span>{tag}</span>
+            <span title={tag}>{tag}</span>
             <button
               type="button"
               className={classes.chipRemove}
