@@ -8,13 +8,9 @@
     "navAriaLabel": "Ruta de navegación"
   },
   "section": {
-    "overviewTitle": "Descripción general de '{{title}}'",
-    "overviewDescriptionBase": "Esta página es la descripción general predeterminada de la sección y muestra sus páginas y secciones.",
-    "overviewDescriptionEditorHint": "Al editar esta página, puedes definir una página de inicio personalizada para la sección.",
-    "overviewDescriptionReadOnly": "Esta página es una descripción general generada automáticamente de la sección.",
     "emptyTitle": "Esta sección está vacía.",
-    "emptyDescriptionEditor": "La sección {{title}} todavía no contiene páginas ni secciones. Empieza añadiendo una página nueva o crea una sección nueva.",
-    "emptyDescriptionReadOnly": "La sección {{title}} todavía no contiene páginas ni secciones.",
+    "emptyDescriptionEditor": "This section and its descendants contain no pages. You can add a page or section.",
+    "emptyDescriptionReadOnly": "This section and its descendants contain no pages.",
     "addPage": "Añadir página",
     "addSection": "Añadir sección",
     "subpagesAriaLabel": "Subpáginas de {{title}}",

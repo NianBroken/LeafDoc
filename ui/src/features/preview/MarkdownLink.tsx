@@ -33,7 +33,7 @@ function BrokenLinkTooltip({
   label: string
 }) {
   return (
-    <TooltipWrapper label={label}>
+    <TooltipWrapper label={label} asChild>
       <span className="text-error cursor-default">{children}</span>
     </TooltipWrapper>
   )

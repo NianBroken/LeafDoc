@@ -15,7 +15,9 @@ import {
   getPageAttachments,
   type PageAttachment,
 } from '@/shared/lib/api/assets'
-import { pinPage } from '@/shared/lib/api/pages'
+import { NODE_KIND_SECTION } from '@/shared/lib/api/pages'
+import { mapApiError } from '@/shared/lib/api/errors'
+import { firstDescendantPage } from '@/features/viewer/sectionNavigation'
 import { createHotkeyDefinition } from '@/shared/lib/shortcuts/shortcutCatalog'
 import { useScrollRestoration } from '@/shared/lib/useScrollRestoration'
 import { cn } from '@/shared/lib/utils'
@@ -31,7 +33,6 @@ import { useTocPanelStore } from '@/features/preview/state/tocPanel'
 import { useTreeStore } from '@/features/tree/state/tree'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router'
 import { BacklinkInfo } from '@/features/links/LinkInfo'
@@ -64,16 +65,15 @@ export default function PageViewer() {
   const registerHotkey = useHotKeysStore((state) => state.registerHotkey)
   const unregisterHotkey = useHotKeysStore((state) => state.unregisterHotkey)
   const openNode = useTreeStore((state) => state.openNode)
-  const setPinnedLocally = useTreeStore((s) => s.setPinnedLocally)
+  const tree = useTreeStore((s) => s.tree)
+  const treeLoading = useTreeStore((s) => s.loading)
+  const treeError = useTreeStore((s) => s.error)
   const loading = useViewerStore((s) => s.isLoading)
   const error = useViewerStore((s) => s.error)
   const notFound = useViewerStore((s) => s.notFound)
   const page = useViewerStore((s) => s.page)
   const loadPageData = useViewerStore((s) => s.loadPageData)
   const clearViewer = useViewerStore((s) => s.clear)
-  const isPinned = useTreeStore((s) =>
-    page ? (s.byId[page.id]?.pinned ?? false) : false,
-  )
 
   const actions = {
     pageKind: page?.kind,
@@ -103,19 +103,6 @@ export default function PageViewer() {
       if (!page) return
       openDialog(DIALOG_COPY_PAGE, { sourcePage: page })
     }, [page, openDialog]),
-    isPinned,
-    onPinToggle: useCallback(() => {
-      if (!page) return
-      const newPinned = !isPinned
-      pinPage(page.id, page.version, newPinned)
-        .then((updated) => {
-          setPinnedLocally(page.id, newPinned, updated.version)
-          toast.success(
-            isPinned ? t('pinned.unpinSuccess') : t('pinned.pinSuccess'),
-          )
-        })
-        .catch(() => toast.error(t('pinned.pinError')))
-    }, [page, isPinned, setPinnedLocally, t]),
   }
 
   useScrollRestoration(getNavigationVisitKey(location), loading)
@@ -133,6 +120,39 @@ export default function PageViewer() {
     if (!page?.id) return
     openNode(page.id)
   }, [openNode, page?.id])
+
+  const sectionNode = useTreeStore((s) => (page ? s.byId[page.id] : undefined))
+  const emptySection = page?.kind === NODE_KIND_SECTION && !page.content.trim()
+  const sectionTarget =
+    emptySection && sectionNode ? firstDescendantPage(sectionNode) : null
+  useEffect(() => {
+    // Resolve only a current, fully loaded section; the normal viewer fetch checks the target.
+    if (
+      !emptySection ||
+      !sectionTarget ||
+      loading ||
+      treeLoading ||
+      treeError ||
+      error
+    )
+      return
+    if (toWikiLookupPath(pathname) !== toWikiLookupPath(page.path)) return
+    navigate(getWikiTargetRoutePath(sectionTarget.path), {
+      replace: true,
+      state: createNavigationVisitState(),
+    })
+  }, [
+    emptySection,
+    sectionTarget,
+    loading,
+    treeLoading,
+    treeError,
+    error,
+    pathname,
+    page,
+    navigate,
+    tree,
+  ])
 
   const renderError = () => {
     if (!loading && notFound) {
@@ -155,6 +175,7 @@ export default function PageViewer() {
     [page],
   )
   const [attachments, setAttachments] = useState<PageAttachment[]>([])
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!page?.id) {
@@ -163,18 +184,27 @@ export default function PageViewer() {
     }
 
     let cancelled = false
+    setAttachmentError(null)
     getPageAttachments(page.id)
       .then((files) => {
         if (!cancelled) setAttachments(files)
       })
-      .catch(() => {
-        if (!cancelled) setAttachments([])
+      .catch((err) => {
+        if (!cancelled) {
+          setAttachments([])
+          setAttachmentError(
+            mapApiError(
+              err,
+              t('failed to load page attachments', { ns: 'errors' }),
+            ).message,
+          )
+        }
       })
 
     return () => {
       cancelled = true
     }
-  }, [page?.id])
+  }, [page?.id, t])
 
   const tocMode = useConfigStore((s) => s.tocMode)
   const showToc = tocEntries.length > 0
@@ -291,7 +321,19 @@ export default function PageViewer() {
           <div className="page-viewer__body">
             <article className="page-viewer__content">
               <MarkdownPreview content={page.content} path={page.path} />
-              <EmptySectionChildrenList page={page} />
+              {attachmentError && (
+                <p role="alert" className="settings__notice">
+                  {attachmentError}
+                </p>
+              )}
+              {emptySection && treeError && (
+                <p role="alert" className="settings__notice">
+                  {treeError}
+                </p>
+              )}
+              {!treeLoading && !treeError && !sectionTarget && (
+                <EmptySectionChildrenList page={page} />
+              )}
             </article>
             <BacklinkInfo />
           </div>

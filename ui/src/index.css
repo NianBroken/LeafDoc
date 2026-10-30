@@ -659,7 +659,7 @@
   }
 
   .form-input__error {
-    @apply text-error text-sm;
+    @apply text-error mt-2 text-sm;
   }
 
   .form-input__input-error {
@@ -719,7 +719,7 @@
   }
 
   .user-menu__not-logged-in {
-    @apply text-error text-sm;
+    @apply text-error mt-2 text-sm;
   }
 
   .user-menu__menu-item {
@@ -3115,7 +3115,7 @@
   }
 
   .settings__notice {
-    @apply border-surface-border bg-surface-alt text-muted flex flex-col gap-1 rounded-md border p-3 text-sm;
+    @apply border-surface-border bg-surface-alt text-muted my-4 flex flex-col gap-1 rounded-md border p-3 text-sm;
   }
 
   .settings__actions {

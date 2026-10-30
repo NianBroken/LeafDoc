@@ -71,11 +71,34 @@ func (s *Store[T]) reloadLocked() error {
 	} else if err != nil {
 		return fmt.Errorf("read setting %s: %w", s.key, err)
 	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return fmt.Errorf("invalid setting %s: %w", s.key, err)
+	}
+	if fields == nil {
+		return fmt.Errorf("setting %s must be an object", s.key)
+	}
+	for field, value := range fields {
+		if string(value) == "null" {
+			return fmt.Errorf("setting %s field %s must not be null", s.key, field)
+		}
+	}
+	s.val = s.zero
 	if err = json.Unmarshal(raw, &s.val); err != nil {
 		return err
 	}
 	if s.onLoad != nil {
 		s.onLoad(&s.val)
+	}
+	// Persist materialized fields while preserving explicit false and zero values.
+	completed, err := json.Marshal(s.val)
+	if err != nil {
+		return err
+	}
+	if string(completed) != string(raw) {
+		if err := database.WriteRecord(s.directory, "settings", s.key, completed); err != nil {
+			return err
+		}
 	}
 	return nil
 }

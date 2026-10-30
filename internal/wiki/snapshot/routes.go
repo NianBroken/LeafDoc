@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	snapshotSvc "github.com/NianBroken/LeafDoc/internal/core/snapshot"
 	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
@@ -96,7 +97,11 @@ func (r *Routes) handleUpdateSettings(c *gin.Context) {
 		return
 	}
 	if err := snapshotSvc.ValidateSettings(value); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if loc, ok := sharederrors.AsLocalizedError(err); ok {
+			httpinternal.RespondError(c, http.StatusBadRequest, loc.Code, loc.Message, loc.Template, loc.Args...)
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 	if err := r.settings.Put(value); err != nil {

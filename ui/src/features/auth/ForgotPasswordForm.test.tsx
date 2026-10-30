@@ -3,7 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
 import ForgotPasswordForm from '@/features/auth/ForgotPasswordForm'
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 const requestPasswordResetMock = vi.fn()
 
@@ -42,10 +45,8 @@ describe('ForgotPasswordForm', () => {
     expect(requestPasswordResetMock).toHaveBeenCalledWith('alice')
   })
 
-  // The backend's enumeration protection is worthless if the frontend
-  // reacts differently to a network/server error than to success — both
-  // must land on the identical generic confirmation.
-  it('shows the same generic confirmation even when the request fails', async () => {
+  // Rejected transport requests remain retryable and never confirm an email was sent.
+  it('keeps the form and shows the actual request failure', async () => {
     requestPasswordResetMock.mockRejectedValue(new Error('boom'))
     const user = userEvent.setup()
     renderForm()
@@ -56,8 +57,6 @@ describe('ForgotPasswordForm', () => {
     )
     await user.click(screen.getByTestId('forgot-password-submit'))
 
-    await waitFor(() =>
-      expect(screen.getByText('Check your email')).toBeInTheDocument(),
-    )
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'))
   })
 })

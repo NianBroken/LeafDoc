@@ -1,4 +1,3 @@
-import { API_BASE_URL } from '@/shared/lib/config'
 import { fetchWithAuth } from '@/shared/lib/api/client'
 
 export type BrandingConfig = {
@@ -14,11 +13,7 @@ export type BrandingConfig = {
 }
 
 export async function getBranding(): Promise<BrandingConfig> {
-  const res = await fetch(`${API_BASE_URL}/api/branding`)
-  if (!res.ok) {
-    throw new Error(`Failed to load branding: ${res.status} ${res.statusText}`)
-  }
-  return await res.json()
+  return await fetchWithAuth<BrandingConfig>('/api/branding')
 }
 
 export async function updateBranding(

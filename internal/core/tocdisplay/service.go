@@ -10,7 +10,9 @@
 package tocdisplay
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
@@ -20,6 +22,33 @@ import (
 type fileConfig struct {
 	AlwaysShow bool   `json:"alwaysShow"`
 	Mode       string `json:"mode,omitempty"`
+}
+
+// UnmarshalJSON distinguishes a missing mode from an explicitly stored legacy boolean.
+func (c *fileConfig) UnmarshalJSON(raw []byte) error {
+	var value struct {
+		AlwaysShow *bool   `json:"alwaysShow"`
+		Mode       *string `json:"mode"`
+	}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return err
+	}
+	c.Mode = defaults.TocMode
+	c.AlwaysShow = false
+	if value.AlwaysShow != nil {
+		c.AlwaysShow = *value.AlwaysShow
+		c.Mode = "auto"
+		if c.AlwaysShow {
+			c.Mode = "always"
+		}
+	}
+	if value.Mode != nil {
+		c.Mode = *value.Mode
+	}
+	if c.Mode != "auto" && c.Mode != "always" && c.Mode != "never" {
+		return sharederrors.NewLocalizedError("toc_display_invalid_mode", "Invalid TOC mode", "invalid toc mode", nil)
+	}
+	return nil
 }
 
 // Service is the process-wide holder of the current always-show-TOC flag.
@@ -32,7 +61,7 @@ type Service struct {
 // <storageDir>/toc-display.json. The initial value is whatever the file
 // currently holds; a missing file means disabled.
 func New(storageDir string) (*Service, error) {
-	st, err := settings.New(storageDir, "toc-display.json", 0o600, fileConfig{}, nil)
+	st, err := settings.New(storageDir, "toc-display.json", 0o600, fileConfig{Mode: defaults.TocMode}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read toc-display config: %w", err)
 	}
@@ -82,7 +111,7 @@ func (s *Service) Mode() string {
 // SetMode persists the initial display behavior; temporary viewer toggles never call it.
 func (s *Service) SetMode(mode string) error {
 	if mode != "auto" && mode != "always" && mode != "never" {
-		return fmt.Errorf("invalid toc mode")
+		return sharederrors.NewLocalizedError("toc_display_invalid_mode", "Invalid TOC mode", "invalid toc mode", nil)
 	}
 	return s.store.Put(fileConfig{AlwaysShow: mode == "always", Mode: mode})
 }

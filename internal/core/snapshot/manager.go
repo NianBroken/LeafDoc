@@ -42,16 +42,8 @@ type Manager struct {
 
 func NewManager(cfg Config) *Manager {
 	return &Manager{
-		cfg: cfg,
-		settings: Settings{
-			Enabled:        cfg.Interval > 0,
-			RunOnStartup:   true,
-			Mode:           scheduleModeInterval,
-			Interval:       cfg.Interval.String(),
-			Hour:           2,
-			TimeZone:       "UTC",
-			RetentionCount: cfg.RetentionCount,
-		},
+		cfg:      cfg,
+		settings: DefaultSettings(cfg.Interval, cfg.RetentionCount),
 	}
 }
 

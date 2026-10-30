@@ -1,3 +1,4 @@
+import instanceDefaults from '@/shared/lib/instanceDefaults.json'
 import { configureAuthRuntime } from '@/shared/lib/api/runtime'
 import { useUserSettingsStore } from '@/shared/state/userSettings'
 import { getConfig } from '@/shared/lib/api/config'
@@ -71,10 +72,10 @@ let configRequestSequence = 0
 export const useConfigStore = create<ConfigStore>((set, get) => ({
   settingsInstance: '',
   settingsVersion: 0,
-  publicAccess: false,
+  publicAccess: instanceDefaults.publicAccess,
   publicAccessEnvManaged: false,
   alwaysShowToc: false,
-  tocMode: 'auto',
+  tocMode: instanceDefaults.tocMode,
   editorLimit: 0,
   hideLinkMetadataSection: false,
   maxAssetUploadSizeBytes: DEFAULT_MAX_ASSET_UPLOAD_SIZE_BYTES,
@@ -83,13 +84,13 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   enableRevision: false,
   enableLinkRefactor: false,
   enableApiKeyManagement: false,
-  snapshotEnabled: false,
+  snapshotEnabled: true,
   smtpEnabled: false,
   httpRemoteUserEnabled: false,
   loginUrl: '',
   logoutUrl: '',
   userManagementUrl: '',
-  defaultLanguage: '',
+  defaultLanguage: instanceDefaults.language,
   error: null,
   loading: false,
   hasLoaded: false,
@@ -146,7 +147,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
           loginUrl: config.loginUrl ?? '',
           logoutUrl: config.logoutUrl ?? '',
           userManagementUrl: config.userManagementUrl ?? '',
-          defaultLanguage: config.defaultLanguage ?? '',
+          defaultLanguage: config.defaultLanguage ?? instanceDefaults.language,
           error: null,
           hasLoaded: true,
           configLoadSucceeded: true,
@@ -155,15 +156,17 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
         if (config.preferences)
           useUserSettingsStore.getState().apply(config.preferences)
-        if (config.defaultLanguage) {
+        const configuredLanguage =
+          config.preferences?.language || config.defaultLanguage
+        if (configuredLanguage) {
           const isKnownLanguage = getAvailableLanguages().some(
-            (language) => language.code === config.defaultLanguage,
+            (language) => language.code === configuredLanguage,
           )
           if (isKnownLanguage) {
-            void i18next.changeLanguage(config.defaultLanguage)
+            void i18next.changeLanguage(configuredLanguage)
           } else {
             console.warn(
-              `Configured default language "${config.defaultLanguage}" is not shipped with the frontend, ignoring`,
+              `Configured default language "${configuredLanguage}" is not shipped with the frontend, ignoring`,
             )
           }
         }

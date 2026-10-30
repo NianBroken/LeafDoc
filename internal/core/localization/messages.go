@@ -4,6 +4,7 @@ package localization
 import (
 	"embed"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -20,6 +21,9 @@ func SetLanguageProvider(provider func() string) { mu.Lock(); language = provide
 func Language() string                           { mu.RLock(); fn := language; mu.RUnlock(); return fn() }
 
 var catalogues = load()
+
+// Numeric validation arguments share a catalogue template rather than fixed limits.
+var numbers = regexp.MustCompile(`[0-9]+`)
 
 func load() map[string]map[string]string {
 	result := map[string]map[string]string{}
@@ -41,6 +45,16 @@ func load() map[string]map[string]string {
 func Message(template string, args ...string) string {
 	value := catalogues[Language()][template]
 	if value == "" {
+		value = catalogues[Language()][strings.ToLower(template)]
+	}
+	if value == "" && len(args) == 0 {
+		key := numbers.ReplaceAllString(strings.ToLower(template), "%s")
+		value = catalogues[Language()][key]
+		if value != "" {
+			args = numbers.FindAllString(template, -1)
+		}
+	}
+	if value == "" {
 		return template
 	}
 	for _, arg := range args {
@@ -51,19 +65,26 @@ func Message(template string, args ...string) string {
 
 // Fallback is used for unstructured failures, never for document content or identifiers.
 func Fallback(status int) string {
-	values := map[string][2]string{
-		"zh": {"操作成功", "操作失败，请检查输入和访问权限后重试"},
-		"en": {"Operation completed", "Operation failed. Check the input and access permissions."},
-		"de": {"Vorgang abgeschlossen", "Vorgang fehlgeschlagen. Prüfen Sie Eingabe und Zugriffsrechte."},
-		"es": {"Operación completada", "La operación falló. Revise los datos y los permisos de acceso."},
-		"fr": {"Opération terminée", "Échec de l’opération. Vérifiez les données et les autorisations."},
+	key := "request failed"
+	switch {
+	case status < 400:
+		key = "operation completed"
+	case status == 400 || status == 422:
+		key = "invalid request input"
+	case status == 401:
+		key = "authentication required"
+	case status == 403:
+		key = "permission denied"
+	case status == 404:
+		key = "resource not found"
+	case status == 409:
+		key = "resource conflict"
+	case status == 413:
+		key = "uploaded file too large"
+	case status == 429:
+		key = "too many requests"
+	case status >= 500:
+		key = "service request failed"
 	}
-	value, ok := values[Language()]
-	if !ok {
-		value = values["zh"]
-	}
-	if status < 400 {
-		return value[0]
-	}
-	return value[1]
+	return Message(key)
 }

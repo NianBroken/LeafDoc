@@ -93,7 +93,10 @@ function App() {
   return (
     <>
       <Toaster
+        offset={16}
+        mobileOffset={16}
         richColors
+        closeButton
         position="bottom-right"
         containerAriaLabel={t('notifications')}
       />

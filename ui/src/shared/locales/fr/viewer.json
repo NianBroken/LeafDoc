@@ -8,13 +8,9 @@
     "navAriaLabel": "Fil d'Ariane"
   },
   "section": {
-    "overviewTitle": "Aperçu de '{{title}}'",
-    "overviewDescriptionBase": "Cette page est l'aperçu par défaut de la section et liste ses pages et sections.",
-    "overviewDescriptionEditorHint": "Lors de l'édition de cette page, vous pouvez définir une page d'accueil personnalisée pour la section.",
-    "overviewDescriptionReadOnly": "Cette page est un aperçu auto-généré de la section.",
     "emptyTitle": "Cette section est vide.",
-    "emptyDescriptionEditor": "La section {{title}} ne contient encore aucune page ni section. Commencez par ajouter une nouvelle page ou créez une nouvelle section.",
-    "emptyDescriptionReadOnly": "La section {{title}} ne contient encore aucune page ni section.",
+    "emptyDescriptionEditor": "This section and its descendants contain no pages. You can add a page or section.",
+    "emptyDescriptionReadOnly": "This section and its descendants contain no pages.",
     "addPage": "Ajouter une page",
     "addSection": "Ajouter une section",
     "subpagesAriaLabel": "Sous-pages de {{title}}",

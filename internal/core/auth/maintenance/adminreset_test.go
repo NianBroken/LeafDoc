@@ -86,11 +86,11 @@ func TestResetAdminPassword_NoAdmin(t *testing.T) {
 		t.Fatalf("ResetAdminPassword failed: %v", err)
 	}
 
-	if adminUser.Username != "admin" {
+	if adminUser.Username != "Nian" {
 		t.Errorf("Expected username 'admin', got: %s", adminUser.Username)
 	}
 
-	if adminUser.Email != "admin@localhost" {
+	if adminUser.Email != "Nian@LeafDoc.doc" {
 		t.Errorf("Expected email 'admin@localhost', got: %s", adminUser.Email)
 	}
 
@@ -115,7 +115,7 @@ func TestResetAdminPassword_NoAdmin(t *testing.T) {
 	}()
 
 	userService := auth.NewUserService(store)
-	_, err = userService.GetUserByEmailOrUsernameAndPassword("admin", adminUser.Password)
+	_, err = userService.GetUserByEmailOrUsernameAndPassword(adminUser.Username, adminUser.Password)
 	if err != nil {
 		t.Errorf("Failed to login with new password: %v", err)
 	}

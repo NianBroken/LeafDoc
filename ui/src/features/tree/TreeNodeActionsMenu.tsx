@@ -138,7 +138,9 @@ export default function TreeNodeActionsMenu({
           node.pinned ? t('pinned.unpinSuccess') : t('pinned.pinSuccess'),
         )
       })
-      .catch(() => toast.error(t('pinned.pinError')))
+      .catch((err) =>
+        toast.error(mapApiError(err, t('pinned.pinError')).message),
+      )
   }, [nodeId, nodeVersion, node.pinned, setPinnedLocally, t])
 
   const handleToggleFavorite = useCallback(async () => {
@@ -150,8 +152,8 @@ export default function TreeNodeActionsMenu({
         await addFavorite(nodeId)
         toast.success(t('favorites.addSuccess'))
       }
-    } catch {
-      toast.error(t('favorites.favoriteError'))
+    } catch (err) {
+      toast.error(mapApiError(err, t('favorites.favoriteError')).message)
     }
   }, [isFavorited, addFavorite, removeFavorite, nodeId, t])
 

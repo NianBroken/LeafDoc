@@ -1,3 +1,4 @@
+import { mapApiError } from '@/shared/lib/api/errors'
 import { create } from 'zustand'
 import i18next from '@/shared/lib/i18n'
 import {
@@ -53,10 +54,16 @@ export const useSnapshotStore = create<SnapshotState>((set, get) => {
           lastPruneError: data.status?.lastPruneError ?? '',
         })
         consecutiveErrors = 0
-      } catch {
+      } catch (err) {
         consecutiveErrors++
         if (consecutiveErrors >= POLL_ERROR_LIMIT) {
-          return
+          set({
+            statusError: mapApiError(
+              err,
+              i18next.t('statusLoadError', { ns: 'snapshot' }),
+            ).message,
+          })
+          throw err
         }
       }
     }
@@ -94,7 +101,10 @@ export const useSnapshotStore = create<SnapshotState>((set, get) => {
         console.error('Failed to load snapshot status', error)
         set({
           isLoading: false,
-          statusError: i18next.t('statusLoadError', { ns: 'snapshot' }),
+          statusError: mapApiError(
+            error,
+            i18next.t('statusLoadError', { ns: 'snapshot' }),
+          ).message,
         })
       }
     },
@@ -106,21 +116,40 @@ export const useSnapshotStore = create<SnapshotState>((set, get) => {
         set({ snapshots, isListLoading: false })
       } catch (error) {
         console.error('Failed to load snapshots', error)
-        set({ isListLoading: false })
+        set({
+          isListLoading: false,
+          statusError: mapApiError(
+            error,
+            i18next.t('statusLoadError', { ns: 'snapshot' }),
+          ).message,
+        })
       }
     },
 
     triggerNow: async () => {
+      let requestError: unknown
+      let requestFailed = false
       try {
         await triggerSnapshot()
-      } finally {
-        // Reload even on failure (e.g. 409 because a run is already in
-        // progress) so the UI reflects current server state instead of
-        // staying stale behind the error.
-        await get().loadStatus()
-        await pollUntilNotRunning()
-        await get().loadList()
+      } catch (err) {
+        requestError = err
+        requestFailed = true
       }
+      // Refresh status even when the POST was rejected because another job is running.
+      await get().loadStatus()
+      let completionError: unknown
+      let completionFailed = false
+      try {
+        await pollUntilNotRunning()
+      } catch (err) {
+        completionError = err
+        completionFailed = true
+      }
+      await get().loadList()
+      if (requestFailed) throw requestError
+      if (completionFailed) throw completionError
+      if (get().lastError) throw new Error(get().lastError)
+      if (get().statusError) throw new Error(get().statusError)
     },
 
     saveSettings: async (settings) => {

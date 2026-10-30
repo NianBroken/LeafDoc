@@ -144,12 +144,22 @@ export async function fetchWithAuth<T = unknown>(
     }
   }
 
-  let res = await doFetch()
+  const request = async () => {
+    try {
+      return await doFetch()
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') throw err
+      if (err instanceof TypeError)
+        throw new Error(i18next.t('network request failed', { ns: 'errors' }))
+      throw err
+    }
+  }
+  let res = await request()
 
   if (res.status === 401 && retry && !httpRemoteUserEnabled) {
     try {
       await ensureRefresh()
-      res = await doFetch()
+      res = await request()
     } catch {
       if (configLoadSucceeded) {
         await clearSessionState(sessionLogout)
@@ -168,7 +178,7 @@ export async function fetchWithAuth<T = unknown>(
     try {
       errorBody = errorText ? JSON.parse(errorText) : null
     } catch {
-      throw new ApiError(errorText || t('apiErrors.requestFailed'), res.status)
+      throw new ApiError(httpFailureMessage(res.status), res.status)
     }
 
     throwIfStructuredError(errorBody)
@@ -179,7 +189,7 @@ export async function fetchWithAuth<T = unknown>(
       throw new ApiError(message, res.status)
     }
 
-    throw new ApiError(t('apiErrors.requestFailed'), res.status)
+    throw new ApiError(httpFailureMessage(res.status), res.status)
   }
 
   const text = await res.text()
@@ -289,4 +299,23 @@ export async function endServerSession(): Promise<void> {
   })
   if (!response.ok)
     throw new ApiError(t('apiErrors.requestFailed'), response.status)
+}
+
+// Unstructured HTTP failures use their actual response status without exposing HTML.
+function httpFailureMessage(status: number): string {
+  const keys: Record<number, string> = {
+    400: 'invalid request input',
+    401: 'authentication required',
+    403: 'permission denied',
+    404: 'resource not found',
+    409: 'resource conflict',
+    413: 'uploaded file too large',
+    422: 'invalid request input',
+    429: 'too many requests',
+  }
+  return i18next.t(
+    keys[status] ??
+      (status >= 500 ? 'service request failed' : 'request failed'),
+    { ns: 'errors' },
+  )
 }

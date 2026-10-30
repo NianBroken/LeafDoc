@@ -135,7 +135,9 @@ describe('useSnapshotStore', () => {
       snapshotAPI.fetchSnapshots as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce([])
 
-    await useSnapshotStore.getState().triggerNow()
+    await expect(useSnapshotStore.getState().triggerNow()).rejects.toThrow(
+      'network error',
+    )
 
     // 1 initial (loadStatus) + 3 failing poll attempts (POLL_ERROR_LIMIT) before giving up.
     expect(snapshotAPI.fetchSnapshotStatus).toHaveBeenCalledTimes(4)

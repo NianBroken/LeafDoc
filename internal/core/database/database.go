@@ -163,7 +163,7 @@ func Open(storageDir string) (*sql.DB, error) {
 	schemaMu.Lock()
 	defer schemaMu.Unlock()
 	if !initialized[dsn] {
-		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS content_records (namespace VARCHAR(64) NOT NULL, record_key VARCHAR(255) NOT NULL, payload LONGBLOB NOT NULL, PRIMARY KEY(namespace,record_key)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin`); err != nil {
+		if _, err := db.Exec(contentSchema); err != nil {
 			db.Close()
 			return nil, err
 		}

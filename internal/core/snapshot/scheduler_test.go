@@ -108,3 +108,21 @@ func TestNextScheduledRun_AtScheduledTimeMovesToFollowingDay(t *testing.T) {
 		t.Fatalf("nextScheduledRun() = %s, want %s", got, want)
 	}
 }
+
+// Shanghai midnight is the next local calendar day, including exactly at midnight.
+func TestNextScheduledShanghaiMidnight(t *testing.T) {
+	settings := Settings{Enabled: true, Mode: scheduleModeDaily, Hour: 0, Minute: 0, TimeZone: "Asia/Shanghai"}
+	for _, now := range []time.Time{time.Date(2026, 10, 30, 8, 0, 0, 0, time.UTC), time.Date(2026, 10, 30, 16, 0, 0, 0, time.UTC)} {
+		got, err := nextScheduledRun(now, settings)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := time.Date(2026, 10, 30, 16, 0, 0, 0, time.UTC)
+		if !want.After(now) {
+			want = want.Add(24 * time.Hour)
+		}
+		if !got.Equal(want) {
+			t.Fatal(got)
+		}
+	}
+}

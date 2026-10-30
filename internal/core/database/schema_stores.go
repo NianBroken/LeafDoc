@@ -115,3 +115,11 @@ func EnsureStoreSchema(db *sql.DB) error {
 	}
 	return nil
 }
+
+// contentSchema and relationSchema are the authoritative executable table definitions.
+const contentSchema = `CREATE TABLE IF NOT EXISTS content_records (namespace VARCHAR(64) NOT NULL, record_key VARCHAR(255) NOT NULL, payload LONGBLOB NOT NULL, PRIMARY KEY(namespace,record_key)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin`
+
+// SchemaStatements returns a detached list used by the SQL exporter and parity tests.
+func SchemaStatements() []string {
+	return append([]string{contentSchema}, relationSchema...)
+}

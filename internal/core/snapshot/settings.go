@@ -2,6 +2,8 @@ package snapshot
 
 import (
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +35,8 @@ type SettingsStore struct {
 	apply func(Settings)
 }
 
-func NewSettingsStore(dataDir string, interval time.Duration, retentionCount int) (*SettingsStore, error) {
+// DefaultSettings defines one schedule for manager, persistence and SQL initialization.
+func DefaultSettings(interval time.Duration, retentionCount int) Settings {
 	if interval < 0 {
 		interval = 0
 	} else if interval > 0 && interval < minSnapshotInterval {
@@ -42,16 +45,20 @@ func NewSettingsStore(dataDir string, interval time.Duration, retentionCount int
 	if retentionCount < 0 {
 		retentionCount = 0
 	}
-	defaults := Settings{
+	return Settings{
 		Enabled:        interval > 0,
 		RunOnStartup:   true,
-		Mode:           scheduleModeInterval,
+		Mode:           defaults.SnapshotMode,
 		Interval:       interval.String(),
-		Hour:           2,
-		TimeZone:       "UTC",
+		Hour:           0,
+		TimeZone:       defaults.SnapshotTimeZone,
 		RetentionCount: retentionCount,
 	}
-	store, err := settings.New(dataDir, "snapshot-settings.json", 0o600, defaults, nil)
+}
+
+func NewSettingsStore(dataDir string, interval time.Duration, retentionCount int) (*SettingsStore, error) {
+	initial := DefaultSettings(interval, retentionCount)
+	store, err := settings.New(dataDir, "snapshot-settings.json", 0o600, initial, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load snapshot settings: %w", err)
 	}
@@ -79,6 +86,9 @@ func (s *SettingsStore) Put(value Settings) error {
 
 func (s *SettingsStore) Reload() error {
 	if err := s.store.Reload(); err != nil {
+		return err
+	}
+	if err := ValidateSettings(s.store.Get()); err != nil {
 		return err
 	}
 	s.applySettings(s.store.Get())
@@ -111,7 +121,7 @@ func ValidateSettings(value Settings) error {
 	if value.Enabled && value.Mode == scheduleModeInterval {
 		interval, err := time.ParseDuration(strings.TrimSpace(value.Interval))
 		if err != nil || interval < minSnapshotInterval {
-			return fmt.Errorf("interval must be at least %s", minSnapshotInterval)
+			return sharederrors.NewLocalizedError("snapshot_invalid_interval", "Invalid backup interval", "interval must be at least %s", nil, minSnapshotInterval.String())
 		}
 	}
 	if value.Mode == scheduleModeDaily {
@@ -122,7 +132,7 @@ func ValidateSettings(value Settings) error {
 			return fmt.Errorf("time zone is required")
 		}
 		if _, err := time.LoadLocation(value.TimeZone); err != nil {
-			return fmt.Errorf("invalid IANA time zone: %w", err)
+			return sharederrors.NewLocalizedError("snapshot_invalid_time_zone", "Invalid IANA time zone", "invalid time zone %s", nil, value.TimeZone)
 		}
 	}
 	return nil

@@ -39,6 +39,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
     set({ error: null, isLoading: true, notFound: false })
     try {
       const page = await getPageByPath(path, signal)
+      if (signal.aborted) return
       set({ page, notFound: false })
     } catch (err) {
       if (signal.aborted) return

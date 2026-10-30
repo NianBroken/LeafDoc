@@ -181,7 +181,7 @@ func TestUserService_InitDefaultAdmin(t *testing.T) {
 	}
 
 	users, err := service.GetUsers()
-	if err != nil || len(users) != 1 || users[0].Username != "admin" || users[0].Email != "admin@localhost" {
+	if err != nil || len(users) != 1 || users[0].Username != defaultAdminUsername || users[0].Email != defaultAdminEmail {
 		t.Errorf("Expected default admin user, got: %+v", users)
 	}
 }
@@ -308,11 +308,11 @@ func TestUserService_ResetAdminUserPassword_NoAdmin(t *testing.T) {
 		t.Fatalf("ResetAdminUserPassword failed: %v", err)
 	}
 
-	if adminUser.Username != "admin" {
+	if adminUser.Username != "Nian" {
 		t.Errorf("Expected username 'admin', got: %s", adminUser.Username)
 	}
 
-	if adminUser.Email != "admin@localhost" {
+	if adminUser.Email != "Nian@LeafDoc.doc" {
 		t.Errorf("Expected email 'admin@localhost', got: %s", adminUser.Email)
 	}
 
@@ -321,7 +321,7 @@ func TestUserService_ResetAdminUserPassword_NoAdmin(t *testing.T) {
 	}
 
 	// Verify we can log in with the new password
-	_, err = service.GetUserByEmailOrUsernameAndPassword("admin", adminUser.Password)
+	_, err = service.GetUserByEmailOrUsernameAndPassword(adminUser.Username, adminUser.Password)
 	if err != nil {
 		t.Errorf("Failed to login with new password: %v", err)
 	}

@@ -1,4 +1,3 @@
-import { expectDiagnostics } from '@/shared/testutil/expectedDiagnostics'
 import '@/shared/lib/i18n'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -99,7 +98,6 @@ describe('SetPasswordForm reset mode', () => {
   })
 
   it('surfaces a readable message (not "validation_error") when the API rejects the password', async () => {
-    expectDiagnostics('warn', [['Error:', validationErrorBody]])
     confirmPasswordResetMock.mockRejectedValue(validationErrorBody)
     const user = userEvent.setup()
     renderResetForm()
@@ -157,7 +155,6 @@ describe('SetPasswordForm invite mode', () => {
   })
 
   it('surfaces a readable message (not "validation_error") when the API rejects the password', async () => {
-    expectDiagnostics('warn', [['Error:', validationErrorBody]])
     acceptInviteMock.mockRejectedValue(validationErrorBody)
     const user = userEvent.setup()
     renderInviteForm()

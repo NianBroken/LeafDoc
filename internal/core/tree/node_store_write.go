@@ -44,7 +44,11 @@ func (s *NodeStore) create(parent, n *PageNode) error {
 	if parent.Kind != NodeKindSection {
 		return &InvalidOpError{Op: "Create", Reason: "parent must be a section"}
 	}
-	md := markdown.NewMarkdownFile(n.Slug+".md", "# "+n.Title+"\n", markdown.Frontmatter{})
+	body := "# " + n.Title + "\n"
+	if n.Kind == NodeKindSection {
+		body = ""
+	}
+	md := markdown.NewMarkdownFile(n.Slug+".md", body, markdown.Frontmatter{})
 	return s.writeMarkdown(n, md)
 }
 func (s *NodeStore) CreatePage(parent, n *PageNode) error    { return s.create(parent, n) }

@@ -2,7 +2,8 @@
 package preferences
 
 import (
-	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"sync"
 
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
@@ -22,11 +23,14 @@ type Service struct {
 }
 
 func Defaults() Config {
-	return Config{Language: "zh", DateFormat: "iso", TimeFormat: "24h"}
+	return Config{Language: defaults.Language, DateFormat: defaults.DateFormat, TimeFormat: defaults.TimeFormat}
 }
 func New(dir string) (*Service, error) {
 	st, err := settings.New(dir, "preferences.json", 0600, Defaults(), nil)
 	if err != nil {
+		return nil, err
+	}
+	if err := validate(st.Get()); err != nil {
 		return nil, err
 	}
 	if err := st.Put(st.Get()); err != nil {
@@ -39,6 +43,9 @@ func (s *Service) Reload() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.store.Reload(); err != nil {
+		return err
+	}
+	if err := validate(s.store.Get()); err != nil {
 		return err
 	}
 	return s.store.Put(s.store.Get())
@@ -54,23 +61,23 @@ func (s *Service) Patch(patch map[string]any) (Config, error) {
 		case "language":
 			val, ok := x.(string)
 			if !ok || !oneOf(val, "zh", "en", "de", "es", "fr") {
-				return v, fmt.Errorf("invalid language")
+				return v, invalidChoice("invalid language")
 			}
 			v.Language = val
 		case "dateFormat":
 			val, ok := x.(string)
 			if !ok || !oneOf(val, "iso", "dmy_dot", "mdy_slash", "dmy_slash") {
-				return v, fmt.Errorf("invalid date format")
+				return v, invalidChoice("invalid date format")
 			}
 			v.DateFormat = val
 		case "timeFormat":
 			val, ok := x.(string)
 			if !ok || !oneOf(val, "24h", "12h") {
-				return v, fmt.Errorf("invalid time format")
+				return v, invalidChoice("invalid time format")
 			}
 			v.TimeFormat = val
 		default:
-			return v, fmt.Errorf("unknown preference")
+			return v, invalidChoice("unknown preference")
 		}
 	}
 	return v, s.store.Put(v)
@@ -82,4 +89,23 @@ func oneOf(s string, values ...string) bool {
 		}
 	}
 	return false
+}
+
+// validate rejects persisted invalid choices instead of silently changing them.
+func validate(value Config) error {
+	if !oneOf(value.Language, "zh", "en", "de", "es", "fr") {
+		return invalidChoice("invalid language")
+	}
+	if !oneOf(value.DateFormat, "iso", "dmy_dot", "mdy_slash", "dmy_slash") {
+		return invalidChoice("invalid date format")
+	}
+	if !oneOf(value.TimeFormat, "24h", "12h") {
+		return invalidChoice("invalid time format")
+	}
+	return nil
+}
+
+// Invalid preference choices have a stable client-facing cause; storage errors remain server errors.
+func invalidChoice(message string) error {
+	return sharederrors.NewLocalizedError("invalid_preferences", message, message, nil)
 }

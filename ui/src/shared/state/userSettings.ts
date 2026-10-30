@@ -1,3 +1,4 @@
+import instanceDefaults from '@/shared/lib/instanceDefaults.json'
 // Shared UI preferences are loaded for every visitor, independently of account sessions.
 import { create } from 'zustand'
 import { fetchWithAuth } from '@/shared/lib/api/client'
@@ -9,9 +10,9 @@ export type GlobalPreferences = {
   timeFormat: string
 }
 export const DEFAULT_PREFERENCES: GlobalPreferences = {
-  language: 'zh',
-  dateFormat: 'iso',
-  timeFormat: '24h',
+  language: instanceDefaults.language,
+  dateFormat: instanceDefaults.dateFormat,
+  timeFormat: instanceDefaults.timeFormat,
 }
 type Store = GlobalPreferences & {
   loaded: boolean

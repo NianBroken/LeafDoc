@@ -202,7 +202,7 @@ func TestWiki_InitDefaultAdmin_UsesGivenPassword(t *testing.T) {
 	w := createWikiTestInstance(t)
 	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
-	_, err := w.user.GetUserByEmailOrUsernameAndPassword("admin", "adminpassword")
+	_, err := w.user.GetUserByEmailOrUsernameAndPassword("Nian", "adminpassword")
 	if err != nil {
 		t.Fatalf("Admin user not found: %v", err)
 	}
@@ -270,12 +270,12 @@ func TestWiki_Login_SuccessAndFailure(t *testing.T) {
 		t.Fatal("expected auth service to be initialized")
 	}
 
-	token, err := authSvc.Login("admin", "adminpassword")
+	token, err := authSvc.Login("Nian", "adminpassword")
 	if err != nil || token == nil {
 		t.Error("Expected login to succeed with default admin password")
 	}
 
-	_, err = authSvc.Login("admin", "wrong")
+	_, err = authSvc.Login("Nian", "wrong")
 	if err == nil {
 		t.Error("Expected login to fail with wrong password")
 	}

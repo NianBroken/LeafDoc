@@ -421,7 +421,7 @@ export default function SnapshotSettings() {
             </div>
           </div>
           {settingsError && (
-            <p role="alert" className="text-error text-sm">
+            <p role="alert" className="settings__notice text-error">
               {settingsError}
             </p>
           )}

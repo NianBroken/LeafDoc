@@ -74,3 +74,44 @@ func TestMySQLSettingsOnLoadConcurrentAndInvalidData(t *testing.T) {
 		t.Fatal("invalid configuration accepted")
 	}
 }
+
+// Missing fields are persisted from defaults; explicit false and zero remain authoritative.
+func TestMissingFieldsMaterializeWithoutReplacingExplicitValues(t *testing.T) {
+	testutil.ResetMySQL(t)
+	dir := t.TempDir()
+	type config struct {
+		Name    string `json:"name"`
+		Enabled bool   `json:"enabled"`
+		Count   int    `json:"count"`
+	}
+	if err := database.WriteRecord(dir, "settings", "partial", []byte(`{"enabled":false,"count":0}`)); err != nil {
+		t.Fatal(err)
+	}
+	store, err := New(dir, "partial", 0600, config{Name: "默认", Enabled: true, Count: 10}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.Get(); got.Name != "默认" || got.Enabled || got.Count != 0 {
+		t.Fatal(got)
+	}
+	raw, err := database.ReadRecord(dir, "settings", "partial")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved config
+	if err := json.Unmarshal(raw, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved != store.Get() {
+		t.Fatal(saved)
+	}
+	if err := database.WriteRecord(dir, "settings", "partial", []byte(`{"name":"恢复"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.Get(); !got.Enabled || got.Count != 10 {
+		t.Fatal(got)
+	}
+}

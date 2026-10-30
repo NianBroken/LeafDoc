@@ -1,3 +1,4 @@
+import { mapApiError } from '@/shared/lib/api/errors'
 import * as brandingAPI from '@/shared/lib/api/branding'
 import i18next from '@/shared/lib/i18n'
 import { brandingAssetUrl } from '../assets'
@@ -61,8 +62,7 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
       })
     } catch (err) {
       set({
-        error:
-          err instanceof Error ? err.message : t('storeErrors.loadFallback'),
+        error: mapApiError(err, t('storeErrors.loadFallback')).message,
         isLoading: false,
       })
     }
@@ -84,8 +84,7 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
       })
     } catch (err) {
       set({
-        error:
-          err instanceof Error ? err.message : t('storeErrors.updateFallback'),
+        error: mapApiError(err, t('storeErrors.updateFallback')).message,
         isLoading: false,
       })
       throw err
@@ -103,10 +102,7 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
       })
     } catch (err) {
       set({
-        error:
-          err instanceof Error
-            ? err.message
-            : t('storeErrors.uploadLogoFallback'),
+        error: mapApiError(err, t('storeErrors.uploadLogoFallback')).message,
       })
       throw err
     } finally {
@@ -126,10 +122,7 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
       })
     } catch (err) {
       set({
-        error:
-          err instanceof Error
-            ? err.message
-            : t('storeErrors.uploadFaviconFallback'),
+        error: mapApiError(err, t('storeErrors.uploadFaviconFallback')).message,
       })
       throw err
     } finally {
@@ -148,10 +141,7 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
       })
     } catch (err) {
       set({
-        error:
-          err instanceof Error
-            ? err.message
-            : t('storeErrors.deleteLogoFallback'),
+        error: mapApiError(err, t('storeErrors.deleteLogoFallback')).message,
       })
       throw err
     } finally {
@@ -171,10 +161,7 @@ export const useBrandingStore = create<BrandingStore>((set) => ({
       })
     } catch (err) {
       set({
-        error:
-          err instanceof Error
-            ? err.message
-            : t('storeErrors.deleteFaviconFallback'),
+        error: mapApiError(err, t('storeErrors.deleteFaviconFallback')).message,
       })
       throw err
     } finally {

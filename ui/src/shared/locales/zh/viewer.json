@@ -8,13 +8,9 @@
     "navAriaLabel": "面包屑"
   },
   "section": {
-    "overviewTitle": "“{{title}}”概览",
-    "overviewDescriptionBase": "此页面是该章节的默认概览，列出其页面与子章节。",
-    "overviewDescriptionEditorHint": "编辑此页面时，你可以为该章节指定一个自定义起始页。",
-    "overviewDescriptionReadOnly": "此页面是该章节自动生成的概览。",
     "emptyTitle": "该章节为空。",
-    "emptyDescriptionEditor": "章节 {{title}} 目前还没有任何页面或子章节。先添加一个新页面或新建子章节吧。",
-    "emptyDescriptionReadOnly": "章节 {{title}} 目前还没有任何页面或子章节。",
+    "emptyDescriptionEditor": "章节 {{title}} 及其下级目前没有页面。可以添加页面或章节。",
+    "emptyDescriptionReadOnly": "章节 {{title}} 及其下级目前没有页面。",
     "addPage": "添加页面",
     "addSection": "添加章节",
     "subpagesAriaLabel": "{{title}} 的子页面",

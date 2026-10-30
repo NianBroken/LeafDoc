@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 	"log/slog"
 	"strings"
 
@@ -12,9 +13,9 @@ import (
 )
 
 const (
-	defaultAdminUsername = "admin"
-	defaultAdminPassword = "Nian123456"
-	defaultAdminEmail    = "admin@localhost"
+	defaultAdminUsername = defaults.AdminUsername
+	defaultAdminPassword = defaults.AdminPassword
+	defaultAdminEmail    = defaults.AdminEmail
 
 	// MinPasswordLength is the minimum accepted length for user-chosen
 	// passwords, enforced consistently across every password entry point:

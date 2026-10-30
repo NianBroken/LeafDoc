@@ -1,3 +1,4 @@
+import { mapApiError } from '@/shared/lib/api/errors'
 import { toast } from 'sonner'
 import {
   Select,
@@ -43,8 +44,11 @@ export function PreferencesPanel() {
         <Select
           value={language}
           onValueChange={(value) => {
-            void setLanguage(value).catch(() =>
-              toast.error(t('account.preferences.languageChangeError')),
+            void setLanguage(value).catch((err) =>
+              toast.error(
+                mapApiError(err, t('account.preferences.languageChangeError'))
+                  .message,
+              ),
             )
           }}
         >
@@ -74,8 +78,11 @@ export function PreferencesPanel() {
         <Select
           value={dateFormat}
           onValueChange={(value) => {
-            void setDateFormat(value).catch(() =>
-              toast.error(t('account.preferences.dateFormatChangeError')),
+            void setDateFormat(value).catch((err) =>
+              toast.error(
+                mapApiError(err, t('account.preferences.dateFormatChangeError'))
+                  .message,
+              ),
             )
           }}
         >
@@ -105,8 +112,11 @@ export function PreferencesPanel() {
         <Select
           value={timeFormat}
           onValueChange={(value) => {
-            void setTimeFormat(value).catch(() =>
-              toast.error(t('account.preferences.timeFormatChangeError')),
+            void setTimeFormat(value).catch((err) =>
+              toast.error(
+                mapApiError(err, t('account.preferences.timeFormatChangeError'))
+                  .message,
+              ),
             )
           }}
         >

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 	"time"
 
 	"github.com/urfave/cli/v3"
@@ -34,6 +35,7 @@ func (o *authOptions) Flags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:        "public-access",
 			Destination: &o.publicAccess,
+			Value:       defaults.PublicAccess,
 			Category:    catAuth,
 			Usage:       "allow public access to the wiki with read access",
 			Sources:     envBoolVars("LEAFDOC_PUBLIC_ACCESS"),
@@ -59,22 +61,25 @@ func (o *authOptions) Flags() []cli.Flag {
 		&cli.StringFlag{
 			Name:        "admin-username",
 			Destination: &o.adminUsername,
+			Value:       defaults.AdminUsername,
 			Category:    catAdmin,
-			Usage:       "initial admin username, used only if no admin exists (default: admin)",
+			Usage:       "initial admin username, used only if no admin exists (default: Nian)",
 			Sources:     envVars("LEAFDOC_ADMIN_USERNAME"),
 			Config:      trimmed,
 		},
 		&cli.StringFlag{
 			Name:        "admin-email",
 			Destination: &o.adminEmail,
+			Value:       defaults.AdminEmail,
 			Category:    catAdmin,
-			Usage:       "initial admin email, used only if no admin exists (default: admin@localhost)",
+			Usage:       "initial admin email, used only if no admin exists (default: Nian@LeafDoc.doc)",
 			Sources:     envVars("LEAFDOC_ADMIN_EMAIL"),
 			Config:      trimmed,
 		},
 		&cli.StringFlag{
 			Name:        "admin-password",
 			Destination: &o.adminPassword,
+			Value:       defaults.AdminPassword,
 			Category:    catAdmin,
 			Usage:       "initial admin password, used only if no admin exists; min 8 characters",
 			Sources:     envVars("LEAFDOC_ADMIN_PASSWORD"),

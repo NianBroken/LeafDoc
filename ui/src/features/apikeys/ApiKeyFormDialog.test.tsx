@@ -186,13 +186,6 @@ describe('ApiKeyFormDialog', () => {
           fields: [{ field: 'name', message: 'Name must not be empty' }],
         },
       ],
-      [
-        'Error:',
-        {
-          error: 'validation_error',
-          fields: [{ field: 'name', message: 'Name must not be empty' }],
-        },
-      ],
     ])
     ;(apiKeyAPI.createApiKey as ReturnType<typeof vi.fn>).mockRejectedValue({
       error: 'validation_error',

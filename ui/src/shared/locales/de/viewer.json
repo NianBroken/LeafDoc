@@ -8,13 +8,9 @@
     "navAriaLabel": "Breadcrumb"
   },
   "section": {
-    "overviewTitle": "Übersicht von „{{title}}“",
-    "overviewDescriptionBase": "Diese Seite ist die Standardübersicht des Bereichs und listet dessen Seiten und Unterbereiche auf.",
-    "overviewDescriptionEditorHint": "Beim Bearbeiten dieser Seite können Sie eine benutzerdefinierte Startseite für den Bereich festlegen.",
-    "overviewDescriptionReadOnly": "Diese Seite ist eine automatisch generierte Übersicht des Bereichs.",
     "emptyTitle": "Dieser Bereich ist leer.",
-    "emptyDescriptionEditor": "Der Bereich {{title}} enthält noch keine Seiten oder Unterbereiche. Fügen Sie eine neue Seite hinzu oder erstellen Sie einen neuen Bereich.",
-    "emptyDescriptionReadOnly": "Der Bereich {{title}} enthält noch keine Seiten oder Unterbereiche.",
+    "emptyDescriptionEditor": "This section and its descendants contain no pages. You can add a page or section.",
+    "emptyDescriptionReadOnly": "This section and its descendants contain no pages.",
     "addPage": "Seite hinzufügen",
     "addSection": "Bereich hinzufügen",
     "subpagesAriaLabel": "Unterseiten von {{title}}",

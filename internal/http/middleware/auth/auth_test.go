@@ -43,7 +43,7 @@ func createTestAuthFixture(t *testing.T) *authFixture {
 	})
 
 	userService := coreauth.NewUserService(userStore)
-	if err := userService.InitDefaultAdmin("", "", "adminpassword"); err != nil {
+	if err := userService.InitDefaultAdmin("admin", "admin@localhost", "adminpassword"); err != nil {
 		_ = sessionStore.Close()
 		_ = userStore.Close()
 		t.Fatalf("Failed to init default admin: %v", err)

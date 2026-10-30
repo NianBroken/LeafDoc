@@ -1,3 +1,5 @@
+import { mapApiError } from '@/shared/lib/api/errors'
+import { toast } from 'sonner'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { requestPasswordReset } from '@/shared/lib/api/auth'
@@ -23,12 +25,8 @@ export default function ForgotPasswordForm() {
     try {
       await requestPasswordReset(identifier)
       setSubmitted(true)
-    } catch {
-      // Even a network/server error still shows the generic confirmation —
-      // surfacing a distinct error here would leak information an attacker
-      // could use to probe for valid identifiers via error-vs-success timing
-      // or content differences.
-      setSubmitted(true)
+    } catch (err) {
+      toast.error(mapApiError(err, t('apiErrors.requestFailed')).message)
     } finally {
       setLoading(false)
     }

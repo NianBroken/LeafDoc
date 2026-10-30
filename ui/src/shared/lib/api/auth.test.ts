@@ -339,11 +339,11 @@ describe('API error decoding', () => {
       expect((err as ApiError).status).toBe(500)
     })
 
-    it('uses the raw text for a non-JSON error body', async () => {
+    it('uses the HTTP status for a non-JSON error body', async () => {
       stubRawResponse(502, 'Bad Gateway')
       const err = await rejection(fetchWithAuth('/api/x'))
       expect(err).toBeInstanceOf(ApiError)
-      expect((err as ApiError).message).toBe('Bad Gateway')
+      expect((err as ApiError).message).toBe('Service request failed')
       expect((err as ApiError).status).toBe(502)
     })
 

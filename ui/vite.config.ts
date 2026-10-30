@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react'
-import { runtimeHtml } from './runtimeHtml'
+import { runtimeHtml } from './runtimeHtml.ts'
 import path from 'path'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'

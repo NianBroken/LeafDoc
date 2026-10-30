@@ -34,7 +34,7 @@ func statusForCode(code string) int {
 	switch code {
 	case publicaccess.ErrCodeEnvManaged:
 		return http.StatusConflict
-	case ErrCodeInvalidPayload:
+	case ErrCodeInvalidPayload, "toc_display_invalid_mode":
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

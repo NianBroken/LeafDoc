@@ -1,3 +1,4 @@
+import { mapApiError } from '@/shared/lib/api/errors'
 import { TooltipWrapper } from '@/shared/components/TooltipWrapper'
 import { useFavoritesStore } from '@/features/favorites/state/favorites'
 import clsx from 'clsx'
@@ -26,8 +27,8 @@ export function FavoriteToggleButton({ pageId, size = 13, className }: Props) {
         await addFavorite(pageId)
         toast.success(t('favorites.addSuccess'))
       }
-    } catch {
-      toast.error(t('favorites.favoriteError'))
+    } catch (err) {
+      toast.error(mapApiError(err, t('favorites.favoriteError')).message)
     }
   }
 

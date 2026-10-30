@@ -113,10 +113,7 @@ describe('ChangeOwnPasswordPanel', () => {
   })
 
   it('clears the passwords on a failed save', async () => {
-    expectDiagnostics('warn', [
-      [new Error('wrong password')],
-      ['Error:', new Error('wrong password')],
-    ])
+    expectDiagnostics('warn', [[new Error('wrong password')]])
     const user = userEvent.setup({ delay: null })
     const changeOwnPassword = vi
       .fn()

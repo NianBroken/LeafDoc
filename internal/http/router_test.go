@@ -43,6 +43,8 @@ func createWikiTestInstanceWithRevisionFlag(t *testing.T, enableRevision bool) *
 	testutil.ResetMySQL(t)
 	w, err := wiki.NewWiki(&wiki.WikiOptions{
 		StorageDir:          t.TempDir(),
+		AdminUsername:       "admin",
+		AdminEmail:          "admin@localhost",
 		AdminPassword:       "adminpassword",
 		JWTSecret:           "test-secret-key-with-at-least-32-characters",
 		AccessTokenTimeout:  15 * time.Minute,

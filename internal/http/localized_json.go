@@ -65,16 +65,16 @@ func translateResponse(value any, status int) {
 		translated := localization.Message(template, args...)
 		if translated != template {
 			detail["message"] = translated
-		} else if localization.Language() == "zh" && !containsHan(message) {
+		} else if message == "" {
 			detail["message"] = localization.Fallback(status)
 		}
 	}
 	for _, key := range []string{"message", "error"} {
-		if message, ok := root[key].(string); ok {
+		if message, ok := root[key].(string); ok && !(key == "error" && message == "validation_error") {
 			translated := localization.Message(strings.ToLower(message))
 			if translated != strings.ToLower(message) {
 				root[key] = translated
-			} else if localization.Language() == "zh" && !containsHan(message) && (key == "message" || status >= 400) {
+			} else if message == "" {
 				root[key] = localization.Fallback(status)
 			}
 		}
@@ -94,7 +94,7 @@ func translateResponse(value any, status int) {
 					translated := localization.Message(strings.ToLower(message))
 					if translated != strings.ToLower(message) {
 						values[i] = translated
-					} else if localization.Language() == "zh" && !containsHan(message) {
+					} else if message == "" {
 						values[i] = localization.Fallback(400)
 					}
 				}

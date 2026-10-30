@@ -1,3 +1,4 @@
+import { mapApiError } from '@/shared/lib/api/errors'
 // Administrators choose only the default; visitors can always toggle the current document.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,8 +19,8 @@ export default function TocDisplaySettings() {
       })
       await useConfigStore.getState().loadConfig()
       toast.success(t('savedToast'))
-    } catch {
-      toast.error(t('updateError'))
+    } catch (err) {
+      toast.error(mapApiError(err, t('updateError')).message)
     } finally {
       setSaving(false)
     }

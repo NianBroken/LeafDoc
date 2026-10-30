@@ -9,6 +9,7 @@ import (
 	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/NianBroken/LeafDoc/internal/core/localization"
 	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
+	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
 	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
@@ -44,7 +45,12 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 			}
 			value, err := ctx.Opts.Preferences.Patch(patch)
 			if err != nil {
-				c.JSON(400, gin.H{"error": localization.Message("invalid payload"), "code": "invalid_preferences"})
+				if loc, ok := sharederrors.AsLocalizedError(err); ok {
+					httpinternal.RespondError(c, http.StatusBadRequest, loc.Code, loc.Message, loc.Template, loc.Args...)
+				} else {
+					r.log.Error("failed to save preferences", "error", err)
+					httpinternal.RespondError(c, http.StatusInternalServerError, ErrCodeInternal, "Failed to save preferences", "failed to save preferences")
+				}
 				return
 			}
 			c.JSON(200, value)

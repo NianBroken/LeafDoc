@@ -1,3 +1,4 @@
+import { mapApiError } from '@/shared/lib/api/errors'
 import { pinPage } from '@/shared/lib/api/pages'
 import { useTreeStore } from '@/features/tree/state/tree'
 import { useTranslation } from 'react-i18next'
@@ -16,8 +17,8 @@ export function PinnedSection() {
       const updated = await pinPage(id, version, false)
       setPinnedLocally(id, false, updated.version)
       toast.success(t('pinned.unpinSuccess'))
-    } catch {
-      toast.error(t('pinned.pinError'))
+    } catch (err) {
+      toast.error(mapApiError(err, t('pinned.pinError')).message)
     }
   }
 

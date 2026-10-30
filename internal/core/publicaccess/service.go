@@ -3,6 +3,7 @@ package publicaccess
 import (
 	"errors"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/defaults"
 
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
@@ -32,7 +33,7 @@ func NewEnvManaged(enabled bool) *Service {
 // back to) <storageDir>/public-access.json. The initial value is whatever the
 // database record currently holds; a missing record enables public reads.
 func NewSettingsManaged(storageDir string) (*Service, error) {
-	st, err := settings.New(storageDir, "public-access.json", 0o600, fileConfig{Enabled: true}, nil)
+	st, err := settings.New(storageDir, "public-access.json", 0o600, fileConfig{Enabled: defaults.PublicAccess}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public-access config: %w", err)
 	}

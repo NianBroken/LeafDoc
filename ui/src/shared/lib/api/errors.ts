@@ -14,6 +14,7 @@ export type ApiLocalizedErrorResponse = {
 export type ApiUiError = {
   message: string
   code?: string
+  fields?: Record<string, string>
 }
 
 export class ApiLocalizedError extends Error {
@@ -91,11 +92,18 @@ export function formatLocalizedErrorTemplate(
 }
 
 export function mapApiError(err: unknown, fallback: string): ApiUiError {
+  const validation = readFieldErrors(err)
+  if (validation)
+    return {
+      code: 'validation_error',
+      fields: validation,
+      message: Object.values(validation).join('；') || fallback,
+    }
   const localized = asApiLocalizedError(err)
   if (localized) {
     const translated = i18next.t(localized.template, {
       ns: 'errors',
-      defaultValue: localized.template || localized.message || fallback,
+      defaultValue: localized.message || fallback,
     })
     const message = formatLocalizedErrorTemplate(translated, localized.args)
 
@@ -110,12 +118,47 @@ export function mapApiError(err: unknown, fallback: string): ApiUiError {
   }
 }
 
-export function getErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof ApiLocalizedError) {
-    return err.message
+// Field messages remain attached to their inputs and also work in global notices.
+export function readFieldErrors(err: unknown): Record<string, string> | null {
+  if (
+    !err ||
+    typeof err !== 'object' ||
+    !('error' in err) ||
+    err.error !== 'validation_error' ||
+    !('fields' in err) ||
+    !Array.isArray(err.fields)
+  )
+    return null
+  const fields: Record<string, string> = {}
+  for (const item of err.fields) {
+    if (
+      item &&
+      typeof item.field === 'string' &&
+      typeof item.message === 'string'
+    )
+      fields[item.field] = i18next.t(item.message.toLowerCase(), {
+        ns: 'errors',
+        defaultValue: item.message,
+      })
   }
+  return fields
+}
+
+export function getErrorMessage(err: unknown, fallback: string): string {
+  const fields = readFieldErrors(err)
+  if (fields) return Object.values(fields).join('；') || fallback
   if (err instanceof Error && err.message) {
-    return err.message
+    if (
+      err instanceof TypeError &&
+      /fetch|network|load failed/i.test(err.message)
+    )
+      return i18next.t('network request failed', { ns: 'errors' })
+    if (err.name === 'TimeoutError')
+      return i18next.t('request timed out', { ns: 'errors' })
+    return i18next.t(err.message.toLowerCase(), {
+      ns: 'errors',
+      defaultValue: err.message,
+    })
   }
   return fallback
 }

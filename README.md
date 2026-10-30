@@ -18,9 +18,9 @@ LEAFDOC_MYSQL_PORT=3306
 LEAFDOC_MYSQL_DATABASE=leafdoc
 LEAFDOC_MYSQL_USER=your-mysql-user
 LEAFDOC_MYSQL_PASSWORD=your-mysql-password
-LEAFDOC_ADMIN_USERNAME=admin
-LEAFDOC_ADMIN_EMAIL=admin@localhost
-LEAFDOC_ADMIN_PASSWORD=your-initial-admin-password
+LEAFDOC_ADMIN_USERNAME=Nian
+LEAFDOC_ADMIN_EMAIL=Nian@LeafDoc.doc
+LEAFDOC_ADMIN_PASSWORD=Nian123456
 ```
 
 MySQL 主机填写主机名或 IP 地址，不使用 `http://` 前缀。目标数据库需要预先创建，并授予配置账户建表、读写和结构升级权限。连接使用 `utf8mb4` 和 UTC 时间。应用不会在数据库连接失败时使用其他存储方式。
@@ -98,3 +98,16 @@ Pop-Location
 ```
 
 实际部署还应通过浏览器验证登录、用户操作、站点名称、默认图片、五篇教程、链接、搜索、页面创建和编辑、历史版本及完整备份恢复。在不同窗口宽度下截图核对表头与内容对齐，执行数据库重启持久化检查，完成后保留后台服务运行。仅构建成功不能代替浏览器访问验证。
+
+## 初始化默认值与数据库结构
+
+初始管理员为 `Nian`，邮箱为 `Nian@LeafDoc.doc`，默认密码为 `Nian123456`。空库初始化创建该账号，后续启动保留已有账号及密码。站点使用中文、年月日日期、24 小时制、公开只读访问和默认隐藏目录。自动备份使用 `Asia/Shanghai` 时区，每天 `00:00` 执行，启动时备份及保留数量沿用系统默认设置。
+
+`internal/core/database/default.sql` 是唯一的 SQL 默认文件，包含全部表结构、字段说明、索引、关联说明及初始化值。Go 建表定义和服务默认值是生成来源。手动 SQL 初始化使用已选定的空 MySQL 数据库，完成后正常启动应用，由应用生成教程和运行期随机标识。
+
+```powershell
+go run ./cmd/schema-defaults
+go run ./cmd/schema-defaults -check
+```
+
+前端初始默认值由同一命令生成，不能单独修改生成文件。完整配置来源与空值含义见 `docs/configuration-defaults.md`。文件路径按运行目录自动解析，邮件及代理等可选功能在未配置时禁用，数据库连接与证书使用实际部署配置。

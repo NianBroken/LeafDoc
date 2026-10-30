@@ -1,6 +1,7 @@
 package main
 
 import (
+ "github.com/NianBroken/LeafDoc/internal/core/defaults"
 	"time"
 
 	"github.com/urfave/cli/v3"
@@ -28,6 +29,7 @@ func (o *frontendOptions) Flags() []cli.Flag {
 		&cli.StringFlag{
 			Name:        "default-language",
 			Destination: &o.defaultLanguage,
+ Value: defaults.Language,
 			Category:    catFrontend,
 			Usage:       "default UI language code (e.g. en, de); ignored unless the frontend ships it",
 			Sources:     envVars("LEAFDOC_DEFAULT_LANGUAGE"),

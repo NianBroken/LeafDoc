@@ -123,8 +123,8 @@ export function useSnapshotSettings() {
     try {
       await triggerNow()
       toast.success(t('toast.backupTriggered'))
-    } catch {
-      toast.error(t('toast.backupTriggerFailed'))
+    } catch (err) {
+      toast.error(mapApiError(err, t('toast.backupTriggerFailed')).message)
     } finally {
       setIsTriggering(false)
     }
@@ -135,8 +135,8 @@ export function useSnapshotSettings() {
     try {
       await remove(id)
       toast.success(t('toast.deleteSuccess'))
-    } catch {
-      toast.error(t('toast.deleteFailed'))
+    } catch (err) {
+      toast.error(mapApiError(err, t('toast.deleteFailed')).message)
     } finally {
       setDeletingId(null)
     }
