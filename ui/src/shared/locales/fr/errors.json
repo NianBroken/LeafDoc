@@ -3,14 +3,12 @@
   "admin user cannot be deleted": "L'utilisateur administrateur ne peut pas être supprimé",
   "api key not found": "Clé API introuvable",
   "api key request failed": "Échec de la requête de clé API",
-  "api keys are not available when authentication is disabled": "Les clés API ne sont pas disponibles lorsque l'authentification est désactivée",
   "could not generate a unique api key, please try again": "Impossible de générer une clé unique, veuillez réessayer",
   "cannot remove admin role from the last admin user": "Impossible de retirer le rôle d'administrateur au dernier administrateur. Attribuez d'abord le rôle d'administrateur à un autre utilisateur.",
   "asset %s already exists": "La ressource %s existe déjà",
   "asset %s not found": "Ressource %s introuvable",
   "asset extension must not change from %s": "L'extension de la ressource ne doit pas changer depuis %s",
   "asset request failed": "Échec de la requête de ressource",
-  "authentication is disabled": "L'authentification est désactivée",
   "authentication request failed": "Échec de la requête d'authentification",
   "avatar file too large": "Fichier d'avatar trop volumineux",
   "avatar request failed": "Échec de la requête d'avatar",
@@ -102,5 +100,6 @@
   "zip entry exceeds the per-file size limit": "Un fichier dans l'archive téléversée est trop volumineux",
   "decompressed zip contents exceed the total size limit": "L'archive téléversée est trop volumineuse une fois décompressée",
   "zip entry's decompression ratio exceeds the allowed maximum": "L'archive téléversée ressemble à une bombe de décompression",
-  "password change required": "Modifiez votre mot de passe initial avant de continuer"
+  "password change required": "Modifiez votre mot de passe initial avant de continuer",
+  "authentication service unavailable": "Service d’authentification indisponible"
 }

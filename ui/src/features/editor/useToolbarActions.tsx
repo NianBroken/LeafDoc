@@ -11,11 +11,9 @@ import { HotKeyDefinition, useHotKeysStore } from '@/shared/state/hotkeys'
 import { closeSearchPanel, searchPanelOpen } from '@codemirror/search'
 import type { EditorView } from '@codemirror/view'
 import { completionStatus } from '@codemirror/autocomplete'
-import { Save, X, Cloud } from 'lucide-react'
+import { Save, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useUserSettingsStore } from '@/shared/state/userSettings'
-import { useIsMobile } from '@/shared/lib/useIsMobile'
 import {
   type ToolbarButton,
   useToolbarStore,
@@ -49,13 +47,10 @@ export function useToolbarActions({
   const setButtons = useToolbarStore((state) => state.setButtons)
   const appMode = useAppMode()
   const readOnlyMode = useIsReadOnly()
-  const isMobile = useIsMobile()
   const registerHotkey = useHotKeysStore((s) => s.registerHotkey)
   const unregisterHotkey = useHotKeysStore((s) => s.unregisterHotkey)
 
   const dirty = usePageEditorStore(isDirtyState)
-  const autoSave = useUserSettingsStore((s) => s.autoSave)
-  const toggleAutoSave = useUserSettingsStore((s) => s.toggleAutoSave)
   const isMacOS =
     typeof navigator !== 'undefined' &&
     /Mac|iPhone|iPad|iPod/.test(navigator.platform)
@@ -89,30 +84,14 @@ export function useToolbarActions({
       },
     ]
 
-    if (!isMobile) {
-      buttons.push({
-        id: 'toggle-auto-save',
-        label: t('toolbar.autoSave'),
-        hotkey: '',
-        icon: <Cloud size={18} />,
-        variant: 'outline',
-        active: autoSave,
-        className: 'toolbar-button__toggle-auto-save',
-        action: toggleAutoSave,
-      })
-    }
-
     setButtons(buttons)
   }, [
     appMode,
     readOnlyMode,
-    isMobile,
     setButtons,
     dirty,
     savePage,
     closePage,
-    autoSave,
-    toggleAutoSave,
     isMacOS,
     t,
   ])

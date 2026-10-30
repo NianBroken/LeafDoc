@@ -6,15 +6,7 @@ export default class PreferencesSettingsPage {
 
   async goto() {
     await this.page.goto(toAppPath('/settings/preferences'));
-    await this.autoSaveCheckbox().waitFor({ state: 'visible' });
-  }
-
-  autoSaveCheckbox() {
-    return this.page.locator('button[data-testid="preferences-autosave-checkbox"]');
-  }
-
-  async toggleAutoSave() {
-    await this.autoSaveCheckbox().click();
+    await this.languageSelect().waitFor({ state: 'visible' });
   }
 
   pageTitle() {

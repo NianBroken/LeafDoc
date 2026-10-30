@@ -59,6 +59,14 @@ function makePage(id: string, path: string, parentId: string | null): PageNode {
 
 describe('MarkdownLink wikilink-notfound', () => {
   beforeEach(() => {
+    useSessionStore.setState({
+      user: {
+        id: 'editor-test',
+        username: 'editor',
+        email: 'editor@example.com',
+        role: 'editor',
+      },
+    })
     vi.clearAllMocks()
     useDialogsStore.setState({ dialogType: null, dialogProps: null })
     useTreeStore.setState({ byId: {}, byPath: {} })
@@ -236,6 +244,16 @@ describe('MarkdownLink web URLs', () => {
 })
 
 describe('MarkdownLink tree updates', () => {
+  beforeEach(() =>
+    useSessionStore.setState({
+      user: {
+        id: 'editor-test',
+        username: 'editor',
+        email: 'editor@example.com',
+        role: 'editor',
+      },
+    }),
+  )
   const target = makePage('t', 'target', null)
 
   beforeEach(() => {
@@ -309,7 +327,7 @@ describe('MarkdownLink tree updates', () => {
     const session = useSessionStore.getState()
 
     beforeEach(() => {
-      useConfigStore.setState({ publicAccess: true, authDisabled: false })
+      useConfigStore.setState({ publicAccess: true })
       useSessionStore.setState({ user: null })
       // BrokenLinkTooltip renders TooltipWrapper, which reads matchMedia.
       window.matchMedia = vi.fn().mockImplementation(() => ({
@@ -324,7 +342,6 @@ describe('MarkdownLink tree updates', () => {
       act(() => {
         useConfigStore.setState({
           publicAccess: config.publicAccess,
-          authDisabled: config.authDisabled,
         })
         useSessionStore.setState({ user: session.user })
       })

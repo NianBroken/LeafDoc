@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ErrCodeAuthDisabled                 = "auth_disabled"
+	ErrCodeAuthUnavailable              = "auth_unavailable"
 	ErrCodeAuthInvalidCredentials       = "auth_invalid_credentials"
 	ErrCodeAuthTokenExpired             = "auth_token_expired"
 	ErrCodeAuthUserNotFound             = "auth_user_not_found"
@@ -72,8 +72,8 @@ func respondWithAuthError(c *gin.Context, err error) {
 		respondWithAuthStatusError(c, http.StatusBadRequest, ErrCodeAuthLastAdminCannotBeDemoted, "Cannot remove admin role from the last admin user", "cannot remove admin role from the last admin user")
 	case errors.Is(err, coreauth.ErrEditorLimitReached):
 		respondWithAuthStatusError(c, http.StatusForbidden, ErrCodeAuthEditorLimitReached, "Editor limit reached for this plan", "editor limit reached for this plan")
-	case errors.Is(err, ErrAuthDisabled):
-		respondWithAuthStatusError(c, http.StatusForbidden, ErrCodeAuthDisabled, "Authentication is disabled", "authentication is disabled")
+	case errors.Is(err, ErrAuthUnavailable):
+		respondWithAuthStatusError(c, http.StatusInternalServerError, ErrCodeAuthUnavailable, "Authentication service unavailable", "authentication service unavailable")
 	case errors.Is(err, coreauth.ErrEmailDisabled):
 		respondWithAuthStatusError(c, http.StatusForbidden, ErrCodeAuthEmailDisabled, "Email is not configured on this server", "email disabled")
 	case errors.Is(err, coreauth.ErrEmailTokenInvalid):
@@ -102,7 +102,7 @@ func authErrorStatus(code string) int {
 		return http.StatusBadRequest
 	case ErrCodeAuthAccountLocked:
 		return http.StatusUnauthorized
-	case ErrCodeAuthDisabled, ErrCodeAuthForbidden:
+	case ErrCodeAuthUnavailable, ErrCodeAuthForbidden:
 		return http.StatusForbidden
 	case ErrCodeAuthUserStoreUnavailable:
 		return http.StatusServiceUnavailable

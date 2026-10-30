@@ -1,5 +1,4 @@
 import * as importAPI from '@/shared/lib/api/import'
-import { ApiError } from '@/shared/lib/api/client'
 import { mapApiError } from '@/shared/lib/api/errors'
 import i18next from '@/shared/lib/i18n'
 import { sleep } from '@/shared/lib/sleep'
@@ -37,7 +36,9 @@ async function pollImportPlanUntilSettled(
     await sleep(IMPORT_POLL_INTERVAL_MS)
 
     try {
-      currentPlan = await importAPI.getImportPlan()
+      const nextPlan = await importAPI.getImportPlan()
+      if (!nextPlan) throw new Error(t('toast.loadPlanErrorFallback'))
+      currentPlan = nextPlan
       consecutivePollErrors = 0
       set({
         importPlan: currentPlan,
@@ -79,6 +80,10 @@ export const useImportStore = create<ImportStore>((set, get) => ({
     set({ loadingImportPlan: true })
     try {
       let importPlan = await importAPI.getImportPlan()
+      if (!importPlan) {
+        set({ importPlan: null, importResult: null })
+        return
+      }
       set({
         importPlan,
         importResult: importPlan.execution_result ?? null,
@@ -93,15 +98,7 @@ export const useImportStore = create<ImportStore>((set, get) => ({
         })
       }
     } catch (err) {
-      const mapped = mapApiError(err, t('toast.loadPlanErrorFallback'))
-      if (
-        (err instanceof ApiError && err.status === 404) ||
-        mapped.code === 'importer_no_plan'
-      ) {
-        set({ importPlan: null, importResult: null })
-        return
-      }
-      toast.error(mapped.message)
+      toast.error(mapApiError(err, t('toast.loadPlanErrorFallback')).message)
       return
     } finally {
       set({ loadingImportPlan: false, executingImportPlan: false })

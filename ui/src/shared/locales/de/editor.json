@@ -61,9 +61,7 @@
     "heading2": "Überschrift 2",
     "heading3": "Überschrift 3",
     "insertTable": "Tabelle einfügen (3×3)",
-    "lineWrap": "Zeilenumbruch",
-    "autoSave": "Automatisches Speichern",
-    "autoSavePaused": "pausiert"
+    "lineWrap": "Zeilenumbruch"
   },
   "pageEditor": {
     "savedToast": "Seite erfolgreich gespeichert",

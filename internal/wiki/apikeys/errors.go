@@ -49,7 +49,7 @@ func respondWithAPIKeyError(c *gin.Context, err error) {
 	case errors.Is(err, coreauth.ErrAPIKeyPrefixCollision):
 		respondWithAPIKeyStatusError(c, http.StatusConflict, ErrCodeAPIKeyPrefixCollision, "Could not generate a unique key, please try again", "could not generate a unique api key, please try again")
 	case errors.Is(err, ErrAPIKeysDisabled):
-		respondWithAPIKeyStatusError(c, http.StatusForbidden, ErrCodeAPIKeysDisabled, "API keys are not available when authentication is disabled", "api keys are not available when authentication is disabled")
+		respondWithAPIKeyStatusError(c, http.StatusForbidden, ErrCodeAPIKeysDisabled, "API key management is disabled", "api key management is disabled")
 	default:
 		respondWithAPIKeyStatusError(c, http.StatusInternalServerError, ErrCodeAPIKeyInternalError, "API key request failed", "api key request failed")
 	}

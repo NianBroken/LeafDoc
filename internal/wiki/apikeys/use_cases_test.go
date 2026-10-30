@@ -234,10 +234,8 @@ func TestRevokeAPIKey_PropagatesNotFound(t *testing.T) {
 	}
 }
 
-// ─── nil-service defense in depth (mirrors wiki/auth's ErrAuthDisabled guard) ─
 //
 // A nil *coreauth.APIKeyService means the Wiki composition root built it
-// under --disable-auth (see wiki.go's initAuth). The HTTP routes are already
 // RequireAdmin-gated so this should be unreachable via the API, but each use
 // case defends its own invariant rather than trusting the caller.
 

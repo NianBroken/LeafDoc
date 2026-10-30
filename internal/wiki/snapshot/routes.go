@@ -41,12 +41,11 @@ func NewRoutes(manager *snapshotSvc.Manager, scheduler *snapshotSvc.Scheduler, a
 
 // RegisterRoutes implements RouteRegistrar.
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
-	opts := ctx.Opts
 
 	authGroup := ctx.APIAuthGroup(r.authService)
 
 	adminGroup := authGroup.Group("/admin")
-	adminGroup.Use(authmw.RequireAdmin(opts.AuthDisabled))
+	adminGroup.Use(authmw.RequireAdmin())
 
 	adminGroup.GET("/snapshot/status", r.handleStatus)
 	adminGroup.PUT("/snapshot/settings", r.handleUpdateSettings)

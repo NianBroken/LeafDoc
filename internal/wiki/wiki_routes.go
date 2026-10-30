@@ -281,6 +281,13 @@ func (w *Wiki) FrontendConfig() httpinternal.FrontendConfig {
 			}
 			return cfg.SiteName
 		},
+		GetLogoFile: func() string {
+			cfg, err := w.branding.GetBranding()
+			if err != nil || cfg == nil {
+				return ""
+			}
+			return cfg.LogoFile
+		},
 		GetFaviconFile: func() string {
 			cfg, err := w.branding.GetBranding()
 			if err != nil || cfg == nil {

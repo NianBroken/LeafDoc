@@ -27,12 +27,11 @@ func NewRoutes(triggerUC *TriggerResyncUseCase, statusUC *GetResyncStatusUseCase
 
 // RegisterRoutes implements RouteRegistrar.
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
-	opts := ctx.Opts
 
 	authGroup := ctx.APIAuthGroup(r.authService)
 
 	adminGroup := authGroup.Group("/admin")
-	adminGroup.Use(authmw.RequireAdmin(opts.AuthDisabled))
+	adminGroup.Use(authmw.RequireAdmin())
 
 	adminGroup.POST("/resync", r.handleTriggerResync)
 	adminGroup.GET("/resync/status", r.handleResyncStatus)

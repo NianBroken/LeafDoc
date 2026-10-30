@@ -1608,18 +1608,8 @@ func TestCancelImportPlanEndpoint(t *testing.T) {
 	}
 
 	getRec := authenticatedRequest(t, router, http.MethodGet, "/api/import/plan", nil)
-	if getRec.Code != http.StatusNotFound {
-		t.Fatalf("Expected status 404 when fetching canceled import plan, got %d: %s", getRec.Code, getRec.Body.String())
-	}
-
-	var resp map[string]interface{}
-	if err := json.Unmarshal(getRec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("Invalid JSON response: %v", err)
-	}
-
-	errObj, ok := resp["error"].(map[string]interface{})
-	if !ok || errObj["code"] == nil {
-		t.Fatalf("Expected structured error response after canceling import plan, got: %v", resp)
+	if getRec.Code != http.StatusOK || strings.TrimSpace(getRec.Body.String()) != "null" {
+		t.Fatalf("Expected successful empty plan after cancellation, got %d: %s", getRec.Code, getRec.Body.String())
 	}
 }
 
@@ -4361,46 +4351,6 @@ func TestRequireAdminMiddleware(t *testing.T) {
 	}
 }
 
-func TestRequireAdminMiddleware_BlockedWhenAuthDisabled(t *testing.T) {
-	testutil.ResetMySQL(t)
-	w := createWikiTestInstance(t)
-	defer testutil.WrapCloseWithErrorCheck(w.Close, t)
-
-	// Create router with auth disabled
-	router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
-		o.AuthDisabled = true
-	})
-
-	// Test POST /api/users (admin-only endpoint)
-	createUserBody := `{"username": "testuser", "email": "test@example.com", "password": "password", "role": "editor"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/users", strings.NewReader(createUserBody))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("Expected 403 Forbidden for POST /api/users when auth disabled, got %d - %s", rec.Code, rec.Body.String())
-	}
-
-	// Test GET /api/users (admin-only endpoint)
-	req = httptest.NewRequest(http.MethodGet, "/api/users", nil)
-	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("Expected 403 Forbidden for GET /api/users when auth disabled, got %d - %s", rec.Code, rec.Body.String())
-	}
-
-	// Test DELETE /api/users/:id (admin-only endpoint)
-	req = httptest.NewRequest(http.MethodDelete, "/api/users/some-user-id", nil)
-	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("Expected 403 Forbidden for DELETE /api/users/:id when auth disabled, got %d - %s", rec.Code, rec.Body.String())
-	}
-}
-
 func TestRequireAuthMiddleware_Unauthorized(t *testing.T) {
 	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
@@ -4742,7 +4692,6 @@ func TestIndexingStatusEndpoint(t *testing.T) {
 }
 
 // uploadTestAsset is a helper function that creates a page, uploads an asset, and returns the asset URL and auth cookies.
-// If needsAuth is true, it will obtain authentication cookies; otherwise it will get CSRF token only (for AuthDisabled mode).
 func uploadTestAsset(t *testing.T, router *gin.Engine, w *wiki.Wiki, content string, needsAuth bool) (assetURL string, cookies []*http.Cookie) {
 	// Create a page
 	pageID := ""
@@ -4793,7 +4742,6 @@ func uploadTestAsset(t *testing.T, router *gin.Engine, w *wiki.Wiki, content str
 		createReq := httptest.NewRequest(http.MethodPost, "/api/pages", strings.NewReader(createBody))
 		createReq.Header.Set("Content-Type", "application/json")
 
-		// Get CSRF token only (for AuthDisabled mode)
 		configReq := httptest.NewRequest(http.MethodGet, "/api/config", nil)
 		configRec := httptest.NewRecorder()
 		router.ServeHTTP(configRec, configReq)
@@ -4863,7 +4811,7 @@ func TestAssetAccessControl(t *testing.T) {
 		w := createWikiTestInstance(t)
 		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
-		// Create router with PublicAccess=false and AuthDisabled=false
+		// Create router with PublicAccess=false and authentication required
 		router := newTestRouter(w, nil)
 
 		// Upload an asset (with auth)
@@ -4884,7 +4832,7 @@ func TestAssetAccessControl(t *testing.T) {
 		w := createWikiTestInstance(t)
 		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
 
-		// Create router with PublicAccess=false and AuthDisabled=false
+		// Create router with PublicAccess=false and authentication required
 		router := newTestRouter(w, nil)
 
 		// Upload an asset (with auth) and get cookies
@@ -4939,34 +4887,6 @@ func TestAssetAccessControl(t *testing.T) {
 		}
 	})
 
-	t.Run("AuthDisabledMode_UnauthenticatedAccess_Returns200", func(t *testing.T) {
-		w := createWikiTestInstance(t)
-		defer testutil.WrapCloseWithErrorCheck(w.Close, t)
-
-		// Create router with AuthDisabled=true
-		router := newTestRouter(w, func(o *httpinternal.RouterOptions) {
-			o.AuthDisabled = true
-		})
-
-		// Upload an asset (no auth needed, but CSRF token still required)
-		assetURL, _ := uploadTestAsset(t, router, w, "test content no auth", false)
-
-		// Try to access the asset without authentication
-		assetReq := httptest.NewRequest(http.MethodGet, assetURL, nil)
-		assetRec := httptest.NewRecorder()
-		router.ServeHTTP(assetRec, assetReq)
-
-		// Should return 200 OK when auth is disabled
-		if assetRec.Code != http.StatusOK {
-			t.Errorf("Expected 200 OK when accessing asset without auth when AuthDisabled=true, got %d", assetRec.Code)
-		}
-
-		// Verify content
-		content := assetRec.Body.String()
-		if content != "test content no auth" {
-			t.Errorf("Expected 'test content no auth', got '%s'", content)
-		}
-	})
 }
 
 func TestBuildCustomStylesheetTag(t *testing.T) {

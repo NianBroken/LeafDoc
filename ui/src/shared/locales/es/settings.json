@@ -24,10 +24,7 @@
     "preferences": {
       "sectionTitle": "Preferencias",
       "sectionDescription": "Preferencias de edición sincronizadas en tus dispositivos.",
-      "autoSaveLabel": "Activar autoguardado",
-      "autoSaveDescription": "Guarda automáticamente tus cambios mientras editas una página.",
       "savedToast": "Preferencia guardada",
-      "autoSaveToggleError": "No se pudo actualizar el ajuste de autoguardado",
       "languageLabel": "Idioma",
       "languageChangeError": "No se pudo actualizar el ajuste de idioma",
       "dateFormatLabel": "Formato de fecha",

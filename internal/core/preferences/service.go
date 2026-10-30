@@ -13,7 +13,6 @@ type Config struct {
 	Language   string `json:"language"`
 	DateFormat string `json:"dateFormat"`
 	TimeFormat string `json:"timeFormat"`
-	AutoSave   bool   `json:"autoSave"`
 }
 
 // Service serializes partial updates so concurrent administrators cannot lose fields.
@@ -23,17 +22,27 @@ type Service struct {
 }
 
 func Defaults() Config {
-	return Config{Language: "zh", DateFormat: "iso", TimeFormat: "24h", AutoSave: true}
+	return Config{Language: "zh", DateFormat: "iso", TimeFormat: "24h"}
 }
 func New(dir string) (*Service, error) {
 	st, err := settings.New(dir, "preferences.json", 0600, Defaults(), nil)
 	if err != nil {
 		return nil, err
 	}
+	if err := st.Put(st.Get()); err != nil {
+		return nil, err
+	}
 	return &Service{store: st}, nil
 }
-func (s *Service) Get() Config   { return s.store.Get() }
-func (s *Service) Reload() error { return s.store.Reload() }
+func (s *Service) Get() Config { return s.store.Get() }
+func (s *Service) Reload() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.store.Reload(); err != nil {
+		return err
+	}
+	return s.store.Put(s.store.Get())
+}
 
 // Patch applies explicit fields only; format values never depend on device locale.
 func (s *Service) Patch(patch map[string]any) (Config, error) {
@@ -60,12 +69,6 @@ func (s *Service) Patch(patch map[string]any) (Config, error) {
 				return v, fmt.Errorf("invalid time format")
 			}
 			v.TimeFormat = val
-		case "autoSave":
-			val, ok := x.(bool)
-			if !ok {
-				return v, fmt.Errorf("invalid autosave")
-			}
-			v.AutoSave = val
 		default:
 			return v, fmt.Errorf("unknown preference")
 		}

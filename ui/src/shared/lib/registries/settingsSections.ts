@@ -18,7 +18,6 @@ import {
 
 export interface SettingsSectionContext {
   role: string | undefined
-  authDisabled: boolean
   snapshotEnabled: boolean
   enableApiKeyManagement: boolean
   userManagementUrl: string | undefined
@@ -44,12 +43,7 @@ export function isSectionVisible(
   section: SettingsSection,
   ctx: SettingsSectionContext,
 ): boolean {
-  // With auth disabled there are no accounts/roles at all (the "public
-  // editor" deployment mode) — the old flat routes never gated on role in
-  // that mode either, and it's the only way an auth-disabled instance can
-  // reach e.g. branding settings, so role checks are skipped rather than
-  // locking every section out.
-  const roleOk = ctx.authDisabled || hasRole(ctx.role, section.roles)
+  const roleOk = hasRole(ctx.role, section.roles)
   if (!roleOk) return false
   return section.isEnabled ? section.isEnabled(ctx) : true
 }
@@ -150,7 +144,6 @@ export const settingsSections: SettingsSection[] = [
 
 export function useSettingsSectionContext(): SettingsSectionContext {
   const role = useSessionStore((s) => s.user?.role)
-  const authDisabled = useConfigStore((s) => s.authDisabled)
   const snapshotEnabled = useConfigStore((s) => s.snapshotEnabled)
   const enableApiKeyManagement = useConfigStore((s) => s.enableApiKeyManagement)
   const userManagementUrl = useConfigStore((s) => s.userManagementUrl)
@@ -158,7 +151,6 @@ export function useSettingsSectionContext(): SettingsSectionContext {
 
   return {
     role,
-    authDisabled,
     snapshotEnabled,
     enableApiKeyManagement,
     userManagementUrl: userManagementUrl || undefined,

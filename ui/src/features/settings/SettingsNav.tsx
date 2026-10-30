@@ -1,6 +1,5 @@
 import {
   ListView,
-  ListViewHeader,
   ListViewItem,
   ListViewList,
 } from '@/shared/components/ListView'
@@ -9,7 +8,6 @@ import {
   settingsSections,
   useSettingsSectionContext,
 } from '@/shared/lib/registries/settingsSections'
-import { Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 
@@ -24,16 +22,7 @@ export default function SettingsNav() {
   )
 
   return (
-    <ListView
-      header={
-        <ListViewHeader>
-          <Settings size={16} />
-          {t('nav.title')}
-        </ListViewHeader>
-      }
-      className="settings-nav"
-      testId="settings-nav"
-    >
+    <ListView className="settings-nav" testId="settings-nav">
       <ListViewList>
         {visibleSections.map((section) => {
           const Icon = section.icon

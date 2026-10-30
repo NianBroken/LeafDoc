@@ -19,13 +19,13 @@ type flipGate struct{ enabled bool }
 
 func (g *flipGate) Enabled() bool { return g.enabled }
 
-func newAuthOrPublicRouter(auth *coreauth.AuthService, authCookies *authmw.AuthCookies, authDisabled bool, gate publicaccess.ReadGate, inject gin.HandlerFunc) *gin.Engine {
+func newAuthOrPublicRouter(auth *coreauth.AuthService, authCookies *authmw.AuthCookies, gate publicaccess.ReadGate, inject gin.HandlerFunc) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	if inject != nil {
 		r.Use(inject)
 	}
-	r.Use(authmw.RequireAuthOrPublicRead(auth, authCookies, authDisabled, gate))
+	r.Use(authmw.RequireAuthOrPublicRead(auth, authCookies, gate))
 	r.GET("/test", func(c *gin.Context) {
 		if v, ok := c.Get("user"); ok {
 			c.JSON(http.StatusOK, gin.H{"user": v.(*coreauth.User).Username})
@@ -53,7 +53,7 @@ func TestRequireAuthOrPublicRead_UserAlreadyInContext_Passes(t *testing.T) {
 		c.Set("user", &coreauth.User{ID: "x", Username: "proxied", Role: coreauth.RoleEditor})
 		c.Next()
 	}
-	r := newAuthOrPublicRouter(nil, authCookies, false, &flipGate{enabled: false}, inject)
+	r := newAuthOrPublicRouter(nil, authCookies, &flipGate{enabled: false}, inject)
 
 	w := doGet(r, nil)
 	if w.Code != http.StatusOK || w.Body.String() != `{"user":"proxied"}` {
@@ -64,7 +64,7 @@ func TestRequireAuthOrPublicRead_UserAlreadyInContext_Passes(t *testing.T) {
 func TestRequireAuthOrPublicRead_NoToken_PublicOff_Returns401(t *testing.T) {
 	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
-	r := newAuthOrPublicRouter(nil, authCookies, false, &flipGate{enabled: false}, nil)
+	r := newAuthOrPublicRouter(nil, authCookies, &flipGate{enabled: false}, nil)
 
 	w := doGet(r, nil)
 	if w.Code != http.StatusUnauthorized {
@@ -78,7 +78,7 @@ func TestRequireAuthOrPublicRead_NoToken_PublicOff_Returns401(t *testing.T) {
 func TestRequireAuthOrPublicRead_NoToken_PublicOn_PassesAnonymously(t *testing.T) {
 	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
-	r := newAuthOrPublicRouter(nil, authCookies, false, &flipGate{enabled: true}, nil)
+	r := newAuthOrPublicRouter(nil, authCookies, &flipGate{enabled: true}, nil)
 
 	w := doGet(r, nil)
 	if w.Code != http.StatusOK || w.Body.String() != `{"user":null}` {
@@ -91,7 +91,7 @@ func TestRequireAuthOrPublicRead_InvalidToken_PublicOff_Returns401(t *testing.T)
 	fixture := createTestAuthFixture(t)
 	cleanupWithErrorCheck(t, "auth fixture", fixture.close)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
-	r := newAuthOrPublicRouter(fixture.auth, authCookies, false, &flipGate{enabled: false}, nil)
+	r := newAuthOrPublicRouter(fixture.auth, authCookies, &flipGate{enabled: false}, nil)
 
 	w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: "bogus"})
 	if w.Code != http.StatusUnauthorized {
@@ -107,7 +107,7 @@ func TestRequireAuthOrPublicRead_InvalidToken_PublicOn_PassesAnonymously(t *test
 	fixture := createTestAuthFixture(t)
 	cleanupWithErrorCheck(t, "auth fixture", fixture.close)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
-	r := newAuthOrPublicRouter(fixture.auth, authCookies, false, &flipGate{enabled: true}, nil)
+	r := newAuthOrPublicRouter(fixture.auth, authCookies, &flipGate{enabled: true}, nil)
 
 	w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: "bogus"})
 	if w.Code != http.StatusOK || w.Body.String() != `{"user":null}` {
@@ -126,7 +126,7 @@ func TestRequireAuthOrPublicRead_ValidToken_AttachesUser_BothModes(t *testing.T)
 	}
 
 	for _, public := range []bool{false, true} {
-		r := newAuthOrPublicRouter(fixture.auth, authCookies, false, &flipGate{enabled: public}, nil)
+		r := newAuthOrPublicRouter(fixture.auth, authCookies, &flipGate{enabled: public}, nil)
 		w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: tok.Token})
 		if w.Code != http.StatusOK || w.Body.String() != `{"user":"admin"}` {
 			t.Fatalf("public=%v: expected 200 with admin user attached, got %d %s", public, w.Code, w.Body.String())
@@ -139,7 +139,7 @@ func TestRequireAuthOrPublicRead_NilAuthServiceWithToken_Returns500(t *testing.T
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	// Even in public mode a present token with no authService is a
 	// misconfiguration, not a fall-through to anonymous.
-	r := newAuthOrPublicRouter(nil, authCookies, false, &flipGate{enabled: true}, nil)
+	r := newAuthOrPublicRouter(nil, authCookies, &flipGate{enabled: true}, nil)
 
 	w := doGet(r, &http.Cookie{Name: "leafdoc_at", Value: "something"})
 	if w.Code != http.StatusInternalServerError {
@@ -147,24 +147,10 @@ func TestRequireAuthOrPublicRead_NilAuthServiceWithToken_Returns500(t *testing.T
 	}
 }
 
-func TestRequireAuthOrPublicRead_AuthDisabled_NoUser_PublicOff_Returns401(t *testing.T) {
-	testutil.ResetMySQL(t)
-	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
-	r := newAuthOrPublicRouter(nil, authCookies, true, &flipGate{enabled: false}, nil)
-
-	w := doGet(r, nil)
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", w.Code)
-	}
-	if w.Body.String() != `{"error":"User not authenticated and auth is disabled"}` {
-		t.Fatalf("expected RequireAuth's auth-disabled body, got %s", w.Body.String())
-	}
-}
-
 func TestRequireAuthOrPublicRead_NilGate_TreatedAsPublicOff(t *testing.T) {
 	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
-	r := newAuthOrPublicRouter(nil, authCookies, false, nil, nil)
+	r := newAuthOrPublicRouter(nil, authCookies, nil, nil)
 
 	w := doGet(r, nil)
 	if w.Code != http.StatusUnauthorized {
@@ -180,7 +166,7 @@ func TestRequireAuthOrPublicRead_GateFlipsAtRuntime_SameRouterChangesBehaviour(t
 	testutil.ResetMySQL(t)
 	authCookies := authmw.NewAuthCookies(true, time.Hour, 24*time.Hour)
 	gate := &flipGate{enabled: false}
-	r := newAuthOrPublicRouter(nil, authCookies, false, gate, nil)
+	r := newAuthOrPublicRouter(nil, authCookies, gate, nil)
 
 	if w := doGet(r, nil); w.Code != http.StatusUnauthorized {
 		t.Fatalf("public off: expected 401, got %d", w.Code)

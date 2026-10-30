@@ -26,7 +26,7 @@ const (
 )
 
 const rootUsageText = `leafdoc --jwt-secret <SECRET> --admin-password <PASSWORD> [--host <HOST>] [--port <PORT>] [--unix-socket <PATH>] [--data-dir <DIR>]
-leafdoc --disable-auth [--host <HOST>] [--port <PORT>] [--unix-socket <PATH>] [--data-dir <DIR>]
+leafdoc [--host <HOST>] [--port <PORT>] [--unix-socket <PATH>] [--data-dir <DIR>]
 leafdoc reset-admin-password
 leafdoc [--data-dir <DIR>] restore-snapshot <path-to-zip>
 leafdoc --help`

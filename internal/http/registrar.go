@@ -23,31 +23,23 @@ type RouterContext struct {
 	Opts RouterOptions
 }
 
-// APIAuthGroup returns an "/api" group that always requires an authenticated
-// user: InjectPublicEditor (for --disable-auth), RequireAuth, then CSRF. This
-// is the one place that middleware chain is defined; domain registrars call it
-// instead of repeating the three .Use lines.
+// APIAuthGroup requires a validated identity and applies CSRF protection to writes.
+// Domain registrars share this chain rather than defining separate access rules.
 func (ctx RouterContext) APIAuthGroup(authService *coreauth.AuthService) *gin.RouterGroup {
 	g := ctx.Base.Group("/api")
 	g.Use(
-		authmiddleware.InjectPublicEditor(ctx.Opts.AuthDisabled),
-		authmiddleware.RequireAuth(authService, ctx.AuthCookies, ctx.Opts.AuthDisabled),
+		authmiddleware.RequireAuth(authService, ctx.AuthCookies),
 		security.CSRFMiddleware(ctx.CSRFCookie),
 	)
 	return g
 }
 
-// APIReadGroup returns an "/api" group for read-only endpoints that may be
-// exposed anonymously when "public mode" is on: InjectPublicEditor,
-// RequireAuthOrPublicRead (attaches the user if present; requires one only
-// when public mode is off), then CSRF (a no-op for the GET verbs these
-// endpoints use). This is the single definition of what guards public-capable
-// reads.
+// APIReadGroup allows anonymous reads only while public access is enabled.
+// Authenticated readers retain their identity and password-change restrictions.
 func (ctx RouterContext) APIReadGroup(authService *coreauth.AuthService) *gin.RouterGroup {
 	g := ctx.Base.Group("/api")
 	g.Use(
-		authmiddleware.InjectPublicEditor(ctx.Opts.AuthDisabled),
-		authmiddleware.RequireAuthOrPublicRead(authService, ctx.AuthCookies, ctx.Opts.AuthDisabled, ctx.Opts.PublicAccess),
+		authmiddleware.RequireAuthOrPublicRead(authService, ctx.AuthCookies, ctx.Opts.PublicAccess),
 		security.CSRFMiddleware(ctx.CSRFCookie),
 	)
 	return g

@@ -17,20 +17,17 @@ beforeEach(() => {
 
 describe('PreferencesPanel', () => {
   const setLanguage = vi.fn().mockResolvedValue(undefined)
-  const toggleAutoSave = vi.fn().mockResolvedValue(undefined)
   const setDateFormat = vi.fn().mockResolvedValue(undefined)
   const setTimeFormat = vi.fn().mockResolvedValue(undefined)
 
   beforeEach(() => {
     vi.clearAllMocks()
     useUserSettingsStore.setState({
-      autoSave: true,
       language: 'en',
       dateFormat: 'iso',
       timeFormat: '24h',
       loaded: true,
       setLanguage,
-      toggleAutoSave,
       setDateFormat,
       setTimeFormat,
     })

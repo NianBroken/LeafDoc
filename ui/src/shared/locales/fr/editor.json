@@ -61,9 +61,7 @@
     "heading2": "Titre 2",
     "heading3": "Titre 3",
     "insertTable": "Insérer un tableau (3×3)",
-    "lineWrap": "Retour à la ligne",
-    "autoSave": "Enregistrement auto",
-    "autoSavePaused": "en pause"
+    "lineWrap": "Retour à la ligne"
   },
   "pageEditor": {
     "savedToast": "Page enregistrée avec succès",

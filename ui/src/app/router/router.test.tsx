@@ -8,8 +8,8 @@ import ExternalRedirect from '@/features/auth/ExternalRedirect'
 import { ForgotPasswordForm, LoginForm } from '@/app/router/lazy-routes'
 import { createLeafDocRouter } from '@/app/router/router'
 
-function loginRouteElementType(authDisabled: boolean, loginUrl: string) {
-  const router = createLeafDocRouter(authDisabled, false, loginUrl, true)
+function loginRouteElementType(loginUrl: string) {
+  const router = createLeafDocRouter(false, loginUrl, true)
   const loginRoute = router.routes.find((route) => route.path === '/login')
   const element = loginRoute?.element
   if (!isValidElement(element)) {
@@ -19,25 +19,19 @@ function loginRouteElementType(authDisabled: boolean, loginUrl: string) {
 }
 
 describe('createLeafDocRouter /login route', () => {
-  it('navigates home when auth is disabled, even if loginUrl is configured', () => {
-    expect(loginRouteElementType(true, 'https://idp.example.com/login')).toBe(
-      Navigate,
-    )
-  })
-
   it('redirects externally when loginUrl is configured and auth is enabled', () => {
-    expect(loginRouteElementType(false, 'https://idp.example.com/login')).toBe(
+    expect(loginRouteElementType('https://idp.example.com/login')).toBe(
       ExternalRedirect,
     )
   })
 
   it('renders the local login form otherwise', () => {
-    expect(loginRouteElementType(false, '')).toBe(LoginForm)
+    expect(loginRouteElementType('')).toBe(LoginForm)
   })
 })
 
 function forgotPasswordRouteElementType(smtpEnabled: boolean) {
-  const router = createLeafDocRouter(false, false, '', smtpEnabled)
+  const router = createLeafDocRouter(false, '', smtpEnabled)
   const route = router.routes.find((r) => r.path === '/forgot-password')
   const element = route?.element
   if (!isValidElement(element)) {
@@ -58,7 +52,7 @@ describe('createLeafDocRouter /forgot-password route', () => {
 
 describe('createLeafDocRouter /settings route', () => {
   it('checks settings access against live session state', () => {
-    const router = createLeafDocRouter(false, false, '', true)
+    const router = createLeafDocRouter(false, '', true)
     const route = router.routes.find((r) => r.path === '/settings')
     const element = route?.element
     if (!isValidElement(element)) {
@@ -68,7 +62,7 @@ describe('createLeafDocRouter /settings route', () => {
   })
 
   it('redirects the compat /users route to /settings/users', () => {
-    const router = createLeafDocRouter(false, false, '', true)
+    const router = createLeafDocRouter(false, '', true)
     const route = router.routes.find((r) => r.path === '/users')
     const element = route?.element
     if (!isValidElement(element)) {
@@ -79,7 +73,7 @@ describe('createLeafDocRouter /settings route', () => {
   })
 
   it('gates every settings section route through SettingsSectionGuard — regression for the pre-registry backup/snapshots direct-URL bypass', () => {
-    const router = createLeafDocRouter(false, false, '', true)
+    const router = createLeafDocRouter(false, '', true)
     const settingsRoute = router.routes.find((r) => r.path === '/settings')
     const children = settingsRoute?.children ?? []
 

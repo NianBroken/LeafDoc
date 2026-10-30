@@ -3,14 +3,12 @@
   "admin user cannot be deleted": "Admin user cannot be deleted",
   "api key not found": "API key not found",
   "api key request failed": "API key request failed",
-  "api keys are not available when authentication is disabled": "API keys are not available when authentication is disabled",
   "could not generate a unique api key, please try again": "Could not generate a unique key, please try again",
   "cannot remove admin role from the last admin user": "Cannot remove the admin role from the last admin. Assign admin to another user first.",
   "asset %s already exists": "Asset %s already exists",
   "asset %s not found": "Asset %s not found",
   "asset extension must not change from %s": "Asset extension must not change from %s",
   "asset request failed": "Asset request failed",
-  "authentication is disabled": "Authentication is disabled",
   "authentication request failed": "Authentication request failed",
   "avatar file too large": "Avatar file too large",
   "avatar request failed": "Avatar request failed",
@@ -102,5 +100,6 @@
   "zip entry exceeds the per-file size limit": "A file inside the uploaded archive is too large",
   "decompressed zip contents exceed the total size limit": "The uploaded archive is too large once decompressed",
   "zip entry's decompression ratio exceeds the allowed maximum": "The uploaded archive looks like a decompression bomb",
-  "password change required": "Change your initial password before continuing"
+  "password change required": "Change your initial password before continuing",
+  "authentication service unavailable": "Authentication service unavailable"
 }

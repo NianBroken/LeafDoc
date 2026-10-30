@@ -43,12 +43,11 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 // another API key (an admin-scoped key must not be able to enumerate or
 // manage every key in the system).
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
-	opts := ctx.Opts
 	authGroup := ctx.APIAuthGroup(r.authService)
 
-	authGroup.POST("/api-keys", authmw.RequireCookieSession(), authmw.RequireAdmin(opts.AuthDisabled), r.handleCreateAPIKey)
-	authGroup.GET("/api-keys", authmw.RequireCookieSession(), authmw.RequireAdmin(opts.AuthDisabled), r.handleListAPIKeys)
-	authGroup.DELETE("/api-keys/:id", authmw.RequireCookieSession(), authmw.RequireAdmin(opts.AuthDisabled), r.handleRevokeAPIKey)
+	authGroup.POST("/api-keys", authmw.RequireCookieSession(), authmw.RequireAdmin(), r.handleCreateAPIKey)
+	authGroup.GET("/api-keys", authmw.RequireCookieSession(), authmw.RequireAdmin(), r.handleListAPIKeys)
+	authGroup.DELETE("/api-keys/:id", authmw.RequireCookieSession(), authmw.RequireAdmin(), r.handleRevokeAPIKey)
 }
 
 // ─── Handlers ───────────────────────────────────────────────────────────────

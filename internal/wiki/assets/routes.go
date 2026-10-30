@@ -51,16 +51,13 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	opts := ctx.Opts
 
-	// Static /assets files share the read gate (public mode / --disable-auth /
-	// session), but on their own path and without CSRF (GET-only static FS),
-	// so this one group is wired inline rather than via APIReadGroup.
+	// Static assets share the public read gate on a separate GET-only path.
 	if r.assetsDir != "" {
 		assetsFS := gin.Dir(r.assetsDir, false)
 		assetsGroup := ctx.Base.Group("/assets")
 		assetsGroup.Use(
 			assetServeHeaders(),
-			authmw.InjectPublicEditor(opts.AuthDisabled),
-			authmw.RequireAuthOrPublicRead(r.authService, ctx.AuthCookies, opts.AuthDisabled, opts.PublicAccess),
+			authmw.RequireAuthOrPublicRead(r.authService, ctx.AuthCookies, opts.PublicAccess),
 		)
 		assetsGroup.StaticFS("/", assetsFS)
 	}

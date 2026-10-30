@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import { runtimeHtml } from './runtimeHtml'
 import path from 'path'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
@@ -95,6 +96,7 @@ export default defineConfig(({ command }: ConfigEnv) => ({
   base: command === 'build' ? './' : '/',
   plugins: [
     react(),
+    runtimeHtml(backendTarget),
     mermaidDistribution(),
     {
       name: 'release-metadata',

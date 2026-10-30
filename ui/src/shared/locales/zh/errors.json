@@ -3,14 +3,12 @@
   "admin user cannot be deleted": "管理员账户不能被删除",
   "api key not found": "未找到 API 密钥",
   "api key request failed": "API 密钥请求失败",
-  "api keys are not available when authentication is disabled": "关闭认证后不可使用 API 密钥",
   "could not generate a unique api key, please try again": "无法生成唯一密钥，请重试",
   "cannot remove admin role from the last admin user": "不能移除最后一个管理员的管理员角色。请先将管理员指派给其他用户。",
   "asset %s already exists": "附件 %s 已存在",
   "asset %s not found": "未找到附件 %s",
   "asset extension must not change from %s": "附件扩展名不能从 %s 更改",
   "asset request failed": "附件请求失败",
-  "authentication is disabled": "认证已关闭",
   "authentication request failed": "认证请求失败",
   "avatar file too large": "头像文件过大",
   "avatar request failed": "头像请求失败",
@@ -102,5 +100,6 @@
   "zip entry exceeds the per-file size limit": "上传压缩包内的某个文件过大",
   "decompressed zip contents exceed the total size limit": "上传压缩包解压后过大",
   "zip entry's decompression ratio exceeds the allowed maximum": "上传压缩包疑似解压炸弹",
-  "password change required": "请先修改初始密码"
+  "password change required": "请先修改初始密码",
+  "authentication service unavailable": "身份验证服务不可用"
 }

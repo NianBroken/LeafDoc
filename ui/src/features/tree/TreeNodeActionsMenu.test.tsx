@@ -1,3 +1,4 @@
+import { useSessionStore } from '@/shared/state/session'
 import { useDialogsStore } from '@/shared/state/dialogs'
 import { useConfigStore } from '@/shared/state/config'
 import { usePageEditorStore } from '@/features/editor/pageEditorStore'
@@ -84,6 +85,14 @@ const node: PageNode = {
 
 describe('TreeNodeActionsMenu', () => {
   beforeEach(() => {
+    useSessionStore.setState({
+      user: {
+        id: 'editor-test',
+        username: 'editor',
+        email: 'editor@example.com',
+        role: 'editor',
+      },
+    })
     vi.clearAllMocks()
     useDialogsStore.setState({ dialogType: null, dialogProps: null })
     usePageEditorStore.setState({ page: null })

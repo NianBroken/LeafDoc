@@ -22,7 +22,6 @@ describe('SettingsNav', () => {
   it('shows only the sections visible to a non-admin user', () => {
     mockUseSettingsSectionContext.mockReturnValue({
       role: 'viewer',
-      authDisabled: false,
       snapshotEnabled: true,
       enableApiKeyManagement: true,
       userManagementUrl: undefined,
@@ -46,7 +45,6 @@ describe('SettingsNav', () => {
   it('shows all enabled sections for an admin, and renders users as an external link when userManagementUrl is set', () => {
     mockUseSettingsSectionContext.mockReturnValue({
       role: 'admin',
-      authDisabled: false,
       snapshotEnabled: false,
       enableApiKeyManagement: true,
       userManagementUrl: 'https://control-plane.example.com/users',
@@ -76,7 +74,6 @@ describe('SettingsNav', () => {
     const user = userEvent.setup({ delay: null })
     mockUseSettingsSectionContext.mockReturnValue({
       role: 'admin',
-      authDisabled: false,
       snapshotEnabled: false,
       enableApiKeyManagement: false,
       userManagementUrl: undefined,

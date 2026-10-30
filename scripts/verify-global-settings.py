@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='leafdoc-acceptance-') as data:
         for attempt in range(100):
             try: status,config=request('/api/config'); break
             except OSError: time.sleep(.1)
-        check(config['preferences']=={'language':'zh','dateFormat':'iso','timeFormat':'24h','autoSave':True},'新实例默认偏好',config)
+        check(config['preferences']=={'language':'zh','dateFormat':'iso','timeFormat':'24h'},'新实例默认偏好',config)
         check(config['publicAccess'] is True,'默认公开访问')
         status,login=request('/api/auth/login','POST',{'identifier':'NianBroken','password':'Nian123456'})
         check(status==200 and login['user']['mustChangePassword'],'固定账户首次登录受限',login)
@@ -75,7 +75,7 @@ with tempfile.TemporaryDirectory(prefix='leafdoc-acceptance-') as data:
                             else: received.set(); return
             except OSError: pass
         thread=threading.Thread(target=events,daemon=True); thread.start(); time.sleep(.3)
-        status,result=request('/api/admin/settings/preferences','PUT',{'language':'fr','dateFormat':'dmy_dot','timeFormat':'12h','autoSave':False})
+        status,result=request('/api/admin/settings/preferences','PUT',{'language':'fr','dateFormat':'dmy_dot','timeFormat':'12h'})
         check(status==200,'管理员写入全局偏好',result)
         check(received.wait(5),'匿名客户端实时收到设置通知')
         check(request('/api/config',client=1)[1]['preferences']==result,'所有访问者读取同一偏好')

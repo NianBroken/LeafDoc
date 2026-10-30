@@ -59,8 +59,8 @@ export async function createImportPlanFromZip(file: File): Promise<ImportPlan> {
   })
 }
 
-export async function getImportPlan(): Promise<ImportPlan> {
-  return await fetchWithAuth<ImportPlan>('/api/import/plan', {
+export async function getImportPlan(): Promise<ImportPlan | null> {
+  return await fetchWithAuth<ImportPlan | null>('/api/import/plan', {
     method: 'GET',
   })
 }

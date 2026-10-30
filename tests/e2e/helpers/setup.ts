@@ -7,7 +7,6 @@ const preferences = {
   language: 'en',
   dateFormat: 'iso',
   timeFormat: '24h',
-  autoSave: true,
 };
 
 export default async function setup() {

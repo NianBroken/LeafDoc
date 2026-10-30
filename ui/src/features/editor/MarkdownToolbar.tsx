@@ -38,7 +38,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEditorStore } from '@/features/editor/state/editor'
-import { useUserSettingsStore } from '@/shared/state/userSettings'
 import type { MarkdownEditorRef } from '@/features/editor/MarkdownEditor'
 
 type Props = {
@@ -64,9 +63,6 @@ export default function MarkdownToolbar({
   const openDialog = useDialogsStore((state) => state.openDialog)
   const lineWrap = useEditorStore((s) => s.lineWrap)
   const toggleLineWrap = useEditorStore((s) => s.toggleLineWrap)
-  const autoSave = useUserSettingsStore((s) => s.autoSave)
-  const toggleAutoSave = useUserSettingsStore((s) => s.toggleAutoSave)
-  const autoSaveStatus = useEditorStore((s) => s.autoSaveStatus)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const isRenamingRef = useRef(false)
@@ -532,20 +528,6 @@ export default function MarkdownToolbar({
                 }}
               >
                 {t('toolbar.lineWrap')}
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={autoSave}
-                onCheckedChange={(checked) => {
-                  if (checked !== autoSave) toggleAutoSave()
-                }}
-              >
-                {t('toolbar.autoSave')}
-                {autoSaveStatus === 'paused' && (
-                  <span className="text-muted-foreground ml-auto text-xs">
-                    {t('toolbar.autoSavePaused')}
-                  </span>
-                )}
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>

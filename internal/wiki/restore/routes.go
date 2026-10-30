@@ -37,7 +37,6 @@ func NewRoutes(manager *restore.Manager, authService *coreauth.AuthService) *Rou
 
 // RegisterRoutes implements RouteRegistrar.
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
-	opts := ctx.Opts
 
 	// Progress uses its own job-scoped credential and never grants admin access.
 	ctx.Base.GET("/api/restore/progress", r.handleProgress)
@@ -45,7 +44,7 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	authGroup := ctx.APIAuthGroup(r.authService)
 
 	adminGroup := authGroup.Group("/admin")
-	adminGroup.Use(authmw.RequireAdmin(opts.AuthDisabled))
+	adminGroup.Use(authmw.RequireAdmin())
 
 	// A restore replaces MySQL account and API key records, so it is browser-session
 	// only: an API key must not be able to swap in its own credentials.

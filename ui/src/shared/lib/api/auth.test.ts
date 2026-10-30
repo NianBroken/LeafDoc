@@ -61,7 +61,6 @@ afterEach(() => {
 describe('ensureRefresh', () => {
   beforeEach(() => {
     useConfigStore.setState({
-      authDisabled: false,
       httpRemoteUserEnabled: false,
       configLoadSucceeded: true,
     })
@@ -99,16 +98,6 @@ describe('ensureRefresh', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('does not call the refresh endpoint when auth is disabled', async () => {
-    useConfigStore.setState({ authDisabled: true })
-    const fetchMock = createFetchMock({})
-    vi.stubGlobal('fetch', fetchMock)
-
-    await expect(ensureRefresh()).resolves.toBeUndefined()
-
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
   it('calls the refresh endpoint for a confirmed session-auth deployment', async () => {
     const fetchMock = createFetchMock({
       '/api/auth/refresh-token': {
@@ -133,7 +122,6 @@ describe('ensureRefresh', () => {
 describe('fetchWithAuth', () => {
   beforeEach(() => {
     useConfigStore.setState({
-      authDisabled: false,
       httpRemoteUserEnabled: false,
       configLoadSucceeded: true,
       hasLoaded: true,
@@ -308,7 +296,6 @@ describe('API error decoding', () => {
 
   beforeEach(() => {
     useConfigStore.setState({
-      authDisabled: true,
       httpRemoteUserEnabled: false,
       configLoadSucceeded: true,
       hasLoaded: true,
@@ -463,7 +450,7 @@ describe('API error decoding', () => {
 // Successful endpoints must distinguish an empty response from invalid JSON.
 describe('successful response integrity', () => {
   beforeEach(() => {
-    useConfigStore.setState({ authDisabled: true, configLoadSucceeded: true })
+    useConfigStore.setState({ configLoadSucceeded: true })
     useSessionStore.setState({ user: null, accessTokenExpiresAt: null })
   })
   it('rejects malformed JSON instead of reporting an empty success', async () => {

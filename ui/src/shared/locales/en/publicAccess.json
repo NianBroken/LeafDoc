@@ -15,5 +15,5 @@
   "disabledToast": "Public mode is now off",
   "updateError": "Could not update public mode",
   "envManagedTitle": "Set by environment configuration",
-  "envManagedDescription": "Public mode is controlled by the LEAFDOC_PUBLIC_ACCESS / --public-access setting (or --disable-auth) on this instance and can only be changed there."
+  "envManagedDescription": "Public mode is controlled by the LEAFDOC_PUBLIC_ACCESS / --public-access setting on this instance and can only be changed there."
 }

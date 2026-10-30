@@ -45,19 +45,6 @@ vi.mock('@/features/editor/state/editor', () => ({
     }),
 }))
 
-vi.mock('@/shared/state/userSettings', () => ({
-  useUserSettingsStore: (
-    selector: (state: {
-      autoSave: boolean
-      toggleAutoSave: ReturnType<typeof vi.fn>
-    }) => unknown,
-  ) =>
-    selector({
-      autoSave: true,
-      toggleAutoSave: vi.fn(),
-    }),
-}))
-
 describe('MarkdownToolbar paste controls', () => {
   const pasteRichMock = vi.fn()
   const pastePlainMock = vi.fn()

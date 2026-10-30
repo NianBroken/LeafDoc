@@ -10,13 +10,7 @@ import (
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
-// ErrAPIKeysDisabled is returned when an api-key operation is called while
-// authentication is disabled (mirrors wikiauth.ErrAuthDisabled). The HTTP
-// routes are already RequireAdmin-gated (which itself hard-blocks when auth
-// is disabled), so this should be unreachable in practice — it exists as
-// defense in depth against a nil APIKeyService, the same way LoginUseCase
-// guards against a nil AuthService rather than relying solely on the
-// HTTP-layer guard.
+// ErrAPIKeysDisabled rejects API key operations when the feature is not enabled.
 var ErrAPIKeysDisabled = errors.New("api key management is disabled")
 
 // ─── CreateAPIKeyUseCase ─────────────────────────────────────────────────────

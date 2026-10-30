@@ -304,7 +304,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div id="app-subheader-root" className="app-layout__subheader-root" />
           <div
             id="scroll-container"
-            className={`app-layout__content-row custom-scrollbar${isMobile && sidebarVisible ? 'overflow-hidden' : ''}`}
+            className={cn(
+              'app-layout__content-row custom-scrollbar',
+              appMode === 'settings' && 'app-layout__content-row--settings',
+              isMobile && sidebarVisible && 'overflow-hidden',
+            )}
           >
             {/* Main content area */}
             <main

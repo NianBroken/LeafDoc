@@ -62,91 +62,6 @@ func createTestAuthFixture(t *testing.T) *authFixture {
 	}
 }
 
-func TestRequireAuth_WithAuthDisabled_UserExists(t *testing.T) {
-	testutil.ResetMySQL(t)
-	gin.SetMode(gin.TestMode)
-
-	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
-
-	router := gin.New()
-
-	// Middleware to inject user (simulating authmw.InjectPublicEditor)
-	router.Use(func(c *gin.Context) {
-		c.Set("user", &coreauth.User{
-			ID:       "public-editor",
-			Username: "public-editor",
-			Role:     coreauth.RoleEditor,
-		})
-		c.Next()
-	})
-
-	// Apply RequireAuth with authDisabled=true
-	router.Use(authmw.RequireAuth(nil, authCookies, true))
-
-	router.GET("/test", func(c *gin.Context) {
-		userValue, exists := c.Get("user")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
-			return
-		}
-
-		user, ok := userValue.(*coreauth.User)
-		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user type"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"username": user.Username,
-			"role":     user.Role,
-		})
-	})
-
-	req := httptest.NewRequest("GET", "/test", nil)
-	w2 := httptest.NewRecorder()
-
-	router.ServeHTTP(w2, req)
-
-	if w2.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d - %s", w2.Code, w2.Body.String())
-	}
-
-	expectedBody := `{"role":"editor","username":"public-editor"}`
-	if w2.Body.String() != expectedBody {
-		t.Errorf("Expected body %s, got %s", expectedBody, w2.Body.String())
-	}
-}
-
-func TestRequireAuth_WithAuthDisabled_NoUser(t *testing.T) {
-	testutil.ResetMySQL(t)
-	gin.SetMode(gin.TestMode)
-
-	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
-
-	router := gin.New()
-
-	// Apply RequireAuth with authDisabled=true but no user injected
-	router.Use(authmw.RequireAuth(nil, authCookies, true))
-
-	router.GET("/test", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"ok": true})
-	})
-
-	req := httptest.NewRequest("GET", "/test", nil)
-	w2 := httptest.NewRecorder()
-
-	router.ServeHTTP(w2, req)
-
-	if w2.Code != http.StatusUnauthorized {
-		t.Errorf("Expected status 401 when authDisabled=true but no user, got %d", w2.Code)
-	}
-
-	expectedBody := `{"error":"User not authenticated and auth is disabled"}`
-	if w2.Body.String() != expectedBody {
-		t.Errorf("Expected body %s, got %s", expectedBody, w2.Body.String())
-	}
-}
-
 func TestRequireAuth_WithInvalidUserContext_NilUser(t *testing.T) {
 	testutil.ResetMySQL(t)
 	gin.SetMode(gin.TestMode)
@@ -158,7 +73,7 @@ func TestRequireAuth_WithInvalidUserContext_NilUser(t *testing.T) {
 		c.Set("user", (*coreauth.User)(nil))
 		c.Next()
 	})
-	router.Use(authmw.RequireAuth(nil, authCookies, true))
+	router.Use(authmw.RequireAuth(nil, authCookies))
 
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -190,7 +105,7 @@ func TestRequireAuth_WithInvalidUserContext_WrongType(t *testing.T) {
 		c.Set("user", "not-a-user")
 		c.Next()
 	})
-	router.Use(authmw.RequireAuth(nil, authCookies, true))
+	router.Use(authmw.RequireAuth(nil, authCookies))
 
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -232,8 +147,8 @@ func TestRequireAuth_WithAuthEnabled_ValidToken(t *testing.T) {
 
 	router := gin.New()
 
-	// Apply RequireAuth with authDisabled=false
-	router.Use(authmw.RequireAuth(fixture.auth, authCookies, false))
+	// Require a validated session or an authenticated upstream identity.
+	router.Use(authmw.RequireAuth(fixture.auth, authCookies))
 
 	router.GET("/test", func(c *gin.Context) {
 		userValue, exists := c.Get("user")
@@ -288,8 +203,8 @@ func TestRequireAuth_WithAuthEnabled_MissingToken(t *testing.T) {
 
 	router := gin.New()
 
-	// Apply RequireAuth with authDisabled=false
-	router.Use(authmw.RequireAuth(fixture.auth, authCookies, false))
+	// Require a validated session or an authenticated upstream identity.
+	router.Use(authmw.RequireAuth(fixture.auth, authCookies))
 
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -317,7 +232,7 @@ func TestRequireAuth_WithAuthEnabled_NilAuthService(t *testing.T) {
 	authCookies := authmw.NewAuthCookies(true, time.Hour, time.Hour*24)
 
 	router := gin.New()
-	router.Use(authmw.RequireAuth(nil, authCookies, false))
+	router.Use(authmw.RequireAuth(nil, authCookies))
 
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -357,8 +272,8 @@ func TestRequireAuth_WithAuthEnabled_InvalidToken(t *testing.T) {
 
 	router := gin.New()
 
-	// Apply RequireAuth with authDisabled=false
-	router.Use(authmw.RequireAuth(fixture.auth, authCookies, false))
+	// Require a validated session or an authenticated upstream identity.
+	router.Use(authmw.RequireAuth(fixture.auth, authCookies))
 
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -404,8 +319,8 @@ func TestRequireAuth_WithAuthEnabled_UserSetInContext(t *testing.T) {
 
 	router := gin.New()
 
-	// Apply RequireAuth with authDisabled=false
-	router.Use(authmw.RequireAuth(fixture.auth, authCookies, false))
+	// Require a validated session or an authenticated upstream identity.
+	router.Use(authmw.RequireAuth(fixture.auth, authCookies))
 
 	userSetInContext := false
 
@@ -450,8 +365,8 @@ func TestRequireAuth_NextNotCalledOnFailure(t *testing.T) {
 
 	router := gin.New()
 
-	// Apply RequireAuth with authDisabled=false
-	router.Use(authmw.RequireAuth(fixture.auth, authCookies, false))
+	// Require a validated session or an authenticated upstream identity.
+	router.Use(authmw.RequireAuth(fixture.auth, authCookies))
 
 	nextCalled := false
 
@@ -484,51 +399,26 @@ func TestRequireAuth_ComprehensiveScenarios(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		authDisabled   bool
-		injectUser     bool
 		provideToken   bool
 		validToken     bool
 		expectedStatus int
 		expectedError  string
 	}{
 		{
-			name:           "authDisabled=true, user injected - should pass",
-			authDisabled:   true,
-			injectUser:     true,
-			provideToken:   false,
-			validToken:     false,
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "authDisabled=true, no user - should fail",
-			authDisabled:   true,
-			injectUser:     false,
-			provideToken:   false,
-			validToken:     false,
-			expectedStatus: http.StatusUnauthorized,
-			expectedError:  "User not authenticated and auth is disabled",
-		},
-		{
-			name:           "authDisabled=false, valid token - should pass",
-			authDisabled:   false,
-			injectUser:     false,
+			name:           "valid token - should pass",
 			provideToken:   true,
 			validToken:     true,
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "authDisabled=false, no token - should fail",
-			authDisabled:   false,
-			injectUser:     false,
+			name:           "no token - should fail",
 			provideToken:   false,
 			validToken:     false,
 			expectedStatus: http.StatusUnauthorized,
 			expectedError:  "Missing or invalid access token",
 		},
 		{
-			name:           "authDisabled=false, invalid token - should fail",
-			authDisabled:   false,
-			injectUser:     false,
+			name:           "invalid token - should fail",
 			provideToken:   true,
 			validToken:     false,
 			expectedStatus: http.StatusUnauthorized,
@@ -549,20 +439,8 @@ func TestRequireAuth_ComprehensiveScenarios(t *testing.T) {
 
 			router := gin.New()
 
-			// Inject user if needed
-			if tc.injectUser {
-				router.Use(func(c *gin.Context) {
-					c.Set("user", &coreauth.User{
-						ID:       "public-editor",
-						Username: "public-editor",
-						Role:     coreauth.RoleEditor,
-					})
-					c.Next()
-				})
-			}
-
 			// Apply RequireAuth
-			router.Use(authmw.RequireAuth(fixture.auth, authCookies, tc.authDisabled))
+			router.Use(authmw.RequireAuth(fixture.auth, authCookies))
 
 			router.GET("/test", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"ok": true})

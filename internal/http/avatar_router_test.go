@@ -12,35 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
 	coreavatar "github.com/NianBroken/LeafDoc/internal/core/avatar"
-	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 	"github.com/NianBroken/LeafDoc/internal/wiki"
 )
-
-// Disabling login does not remove the public avatar service or its account validation.
-func TestAvatarRoutes_DefaultWithAuthDisabled(t *testing.T) {
-	testutil.ResetMySQL(t)
-	w, err := wiki.NewWiki(&wiki.WikiOptions{StorageDir: t.TempDir(), AuthDisabled: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := w.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	user, err := w.UserService().CreateUser("reader", "reader@example.com", "testpassword", coreauth.RoleViewer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	router := newTestRouter(w, func(o *httpinternal.RouterOptions) { o.AuthDisabled = true })
-	rec := sendAvatarRequest(t, router, false, http.MethodGet, "/avatars/"+user.ID, nil, "")
-	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/webp" {
-		t.Fatalf("default avatar: status=%d type=%s", rec.Code, rec.Header().Get("Content-Type"))
-	}
-}
 
 // newAvatarRouterTest builds a fresh Wiki + router and returns the admin user's ID,
 // which is whose avatar the admin session uploads and deletes.

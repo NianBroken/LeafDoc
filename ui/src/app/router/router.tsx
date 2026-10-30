@@ -18,7 +18,6 @@ import SettingsSectionGuard from '@/features/settings/SettingsSectionGuard'
 import AuthWrapper from '@/app/router/RouterAuthWrapper'
 
 export const createLeafDocRouter = (
-  authDisabled: boolean,
   enableRevision: boolean,
   loginUrl: string,
   smtpEnabled: boolean,
@@ -28,24 +27,13 @@ export const createLeafDocRouter = (
     [
       {
         path: '/login',
-        element: authDisabled ? (
-          <Navigate to="/" replace />
-        ) : loginUrl ? (
-          <ExternalRedirect to={loginUrl} />
-        ) : (
-          <LoginForm />
-        ),
+        element: loginUrl ? <ExternalRedirect to={loginUrl} /> : <LoginForm />,
       },
-      // Local-account password-reset/invite pages only make sense with real
-      // accounts and SMTP configured — gated the same way as /login (auth
-      // disabled or an external login URL both mean "no built-in login form",
-      // so these can't be reached meaningfully either), plus smtpEnabled
-      // specifically since the backend use cases return ErrEmailDisabled
-      // otherwise.
+      // Password recovery requires SMTP and the built-in login form.
       {
         path: '/forgot-password',
         element:
-          authDisabled || loginUrl || !smtpEnabled ? (
+          loginUrl || !smtpEnabled ? (
             <Navigate to="/login" replace />
           ) : (
             <ForgotPasswordForm />
@@ -54,7 +42,7 @@ export const createLeafDocRouter = (
       {
         path: '/reset-password',
         element:
-          authDisabled || loginUrl || !smtpEnabled ? (
+          loginUrl || !smtpEnabled ? (
             <Navigate to="/login" replace />
           ) : (
             <ResetPasswordPage />
@@ -63,7 +51,7 @@ export const createLeafDocRouter = (
       {
         path: '/accept-invite',
         element:
-          authDisabled || loginUrl || !smtpEnabled ? (
+          loginUrl || !smtpEnabled ? (
             <Navigate to="/login" replace />
           ) : (
             <AcceptInvitePage />

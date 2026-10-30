@@ -23,15 +23,14 @@ type Service struct {
 }
 
 // NewEnvManaged returns a Service pinned to enabled; SetEnabled/Reload are
-// inert. Used when --public-access / LEAFDOC_PUBLIC_ACCESS is set or
-// --disable-auth forces public mode on.
+// inert. Used when --public-access / LEAFDOC_PUBLIC_ACCESS is set.
 func NewEnvManaged(enabled bool) *Service {
 	return &Service{val: settings.NewFixed(fileConfig{Enabled: enabled})}
 }
 
 // NewSettingsManaged returns a Service whose flag is read from (and written
 // back to) <storageDir>/public-access.json. The initial value is whatever the
-// file currently holds; a missing file means disabled.
+// database record currently holds; a missing record enables public reads.
 func NewSettingsManaged(storageDir string) (*Service, error) {
 	st, err := settings.New(storageDir, "public-access.json", 0o600, fileConfig{Enabled: true}, nil)
 	if err != nil {

@@ -188,10 +188,6 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		)
 	}
 
-	if cfg.auth.disableAuth {
-		slog.Default().Warn("Authentication disabled. Wiki is publicly accessible without authentication.")
-	}
-
 	if cfg.server.allowInsecure {
 		slog.Default().Warn("allow-insecure enabled. Auth cookies may be transmitted over plain HTTP (INSECURE).")
 	}
@@ -216,11 +212,8 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		fail("Failed to load toc-display configuration", "error", err)
 	}
 
-	if !cfg.auth.disableAuth {
-		if cfg.auth.jwtSecret == "" {
-			fail("JWT secret is required. Set it using --jwt-secret or LEAFDOC_JWT_SECRET environment variable.")
-		}
-
+	if cfg.auth.jwtSecret == "" {
+		fail("JWT secret is required. Set it using --jwt-secret or LEAFDOC_JWT_SECRET environment variable.")
 	}
 
 	var metrics *httpmetrics.HTTPMetrics
@@ -236,7 +229,6 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		JWTSecret:              cfg.auth.jwtSecret,
 		AccessTokenTimeout:     cfg.auth.accessTokenTimeout,
 		RefreshTokenTimeout:    cfg.auth.refreshTokenTimeout,
-		AuthDisabled:           cfg.auth.disableAuth,
 		EnableRevision:         cfg.frontend.enableRevision,
 		EnableAPIKeyManagement: cfg.frontend.enableAPIKeyManagement,
 		MaxRevisionHistory:     cfg.frontend.maxRevisionHistory,
@@ -346,7 +338,6 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		HideLinkMetadataSection: cfg.frontend.hideLinkMetadataSection,
 		AccessTokenTimeout:      cfg.auth.accessTokenTimeout,
 		RefreshTokenTimeout:     cfg.auth.refreshTokenTimeout,
-		AuthDisabled:            cfg.auth.disableAuth,
 		BasePath:                basePath,
 		MaxAssetUploadSizeBytes: maxAssetUploadSize,
 		EnableRevision:          cfg.frontend.enableRevision,
@@ -389,14 +380,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 	return nil
 }
 
-// buildPublicAccessService decides whether "public mode" is pinned by
-// environment configuration or toggleable at runtime from Settings.
-//
-// It is env-managed when --public-access / LEAFDOC_PUBLIC_ACCESS was supplied
-// explicitly, or when --disable-auth forces public mode on (both cases keep
-// today's behaviour and get a status-only Settings view). Otherwise it is
-// settings-managed, reading its initial value from
-// <data-dir>/public-access.json (absent ⇒ disabled).
+// buildPublicAccessService loads the persisted anonymous-read setting and explicit startup preference.
 func buildPublicAccessService(cmd *cli.Command, cfg *serverConfig) *publicaccess.Service {
 
 	svc, err := publicaccess.NewSettingsManaged(cfg.server.dataDir)

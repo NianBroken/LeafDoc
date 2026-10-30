@@ -12,7 +12,6 @@ vi.mock('@/app/layout/AppLayout', () => ({
 beforeEach(() => {
   useConfigStore.setState({
     publicAccess: true,
-    authDisabled: false,
     loginUrl: '',
   })
   useSessionStore.setState({

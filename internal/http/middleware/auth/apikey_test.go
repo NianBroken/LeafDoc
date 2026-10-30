@@ -428,7 +428,7 @@ func TestInjectAPIKeyUser_WithRequireAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(authmw.InjectAPIKeyUser(authmw.APIKeyConfig{Service: f.keyService}))
-	r.Use(authmw.RequireAuth(authService, authCookies, false))
+	r.Use(authmw.RequireAuth(authService, authCookies))
 	r.GET("/test", func(c *gin.Context) {
 		u := c.MustGet("user").(*coreauth.User)
 		c.JSON(http.StatusOK, gin.H{"username": u.Username})

@@ -60,7 +60,6 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 
 // RegisterRoutes implements RouteRegistrar.
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
-	opts := ctx.Opts
 	base := ctx.Base
 
 	// Public branding API (always accessible).
@@ -73,11 +72,11 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 
 	// Auth-gated branding mutations (admin only).
 	authGroup := ctx.APIAuthGroup(r.authService)
-	authGroup.PUT("/branding", authmw.RequireAdmin(opts.AuthDisabled), r.handleUpdateBranding)
-	authGroup.POST("/branding/logo", authmw.RequireAdmin(opts.AuthDisabled), r.handleUploadLogo)
-	authGroup.POST("/branding/favicon", authmw.RequireAdmin(opts.AuthDisabled), r.handleUploadFavicon)
-	authGroup.DELETE("/branding/logo", authmw.RequireAdmin(opts.AuthDisabled), r.handleDeleteLogo)
-	authGroup.DELETE("/branding/favicon", authmw.RequireAdmin(opts.AuthDisabled), r.handleDeleteFavicon)
+	authGroup.PUT("/branding", authmw.RequireAdmin(), r.handleUpdateBranding)
+	authGroup.POST("/branding/logo", authmw.RequireAdmin(), r.handleUploadLogo)
+	authGroup.POST("/branding/favicon", authmw.RequireAdmin(), r.handleUploadFavicon)
+	authGroup.DELETE("/branding/logo", authmw.RequireAdmin(), r.handleDeleteLogo)
+	authGroup.DELETE("/branding/favicon", authmw.RequireAdmin(), r.handleDeleteFavicon)
 }
 
 // ─── Handlers ───────────────────────────────────────────────────────────────

@@ -142,7 +142,7 @@ if ($Build -or -not (Test-Path -LiteralPath $binary)) {
         $node = Resolve-Executable 'node.exe'
         $version = (& $node (Join-Path $root 'scripts/resolve-version.mjs')).Trim()
         if ($LASTEXITCODE -ne 0 -or -not $version) { throw 'Release version resolution failed.' }
-        & $go build -ldflags "-X main.Version=$version -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production" -o $binary ./cmd/leafdoc
+        & $go build -ldflags "-X main.Version=$version -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true" -o $binary ./cmd/leafdoc
         if ($LASTEXITCODE -ne 0) { throw 'Backend build failed.' }
     } finally { Pop-Location }
 }

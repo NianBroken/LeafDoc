@@ -35,7 +35,6 @@ beforeEach(() => {
     hasLoaded: true,
     configLoadSucceeded: true,
     httpRemoteUserEnabled: false,
-    authDisabled: false,
   })
   useSessionStore.setState({ user: null, accessTokenExpiresAt: null })
 })

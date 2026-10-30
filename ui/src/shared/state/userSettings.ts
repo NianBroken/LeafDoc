@@ -7,18 +7,15 @@ export type GlobalPreferences = {
   language: string
   dateFormat: string
   timeFormat: string
-  autoSave: boolean
 }
 export const DEFAULT_PREFERENCES: GlobalPreferences = {
   language: 'zh',
   dateFormat: 'iso',
   timeFormat: '24h',
-  autoSave: true,
 }
 type Store = GlobalPreferences & {
   loaded: boolean
   apply: (value: GlobalPreferences) => void
-  toggleAutoSave: () => Promise<void>
   setLanguage: (value: string) => Promise<void>
   setDateFormat: (value: string) => Promise<void>
   setTimeFormat: (value: string) => Promise<void>
@@ -42,14 +39,18 @@ function save(patch: Partial<GlobalPreferences>): Promise<void> {
   pending = task
   return task
 }
-export const useUserSettingsStore = create<Store>((set, get) => ({
+export const useUserSettingsStore = create<Store>((set) => ({
   ...DEFAULT_PREFERENCES,
   loaded: false,
   apply: (value) => {
-    set({ ...value, loaded: true })
+    set({
+      language: value.language,
+      dateFormat: value.dateFormat,
+      timeFormat: value.timeFormat,
+      loaded: true,
+    })
     void i18next.changeLanguage(value.language)
   },
-  toggleAutoSave: () => save({ autoSave: !get().autoSave }),
   setLanguage: (language) => save({ language }),
   setDateFormat: (dateFormat) => save({ dateFormat }),
   setTimeFormat: (timeFormat) => save({ timeFormat }),

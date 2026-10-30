@@ -15,7 +15,6 @@ describe('global preferences', () => {
       language: 'zh',
       dateFormat: 'iso',
       timeFormat: '24h',
-      autoSave: true,
     })
   })
   it('writes global preferences and applies the authoritative response', async () => {

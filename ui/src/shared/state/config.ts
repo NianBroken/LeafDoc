@@ -23,7 +23,6 @@ type ConfigStore = {
   tocMode: string
   editorLimit: number
   hideLinkMetadataSection: boolean
-  authDisabled: boolean
   maxAssetUploadSizeBytes: number
   maxAvatarUploadSizeBytes: number
   avatarAllowedExts: string[]
@@ -78,7 +77,6 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   tocMode: 'auto',
   editorLimit: 0,
   hideLinkMetadataSection: false,
-  authDisabled: false,
   maxAssetUploadSizeBytes: DEFAULT_MAX_ASSET_UPLOAD_SIZE_BYTES,
   maxAvatarUploadSizeBytes: DEFAULT_MAX_AVATAR_UPLOAD_SIZE_BYTES,
   avatarAllowedExts: DEFAULT_AVATAR_ALLOWED_EXTS,
@@ -136,7 +134,6 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
           tocMode: config.tocMode ?? (config.alwaysShowToc ? 'always' : 'auto'),
           editorLimit: config.editorLimit ?? 0,
           hideLinkMetadataSection: config.hideLinkMetadataSection,
-          authDisabled: config.authDisabled,
           maxAssetUploadSizeBytes,
           maxAvatarUploadSizeBytes,
           avatarAllowedExts,

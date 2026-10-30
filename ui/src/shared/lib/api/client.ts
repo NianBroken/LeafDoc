@@ -84,7 +84,6 @@ export async function fetchWithAuth<T = unknown>(
   const store = useSessionStore.getState()
   const sessionLogout = store.clear
   const config = authRuntime.readConfig()
-  const authDisabled = config.authDisabled
   const httpRemoteUserEnabled = config.httpRemoteUserEnabled
   const configLoadSucceeded = config.configLoadSucceeded
 
@@ -123,7 +122,6 @@ export async function fetchWithAuth<T = unknown>(
     shouldRefreshBeforeRequest(
       store.user,
       store.accessTokenExpiresAt,
-      authDisabled,
       httpRemoteUserEnabled,
     )
   ) {
@@ -148,7 +146,7 @@ export async function fetchWithAuth<T = unknown>(
 
   let res = await doFetch()
 
-  if (res.status === 401 && retry && !authDisabled && !httpRemoteUserEnabled) {
+  if (res.status === 401 && retry && !httpRemoteUserEnabled) {
     try {
       await ensureRefresh()
       res = await doFetch()
@@ -200,10 +198,9 @@ if (typeof globalThis.__leafdocRefreshPromise === 'undefined') {
 function shouldRefreshBeforeRequest(
   user: AuthResponse['user'] | null,
   accessTokenExpiresAt: number | null,
-  authDisabled: boolean,
   httpRemoteUserEnabled: boolean,
 ): boolean {
-  if (authDisabled || httpRemoteUserEnabled || user === null) {
+  if (httpRemoteUserEnabled || user === null) {
     return false
   }
 
@@ -224,7 +221,7 @@ async function clearSessionState(sessionLogout: () => void) {
 }
 
 export function ensureRefresh(): Promise<void> {
-  const { authDisabled, httpRemoteUserEnabled } = authRuntime.readConfig()
+  const { httpRemoteUserEnabled } = authRuntime.readConfig()
   // Session-token refresh only applies to session/JWT auth — skip it
   // whenever that's confirmed false, instead of relying on every caller to
   // have already checked httpRemoteUserEnabled itself. Deliberately NOT
@@ -235,7 +232,7 @@ export function ensureRefresh(): Promise<void> {
   // risk — treating an unconfirmed-mode refresh failure as confirmed
   // unauthorized and forcing a logout — is guarded at the reaction site in
   // fetchWithAuth instead, not here.
-  if (authDisabled || httpRemoteUserEnabled) {
+  if (httpRemoteUserEnabled) {
     return Promise.resolve()
   }
 
@@ -282,7 +279,6 @@ async function refreshAccessToken() {
 
 // Session termination uses the same cookie and CSRF policy as other writes.
 export async function endServerSession(): Promise<void> {
-  if (authRuntime.readConfig().authDisabled) return
   const headers = new Headers()
   const csrfToken = getCsrfTokenFromCookie()
   if (csrfToken) headers.set('X-CSRF-Token', csrfToken)

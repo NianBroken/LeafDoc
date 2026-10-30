@@ -4,7 +4,6 @@ import {
   useEditorStore,
   type AutoSaveStatus,
 } from '@/features/editor/state/editor'
-import { useUserSettingsStore } from '@/shared/state/userSettings'
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -29,7 +28,6 @@ export function useAutoSave(): { status: AutoSaveStatus } {
     0,
   )
 
-  const autoSave = useUserSettingsStore((s) => s.autoSave)
   const content = usePageEditorStore((s) => s.content)
   const tags = usePageEditorStore((s) => s.tags)
   const frontmatterFields = usePageEditorStore((s) => s.frontmatterFields)
@@ -42,7 +40,7 @@ export function useAutoSave(): { status: AutoSaveStatus } {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
   const statusRef = useRef<AutoSaveStatus>('idle')
-  // Incremented on navigation or autoSave-off to invalidate in-flight save callbacks
+  // Incremented on navigation to invalidate in-flight save callbacks
   const generationRef = useRef(0)
 
   const updateStatus = (next: AutoSaveStatus) => {
@@ -75,19 +73,6 @@ export function useAutoSave(): { status: AutoSaveStatus } {
       }
     })
   }, [])
-
-  // When autoSave is disabled: cancel timers, invalidate in-flight saves, and reset.
-  // isSavingRef must be cleared here too: if a silent save was awaiting when auto-save
-  // was toggled off, the callback returns early (generation mismatch) without resetting
-  // isSavingRef — leaving it stuck as true and blocking all future auto-saves.
-  useEffect(() => {
-    if (!autoSave) {
-      clearDebounce()
-      generationRef.current++
-      isSavingRef.current = false
-      updateStatus('idle')
-    }
-  }, [autoSave])
 
   // When page identity changes (navigation to a different page): reset everything
   const pageId = page?.id
@@ -127,9 +112,6 @@ export function useAutoSave(): { status: AutoSaveStatus } {
   // Also depends on `retriggerCount` to reschedule after the unsaved-changes dialog
   // is dismissed via Cancel.
   useEffect(() => {
-    // Do nothing if auto-save is off
-    if (!autoSave) return
-
     // Do nothing if paused (waiting for manual save after conflict)
     if (statusRef.current === 'paused') return
 
@@ -149,7 +131,7 @@ export function useAutoSave(): { status: AutoSaveStatus } {
     debounceTimerRef.current = setTimeout(async () => {
       debounceTimerRef.current = null
 
-      // Abort if navigation or autoSave toggle happened since scheduling
+      // Abort if navigation happened since scheduling
       if (generationRef.current !== generation) return
 
       // Re-check conditions at fire time
@@ -216,7 +198,6 @@ export function useAutoSave(): { status: AutoSaveStatus } {
     content,
     tags,
     frontmatterFields,
-    autoSave,
     dirty,
     slug,
     page?.slug,
@@ -283,7 +264,6 @@ export function useAutoSave(): { status: AutoSaveStatus } {
           pageEditorState.frontmatterFields,
         )
         if (
-          useUserSettingsStore.getState().autoSave &&
           isDirtyState(pageEditorState) &&
           pageEditorState.page?.slug === pageEditorState.slug &&
           Object.keys(validationErrors).length === 0

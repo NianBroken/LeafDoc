@@ -1,5 +1,4 @@
 import { toast } from 'sonner'
-import { Checkbox } from '@/shared/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -25,8 +24,6 @@ const TIME_FORMAT_OPTIONS = [
 
 export function PreferencesPanel() {
   const { t } = useTranslation('settings')
-  const autoSave = useUserSettingsStore((s) => s.autoSave)
-  const toggleAutoSave = useUserSettingsStore((s) => s.toggleAutoSave)
   const language = useUserSettingsStore((s) => s.language)
   const setLanguage = useUserSettingsStore((s) => s.setLanguage)
   const dateFormat = useUserSettingsStore((s) => s.dateFormat)
@@ -36,25 +33,6 @@ export function PreferencesPanel() {
 
   return (
     <div data-testid="preferences-panel">
-      <div className="settings__field">
-        <label className="settings__checkbox-label">
-          <Checkbox
-            data-testid="preferences-autosave-checkbox"
-            checked={autoSave}
-            onCheckedChange={(checked) => {
-              if (!!checked !== autoSave)
-                void toggleAutoSave().catch(() =>
-                  toast.error(t('account.preferences.autoSaveToggleError')),
-                )
-            }}
-          />
-          {t('account.preferences.autoSaveLabel')}
-        </label>
-        <p className="settings__section-description">
-          {t('account.preferences.autoSaveDescription')}
-        </p>
-      </div>
-
       <div className="settings__field">
         <label
           id="preferences-language-label"

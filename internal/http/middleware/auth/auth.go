@@ -29,17 +29,13 @@ func denied(status int, message string) sessionOutcome {
 // the access-token cookie is validated. On success the user is stored in the
 // context. It is the single implementation shared by RequireAuth and
 // RequireAuthOrPublicRead.
-func resolveSession(c *gin.Context, authService *auth.AuthService, authCookies *AuthCookies, authDisabled bool) sessionOutcome {
+func resolveSession(c *gin.Context, authService *auth.AuthService, authCookies *AuthCookies) sessionOutcome {
 	if userValue, exists := c.Get("user"); exists {
 		user, ok := userValue.(*auth.User)
 		if !ok || user == nil {
 			return denied(http.StatusInternalServerError, "Invalid user context")
 		}
 		return sessionOutcome{user: user}
-	}
-
-	if authDisabled {
-		return denied(http.StatusUnauthorized, "User not authenticated and auth is disabled")
 	}
 
 	token, err := authCookies.ReadAccess(c)
@@ -60,9 +56,9 @@ func resolveSession(c *gin.Context, authService *auth.AuthService, authCookies *
 	return sessionOutcome{user: user}
 }
 
-func RequireAuth(authService *auth.AuthService, authCookies *AuthCookies, authDisabled bool) gin.HandlerFunc {
+func RequireAuth(authService *auth.AuthService, authCookies *AuthCookies) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		r := resolveSession(c, authService, authCookies, authDisabled)
+		r := resolveSession(c, authService, authCookies)
 		if rejectPasswordChange(c, r.user) {
 			return
 		}
@@ -74,14 +70,8 @@ func RequireAuth(authService *auth.AuthService, authCookies *AuthCookies, authDi
 	}
 }
 
-func RequireAdmin(authDisabled bool) gin.HandlerFunc {
+func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Explicitly block admin operations when authentication is disabled
-		if authDisabled {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Admin operations are not available when authentication is disabled"})
-			return
-		}
-
 		userValue, exists := c.Get("user")
 		if !exists {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errUserNotAuthenticated})

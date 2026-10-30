@@ -43,7 +43,7 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	// exposes it only to admins), not a per-page read — keep it behind admin
 	// auth even when the instance is in public mode.
 	authGroup := ctx.APIAuthGroup(r.authService)
-	authGroup.GET("/links/broken", authmw.RequireAdmin(ctx.Opts.AuthDisabled), r.handleGetBrokenLinks)
+	authGroup.GET("/links/broken", authmw.RequireAdmin(), r.handleGetBrokenLinks)
 }
 
 // ─── Handlers ───────────────────────────────────────────────────────────────

@@ -9,7 +9,6 @@ import (
 // authOptions holds the options for authentication, tokens and the initial admin.
 type authOptions struct {
 	jwtSecret           string
-	disableAuth         bool
 	publicAccess        bool
 	accessTokenTimeout  time.Duration
 	refreshTokenTimeout time.Duration
@@ -28,16 +27,9 @@ func (o *authOptions) Flags() []cli.Flag {
 			Name:        "jwt-secret",
 			Destination: &o.jwtSecret,
 			Category:    catAuth,
-			Usage:       "secret for signing auth tokens (JWT); required unless --disable-auth is set",
+			Usage:       "secret for signing auth tokens (JWT); required",
 			Sources:     envVars("LEAFDOC_JWT_SECRET"),
 			Config:      trimmed,
-		},
-		&cli.BoolFlag{
-			Name:        "disable-auth",
-			Destination: &o.disableAuth,
-			Category:    catAuth,
-			Usage:       "disable authentication completely (WARNING: only use in trusted networks!)",
-			Sources:     envBoolVars("LEAFDOC_DISABLE_AUTH"),
 		},
 		&cli.BoolFlag{
 			Name:        "public-access",

@@ -260,8 +260,6 @@ func TestWiki_Close_ClosesAllDatabases(t *testing.T) {
 	}
 }
 
-// Regression test: when a later boot step failed, NewWiki returned the error
-// but left the databases opened by earlier steps open.
 func TestWiki_Login_SuccessAndFailure(t *testing.T) {
 	testutil.ResetMySQL(t)
 	w := createWikiTestInstance(t)
@@ -280,52 +278,6 @@ func TestWiki_Login_SuccessAndFailure(t *testing.T) {
 	_, err = authSvc.Login("admin", "wrong")
 	if err == nil {
 		t.Error("Expected login to fail with wrong password")
-	}
-}
-
-func TestWiki_AuthDisabled_Initialization(t *testing.T) {
-	testutil.ResetMySQL(t)
-	// Create a wiki instance with AuthDisabled set to true
-	wikiInstance, err := NewWiki(&WikiOptions{
-		StorageDir:          t.TempDir(),
-		AdminPassword:       "",
-		JWTSecret:           "",
-		AccessTokenTimeout:  0,
-		RefreshTokenTimeout: 0,
-		AuthDisabled:        true,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
-
-	// Verify that the auth service is nil
-	if wikiInstance.auth != nil {
-		t.Error("Expected auth service to be nil when AuthDisabled is true")
-	}
-}
-
-// TestWiki_AuthDisabled_APIKeysUnavailable guards against the exact
-// regression a code review caught: API-key auth must not remain active when
-// --disable-auth is set, or a key created before a later restart with
-// --disable-auth could keep authenticating (and narrowing/blocking)
-// requests in a mode where auth is supposed to be irrelevant.
-func TestWiki_AuthDisabled_APIKeysUnavailable(t *testing.T) {
-	testutil.ResetMySQL(t)
-	wikiInstance, err := NewWiki(&WikiOptions{
-		StorageDir:   t.TempDir(),
-		AuthDisabled: true,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
-
-	if wikiInstance.apiKeys != nil {
-		t.Error("Expected api key service to be nil when AuthDisabled is true")
-	}
-	if wikiInstance.APIKeyService() != nil {
-		t.Error("Expected APIKeyService() to be nil when AuthDisabled is true")
 	}
 }
 
@@ -375,101 +327,6 @@ func TestWiki_APIKeyManagementEnabled_APIKeysAvailable(t *testing.T) {
 	if wikiInstance.APIKeyService() == nil {
 		t.Error("Expected APIKeyService() to be non-nil when EnableAPIKeyManagement is true")
 	}
-}
-
-func TestWiki_AuthDisabled_LoginUnavailable(t *testing.T) {
-	testutil.ResetMySQL(t)
-	// Create a wiki instance with AuthDisabled set to true
-	wikiInstance, err := NewWiki(&WikiOptions{
-		StorageDir:   t.TempDir(),
-		AuthDisabled: true,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
-
-	// Auth operations are unavailable when auth is disabled.
-	if wikiInstance.auth != nil {
-		t.Error("Expected auth service to be nil when AuthDisabled is true")
-	}
-}
-
-func TestWiki_AuthDisabled_LogoutUnavailable(t *testing.T) {
-	testutil.ResetMySQL(t)
-	// Create a wiki instance with AuthDisabled set to true
-	wikiInstance, err := NewWiki(&WikiOptions{
-		StorageDir:   t.TempDir(),
-		AuthDisabled: true,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
-
-	// Auth operations are unavailable when auth is disabled.
-	if wikiInstance.auth != nil {
-		t.Error("Expected auth service to be nil when AuthDisabled is true")
-	}
-}
-
-func TestWiki_AuthDisabled_RefreshTokenUnavailable(t *testing.T) {
-	testutil.ResetMySQL(t)
-	// Create a wiki instance with AuthDisabled set to true
-	wikiInstance, err := NewWiki(&WikiOptions{
-		StorageDir:   t.TempDir(),
-		AuthDisabled: true,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
-
-	// Auth operations are unavailable when auth is disabled.
-	if wikiInstance.auth != nil {
-		t.Error("Expected auth service to be nil when AuthDisabled is true")
-	}
-}
-
-func TestWiki_AuthDisabled_CoreFunctionalityWorks(t *testing.T) {
-	testutil.ResetMySQL(t)
-	// Create a wiki instance with AuthDisabled set to true
-	wikiInstance, err := NewWiki(&WikiOptions{
-		StorageDir:   t.TempDir(),
-		AuthDisabled: true,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create wiki instance with AuthDisabled: %v", err)
-	}
-	defer testutil.WrapCloseWithErrorCheck(wikiInstance.Close, t)
-
-	// Test creating a page
-	page := createPageForTest(t, wikiInstance, "system", nil, "Test Page", "test-page", pageNodeKind())
-
-	if page.Title != "Test Page" {
-		t.Errorf("Expected title 'Test Page', got %q", page.Title)
-	}
-
-	// Test updating a page
-	var updatedContent = "# Content"
-	updatedPage := updatePageForTest(t, wikiInstance, "system", page.ID, "Updated Title", "updated-slug", &updatedContent, pageNodeKind())
-
-	if updatedPage.Title != "Updated Title" {
-		t.Errorf("Expected title 'Updated Title', got %q", updatedPage.Title)
-	}
-
-	// Test getting a page
-	retrievedPage, err := wikiInstance.tree.GetPage(page.ID)
-	if err != nil {
-		t.Fatalf("Failed to get page with AuthDisabled: %v", err)
-	}
-
-	if retrievedPage.ID != page.ID {
-		t.Errorf("Expected ID %q, got %q", page.ID, retrievedPage.ID)
-	}
-
-	// Test deleting a page
-	deletePageForTest(t, wikiInstance, "system", page.ID, false)
 }
 
 func TestWiki_EnsureBaselineRevisions_SkipsUnreadablePages(t *testing.T) {

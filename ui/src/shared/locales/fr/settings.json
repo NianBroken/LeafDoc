@@ -24,10 +24,7 @@
     "preferences": {
       "sectionTitle": "Préférences",
       "sectionDescription": "Préférences d'édition, synchronisées sur tous vos appareils.",
-      "autoSaveLabel": "Activer l'enregistrement automatique",
-      "autoSaveDescription": "Enregistre automatiquement vos modifications lors de l'édition d'une page.",
       "savedToast": "Préférence enregistrée",
-      "autoSaveToggleError": "Impossible de mettre à jour le paramètre d'enregistrement automatique",
       "languageLabel": "Langue",
       "languageChangeError": "Impossible de mettre à jour le paramètre de langue",
       "dateFormatLabel": "Format de date",

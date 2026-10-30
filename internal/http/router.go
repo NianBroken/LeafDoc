@@ -2,6 +2,7 @@ package http
 
 import (
 	"embed"
+	"encoding/json"
 	"html"
 	"io/fs"
 	"log/slog"
@@ -31,9 +32,6 @@ var frontend embed.FS
 // EmbedFrontend is a flag to enable or disable embedding the frontend.
 // Set to "true" at build time to embed the SPA.
 var EmbedFrontend = "false"
-
-// Environment controls gin's run mode ("production" → ReleaseMode).
-var Environment = "development"
 
 // slogWriter forwards gin debug output (e.g. route registration) to slog at Debug level.
 type slogWriter struct{ logger *slog.Logger }
@@ -112,7 +110,6 @@ type RouterOptions struct {
 	AccessTokenTimeout      time.Duration            // Duration for access token validity
 	RefreshTokenTimeout     time.Duration            // Duration for refresh token validity
 	HideLinkMetadataSection bool                     // Whether to hide the link metadata section in the frontend UI
-	AuthDisabled            bool                     // Whether authentication is disabled
 	BasePath                string                   // URL prefix when served behind a reverse proxy (e.g. "/wiki")
 	MaxAssetUploadSizeBytes int64                    // Maximum allowed size in bytes for asset uploads
 	EnableRevision          bool                     // Whether the revision / page history feature is enabled
@@ -137,6 +134,8 @@ type FrontendConfig struct {
 	GetSiteName func() string
 	// GetFaviconFile returns the current branding favicon filename for initial HTML rendering.
 	GetFaviconFile func() string
+	// GetLogoFile supplies the first-render navigation logo.
+	GetLogoFile func() string
 	// CustomStylesheetPath is the fully-resolved, validated path to a custom CSS file.
 	// Empty string disables custom stylesheet serving.
 	CustomStylesheetPath string
@@ -159,11 +158,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 		opts.AlwaysShowToc = tocdisplay.Fixed(false)
 	}
 
-	if Environment == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	} else {
-		gin.SetMode(gin.DebugMode)
-	}
+	gin.SetMode(gin.ReleaseMode)
 
 	gin.DefaultWriter = &slogWriter{logger: slog.Default().With("component", "gin")}
 	gin.DefaultErrorWriter = &slogErrorWriter{logger: slog.Default().With("component", "gin")}
@@ -328,6 +323,11 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 					faviconFile = frontendCfg.GetFaviconFile()
 				}
 
+				logoFile := ""
+				if frontendCfg.GetLogoFile != nil {
+					logoFile = frontendCfg.GetLogoFile()
+				}
+				brandingData, _ := json.Marshal(map[string]string{"siteName": siteName, "logoFile": logoFile, "faviconFile": faviconFile})
 				doc := indexTemplate
 				escapedBasePath := html.EscapeString(opts.BasePath)
 				doc = strings.ReplaceAll(doc, "{{__SITE_NAME__}}", html.EscapeString(siteName))
@@ -338,6 +338,8 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 				// Lazy chunks still use import.meta.url for their own path resolution.
 				doc = strings.ReplaceAll(doc, `"./static/`, `"`+escapedBasePath+`/static/`)
 
+				doc = injectIntoHead(doc, `<meta name="leafdoc-branding" content="`+html.EscapeString(string(brandingData))+`">`)
+				disableClientCache(c)
 				doc = injectIntoHead(doc, buildCustomStylesheetTag(opts.BasePath, customStylesheetPath))
 
 				if opts.InjectCodeInHeader != "" {

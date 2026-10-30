@@ -35,7 +35,6 @@ describe('Auth redirect flow', () => {
   beforeEach(() => {
     loginMock.mockReset()
     useConfigStore.setState({
-      authDisabled: false,
       httpRemoteUserEnabled: false,
     })
     useSessionStore.setState({

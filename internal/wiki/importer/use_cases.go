@@ -82,7 +82,8 @@ func (uc *GetImportPlanUseCase) Execute(_ context.Context) (*GetImportPlanOutput
 	plan, err := uc.svc.GetCurrentPlan()
 	if err != nil {
 		if errors.Is(err, coreimporter.ErrNoPlan) {
-			return nil, sharederrors.NewLocalizedError("importer_no_plan", "No import plan available", "no import plan available", err)
+			// An empty current task is a successful idle state for the settings page.
+			return &GetImportPlanOutput{}, nil
 		}
 		return nil, err
 	}

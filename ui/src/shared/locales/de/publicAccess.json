@@ -15,5 +15,5 @@
   "disabledToast": "Öffentlicher Modus ist jetzt aus",
   "updateError": "Öffentlicher Modus konnte nicht geändert werden",
   "envManagedTitle": "Durch Umgebungskonfiguration festgelegt",
-  "envManagedDescription": "Der öffentliche Modus wird auf dieser Instanz über LEAFDOC_PUBLIC_ACCESS / --public-access (oder --disable-auth) gesteuert und kann nur dort geändert werden."
+  "envManagedDescription": "Der öffentliche Modus wird auf dieser Instanz über LEAFDOC_PUBLIC_ACCESS / --public-access gesteuert und kann nur dort geändert werden."
 }

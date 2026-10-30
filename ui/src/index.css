@@ -2994,18 +2994,9 @@
     @apply mx-auto w-full max-w-4xl px-4 pt-4 pb-4 sm:px-8 sm:pt-8;
   }
 
-  /* Table pages use the available viewport before requiring horizontal scrolling. */
-  .settings:has(.settings__table) {
-    width: fit-content;
-    max-width: 100%;
-  }
-
-  .settings-nav .list-view__header {
-    @apply border-b-surface-border bg-surface h-12 min-h-0 border-b px-2;
-  }
-
-  .settings-nav .list-view__title {
-    @apply text-brand inline-flex items-center gap-1 px-3 py-1.5 text-sm font-normal;
+  /* Reserve the same scrollbar space on short and long settings pages. */
+  .app-layout__content-row--settings {
+    scrollbar-gutter: stable;
   }
 
   .settings-nav .list-view__content {

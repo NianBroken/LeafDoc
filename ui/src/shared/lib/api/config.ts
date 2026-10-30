@@ -19,7 +19,7 @@ export type Config = {
   preferences: GlobalPreferences
   publicAccess: boolean
   // True when public mode is pinned by --public-access / LEAFDOC_PUBLIC_ACCESS
-  // (or forced by --disable-auth): the Settings UI then shows a read-only
+  // The Settings UI then shows a read-only
   // status view instead of a toggle.
   publicAccessEnvManaged: boolean
   // Whether the TOC panel/dropdown should always be shown, regardless of
@@ -29,7 +29,6 @@ export type Config = {
   tocMode: string
   editorLimit: number
   hideLinkMetadataSection: boolean
-  authDisabled: boolean
   maxAssetUploadSizeBytes: number
   maxAvatarUploadSizeBytes: number
   avatarAllowedExts: string[]

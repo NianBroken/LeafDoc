@@ -61,9 +61,7 @@
     "heading2": "Heading 2",
     "heading3": "Heading 3",
     "insertTable": "Insert Table (3×3)",
-    "lineWrap": "Line wrap",
-    "autoSave": "Auto-save",
-    "autoSavePaused": "paused"
+    "lineWrap": "Line wrap"
   },
   "pageEditor": {
     "savedToast": "Page saved successfully",

@@ -22,7 +22,6 @@ function App() {
   const configHasLoaded = useConfigStore((s) => s.hasLoaded)
   const configError = useConfigStore((s) => s.error)
   const loadConfig = useConfigStore((s) => s.loadConfig)
-  const authDisabled = useConfigStore((s) => s.authDisabled)
   const enableRevision = useConfigStore((s) => s.enableRevision)
   const loginUrl = useConfigStore((s) => s.loginUrl)
   const smtpEnabled = useConfigStore((s) => s.smtpEnabled)
@@ -30,7 +29,7 @@ function App() {
   const lastConfigErrorRef = useRef<string | null>(null)
 
   // bootstrap authentication on app start -> session store
-  useBootstrapAuth(configHasLoaded && !authDisabled)
+  useBootstrapAuth(configHasLoaded)
 
   const userId = useSessionStore((s) => s.user?.id ?? null)
   const isRefreshing = useSessionStore((s) => s.isRefreshing)
@@ -82,7 +81,6 @@ function App() {
   useEffect(() => {
     if (!configHasLoaded) return
     const instance = createLeafDocRouter(
-      authDisabled,
       enableRevision,
       loginUrl,
       smtpEnabled,
@@ -90,7 +88,7 @@ function App() {
     )
     setRouter(instance)
     return () => instance.dispose()
-  }, [configHasLoaded, authDisabled, enableRevision, loginUrl, smtpEnabled])
+  }, [configHasLoaded, enableRevision, loginUrl, smtpEnabled])
 
   return (
     <>
@@ -99,7 +97,7 @@ function App() {
         position="bottom-right"
         containerAriaLabel={t('notifications')}
       />
-      {configHasLoaded && router && !(isRefreshing && !authDisabled) ? (
+      {configHasLoaded && router && !isRefreshing ? (
         <ErrorBoundary>
           <Suspense
             fallback={

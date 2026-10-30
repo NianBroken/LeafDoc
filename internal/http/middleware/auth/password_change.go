@@ -29,7 +29,7 @@ func rejectPasswordChange(c *gin.Context, user *coreauth.User) bool {
 // PasswordChangeGate resolves existing credentials before public and protected handlers alike.
 func PasswordChangeGate(service *coreauth.AuthService, cookies *AuthCookies) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		result := resolveSession(c, service, cookies, false)
+		result := resolveSession(c, service, cookies)
 		if rejectPasswordChange(c, result.user) {
 			return
 		}

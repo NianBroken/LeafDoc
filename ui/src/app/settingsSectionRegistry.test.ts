@@ -8,7 +8,6 @@ import {
 
 const baseCtx: SettingsSectionContext = {
   role: 'admin',
-  authDisabled: false,
   snapshotEnabled: false,
   enableApiKeyManagement: false,
   userManagementUrl: undefined,
@@ -70,23 +69,21 @@ describe('isSectionVisible', () => {
     ).toBe(true)
   })
 
-  it('bypasses role gating entirely when auth is disabled (no accounts exist in that mode)', () => {
+  it('rejects anonymous access to admin sections', () => {
     expect(
       isSectionVisible(section({ roles: ['admin'] }), {
         ...baseCtx,
-        authDisabled: true,
         role: undefined,
       }),
-    ).toBe(true)
+    ).toBe(false)
   })
 
-  it('still enforces isEnabled feature flags even when auth is disabled', () => {
+  it('rejects anonymous access to disabled features', () => {
     expect(
       isSectionVisible(
         section({ roles: ['admin'], isEnabled: (ctx) => ctx.snapshotEnabled }),
         {
           ...baseCtx,
-          authDisabled: true,
           role: undefined,
         },
       ),

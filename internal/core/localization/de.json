@@ -3,14 +3,12 @@
   "admin user cannot be deleted": "Der Administrator-Benutzer kann nicht gelöscht werden",
   "api key not found": "API-Schlüssel nicht gefunden",
   "api key request failed": "API-Schlüssel-Anfrage fehlgeschlagen",
-  "api keys are not available when authentication is disabled": "API-Schlüssel sind nicht verfügbar, wenn die Authentifizierung deaktiviert ist",
   "could not generate a unique api key, please try again": "Es konnte kein eindeutiger Schlüssel generiert werden, bitte erneut versuchen",
   "cannot remove admin role from the last admin user": "Die Administratorrolle kann dem letzten Administrator nicht entzogen werden. Weisen Sie zuerst einem anderen Benutzer die Administratorrolle zu.",
   "asset %s already exists": "Datei %s existiert bereits",
   "asset %s not found": "Datei %s nicht gefunden",
   "asset extension must not change from %s": "Die Dateiendung darf sich nicht von %s ändern",
   "asset request failed": "Datei-Anfrage fehlgeschlagen",
-  "authentication is disabled": "Die Authentifizierung ist deaktiviert",
   "authentication request failed": "Authentifizierungsanfrage fehlgeschlagen",
   "avatar file too large": "Avatar-Datei zu groß",
   "avatar request failed": "Avatar-Anfrage fehlgeschlagen",
@@ -102,5 +100,6 @@
   "zip entry exceeds the per-file size limit": "Eine Datei im hochgeladenen Archiv ist zu groß",
   "decompressed zip contents exceed the total size limit": "Das hochgeladene Archiv ist nach dem Entpacken zu groß",
   "zip entry's decompression ratio exceeds the allowed maximum": "Das hochgeladene Archiv sieht wie eine Dekompressionsbombe aus",
-  "password change required": "Ändern Sie zuerst Ihr Anfangspasswort"
+  "password change required": "Ändern Sie zuerst Ihr Anfangspasswort",
+  "authentication service unavailable": "Authentifizierungsdienst nicht verfügbar"
 }

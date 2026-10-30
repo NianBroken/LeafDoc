@@ -236,8 +236,8 @@ func TestProxyAuth_ConfigResponse_Roundtrip(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("response is not valid JSON: %v", err)
 	}
-	if _, ok := body["authDisabled"]; !ok {
-		t.Error("expected 'authDisabled' field in /api/config response")
+	if enabled, ok := body["httpRemoteUserEnabled"].(bool); !ok || !enabled {
+		t.Error("expected enabled proxy authentication in /api/config response")
 	}
 }
 

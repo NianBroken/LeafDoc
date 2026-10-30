@@ -24,9 +24,9 @@ import (
 // The pre-refactor public group ran no auth middleware and saw every caller as
 // anonymous. No read handler currently branches on the context user, so this
 // is invisible today, but it is the intended forward-looking behaviour.
-func RequireAuthOrPublicRead(authService *auth.AuthService, authCookies *AuthCookies, authDisabled bool, public publicaccess.ReadGate) gin.HandlerFunc {
+func RequireAuthOrPublicRead(authService *auth.AuthService, authCookies *AuthCookies, public publicaccess.ReadGate) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		r := resolveSession(c, authService, authCookies, authDisabled)
+		r := resolveSession(c, authService, authCookies)
 		if rejectPasswordChange(c, r.user) {
 			return
 		}

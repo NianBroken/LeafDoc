@@ -22,7 +22,6 @@ describe('UserMenu', () => {
       dialogProps: null,
     })
     useConfigStore.setState({
-      authDisabled: false,
       httpRemoteUserEnabled: false,
       loginUrl: '',
       logoutUrl: '',
@@ -106,8 +105,7 @@ describe('UserMenu', () => {
     })
   })
 
-  it('opens the shortcuts dialog via keyboard shortcut in no-auth mode', async () => {
-    useConfigStore.setState({ authDisabled: true })
+  it('does not open editing shortcuts for anonymous visitors', async () => {
     useSessionStore.setState({ user: null })
 
     render(
@@ -121,7 +119,9 @@ describe('UserMenu', () => {
     fireEvent.keyDown(window, { key: '/', code: 'Slash', ctrlKey: true })
 
     await waitFor(() => {
-      expect(screen.getByTestId('shortcuts-help-dialog')).toBeInTheDocument()
+      expect(
+        screen.queryByTestId('shortcuts-help-dialog'),
+      ).not.toBeInTheDocument()
     })
   })
 

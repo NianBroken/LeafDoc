@@ -7,7 +7,7 @@ UI_DIR := ui
 HTTP_DIST := internal/http/dist
 # The lint target reads its tool version from one shared file.
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
-EMBED_LDFLAGS := -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production
+EMBED_LDFLAGS := -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true
 LDFLAGS := -X main.Version=$(VERSION) $(EMBED_LDFLAGS)
 
 PLATFORMS := \

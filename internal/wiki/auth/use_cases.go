@@ -14,8 +14,8 @@ import (
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
-// ErrAuthDisabled is returned when an auth operation is called while auth is disabled.
-var ErrAuthDisabled = errors.New("authentication is disabled")
+// ErrAuthUnavailable is returned when an auth operation is called when the authentication service is unavailable.
+var ErrAuthUnavailable = errors.New("authentication service unavailable")
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+$`)
 
@@ -41,7 +41,7 @@ func NewLoginUseCase(a *coreauth.AuthService, metrics *httpmetrics.HTTPMetrics) 
 
 func (uc *LoginUseCase) Execute(_ context.Context, in LoginInput) (*LoginOutput, error) {
 	if uc.auth == nil {
-		return nil, ErrAuthDisabled
+		return nil, ErrAuthUnavailable
 	}
 	token, err := uc.auth.Login(in.Identifier, in.Password)
 	if err != nil {
@@ -75,7 +75,7 @@ func NewLogoutUseCase(a *coreauth.AuthService, metrics *httpmetrics.HTTPMetrics)
 
 func (uc *LogoutUseCase) Execute(_ context.Context, in LogoutInput) error {
 	if uc.auth == nil {
-		return ErrAuthDisabled
+		return ErrAuthUnavailable
 	}
 	if err := uc.auth.RevokeRefreshToken(in.RefreshToken); err != nil {
 		return err
@@ -103,7 +103,7 @@ func NewRefreshTokenUseCase(a *coreauth.AuthService, metrics *httpmetrics.HTTPMe
 
 func (uc *RefreshTokenUseCase) Execute(_ context.Context, in RefreshTokenInput) (*RefreshTokenOutput, error) {
 	if uc.auth == nil {
-		return nil, ErrAuthDisabled
+		return nil, ErrAuthUnavailable
 	}
 	token, err := uc.auth.RefreshToken(in.RefreshToken)
 	if err != nil {

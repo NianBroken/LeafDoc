@@ -35,8 +35,8 @@ func NewRoutes(publicAccess *publicaccess.Service, tocDisplay *tocdisplay.Servic
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	adminGroup := ctx.APIAuthGroup(r.authService).Group("/admin/settings")
 	if ctx.Opts.Preferences != nil {
-		adminGroup.GET("/preferences", authmw.RequireAdmin(ctx.Opts.AuthDisabled), func(c *gin.Context) { c.JSON(200, ctx.Opts.Preferences.Get()) })
-		adminGroup.PUT("/preferences", authmw.RequireAdmin(ctx.Opts.AuthDisabled), authmw.RequireCookieSession(), func(c *gin.Context) {
+		adminGroup.GET("/preferences", authmw.RequireAdmin(), func(c *gin.Context) { c.JSON(200, ctx.Opts.Preferences.Get()) })
+		adminGroup.PUT("/preferences", authmw.RequireAdmin(), authmw.RequireCookieSession(), func(c *gin.Context) {
 			var patch map[string]any
 			if err := c.ShouldBindJSON(&patch); err != nil {
 				c.JSON(400, gin.H{"error": localization.Message("invalid payload")})
@@ -55,12 +55,12 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	// (CSRF no longer blocks key-authenticated writes, so RequireCookieSession
 	// is what enforces this).
 	adminGroup.PUT("/public-access",
-		authmw.RequireAdmin(ctx.Opts.AuthDisabled),
+		authmw.RequireAdmin(),
 		authmw.RequireCookieSession(),
 		r.handleSetPublicAccess,
 	)
 	adminGroup.PUT("/toc-display",
-		authmw.RequireAdmin(ctx.Opts.AuthDisabled),
+		authmw.RequireAdmin(),
 		r.handleSetTocDisplay,
 	)
 }

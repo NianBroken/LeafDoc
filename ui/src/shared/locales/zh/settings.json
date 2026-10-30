@@ -24,10 +24,7 @@
     "preferences": {
       "sectionTitle": "偏好",
       "sectionDescription": "编辑偏好设置，跨设备同步。",
-      "autoSaveLabel": "启用自动保存",
-      "autoSaveDescription": "编辑页面时自动保存你的修改。",
       "savedToast": "偏好已保存",
-      "autoSaveToggleError": "无法更新自动保存设置",
       "languageLabel": "语言",
       "languageChangeError": "无法更新语言设置",
       "dateFormatLabel": "日期格式",

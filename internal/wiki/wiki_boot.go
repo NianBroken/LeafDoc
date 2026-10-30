@@ -29,56 +29,34 @@ func (w *Wiki) initAuth(options *WikiOptions) error {
 	}
 	w.user = auth.NewUserService(store)
 	w.user.SetEditorLimit(options.EditorLimit)
-	if !options.AuthDisabled {
-		if err := w.user.InitDefaultAdmin(options.AdminUsername, options.AdminEmail, options.AdminPassword); err != nil {
-			return err
-		}
+	if err := w.user.InitDefaultAdmin(options.AdminUsername, options.AdminEmail, options.AdminPassword); err != nil {
+		return err
 	}
 	w.userResolver, err = auth.NewUserResolver(w.UserService)
 	if err != nil {
 		return err
 	}
-	if !options.AuthDisabled {
-		sessionStore, err := auth.NewSessionStore(w.storageDir)
+	sessionStore, err := auth.NewSessionStore(w.storageDir)
+	if err != nil {
+		return err
+	}
+	sessions := auth.NewSessionManager(sessionStore, options.JWTSecret, options.AccessTokenTimeout, options.RefreshTokenTimeout)
+	w.auth = auth.NewAuthService(w.user, sessions)
+
+	// API key authentication is available only when the feature is enabled.
+	if options.EnableAPIKeyManagement {
+		apiKeyStore, err := auth.NewAPIKeyStore(w.storageDir)
 		if err != nil {
 			return err
 		}
-		sessions := auth.NewSessionManager(sessionStore, options.JWTSecret, options.AccessTokenTimeout, options.RefreshTokenTimeout)
-		w.auth = auth.NewAuthService(w.user, sessions)
-
-		// API keys are only meaningful when authentication is meaningful:
-		// key management is admin-only and RequireAdmin already hard-blocks
-		// admin operations when auth is disabled, so no key can be created
-		// in that mode anyway. Keeping construction inside this block (like
-		// sessionStore/w.auth) means w.APIKeyService() is nil when
-		// AuthDisabled, which in turn keeps the Bearer middleware from being
-		// registered at all — a key created before a later --disable-auth
-		// restart must not keep authenticating (and narrowing/blocking)
-		// requests in a mode where auth is supposed to be irrelevant.
-		//
-		// The feature is additionally gated behind EnableAPIKeyManagement:
-		// it ships experimental and off by default, so w.apiKeys stays nil
-		// (and the Bearer middleware/admin routes stay disabled) until an
-		// operator explicitly opts in.
-		if options.EnableAPIKeyManagement {
-			apiKeyStore, err := auth.NewAPIKeyStore(w.storageDir)
-			if err != nil {
-				return err
-			}
-			w.apiKeys = auth.NewAPIKeyService(apiKeyStore, w.auth)
-		}
+		w.apiKeys = auth.NewAPIKeyService(apiKeyStore, w.auth)
 	}
 	return nil
 }
 
-// initEmail constructs the password-reset/invite token service when both
-// SMTP is configured and auth is enabled — mirroring the EnableAPIKeyManagement
-// block above, this keeps w.emailTokenService nil (and the corresponding
-// routes returning ErrEmailDisabled) whenever either precondition is false,
-// rather than constructing something unusable. Must run after initAuth,
-// which sets w.user and w.auth.
+// initEmail constructs password reset and invitation services when SMTP is configured.
 func (w *Wiki) initEmail(options *WikiOptions) error {
-	if !options.SMTP.Enabled() || options.AuthDisabled {
+	if !options.SMTP.Enabled() {
 		return nil
 	}
 

@@ -24,10 +24,7 @@
     "preferences": {
       "sectionTitle": "Voreinstellungen",
       "sectionDescription": "Bearbeitungseinstellungen, geräteübergreifend synchronisiert.",
-      "autoSaveLabel": "Automatisches Speichern aktivieren",
-      "autoSaveDescription": "Änderungen beim Bearbeiten einer Seite automatisch speichern.",
       "savedToast": "Einstellung gespeichert",
-      "autoSaveToggleError": "Einstellung für automatisches Speichern konnte nicht aktualisiert werden",
       "languageLabel": "Sprache",
       "languageChangeError": "Spracheinstellung konnte nicht aktualisiert werden",
       "dateFormatLabel": "Datumsformat",

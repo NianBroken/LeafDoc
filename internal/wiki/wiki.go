@@ -100,7 +100,6 @@ type WikiOptions struct {
 	JWTSecret               string        // JWT secret for authentication
 	AccessTokenTimeout      time.Duration // Access token timeout duration
 	RefreshTokenTimeout     time.Duration // Refresh token timeout duration
-	AuthDisabled            bool          // Whether authentication is disabled
 	EnableRevision          bool          // Whether revision recording/storage is enabled
 	EnableAPIKeyManagement  bool          // Whether the experimental API key management feature is enabled
 	MaxRevisionHistory      int           // Max revisions kept per page; 0 = unlimited

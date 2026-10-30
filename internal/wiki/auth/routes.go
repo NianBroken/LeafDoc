@@ -91,7 +91,6 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 
 // RegisterRoutes implements RouteRegistrar.
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
-	opts := ctx.Opts
 
 	loginRateLimiter := security.NewRateLimiter(10, 5*time.Minute, true)
 
@@ -115,7 +114,6 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	// proxy to discard their cached credentials.
 	meGroup := ctx.Base.Group("/api")
 	meGroup.Use(
-		authmw.InjectPublicEditor(opts.AuthDisabled),
 		authmw.OptionalAuth(r.authService, ctx.AuthCookies),
 	)
 	meGroup.GET("/auth/me", r.handleMe)
@@ -129,29 +127,27 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 
 	authGroup.POST("/auth/logout", sessionOnly, r.handleLogout(ctx))
 
-	authGroup.POST("/users", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleCreateUser)
-	authGroup.GET("/users", authmw.RequireAdmin(opts.AuthDisabled), r.handleGetUsers)
-	authGroup.PUT("/users/:id", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleUpdateUser)
-	authGroup.DELETE("/users/:id", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleDeleteUser)
+	authGroup.POST("/users", sessionOnly, authmw.RequireAdmin(), r.handleCreateUser)
+	authGroup.GET("/users", authmw.RequireAdmin(), r.handleGetUsers)
+	authGroup.PUT("/users/:id", sessionOnly, authmw.RequireAdmin(), r.handleUpdateUser)
+	authGroup.DELETE("/users/:id", sessionOnly, authmw.RequireAdmin(), r.handleDeleteUser)
 	// Invite is only ever meaningful with SMTP configured — the underlying
 	// use cases already short-circuit on ErrEmailDisabled when emailTokens()
-	// is nil (SMTP off or auth disabled), so registering these unconditionally
+	// is nil (SMTP off), so registering these unconditionally
 	// (mirroring POST /users above) just means that case surfaces as a clean
 	// 403 instead of a 404.
-	authGroup.POST("/users/invite", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleInviteUser)
-	authGroup.POST("/users/:id/invite/resend", sessionOnly, authmw.RequireAdmin(opts.AuthDisabled), r.handleResendInvite)
+	authGroup.POST("/users/invite", sessionOnly, authmw.RequireAdmin(), r.handleInviteUser)
+	authGroup.POST("/users/:id/invite/resend", sessionOnly, authmw.RequireAdmin(), r.handleResendInvite)
 
-	if !opts.AuthDisabled {
-		authGroup.PUT("/users/me/password", sessionOnly, r.handleChangeOwnPassword(ctx))
-		emailRateLimiter := security.NewRateLimiter(10, 5*time.Minute, true)
-		// Separate, tighter per-identifier budget on top of the per-IP one
-		// above: the threat forgot-password uniquely has is mail-bombing one
-		// victim from many IPs, which a per-IP limiter alone doesn't stop.
-		passwordResetIdentifierLimiter := security.NewKeyedLimiter(3, time.Hour, false)
-		nonAuth.POST("/auth/password/forgot", emailRateLimiter, r.handleRequestPasswordReset(passwordResetIdentifierLimiter))
-		nonAuth.POST("/auth/password/reset", emailRateLimiter, r.handleConfirmPasswordReset)
-		nonAuth.POST("/auth/invite/accept", emailRateLimiter, r.handleConfirmInvite(ctx))
-	}
+	authGroup.PUT("/users/me/password", sessionOnly, r.handleChangeOwnPassword(ctx))
+	emailRateLimiter := security.NewRateLimiter(10, 5*time.Minute, true)
+	// Separate, tighter per-identifier budget on top of the per-IP one
+	// above: the threat forgot-password uniquely has is mail-bombing one
+	// victim from many IPs, which a per-IP limiter alone doesn't stop.
+	passwordResetIdentifierLimiter := security.NewKeyedLimiter(3, time.Hour, false)
+	nonAuth.POST("/auth/password/forgot", emailRateLimiter, r.handleRequestPasswordReset(passwordResetIdentifierLimiter))
+	nonAuth.POST("/auth/password/reset", emailRateLimiter, r.handleConfirmPasswordReset)
+	nonAuth.POST("/auth/invite/accept", emailRateLimiter, r.handleConfirmInvite(ctx))
 }
 
 // ─── Handlers ───────────────────────────────────────────────────────────────
@@ -182,7 +178,6 @@ func (r *Routes) handleConfig(ctx httpinternal.RouterContext) gin.HandlerFunc {
 			"alwaysShowToc":           opts.AlwaysShowToc.AlwaysShow(),
 			"editorLimit":             opts.EditorLimit,
 			"hideLinkMetadataSection": opts.HideLinkMetadataSection,
-			"authDisabled":            opts.AuthDisabled,
 			"basePath":                opts.BasePath,
 			"maxAssetUploadSizeBytes": opts.MaxAssetUploadSizeBytes,
 			// Avatar constraints are fixed feature constants (internal/core/avatar),

@@ -34,7 +34,6 @@ export default function UserMenu() {
   const avatarVersion = useAvatarStore((s) => s.avatarVersion)
   const navigate = useNavigate()
   const openDialog = useDialogsStore((state) => state.openDialog)
-  const authDisabled = useConfigStore((s) => s.authDisabled)
   const readOnly = useIsReadOnly()
   const httpRemoteUserEnabled = useConfigStore((s) => s.httpRemoteUserEnabled)
   const registerHotkey = useHotKeysStore((state) => state.registerHotkey)
@@ -43,7 +42,7 @@ export default function UserMenu() {
   const loginUrl = useConfigStore((s) => s.loginUrl)
 
   useEffect(() => {
-    if (!authDisabled && (!user || readOnly)) {
+    if (!user || readOnly) {
       return
     }
 
@@ -53,16 +52,9 @@ export default function UserMenu() {
 
     registerHotkey(hotkey)
     return () => unregisterHotkey(hotkey)
-  }, [
-    authDisabled,
-    openDialog,
-    readOnly,
-    registerHotkey,
-    unregisterHotkey,
-    user,
-  ])
+  }, [openDialog, readOnly, registerHotkey, unregisterHotkey, user])
 
-  if (!user && !authDisabled) {
+  if (!user) {
     return (
       <div className="user-menu">
         <Button
@@ -73,16 +65,6 @@ export default function UserMenu() {
         >
           {t('login.loginButton')}
         </Button>
-      </div>
-    )
-  }
-
-  if (authDisabled) {
-    return (
-      <div className="user-menu">
-        <span className="user-menu__not-logged-in">
-          {t('login.publicEditor')}
-        </span>
       </div>
     )
   }
