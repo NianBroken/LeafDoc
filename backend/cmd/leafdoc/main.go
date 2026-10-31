@@ -31,7 +31,6 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/preferences"
 	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
 	"github.com/NianBroken/LeafDoc/internal/core/restore"
-	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
 	"github.com/NianBroken/LeafDoc/internal/core/snapshot"
 	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
@@ -139,16 +138,8 @@ func runResetAdminPasswordCommand(cfg *serverConfig) error {
 }
 
 // runServerCommand 在根命令没有子命令时组装并运行服务。
-// 先释放固定监听、校验配置，再加载设置、创建 Wiki、备份恢复与 HTTP 路由。
+// 先校验配置，再加载设置、创建 Wiki、备份恢复与 HTTP 路由。
 func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) error {
-	if err := serviceports.ReleaseAt(cfg.server.host, "backend"); err != nil {
-		return err
-	}
-	if cfg.metrics.enableMetrics {
-		if err := serviceports.ReleaseAt(cfg.metrics.metricsHost, "metrics"); err != nil {
-			return err
-		}
-	}
 	// 大小参数已通过命令校验，这里取得数值供上传入口设置请求限额。
 	basePath := normalizeBasePath(cfg.server.basePath)
 	maxAssetUploadSize := mustParseByteSize(cfg.frontend.maxAssetUploadSize, "max asset upload size")

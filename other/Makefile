@@ -18,13 +18,13 @@ release:
 build-api: build
 
 run:
-	pwsh -NoProfile -File $(ROOT)/other/scripts/start.ps1
+	bash "$(ROOT)/other/scripts/deploy.sh" start
 
 dev: run
 
-# 停止与启动使用同一 PowerShell 入口，由它校验保存的容器和进程归属。
+# Ubuntu 启停共用部署入口，Compose 只操作当前项目的服务。
 stop:
-	pwsh -NoProfile -File $(ROOT)/other/scripts/start.ps1 -Stop
+	bash "$(ROOT)/other/scripts/deploy.sh" stop
 
 test:
 	$(CONTAINER) test
@@ -57,7 +57,7 @@ bench:
 ci: verify lint test cross ui-check schema
 
 help:
-	@echo "build/release: Linux application image; run/dev/stop: persistent Windows launcher"
+	@echo "build/release: Linux application image; run/dev/stop: Ubuntu Compose services"
 	@echo "test/lint/cross/ui/ui-check/verify/schema/bench/ci: Linux container checks"
 
 .PHONY: all doctor build release build-api run dev stop test lint cross ui ui-check verify schema schema-write bench ci help

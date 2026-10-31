@@ -1,0 +1,7 @@
+# 公网模式让 Caddy 处理标准 HTTP 与 HTTPS 入口和自动证书。
+services:
+  gateway:
+    ports:
+      - '${LEAFDOC_BIND_ADDRESS:-0.0.0.0}:80:80/tcp'
+      - '${LEAFDOC_BIND_ADDRESS:-0.0.0.0}:443:443/tcp'
+      - '${LEAFDOC_BIND_ADDRESS:-0.0.0.0}:443:443/udp'

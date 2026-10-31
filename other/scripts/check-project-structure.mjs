@@ -13,7 +13,7 @@ const failures = [];
 for (const name of expected) if (!actual.has(name)) failures.push(`missing root directory: ${name}`);
 for (const name of actual) if (!expected.has(name)) failures.push(`unexpected root directory: ${name}`);
 // 入口按路径存在性检查，不解析内容，也不区分普通文件与其他路径类型。
-for (const file of ['backend/go.mod', 'backend/go.sum', 'frontend/package.json', 'frontend/package-lock.json', 'other/scripts/start.ps1']) {
+for (const file of ['backend/go.mod', 'backend/go.sum', 'frontend/package.json', 'frontend/package-lock.json', 'other/scripts/deploy.sh', 'other/scripts/server.sh', 'other/scripts/test-container-recovery.sh', 'other/compose.yaml']) {
   if (!fs.existsSync(path.join(root, file))) failures.push(`missing required path: ${file}`);
 }
 // 列表中的旧根路径只要存在就计为失败，不检查其路径类型。

@@ -1,0 +1,70 @@
+# Ubuntu 完整服务栈。端口、配置路径及密钥由部署入口提供，不携带本机资料。
+services:
+  database:
+    image: ${LEAFDOC_MYSQL_IMAGE:?Run deploy.sh init first}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LEAFDOC_MYSQL_ROOT_PASSWORD:?}
+      MYSQL_DATABASE: ${LEAFDOC_MYSQL_DATABASE:?}
+      MYSQL_USER: ${LEAFDOC_MYSQL_USER:?}
+      MYSQL_PASSWORD: ${LEAFDOC_MYSQL_PASSWORD:?}
+    volumes:
+      - database:/var/lib/mysql
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql --protocol=tcp -h 127.0.0.1 -u "$$MYSQL_USER" "$$MYSQL_DATABASE" -e "SELECT 1" > /dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+  app:
+    image: ${LEAFDOC_IMAGE:-leafdoc:local}
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      LEAFDOC_HOST: 0.0.0.0
+      LEAFDOC_MYSQL_HOST: database
+      LEAFDOC_MYSQL_DATABASE: ${LEAFDOC_MYSQL_DATABASE:?}
+      LEAFDOC_MYSQL_USER: ${LEAFDOC_MYSQL_USER:?}
+      LEAFDOC_MYSQL_PASSWORD: ${LEAFDOC_MYSQL_PASSWORD:?}
+      LEAFDOC_JWT_SECRET: ${LEAFDOC_JWT_SECRET:?}
+      LEAFDOC_ADMIN_PASSWORD: ${LEAFDOC_ADMIN_PASSWORD:?}
+      LEAFDOC_BASE_PATH: ${LEAFDOC_BASE_PATH:-}
+      LEAFDOC_DATA_DIR: /app/data
+    command: [--enable-revision, --snapshot]
+    volumes:
+      - documents:/app/data
+    healthcheck:
+      test: [CMD-SHELL, 'wget -qO- "http://127.0.0.1:${LEAFDOC_BACKEND_PORT}$${LEAFDOC_BASE_PATH}/api/health" > /dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 45s
+    logging: *logging
+  gateway:
+    image: ${LEAFDOC_CADDY_IMAGE:?Run deploy.sh init first}
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - '${LEAFDOC_BIND_ADDRESS:-0.0.0.0}:${LEAFDOC_FRONTEND_PORT}:${LEAFDOC_FRONTEND_PORT}/tcp'
+    volumes:
+      - ${LEAFDOC_CONFIG_DIR:?}/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${LEAFDOC_CONFIG_DIR:?}/tls:/etc/leafdoc/tls:ro
+      - gateway_data:/data
+      - gateway_config:/config
+    stop_grace_period: 30s
+    logging: *logging
+volumes:
+  database:
+  documents:
+  gateway_data:
+  gateway_config:

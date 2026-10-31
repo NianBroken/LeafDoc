@@ -1,152 +1,178 @@
 #!/usr/bin/env bash
-# 本脚本在列出的 Ubuntu 版本上安装或管理后端与 Caddy 的 systemd 服务。
-# 程序、配置和数据使用各自系统目录，卸载仅移除程序与服务单元，保留配置和业务数据。
+# Ubuntu 原生服务安装器，程序与数据库均由 systemd 管理，配置和业务数据独立保留。
 set -euo pipefail
-# 未传动作时查看状态，系统路径集中声明供安装与卸载分支共用。
-command_name="${1:-status}"
+. "$(dirname "$0")/lib/deployment.sh"
+script_dir="$(cd -- "$(dirname -- "$0")" && pwd -P)"
+action="${1:-status}"
 install_dir=/usr/local/lib/leafdoc
-config_dir=/etc/leafdoc
+config_dir="${LEAFDOC_CONFIG_DIR:-/etc/leafdoc}"
 data_dir=/var/lib/leafdoc
-unit_dir=/etc/systemd/system
-# 安装、服务状态变更和卸载要求管理员权限，status 分支不调用此检查。
-require_root() {
-    if [ "$(id -u)" -ne 0 ]; then echo 'Run as root.' >&2; exit 1; fi
-}
-case "$command_name" in
+mysql_dir=/usr/local/mysql
+mysql_data=/var/lib/leafdoc-mysql
+units=(leafdoc-mysql.service leafdoc.service leafdoc-gateway.service)
+case "$action" in
 install)
-    require_root
-    if [ "$#" -ne 7 ]; then echo 'Usage: server.sh install BINARY CADDY ENV_FILE CERT KEY HTTPS_HOST' >&2; exit 1; fi
-    # 输入文件先解析为实际路径，主机文本只接受列出的地址字符，随后进入配置模板。
-    binary="$(realpath "$2")"
-    gateway="$(realpath "$3")"
-    environment="$(realpath "$4")"
-    certificate="$(realpath "$5")"
-    private_key="$(realpath "$6")"
-    hostname="$7"
-    case "$hostname" in *[!a-zA-Z0-9.:-]*|'') echo 'Invalid HTTPS host.' >&2; exit 1;; esac
+    leafdoc_require_root
+    [ "$#" = 5 ] || { echo 'Usage: server.sh install BINARY CADDY MYSQL_ARCHIVE CONFIG_DIRECTORY' >&2; exit 1; }
+    binary="$(realpath "$2")"; caddy="$(realpath "$3")"; archive="$(realpath "$4")"; config_dir="$(realpath "$5")"
     . /etc/os-release
-    case "$ID:$VERSION_ID" in ubuntu:18.04|ubuntu:20.04|ubuntu:22.04) ;; *) echo 'Supported: Ubuntu 18.04, 20.04, 22.04.' >&2; exit 1;; esac
-    # 缺少端口检查、健康检查工具或系统证书包时，通过系统包管理器安装。
-    if ! command -v lsof >/dev/null || ! command -v curl >/dev/null || [ ! -s /etc/ssl/certs/ca-certificates.crt ]; then
-        apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y lsof ca-certificates curl
-    fi
-    # 服务账号使用禁止交互登录的系统用户，已有同名账号直接复用。
+    case "$ID:$VERSION_ID" in ubuntu:18.04|ubuntu:20.04|ubuntu:22.04) ;; *) echo 'Supported Ubuntu releases: 18.04, 20.04, 22.04.' >&2; exit 1;; esac
+    test -f "$binary" && test -f "$caddy" && test -f "$archive"
+    leafdoc_load_environment "$config_dir/environment"
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl libaio1 libnuma1 libncurses5 libtinfo5
     if ! id leafdoc >/dev/null 2>&1; then useradd --system --home-dir "$data_dir" --shell /usr/sbin/nologin leafdoc; fi
+    if ! id leafdoc-mysql >/dev/null 2>&1; then useradd --system --home-dir "$mysql_data" --shell /usr/sbin/nologin leafdoc-mysql; fi
     install -d -m 755 "$install_dir"
-    install -d -m 750 -o root -g leafdoc "$config_dir"
     install -d -m 750 -o leafdoc -g leafdoc "$data_dir"
-    # 为 QUIC 写入接收与发送缓冲区上限，并立即加载该系统配置。
-    printf 'net.core.rmem_max=7500000\nnet.core.wmem_max=7500000\n' > /etc/sysctl.d/60-leafdoc-quic.conf
-    sysctl -p /etc/sysctl.d/60-leafdoc-quic.conf
-    # 二进制可执行，配置与私钥只向 root 和服务组开放；证书可公开读取。
+    install -d -m 750 -o leafdoc-mysql -g leafdoc-mysql "$mysql_data"
     install -m 755 "$binary" "$install_dir/leafdoc"
-    install -m 755 "$gateway" "$install_dir/caddy"
-    install -m 640 -o root -g leafdoc "$environment" "$config_dir/environment"
-    install -m 644 "$certificate" "$config_dir/server.crt"
-    install -m 640 -o root -g leafdoc "$private_key" "$config_dir/server.key"
-    # 固定服务端口从所安装应用的共享端口入口取得，不在部署脚本重复维护数值。
+    install -m 755 "$caddy" "$install_dir/caddy"
+    if [ ! -x "$mysql_dir/bin/mysqld" ]; then
+        install -d -m 755 "$mysql_dir"
+        tar -xf "$archive" -C "$mysql_dir" --strip-components=1
+    fi
+    # 依赖缺失直接失败并保留诊断，不能进入部分可用状态。
+    if ldd "$mysql_dir/bin/mysqld" | grep 'not found'; then exit 1; fi
+    chown -R root:leafdoc "$config_dir"
+    chmod 750 "$config_dir" "$config_dir/tls"
+    chmod 640 "$config_dir/environment" "$config_dir"/tls/*.key
     frontend="$("$install_dir/leafdoc" service-port frontend)"
     backend="$("$install_dir/leafdoc" service-port backend)"
-    admin="$("$install_dir/leafdoc" service-port gatewayAdmin)"
-    # 配置使用提供的证书，Caddy 暴露 HTTPS 并反向代理本机后端。
-    # 以下 heredoc 是生成配置的原始内容，输出字节参与部署行为。
-    cat > "$config_dir/Caddyfile" <<EOF
-{
-    auto_https off
-    admin 127.0.0.1:$admin
-}
-https://$hostname:$frontend {
-    bind 0.0.0.0
-    tls $config_dir/server.crt $config_dir/server.key
-    reverse_proxy 127.0.0.1:$backend
-}
+    cat > "$config_dir/mysql.cnf" <<EOF
+# Dedicated LeafDoc database, accessible only inside this Ubuntu server.
+[mysqld]
+basedir=$mysql_dir
+datadir=$mysql_data
+socket=$mysql_data/mysql.sock
+pid-file=$mysql_data/mysql.pid
+bind-address=127.0.0.1
+port=$LEAFDOC_MYSQL_PORT
+mysqlx=OFF
+log-error=$mysql_data/mysql.log
+innodb_buffer_pool_size=128M
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
 EOF
-    "$install_dir/caddy" fmt --overwrite "$config_dir/Caddyfile"
-    # 后端单元使用专用账号运行，启动前释放后端与指标监听，失败时由 systemd 重启。
-    cat > "$unit_dir/leafdoc.service" <<EOF
-# The service manager reclaims permanent listeners with system privileges.
+    if [ ! -d "$mysql_data/mysql" ]; then
+        "$mysql_dir/bin/mysqld" --defaults-file="$config_dir/mysql.cnf" --initialize --user=leafdoc-mysql
+    fi
+    cat > /etc/systemd/system/leafdoc-mysql.service <<EOF
+# Dedicated native MySQL service.
+[Unit]
+Description=LeafDoc MySQL
+After=network.target
+[Service]
+Type=simple
+User=leafdoc-mysql
+Group=leafdoc-mysql
+ExecStart=$mysql_dir/bin/mysqld --defaults-file=$config_dir/mysql.cnf
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=120
+LimitNOFILE=10000
+[Install]
+WantedBy=multi-user.target
+EOF
+    # 数据库账号读取该文件所需的组权限不授予应用私有配置。
+    chown root:leafdoc-mysql "$config_dir/mysql.cnf"
+    chmod 644 "$config_dir/mysql.cnf"
+    chmod 755 "$config_dir"
+    systemctl daemon-reload
+    systemctl enable --now leafdoc-mysql.service
+    if [ ! -f "$config_dir/.database-initialized" ]; then
+        error_log="$mysql_data/mysql.log"
+        for attempt in {1..30}; do
+            temporary_password="$(sed -n 's/.*A temporary password is generated for root@localhost: //p' "$error_log" | tail -n 1)"
+            [ -n "$temporary_password" ] && break
+            sleep 1
+        done
+        [ -n "${temporary_password:-}" ] || { journalctl -u leafdoc-mysql.service -n 60 --no-pager; exit 1; }
+        for attempt in {1..120}; do
+            [ -S "$mysql_data/mysql.sock" ] && break
+            sleep 1
+        done
+        MYSQL_PWD="$temporary_password" "$mysql_dir/bin/mysql" --defaults-file="$config_dir/mysql.cnf" --protocol=SOCKET --socket="$mysql_data/mysql.sock" -u root --connect-expired-password <<SQL
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$LEAFDOC_MYSQL_ROOT_PASSWORD';
+CREATE DATABASE IF NOT EXISTS \`$LEAFDOC_MYSQL_DATABASE\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '$LEAFDOC_MYSQL_USER'@'127.0.0.1' IDENTIFIED BY '$LEAFDOC_MYSQL_PASSWORD';
+GRANT ALL ON \`$LEAFDOC_MYSQL_DATABASE\`.* TO '$LEAFDOC_MYSQL_USER'@'127.0.0.1';
+SQL
+        unset temporary_password MYSQL_PWD
+        touch "$config_dir/.database-initialized"
+        chmod 600 "$config_dir/.database-initialized"
+    fi
+    ready=false
+    for attempt in {1..120}; do
+        if "$mysql_dir/bin/mysqladmin" --no-defaults --socket="$mysql_data/mysql.sock" ping >/dev/null 2>&1; then ready=true; break; fi
+        sleep 1
+    done
+    [ "$ready" = true ] || { journalctl -u leafdoc-mysql.service -n 60 --no-pager; exit 1; }
+    # 凭据由生成器给出十六进制随机值，标识符只接受字母、数字和下划线。
+    [[ "$LEAFDOC_MYSQL_DATABASE:$LEAFDOC_MYSQL_USER" =~ ^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+$ ]]
+    [[ "$LEAFDOC_MYSQL_PASSWORD:$LEAFDOC_MYSQL_ROOT_PASSWORD" =~ ^[a-f0-9]+:[a-f0-9]+$ ]]
+    cat > /etc/systemd/system/leafdoc.service <<EOF
+# Native LeafDoc application with bounded database startup recovery.
 [Unit]
 Description=LeafDoc backend
 Wants=network-online.target
-After=network-online.target
-StartLimitIntervalSec=60
-StartLimitBurst=5
+Requires=leafdoc-mysql.service
+After=network-online.target leafdoc-mysql.service
 [Service]
 Type=simple
 User=leafdoc
 Group=leafdoc
-PermissionsStartOnly=true
 WorkingDirectory=$data_dir
 EnvironmentFile=$config_dir/environment
-ExecStartPre=$install_dir/leafdoc release-ports backend metrics
 ExecStart=$install_dir/leafdoc --host=127.0.0.1 --data-dir=$data_dir --enable-revision --snapshot
 Restart=on-failure
 RestartSec=5
-TimeoutStopSec=30
+TimeoutStopSec=45
 UMask=0027
+NoNewPrivileges=true
 [Install]
 WantedBy=multi-user.target
 EOF
-    # 网关单元依赖网络和后端，同样由 systemd 管理，模板文本保持为服务配置内容。
-    cat > "$unit_dir/leafdoc-gateway.service" <<EOF
-# The gateway exposes HTTPS and a local administration listener.
+    "$install_dir/caddy" fmt --overwrite "$config_dir/Caddyfile"
+    "$install_dir/caddy" validate --config "$config_dir/Caddyfile"
+    cat > /etc/systemd/system/leafdoc-gateway.service <<EOF
+# HTTPS gateway keeps certificate storage in the dedicated data directory.
 [Unit]
 Description=LeafDoc HTTPS gateway
 Wants=network-online.target leafdoc.service
 After=network-online.target leafdoc.service
-StartLimitIntervalSec=60
-StartLimitBurst=5
 [Service]
 Type=simple
 User=leafdoc
 Group=leafdoc
-PermissionsStartOnly=true
-WorkingDirectory=$data_dir
 Environment=HOME=$data_dir
-ExecStartPre=$install_dir/leafdoc release-ports frontend gatewayAdmin
+WorkingDirectory=$data_dir
 ExecStart=$install_dir/caddy run --config $config_dir/Caddyfile
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 UMask=0027
+NoNewPrivileges=true
 [Install]
 WantedBy=multi-user.target
 EOF
-    # 安装后重新加载单元并启用开机运行，实际重启两个服务后轮询后端健康接口。
     systemctl daemon-reload
-    systemctl enable leafdoc.service leafdoc-gateway.service
+    systemctl enable "${units[@]}"
     systemctl restart leafdoc.service leafdoc-gateway.service
-    ready=false
-    for attempt in {1..120}; do
-        if curl --fail --silent "http://127.0.0.1:$backend/api/health" >/dev/null; then ready=true; break; fi
-        sleep 1
-    done
-    # 最多进行一百二十轮后端检查，失败输出后端日志并退出。
-    # 这里不访问 HTTPS 页面、不检查网关证书，也不执行管理员登录。
-    if [ "$ready" != true ]; then journalctl -u leafdoc.service -n 60 --no-pager; exit 1; fi
-    echo "HTTPS frontend: https://$hostname:$frontend"
+    python3 "$script_dir/verify-deployment.py" --url "https://localhost:$frontend" --ca "$config_dir/tls/local-ca.crt" --environment "$config_dir/environment"
     ;;
-# 服务控制同时作用于后端和网关，实际执行结果由 systemctl 返回。
 start|stop|restart)
-    require_root
-    systemctl "$command_name" leafdoc.service leafdoc-gateway.service
+    leafdoc_require_root
+    systemctl "$action" "${units[@]}"
     ;;
-status)
-    systemctl status leafdoc.service leafdoc-gateway.service --no-pager
-    ;;
-# 卸载停止并禁用服务，再移除单元和程序，数据与私有配置目录保持存在。
+status) systemctl status "${units[@]}" --no-pager;;
 uninstall)
-    require_root
-    systemctl disable --now leafdoc-gateway.service leafdoc.service
-    rm -f "$unit_dir/leafdoc.service" "$unit_dir/leafdoc-gateway.service"
+    leafdoc_require_root
+    systemctl disable --now leafdoc-gateway.service leafdoc.service leafdoc-mysql.service
+    for unit in "${units[@]}"; do rm -f "/etc/systemd/system/$unit"; done
     systemctl daemon-reload
-    rm -f "$install_dir/leafdoc" "$install_dir/caddy"
-    rmdir "$install_dir"
-    echo "Data and private configuration retained in $data_dir and $config_dir."
+    echo 'Configuration, programs and databases retained for recovery.'
     ;;
-*)
-    echo 'Commands: install, start, stop, restart, status, uninstall' >&2
-    exit 1
-    ;;
+*) echo 'Commands: install, start, stop, restart, status, uninstall' >&2; exit 1;;
 esac

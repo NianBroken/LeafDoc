@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
-# 本函数通过自身脚本位置调用共享 Node 定位器，与 Windows 和 Node 入口共用根目录规则。
-# 定义函数时不输出内容，调用时直接返回 Node 的标准输出和退出状态。
+# 本函数从脚本位置查找项目标记，不要求服务器安装 Node。
+# 输出物理绝对路径，调用目录、中文目录和空格不影响定位。
 leafdoc_project_root() {
-    node "$(dirname "${BASH_SOURCE[0]}")/../project-root.mjs"
+    local script_path directory
+    script_path="${BASH_SOURCE[0]}"
+    while [ -L "$script_path" ]; do
+        local target
+        target="$(readlink -- "$script_path")"
+        case "$target" in /*) script_path="$target";; *) script_path="$(dirname -- "$script_path")/$target";; esac
+    done
+    case "$script_path" in /*) ;; *) script_path="$(pwd -P)/$script_path";; esac
+    directory="$(cd -- "$(dirname -- "$script_path")/../../.." && pwd -P)"
+    test -f "$directory/backend/go.mod" && test -f "$directory/frontend/package.json" || return 1
+    printf '%s\n' "$directory"
 }
