@@ -1,3 +1,4 @@
+// 本文件处理页面树和单页读取，将树深度参数与 API 节点转换入口衔接。
 package pages
 
 import (

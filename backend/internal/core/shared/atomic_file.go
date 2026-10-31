@@ -1,5 +1,6 @@
 // 本文件提供字节和数据流两种临时文件写入方式，在写入完成后替换目标文件。
 // 临时文件放在目标目录，调用方负责保证该目录已经存在。
+// 提交流程同步临时文件的数据，不对父目录执行额外同步；持久化保证受文件系统规则约束。
 package shared
 
 import (
@@ -28,6 +29,7 @@ func atomicWriteDir(filename string) string {
 func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
 	dir := atomicWriteDir(filename)
 
+	// 随机临时名称隔离同目录中的并行写入；同一目标最终保留哪次结果由替换顺序决定。
 	tmpFile, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
@@ -50,6 +52,7 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
 		}
 	}
 
+	// 完整字节切片交给文件句柄写入，只有写入无错才进入同步与提交阶段。
 	if _, err := tmpFile.Write(data); err != nil {
 		writeErr := fmt.Errorf("write temp file: %w", err)
 		if closeErr := tmpFile.Close(); closeErr != nil {
@@ -127,6 +130,7 @@ func WriteStreamAtomic(targetPath string, src io.Reader, maxBytes int64, perm os
 		}
 	}
 
+	// 此处关闭失败仍保留 out，返回后的延迟清理会再次尝试关闭句柄。
 	if err := out.Close(); err != nil {
 		return err
 	}

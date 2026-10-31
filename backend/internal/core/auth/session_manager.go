@@ -1,3 +1,5 @@
+// 本文件负责 JWT 与刷新会话记录之间的配合，访问令牌只在请求时解析。
+// 刷新令牌既要通过签名与声明检查，也要对应数据库中尚未撤销且未到期的记录。
 package auth
 
 import (
@@ -13,8 +15,8 @@ import (
 // SessionManager 签发带认证代际的 JWT，并用数据库记录管理刷新令牌的有效与撤销状态。
 // 访问令牌不保存会话行，验证时检查签名、类型、代际并重新读取用户。
 type SessionManager struct {
-	sessionStore         *SessionStore
-	secretKey            []byte
+	sessionStore         *SessionStore // 保存刷新记录与所有令牌共用的认证代际。
+	secretKey            []byte        // 从构造参数复制为字节切片，签发与解析使用同一密钥。
 	accessTokenLifetime  time.Duration
 	refreshTokenLifetime time.Duration
 	log                  *slog.Logger
@@ -122,6 +124,7 @@ func (s *SessionManager) RefreshToken(refreshToken string) (*AuthToken, error) {
 	if s.resolveUser == nil {
 		return nil, ErrSessionManagerNotWired
 	}
+	// 角色与公开资料重新读取，令牌中旧的 role 和 email 不作为当前账号状态。
 	user, err := s.resolveUser(userID)
 	if err != nil {
 		return nil, ErrUserNotFound
@@ -148,6 +151,7 @@ func (s *SessionManager) RefreshToken(refreshToken string) (*AuthToken, error) {
 		return nil, err
 	}
 
+	// 此处与上方插入分别调用存储，不由本方法包在同一个数据库事务中。
 	if err := s.sessionStore.RevokeSession(jti); err != nil {
 		s.log.Warn("failed to revoke used refresh token session", "error", err)
 	}

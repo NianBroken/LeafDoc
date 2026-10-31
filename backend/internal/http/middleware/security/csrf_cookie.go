@@ -1,3 +1,4 @@
+// 本文件为 CSRF 双重提交检查提供浏览器可读的随机令牌，不负责判断具体请求是否允许。
 package security
 
 import (
@@ -13,9 +14,11 @@ import (
 // CSRFCookie 负责浏览器双重提交令牌的生成、读取和删除。
 // Cookie 允许页面脚本读取，脚本可将值放入请求头供 CSRF 中间件比较。
 type CSRFCookie struct {
+	// 连接策略与认证 Cookie 共用 RequireSecure，名称据该次请求的安全模式选择。
 	AllowInsecure bool
 	SameSite      http.SameSite
-	TTL           time.Duration
+	// TTL 仅在生成并设置新 Cookie 时使用，复用已有 Cookie 不更新其到期时间。
+	TTL time.Duration
 }
 
 // NewCSRFCookie 保存有效期和连接策略，默认采用 Lax 跨站发送规则。

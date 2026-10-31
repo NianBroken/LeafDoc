@@ -1,8 +1,10 @@
+// 当前账号设置组合头像和自身密码两个面板，表单提交分别由子组件负责。
 import { useTranslation } from 'react-i18next'
 import { useSetTitle } from '@/features/viewer/setTitle'
 import { AvatarPanel } from '@/features/settings/account/AvatarPanel'
 import { ChangeOwnPasswordPanel } from '@/features/settings/account/ChangeOwnPasswordPanel'
 
+// 页面标题同步到浏览器标题，两个区块的标题和操作说明使用 settings 命名空间。
 export default function AccountSettings() {
   const { t } = useTranslation('settings')
 

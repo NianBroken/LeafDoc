@@ -1,4 +1,4 @@
-// Package settings 将带类型的实例配置保存到 MySQL，并提供进程内缓存和变化通知。
+// settings 包将带类型的实例配置保存到 MySQL，并提供进程内缓存和变化通知。
 // 键名中保留的 .json 表示配置记录名称，不表示在数据目录中创建同名文件。
 package settings
 
@@ -50,6 +50,7 @@ func (s *Store[T]) Put(v T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err = database.WriteRecord(s.directory, "settings", s.key, raw); err != nil {
+		// 持久化未成功时保持旧缓存，不调用 onLoad，也不向订阅者发送成功通知。
 		return err
 	}
 	s.val = v
@@ -89,6 +90,7 @@ func (s *Store[T]) reloadLocked() error {
 		return fmt.Errorf("read setting %s: %w", s.key, err)
 	}
 	var fields map[string]json.RawMessage
+	// 先检查顶层数据形状，再交给 T 解码；未知属性是否保留由 T 的解码与编码实现决定。
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return fmt.Errorf("invalid setting %s: %w", s.key, err)
 	}

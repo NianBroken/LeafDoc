@@ -1,3 +1,4 @@
+// 本文件仅验证收藏存储不可用错误的 HTTP 状态映射，恢复过程不在测试中运行。
 package pages
 
 import (
@@ -10,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TestRespondWithPageError_FavoritesStoreUnavailable_Returns503
 // 构造带收藏存储不可用代码的本地化错误，通过真实页面错误响应入口检查 503 状态。
 // 断言只验证状态映射，不触发备份恢复或实际暂停收藏存储。
 func TestRespondWithPageError_FavoritesStoreUnavailable_Returns503(t *testing.T) {

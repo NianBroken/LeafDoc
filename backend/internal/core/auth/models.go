@@ -4,12 +4,14 @@ package auth
 // PublicUser 是不带密码字段的用户响应结构，仍包含邮箱和权限状态。
 // 结构本身不执行访问控制，是否向某个请求返回这些字段由接口层决定。
 type PublicUser struct {
-	ID                 string `json:"id"`
-	Username           string `json:"username"`
-	Email              string `json:"email"`
-	Role               string `json:"role"`
-	MustChangePassword bool   `json:"mustChangePassword"`
-	MustSetPassword    bool   `json:"mustSetPassword"`
+	// 标识、用户名和邮箱按当前用户对象复制，不在公开转换时重新查询数据库。
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+	// 两个状态分别描述强制改密和邀请待设密，不以是否存在密码字段判断状态。
+	MustChangePassword bool `json:"mustChangePassword"`
+	MustSetPassword    bool `json:"mustSetPassword"`
 }
 
 // User 是认证服务的内部用户结构，Password 在不同调用路径中承载摘要或临时明文。

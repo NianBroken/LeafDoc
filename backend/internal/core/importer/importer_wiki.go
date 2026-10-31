@@ -1,3 +1,4 @@
+// 导入流程通过此接口访问页面树、页面写入和附件上传，避免绑定完整 Wiki 服务实现。
 package importer
 
 import (

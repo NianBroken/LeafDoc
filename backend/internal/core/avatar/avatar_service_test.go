@@ -227,6 +227,7 @@ func TestAvatarService_UploadAvatar_CorruptBytes_ReturnsDecodeFailedError(t *tes
 	}
 }
 
+// 超限用例通过真实 PNG 编码构造上传数据，确认服务拒绝编码文件超过五 MiB 的输入。
 func TestAvatarService_UploadAvatar_OversizedUpload_Rejected(t *testing.T) {
 	svc, _ := newTestAvatarService(t)
 
@@ -251,6 +252,7 @@ func TestAvatarService_UploadAvatar_OversizedUpload_Rejected(t *testing.T) {
 	}
 }
 
+// 非正方形输入核验输出尺寸与四色取样集合，将居中取景与缩放结果一起检查。
 func TestAvatarService_UploadAvatar_NonSquareInput_CropsCenteredNotCorner(t *testing.T) {
 	svc, dir := newTestAvatarService(t)
 
@@ -314,6 +316,7 @@ func TestAvatarService_UploadAvatar_NonSquareInput_CropsCenteredNotCorner(t *tes
 	}
 }
 
+// 同一服务依次处理无头像、已上传头像和重复删除三个状态，核对文件确实消失且返回值一致。
 func TestAvatarService_DeleteAvatar_IdempotentAndNoOpWhenNothingUploaded(t *testing.T) {
 	svc, dir := newTestAvatarService(t)
 

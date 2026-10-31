@@ -1,5 +1,7 @@
+# 此文件使用检查器第二版配置格式，检查动作由 container.mjs 的 lint 入口加载。
 version: "2"
 linters:
+  # 显式启用静态检查和未使用代码检查，其他默认规则仍由所固定检查器版本决定。
   enable:
     - govet
     - unused
@@ -13,6 +15,7 @@ linters:
       - examples$
       - node_modules
 formatters:
+  # 声明 Go 格式与导入整理工具，排除路径与检查器排除路径保持相同范围。
   enable:
     - gofmt
     - goimports

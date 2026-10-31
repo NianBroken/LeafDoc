@@ -1,4 +1,4 @@
-# Check out text files with LF on every platform. A Git for Windows clone
-# (core.autocrlf=true) would otherwise get CRLF, and the shell scripts then
-# fail inside the Dev Container or WSL.
+# Git 自动识别文本文件，并在检出时统一使用 LF 行尾。
+# 该规则覆盖所有匹配路径，使 Windows 检出的 shell 脚本也能在 Linux 环境读取。
+# 二进制识别继续交给 text=auto，不把图片、归档等资源强制转换为文本。
 * text=auto eol=lf

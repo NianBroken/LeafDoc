@@ -44,6 +44,7 @@ func NewUserResolver(userService func() *UserService) (*UserResolver, error) {
 
 // ResolveUserLabel 空 ID 返回 nil，缓存命中直接返回其中指针，未命中再访问用户存储。
 // 缓存缺失用户的首次查询返回 ErrUserNotFound，后续命中 nil 缓存时返回 nil 且无错误。
+// 同一用户的并发未命中查询不会合并为一个数据库请求，最终写入按锁内已有缓存优先。
 func (r *UserResolver) ResolveUserLabel(userID string) (*UserLabel, error) {
 	if userID == "" {
 		return nil, nil
@@ -88,6 +89,7 @@ func (r *UserResolver) ResolveUserLabel(userID string) (*UserLabel, error) {
 
 // Reload 先在锁外完整读取并建立新映射，成功后一次替换全部缓存。
 // 读取失败保留旧映射，成功加载也会清除此前缓存的不存在记录。
+// 锁外查询期间其他调用仍可读取旧映射，整体替换不会更新已经返回给调用方的标签指针。
 func (r *UserResolver) Reload() error {
 	users, err := r.userService().GetUsers()
 	if err != nil {

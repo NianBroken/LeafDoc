@@ -1,3 +1,5 @@
+// 本面板为实例偏好提供三个受控选择器，每次选择立即调用共享状态的异步保存动作。
+// 请求失败经统一错误映射显示提示，字段当前值与保存结果由状态容器管理。
 import { mapApiError } from '@/shared/lib/api/errors'
 import { toast } from 'sonner'
 import {
@@ -11,6 +13,7 @@ import { getAvailableLanguages } from '@/shared/lib/i18n'
 import { useUserSettingsStore } from '@/shared/state/userSettings'
 import { useTranslation } from 'react-i18next'
 
+// 值是存储与接口使用的稳定格式标识，labelKey 只决定当前界面显示的译文。
 const DATE_FORMAT_OPTIONS = [
   { value: 'iso', labelKey: 'account.preferences.dateFormat.iso' },
   { value: 'mdy_slash', labelKey: 'account.preferences.dateFormat.mdySlash' },
@@ -18,11 +21,13 @@ const DATE_FORMAT_OPTIONS = [
   { value: 'dmy_dot', labelKey: 'account.preferences.dateFormat.dmyDot' },
 ] as const
 
+// 时间只提供二十四小时与十二小时两个选项，不在本组件内格式化实际日期。
 const TIME_FORMAT_OPTIONS = [
   { value: '24h', labelKey: 'account.preferences.timeFormat.h24' },
   { value: '12h', labelKey: 'account.preferences.timeFormat.h12' },
 ] as const
 
+// 单独订阅三个值与三个保存动作，控件不维护与共享状态重复的本地副本。
 export function PreferencesPanel() {
   const { t } = useTranslation('settings')
   const language = useUserSettingsStore((s) => s.language)
@@ -34,6 +39,7 @@ export function PreferencesPanel() {
 
   return (
     <div data-testid="preferences-panel">
+      {/* 可选语言来自共享语言目录，保存失败显示语言专属提示。标签 ID 与选择框可访问名称相连。 */}
       <div className="settings__field">
         <label
           id="preferences-language-label"
@@ -68,6 +74,7 @@ export function PreferencesPanel() {
         </Select>
       </div>
 
+      {/* 日期格式逐项保存，展示名称随设置命名空间翻译，不向接口发送展示文字。 */}
       <div className="settings__field">
         <label
           id="preferences-dateformat-label"
@@ -102,6 +109,7 @@ export function PreferencesPanel() {
         </Select>
       </div>
 
+      {/* 时间格式保存与其他选择器相互独立，没有汇总提交按钮或批量保存动作。 */}
       <div className="settings__field">
         <label
           id="preferences-timeformat-label"

@@ -1,3 +1,5 @@
+// 本文件把账号读取、密码比较和会话签发串成认证流程。
+// 会话令牌的签名与撤销由 SessionManager 管理，账号查询由可替换的 UserService 管理。
 package auth
 
 import (
@@ -16,10 +18,10 @@ type AuthService struct {
 	// mu 只保护用户服务指针的读取与替换，不包住完整账号查询或密码比较。
 	mu          sync.RWMutex
 	userService *UserService
-	sessions    *SessionManager
-	attempts    *loginAttemptTracker
-	dummyHash   []byte
-	log         *slog.Logger
+	sessions    *SessionManager      // 保存令牌签发和持久化刷新会话入口，不保存账号密码。
+	attempts    *loginAttemptTracker // 按已有账号 ID 记录尝试，未知账号不进入此计数器。
+	dummyHash   []byte               // 未找到账号时参与占位比较，不对应实际用户的密码。
+	log         *slog.Logger         // 标注认证组件，记录登录结果和存储关闭失败。
 }
 
 // users 在读锁内取得当前用户服务指针，返回后释放锁。
@@ -121,6 +123,7 @@ type AuthToken struct {
 // 账号查询的所有错误统一转为凭据无效，不把底层存储原因直接返回此调用方。
 // 第五次登记仍可比较密码，已有锁定状态才在比较之前拒绝请求。
 func (a *AuthService) Login(identifier, password string) (*AuthToken, error) {
+	// 查询在次数检查之前完成；未知账号走占位密码比较，不创建账号锁定记录。
 	user, err := a.users().GetUserByIdentifier(identifier)
 	if err != nil {
 		_ = bcrypt.CompareHashAndPassword(a.dummyHash, []byte(password))
@@ -138,8 +141,10 @@ func (a *AuthService) Login(identifier, password string) (*AuthToken, error) {
 		return nil, ErrUserInvalidCredentials
 	}
 
+	// 账号对象不再携带密码哈希，签发阶段只使用身份与公开资料。
 	user.Password = ""
 
+	// 清空尝试计数发生在签发之前，后续会话写入失败不会恢复先前计数。
 	a.attempts.reset(user.ID)
 	a.log.Info("login succeeded", "userID", user.ID)
 	return a.sessions.IssueSession(user)

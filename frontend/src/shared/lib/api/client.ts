@@ -246,6 +246,7 @@ export function ensureRefresh(): Promise<void> {
   }
 
   if (!globalThis.__leafdocRefreshPromise) {
+    // finally 派生出的 Promise 就是共享对象，所有等待者接收相同的完成或失败结果。
     globalThis.__leafdocRefreshPromise = refreshAccessToken().finally(() => {
       globalThis.__leafdocRefreshPromise = null
     })
@@ -275,6 +276,7 @@ async function refreshAccessToken() {
     }
 
     const data: AuthResponse = await res.json()
+    // 响应类型在此只作静态声明，实际值未经结构检查就依次写入共享会话状态。
     store.setAccessTokenExpiresAt(data.accessTokenExpiresAt)
     store.setUser(data.user)
   } catch (error) {

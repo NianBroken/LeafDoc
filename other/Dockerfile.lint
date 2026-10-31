@@ -1,4 +1,5 @@
-# The dispatcher supplies the pinned official Linux linter as a named build context.
+# lint-toolchain 是 container.mjs 提供的命名构建上下文，绑定项目声明的检查器版本。
+# 只从该镜像复制检查器程序，源代码、Go 与其他检查依赖继承本地工具镜像。
 FROM lint-toolchain AS lint-binary
 FROM leafdoc-tools:local
 COPY --from=lint-binary /usr/bin/golangci-lint /usr/local/bin/golangci-lint

@@ -1,3 +1,5 @@
+// 本文件按连接来源限制单位时间内的请求登记次数，并提供 Gin 包装入口。
+// 状态只保存在当前进程内，多个服务进程不共享计数。
 package security
 
 import (
@@ -14,7 +16,7 @@ import (
 // 调用方可直接限制部分请求，也可使用 NewRateLimiter 将整个路由处理链包起来。
 type KeyedLimiter struct {
 	mu             sync.Mutex
-	hits           map[string][]time.Time
+	hits           map[string][]time.Time // 每个键保存仍参与窗口计算的请求发生时间。
 	limit          int
 	window         time.Duration
 	resetOnSuccess bool

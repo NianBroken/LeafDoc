@@ -1,3 +1,4 @@
+// 内部分区路由同时检查可见性与外链配置，不满足内部展示条件时回到设置根页。
 import {
   isSectionVisible,
   useSettingsSectionContext,
@@ -18,9 +19,8 @@ export default function SettingsSectionGuard({ section, children }: Props) {
     return <Navigate to="/settings" replace />
   }
 
-  // A section with an externalHref (e.g. users, when userManagementUrl is
-  // set) is a link out, not an internal route — redirect away rather than
-  // rendering its Component, mirroring the old /users external-link case.
+  // 非空外部地址意味着该分区入口用于离站链接，此守卫不渲染其内部组件。
+  // 这里仅导航到设置根页，不直接执行外部跳转；根页继续选择可用内部分区。
   if (section.externalHref?.(ctx)) {
     return <Navigate to="/settings" replace />
   }

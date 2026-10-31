@@ -41,6 +41,7 @@ func (e *LocalizedError) Unwrap() error {
 
 // NewLocalizedError 保存所有描述字段并复制参数切片。
 // 调用方随后替换原切片中的元素不会改变该错误保存的参数。
+// 未传参数时保存 nil 切片；Cause 保留原错误引用，不复制其内部状态。
 func NewLocalizedError(code, message, template string, cause error, args ...string) *LocalizedError {
 	return &LocalizedError{
 		Code:     code,

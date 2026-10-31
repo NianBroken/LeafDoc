@@ -1,4 +1,4 @@
-// Package defaultdocs 提供程序内置的五篇 Markdown 教程。
+// defaultdocs 包提供程序内置的五篇 Markdown 教程。
 // 本包读取嵌入正文并组装页面描述，页面持久化和初始化状态判断由调用方负责。
 package defaultdocs
 
@@ -8,6 +8,7 @@ import (
 )
 
 // content 保存构建时 content 目录中的 Markdown 原文，运行时无需读取外部教程文件。
+// 下方的 go:embed 指令负责收集正文，Load 的明确列表决定对外返回哪些教程。
 //
 //go:embed content/*.md
 var content embed.FS

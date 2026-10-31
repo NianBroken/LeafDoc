@@ -1,10 +1,13 @@
+// 标签页包装统一选项条、触发项和内容区域样式，当前值与切换事件交给 Radix 根组件。
 import * as React from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 
 import { cn } from '@/shared/lib/utils'
 
+// 根组件直接导出，不在包装层推断默认选项或创建额外状态。
 const Tabs = TabsPrimitive.Root
 
+// 选项条采用弱化表面背景与圆角，为内部触发项提供横向布局。
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
@@ -20,6 +23,7 @@ const TabsList = React.forwardRef<
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+// 每项平分剩余宽度，active 数据属性切换背景、前景和阴影，禁用样式独立控制。
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -35,6 +39,7 @@ const TabsTrigger = React.forwardRef<
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
+// 内容区只合并顶部间距和焦点样式，是否挂载及对应值由透传属性与原语协调。
 const TabsContent = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>

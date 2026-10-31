@@ -1,4 +1,4 @@
-// Package preferences 保存实例共用的界面语言、日期和时间格式，不按用户分别存储。
+// preferences 包保存实例共用的界面语言、日期和时间格式，不按用户分别存储。
 package preferences
 
 import (
@@ -70,6 +70,7 @@ func (s *Service) Patch(patch map[string]any) (Config, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v := s.Get()
+	// 候选值是三个字符串字段的副本，循环中赋值不会直接改变底层 Store 缓存。
 	for k, x := range patch {
 		switch k {
 		case "language":
@@ -94,6 +95,7 @@ func (s *Service) Patch(patch map[string]any) (Config, error) {
 			return v, invalidChoice("unknown preference")
 		}
 	}
+	// 空 patch 也执行一次保存，因此仍经过数据库写入和设置通知流程。
 	return v, s.store.Put(v)
 }
 

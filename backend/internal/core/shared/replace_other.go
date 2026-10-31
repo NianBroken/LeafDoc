@@ -1,6 +1,7 @@
 //go:build !windows
 
 // 本文件仅参与非 Windows 平台的构建，为原子文件写入提供最终替换步骤。
+// 文件顶部的 go:build 是构建工具读取的平台条件，必须保留其原文和独立行格式。
 package shared
 
 import "os"

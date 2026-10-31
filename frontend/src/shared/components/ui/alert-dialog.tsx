@@ -1,15 +1,19 @@
+// 确认对话框组合 Radix 警示对话框原语，提供统一遮罩、内容、标题与操作按钮样式。
+// 本层不执行保存、删除等业务动作，确认与取消回调由使用方通过原语属性提供。
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import * as React from 'react'
 
 import { buttonVariants } from '@/shared/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 
+// 根、触发器和传送入口直接导出，打开状态不另建一份 React 状态。
 const AlertDialog = AlertDialogPrimitive.Root
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 
 const AlertDialogPortal = AlertDialogPrimitive.Portal
 
+// 遮罩覆盖视口并位于 z-50，开关数据属性控制淡入淡出动画。
 const AlertDialogOverlay = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
@@ -25,6 +29,8 @@ const AlertDialogOverlay = React.forwardRef<
 ))
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 
+// 内容与遮罩同放入 Portal，固定在视口中心，最大宽度和过渡由类名定义。
+// 其他属性与 ref 传给内容原语，children 通过剩余属性进入内容区域。
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
@@ -43,6 +49,7 @@ const AlertDialogContent = React.forwardRef<
 ))
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
 
+// 标题区纵向排列，小屏居中，达到 sm 断点后靠左。
 const AlertDialogHeader = ({
   className,
   ...props
@@ -57,6 +64,7 @@ const AlertDialogHeader = ({
 )
 AlertDialogHeader.displayName = 'AlertDialogHeader'
 
+// 按钮区在小屏反向纵排，较宽屏幕改为靠右横排，不重新排列传入节点数组。
 const AlertDialogFooter = ({
   className,
   ...props
@@ -71,6 +79,7 @@ const AlertDialogFooter = ({
 )
 AlertDialogFooter.displayName = 'AlertDialogFooter'
 
+// 标题与描述继续使用原语组件，分别统一字号、粗细与辅助文字颜色。
 const AlertDialogTitle = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Title>
@@ -83,6 +92,7 @@ const AlertDialogTitle = React.forwardRef<
 ))
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
 
+// 描述使用较小的弱化文字，不解释 HTML 字符串，内容由调用方作为节点传入。
 const AlertDialogDescription = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
@@ -96,6 +106,7 @@ const AlertDialogDescription = React.forwardRef<
 AlertDialogDescription.displayName =
   AlertDialogPrimitive.Description.displayName
 
+// 确认动作复用默认按钮类名，事件和禁用状态原样传给 Action。
 const AlertDialogAction = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
@@ -108,6 +119,7 @@ const AlertDialogAction = React.forwardRef<
 ))
 AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName
 
+// 取消动作复用描边按钮外观，小屏增加上间距，较宽屏幕去掉该间距。
 const AlertDialogCancel = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Cancel>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>

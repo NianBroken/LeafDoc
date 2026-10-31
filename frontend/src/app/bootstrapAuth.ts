@@ -15,6 +15,7 @@ export function useBootstrapAuth(enabled = true) {
 
   useEffect(() => {
     if (!enabled) {
+      // 初始化尚未启用时只解除加载显示，不清理持久化身份，也不发出身份查询。
       setRefreshing(false)
       return
     }
@@ -24,6 +25,7 @@ export function useBootstrapAuth(enabled = true) {
       setRefreshing(true)
       try {
         const session = useSessionStore.getState()
+        // 在异步任务开始时取得一次缓存快照，后续分支使用这次读取的用户和到期时间。
         // 到期时间以秒保存，只有严格晚于当前时间才视为仍有效。
         const accessIsCurrent =
           (session.accessTokenExpiresAt ?? 0) > Date.now() / 1000

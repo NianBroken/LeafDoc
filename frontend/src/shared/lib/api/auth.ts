@@ -28,6 +28,7 @@ export async function fetchMe(): Promise<AuthResponse['user'] | null> {
 // 用 JSON POST 发送登录、找回密码和邀请等公开认证请求。
 // 失败优先抛结构错误，其次读取 error 字符串，非法 JSON 或无提示时使用登录回退文本。
 async function postLoginRequest<T>(path: string, body: object): Promise<T> {
+  // credentials 让浏览器处理服务端会话 Cookie，响应中的用户信息由各入口决定如何应用。
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     credentials: 'include',
@@ -43,6 +44,7 @@ async function postLoginRequest<T>(path: string, body: object): Promise<T> {
       throw new Error(t('login.errorFallback'))
     }
 
+    // 结构化错误在通用映射中处理，只有未抛出的响应才继续尝试读取普通 error 文本。
     throwIfStructuredError(errorBody)
 
     const message = stringField(errorBody, 'error')

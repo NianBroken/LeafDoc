@@ -1,4 +1,4 @@
-// Package favorites 保存按用户隔离的页面收藏关系。
+// favorites 包保存按用户隔离的页面收藏关系。
 // 收藏由用户操作写入 MySQL，不从页面正文或页面树推导。查询以用户 ID 为条件，
 // 页面删除和用户删除分别通过专用方法清理相关关系。
 package favorites

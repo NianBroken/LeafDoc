@@ -1,3 +1,4 @@
+// 快捷键清单测试核对身份、模式筛选、展示排序与处理器装配，不派发真实键盘事件。
 import { describe, expect, it } from 'vitest'
 import {
   createHotkeyDefinition,
@@ -10,11 +11,13 @@ import {
 
 describe('shortcutCatalog', () => {
   it('defines unique shortcut ids', () => {
+    // 集合大小与原数组相同才表示没有重复身份，避免查找表悄然覆盖定义。
     const ids = shortcutDefinitions.map((definition) => definition.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
   it('returns the registered definition for a known shortcut', () => {
+    // 同时核对组合、模式和翻译键，确认身份查找返回同一个业务条目。
     expect(getShortcutDefinition('page.quickSwitcher.open')).toMatchObject({
       id: 'page.quickSwitcher.open',
       keyCombo: 'Mod+Alt+KeyP',
@@ -24,6 +27,7 @@ describe('shortcutCatalog', () => {
   })
 
   it('filters visible shortcuts by the current mode', () => {
+    // 完整列表同时约束可见条目和排序，分别覆盖查看、编辑与历史模式。
     expect(getVisibleShortcutsForMode('view').map((item) => item.id)).toEqual([
       'viewer.page.copy',
       'viewer.page.delete',
@@ -64,15 +68,14 @@ describe('shortcutCatalog', () => {
   })
 
   it('does not advertise the Explorer/Search panel toggles on the Settings page (#1550)', () => {
-    // Settings has no Explorer/Search panel to toggle — Sidebar (the only thing
-    // that registers these hotkeys) unmounts while in Settings, so listing them
-    // here would advertise shortcuts that don't actually do anything.
+    // 设置模式的清单只列退出与帮助，侧栏切换定义的 modes 不包含 settings。
     expect(
       getVisibleShortcutsForMode('settings').map((item) => item.id),
     ).toEqual(['settings.exit', 'shortcuts.help.open'])
   })
 
   it('includes the remaining viewer and editor shortcuts in the catalog', () => {
+    // 直接查找常用业务身份，核对帮助、查看动作与编辑格式命令的默认组合。
     expect(getShortcutDefinition('shortcuts.help.open').keyCombo).toBe(
       'Mod+Slash',
     )
@@ -89,6 +92,7 @@ describe('shortcutCatalog', () => {
   })
 
   it('returns platform-specific display labels', () => {
+    // 相同身份按平台标记显示 Ctrl 或 Cmd，未提供 Mac 专用值时仍使用默认值。
     expect(getShortcutDisplayLabel('page.quickSwitcher.open', false)).toBe(
       'Ctrl+Alt+P',
     )
@@ -109,6 +113,7 @@ describe('shortcutCatalog', () => {
   })
 
   it('creates a hotkey definition with the catalog combo and modes', () => {
+    // 未提供选项时启用处理器，组合和模式从清单复制到注册描述。
     const hotkey = createHotkeyDefinition('history.page.close', () => undefined)
 
     expect(hotkey).toMatchObject({
@@ -119,6 +124,7 @@ describe('shortcutCatalog', () => {
   })
 
   it('supports generic dialog and asset rename shortcuts', () => {
+    // 通用对话框与附件重命名各有身份，但分别共用 Enter 和 Escape 按键。
     expect(getShortcutDefinition('dialog.close').keyCombo).toBe('Escape')
     expect(getShortcutDefinition('dialog.confirm').keyCombo).toBe('Enter')
     expect(getShortcutDefinition('asset.rename.confirm').keyCombo).toBe('Enter')
@@ -126,6 +132,7 @@ describe('shortcutCatalog', () => {
   })
 
   it('can merge page-mode and dialog shortcuts without duplicates', () => {
+    // 历史模式与对话框模式合并后保留各身份一次，隐藏的重命名条目不出现。
     expect(
       getVisibleShortcutsForModes(['history', 'dialog']).map((item) => item.id),
     ).toEqual([

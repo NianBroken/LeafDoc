@@ -7,6 +7,7 @@ import "golang.org/x/sys/windows"
 // 替换标记允许覆盖已有目标，写穿标记要求系统按该接口的规则完成移动写入。
 // 路径包含无法转换的内容时直接返回错误，不先删除目标，也不尝试复制回退。
 func atomicReplace(src, dst string) error {
+	// 两个路径分别转换，任一转换失败都在调用文件移动接口之前返回。
 	source, err := windows.UTF16PtrFromString(src)
 	if err != nil {
 		return err

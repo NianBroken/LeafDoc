@@ -1,4 +1,4 @@
-// Package tocdisplay 管理实例目录显示模式，将设置保存在 MySQL 的 settings 记录中。
+// tocdisplay 包管理实例目录显示模式，将设置保存在 MySQL 的 settings 记录中。
 // 模式包括 auto、always 和 never，本包保存初始显示偏好，不执行页面渲染。
 package tocdisplay
 
@@ -39,6 +39,7 @@ func (c *fileConfig) UnmarshalJSON(raw []byte) error {
 		}
 	}
 	if value.Mode != nil {
+		// 显式空字符串也覆盖前面推导的模式，并由下方枚举判断拒绝。
 		c.Mode = *value.Mode
 	}
 	if c.Mode != "auto" && c.Mode != "always" && c.Mode != "never" {

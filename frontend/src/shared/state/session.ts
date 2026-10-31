@@ -10,6 +10,7 @@ type UnixTimestampSeconds = number
 
 // 刷新标志仅用于当前内存状态，clear 只清用户与到期时间，不重置刷新标志。
 type SessionState = {
+  // 该标志协调界面等待状态，不表示服务器刷新会话记录本身是否存在。
   isRefreshing: boolean
   accessTokenExpiresAt: UnixTimestampSeconds | null
   user: UserInfo | null
@@ -34,6 +35,7 @@ export const useSessionStore = create<SessionState>()(
       clear: () => set({ user: null, accessTokenExpiresAt: null }),
     }),
     {
+      // 存储键固定用于同一站点下的会话缓存，服务端 Cookie 不由此中间件创建或删除。
       name: 'session-storage',
       // 方法和 isRefreshing 不写入存储，页面重新加载后刷新标志恢复初始值。
       partialize: (state) => ({

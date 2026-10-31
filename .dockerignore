@@ -1,40 +1,40 @@
-# Node dependencies — installed fresh inside the container
+# 前端依赖在容器中按锁文件安装，本机依赖和前端构建输出不进入构建上下文。
 frontend/node_modules/
 frontend/dist/
 
-# Local test tooling
+# 排除本地辅助工具和根目录测试结果，不影响源码目录内的测试文件。
 hacks/
 test-results/
 
-# Pre-built artefacts that the Dockerfile rebuilds from scratch
+# 应用镜像自行编译程序并构建页面，不复用这些预构建产物。
 dist/
 releases/
 leafdoc
 backend/internal/http/dist/*
 !backend/internal/http/dist/.gitkeep
 
-# Runtime / local data
+# 运行数据保留在宿主目录，不复制进镜像层。
 other/data/
 backend/cmd/leafdoc/data/
 
-# Debug binaries dropped by dlv / GoLand
+# 排除调试器生成的临时可执行文件，双星号覆盖下级目录。
 **/__debug_bin*
 
-# Docs and static assets (not needed by Go compiler or Vite)
+# 排除名为 assets 和 public 的匹配路径；规则不按文件是否被代码引用作额外判断。
 assets/
 public/
 
-# Git and CI
+# 排除版本库内部数据、工作流配置和本地工具目录。
 .git/
 .github/
 .claude/
 local/
 
-# Misc
+# 私有环境文件与数据库文件不进入可分发镜像，防止携带本机连接资料或数据。
 other/.env
 other/.env.*
 *.db
 
-# Windows binaries never enter Linux build contexts.
+# Windows 可执行文件不能参与此处的 Linux 镜像构建。
 *.exe
 *.exe~

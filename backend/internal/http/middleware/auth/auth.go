@@ -108,6 +108,7 @@ func RequireCookieSession() gin.HandlerFunc {
 func OptionalAuth(authService *auth.AuthService, authCookies *AuthCookies) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if _, exists := c.Get("user"); exists {
+			// 可选认证不消费已有值；角色门禁或 MustGetUser 负责其后的具体检查。
 			c.Next()
 			return
 		}

@@ -1,4 +1,4 @@
-// Package database 管理 MySQL 配置、连接池、表结构及通用记录读写。
+// database 包管理 MySQL 配置、连接池、表结构及通用记录读写。
 // 独立存储对象拥有各自连接池，通用记录操作还可使用进程级共享连接池。
 package database
 

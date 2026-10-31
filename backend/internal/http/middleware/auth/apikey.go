@@ -1,3 +1,5 @@
+// 本文件在 Cookie 身份解析前识别 LeafDoc API 密钥，并写入统一的请求用户上下文。
+// 密钥格式识别只选择认证路径，真正的有效期、撤销状态和有效角色由核心服务核验。
 package auth
 
 import (
@@ -33,6 +35,7 @@ func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 			return
 		}
 
+		// 只检查键是否存在，上游身份优先，值的类型留给实际读取身份的门禁核验。
 		if _, exists := c.Get("user"); exists {
 			c.Next()
 			return
@@ -44,6 +47,7 @@ func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 			return
 		}
 
+		// 次数限制针对网络连接对端，不使用 Bearer 内容作为计数键。
 		var limiterKey string
 		if cfg.RateLimiter != nil {
 			limiterKey = security.ClientKey(c)

@@ -17,6 +17,7 @@ export default function RequireAuth({ children }: Props) {
   const loginUrl = useConfigStore((state) => state.loginUrl)
   const location = useLocation()
 
+  // 有缓存用户时即允许显示子页面，即使正在刷新；受保护数据仍由后端请求鉴权。
   if (!user && !isRefreshing) {
     const redirectTo = `${location.pathname}${location.search}${location.hash}`
     if (loginUrl) {

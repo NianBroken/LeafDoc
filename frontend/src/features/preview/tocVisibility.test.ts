@@ -1,3 +1,4 @@
+// 表驱动覆盖空目录和三种模式，auto 同时检查三项与四项之间的展开边界。
 import { describe, expect, it } from 'vitest'
 import { isTocInitiallyCollapsed } from '@/features/preview/tocVisibility'
 

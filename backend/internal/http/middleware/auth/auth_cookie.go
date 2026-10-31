@@ -1,3 +1,4 @@
+// 本文件统一认证 Cookie 的名称、有效期与读写规则，令牌签发和校验由认证服务完成。
 package auth
 
 import (
@@ -12,10 +13,13 @@ import (
 // 两种令牌分别使用自己的有效期，安全属性由当前请求与 AllowInsecure 共同确定。
 // 这里负责传递令牌文本，签名、有效期和会话撤销由鉴权服务检查。
 type AuthCookies struct {
+	// AllowInsecure 交给连接安全检查决定是否接受普通 HTTP，不直接强制 Secure 为 false。
 	AllowInsecure bool
-	SameSite      http.SameSite
-	AccessTTL     time.Duration
-	RefreshTTL    time.Duration
+	// SameSite 控制浏览器跨站携带策略，创建后可由装配方显式设置。
+	SameSite http.SameSite
+	// 两种期限分别转换为 Cookie 最大存活秒数，不读取令牌正文内的过期时间。
+	AccessTTL  time.Duration
+	RefreshTTL time.Duration
 }
 
 // NewAuthCookies 保存调用方给出的有效期，并使用 Lax 跨站发送策略。
@@ -49,6 +53,7 @@ func (a *AuthCookies) Set(c *gin.Context, accessToken, refreshToken string) erro
 
 	accessName, refreshName := a.cookieNames(secure)
 
+	// 两个 Cookie 分别写入响应，函数不先撤销请求中已有的服务端会话。
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     accessName,
 		Value:    accessToken,

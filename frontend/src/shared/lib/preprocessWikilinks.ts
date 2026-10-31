@@ -1,37 +1,32 @@
+// 在 Markdown 渲染之前处理双中括号链接，并提供按小写标题查找页面的索引。
+// 页面数据由调用方传入，此模块不发请求、不读取路由，也不确认目标页面的访问权限。
 import { PageNode } from '@/shared/lib/api/pages'
 
+// 目标首字符不能是空白，后续目标不含竖线、井号、右括号或换行。
+// 可选竖线后面的别名至少一个字符，完整匹配后才对目标和别名去掉两端空白。
 const WIKILINK_RE = /\[\[(\S[^\]|#\n]*?)(?:\|([^\]\n]+?))?\]\]/g
 
-// Splits content into alternating [text, code, text, code, ...] segments.
+// 识别三反引号包围的片段和单反引号包围的非空单行片段，不承担完整 Markdown 语法解析。
 // 捕获组使代码片段位于结果数组的奇数索引，偶数索引才参与维基链接替换。
 const CODE_SPLIT_RE = /(```[\s\S]*?```|`[^`\n]+`)/g
 
 /**
  * 在内容交给 Markdown 渲染器前，将 [[Title]] 语法替换为标准 Markdown 链接。
  *
- * Code blocks and inline code spans are preserved unchanged because only
- * the even-indexed segments (plain text) are processed by the wiki-link regex.
- * Repeated [[Title]] occurrences within a single call are resolved only once
- * (cached) to avoid O(numLinks × numPages) scans.
+ * 正则识别的代码片段原样保留，其他片段逐个处理链接；查找结果只在这一轮调用内缓存。
+ * 缓存键使用小写标题，因此只有大小写不同的目标也共享第一次查找结果。
  *
- * 解析规则与后端 resolveWikiLinkTargets 保持一致：
- *  - [[Title]]                → [Title](/path)                 (single match in tree)
- *  - [[Title|Alias]]          → [Alias](/path)                 (with custom display text)
- *  - multiple matches         → uses wikilink-ambiguous: scheme (opens disambiguation)
- *  - no match, no "/"         → uses wikilink-notfound: scheme (rendered red)
- *  - no match, contains "/"   → [Folder/Title](</Folder/Title>)  (path hint fallback)
- *
- * A "/" in the target does NOT short-circuit the title lookup: a target like
- * "TCP/IP" or "ADR-0011: SMTP as a CLI/ENV-Only Optional Feature" is resolved
- * by title first, and only retried as a route-path hint when no page title
- * matches at all. The path-hint destination is angle-bracketed so targets
- * containing spaces still parse as a CommonMark link instead of rendering as
- * raw text.
+ * 唯一命中使用页面 path 生成站内链接，别名只影响显示文字。
+ * 多个命中生成 wikilink-ambiguous: 地址，零个命中且不含斜线时生成 wikilink-notfound: 地址。
+ * 两种专用地址都对目标编码，具体交互与显示由消费链接的渲染组件处理。
+ * 零个命中且目标含斜线时把目标作为路由提示，以尖括号包围地址，保留含空格的路径。
+ * 斜线不跳过标题查找，例如 TCP/IP 有唯一标题命中时仍使用页面记录中的 path。
  */
 export function preprocessWikilinks(
   content: string,
   getPagesByTitle: (title: string) => PageNode[],
 ): string {
+  // 缓存同时保存空数组和歧义数组，避免相同标题多次调用外部查找函数。
   const cache = new Map<string, PageNode[]>()
 
   const getMatches = (title: string): PageNode[] => {
@@ -47,17 +42,15 @@ export function preprocessWikilinks(
 
       const matches = getMatches(trimmedTarget)
 
+      // 页面路径直接接在一个前导斜线之后，此分支不编码路径或显示文字。
       if (matches.length === 1) {
         return `[${displayText}](/${matches[0].path})`
       }
 
       if (matches.length === 0) {
-        // No exact title match. A slash-containing target is retried as a
-        // route-path hint ([[Folder/Title]] → /Folder/Title). The destination
-        // is angle-bracketed so spaces in the target stay parseable; leading
-        // slashes are collapsed to exactly one (so the target can't become a
-        // protocol-relative "//host" URL) and "<"/">" are percent-escaped (so
-        // they can't terminate the <...> destination early).
+        // 未命中标题时才考虑路径提示，去掉所有前导斜线，再由模板加回唯一斜线。
+        // 这样 //host 不会成为省略协议的外部地址，尖括号编码后不能提前结束地址边界。
+        // 只有斜线构成的目标会被处理为空路径，因此仍进入未找到标题的专用地址分支。
         const routePath = trimmedTarget
           .replace(/^\/+/, '')
           .replace(/</g, '%3C')
@@ -68,18 +61,22 @@ export function preprocessWikilinks(
         return `[${displayText}](wikilink-notfound:${encodeURIComponent(trimmedTarget)})`
       }
 
+      // 保留原始目标文字供后续歧义选择使用，不在预处理阶段替用户选择其中一页。
       return `[${displayText}](wikilink-ambiguous:${encodeURIComponent(trimmedTarget)})`
     })
 
-  // Split preserves code spans at odd indices; only even indices (plain text)
-  // are processed for wiki-links.
+  // 捕获的代码片段位于奇数索引，直接拼回原文，只有偶数索引参加链接替换。
   return content
     .split(CODE_SPLIT_RE)
     .map((segment, i) => (i % 2 === 0 ? replaceWikilinks(segment) : segment))
     .join('')
 }
 
-/** Keeps all matching nodes in tree traversal order, including ambiguous titles. */
+/**
+ * 按 Object.values 的枚举顺序收集所有节点，同名标题保留多个节点和各自对象引用。
+ * 此函数不遍历 children，也不排序；节点顺序由传入的 byId 对象决定。
+ * 小写转换不去掉两端空白，Map 允许 __proto__ 等文本作为普通索引键。
+ */
 export function buildWikiTitleIndex(
   byId: Record<string, PageNode>,
 ): Map<string, PageNode[]> {
@@ -87,6 +84,7 @@ export function buildWikiTitleIndex(
   for (const node of Object.values(byId)) {
     const title = node.title.toLowerCase()
     const matches = index.get(title)
+    // 已有标题继续追加，同一标题的候选顺序与输入枚举顺序一致。
     if (matches) matches.push(node)
     else index.set(title, [node])
   }

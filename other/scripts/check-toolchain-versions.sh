@@ -1,10 +1,5 @@
 #!/bin/bash
-# Fails when the Go and Node versions CI uses drift from the ones the release
-# images build with. CI reads Go from go.mod's toolchain line and Node from
-# .nvmrc; the Dockerfiles pin their base images separately, and Dependabot
-# bumps only those. Compared: the full Go version (so the Dockerfiles pin a
-# patch tag, never a floating one like 1.27-alpine), Node major. The
-# committed mise config takes Node from .nvmrc and Go as a bootstrap only.
+# 检查持续集成使用的 Go 与 Node 版本是否和发布镜像一致。Go 版本来自 go.mod 的 toolchain 行，Node 主版本来自 .nvmrc，Dockerfile 另外固定基础镜像标签。比较完整的 Go 版本和 Node 主版本，mise 配置只作为版本引导来源。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -34,9 +29,7 @@ fail() {
     status=1
 }
 
-# Prints the tag version of every `FROM <image>:<version>-...` line, one per
-# line, e.g. 1.27.3 for `FROM golang:1.27.3-alpine@sha256:...`. Accepts any case
-# of FROM, flags such as --platform=... and a docker.io/library/ prefix.
+# 提取每个 FROM 镜像标签中的数字版本，每行输出一个版本。支持 FROM 大小写、--platform 等参数以及 docker.io/library 前缀。
 image_versions() {
     awk -v image="$2" '
         { sub(/\r$/, "") }
@@ -63,8 +56,7 @@ if [[ -z "$node_version" ]]; then
     fail "$NODE_MANIFEST" "$NODE_MANIFEST is missing or has no Node major version; CI reads the Node version from it."
 fi
 
-# check <dockerfile> <image> <label> <want> <source> <cut>: every FROM line
-# of <image> must match <want> after cut -d. -f<cut>.
+# 检查 Dockerfile 中指定镜像的每个 FROM 行，按点号字段截取后必须与来源文件中的期望值一致。
 check() {
     local dockerfile="$1" image="$2" label="$3" want="$4" source="$5" fields="$6"
     local versions version
@@ -91,17 +83,8 @@ for dockerfile in "${DOCKERFILES[@]}"; do
     check "$dockerfile" node Node "$node_version" "$NODE_MANIFEST" 1
 done
 
-# The committed mise configs carry no versions of their own: Node comes from
-# .nvmrc and Go from go.mod's toolchain line. Deliberately strict and
-# syntax-blind, so no TOML spelling (aliases, backend prefixes, dotted keys,
-# inline tables) gets around it: after comments are stripped, any line naming
-# node fails, except the setting that makes mise read .nvmrc; a line naming
-# go or golang passes only as exactly go = "latest" (a bootstrap) or the
-# toolchain version. .tool-versions and the Dev Container config (which
-# installs mise) must not name either; in the latter only // outside a string
-# starts a comment. Per-user overrides (mise.local.toml, .config/) are left
-# alone.
-# mise_violations <file>: prints "<line number>: <line>" per violation.
+# 已提交的 mise 配置不自行固定 Node 和 Go 版本，Node 读取 .nvmrc，Go 读取 go.mod 的 toolchain 行。检查器在去除注释后严格识别各种 TOML 写法，除读取 .nvmrc 的设置外，出现 node 都失败，go 只允许 latest 或完整 toolchain 版本。工具版本文件和 Dev Container 配置不能声明这两个工具，用户本地覆盖文件保持不检查。
+# mise_violations 会为每个违规项输出行号和原始行。
 mise_violations() {
     local strict="" json=""
     case "$1" in
@@ -109,7 +92,7 @@ mise_violations() {
         .devcontainer.json | .devcontainer/devcontainer.json | .devcontainer/*/devcontainer.json) strict=1 json=1 ;;
     esac
     awk -v strict="$strict" -v json="$json" -v want="$go_version" '
-        # The line up to a // comment that is not inside a JSON string.
+        # 截取 JSON 字符串之外的 // 注释前内容，字符串内的 URL 不作为注释。
         function json_code(s,    i, c, quoted) {
             for (i = 1; i <= length(s); i++) {
                 c = substr(s, i, 1)

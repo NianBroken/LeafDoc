@@ -9,6 +9,8 @@ import (
 // 它不返回错误、不重试关闭，适合放在 defer 中释放行集等资源，例如：
 //
 //	defer shared.LogClose(rows.Close, "could not close rows")
+//
+// closer 必须是可调用函数；此处不捕获 panic，也不检查资源是否已经关闭。
 func LogClose(closer func() error, msg string) {
 	if err := closer(); err != nil {
 		slog.Default().Error(msg, "error", err)

@@ -22,6 +22,7 @@ type ValidationErrors struct {
 }
 
 // NewValidationErrors 创建非 nil 的空切片，使空集合序列化为数组而非 null。
+// 该保证针对本构造函数的结果，直接使用结构体零值时 Errors 仍为 nil。
 func NewValidationErrors() *ValidationErrors {
 	return &ValidationErrors{Errors: []*FieldError{}}
 }
@@ -37,6 +38,7 @@ func (v *ValidationErrors) Error() string {
 }
 
 // HasErrors 仅依据当前条目数量判断是否存在字段错误。
+// 条目内容是否为空不参与判断，即使调用方直接放入 nil 条目也会计入数量。
 func (v *ValidationErrors) HasErrors() bool {
 	return len(v.Errors) > 0
 }

@@ -1,3 +1,5 @@
+// 本文件以带或不带 TLS 标记的内存请求验证 CSRF Cookie 的命名、属性、读取和删除。
+// 断言检查 HTTP 响应中的字段，不把内存 TLS 状态当作真实证书或浏览器兼容性验证。
 package security
 
 import (

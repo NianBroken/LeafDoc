@@ -1,4 +1,4 @@
-// Package brandassets 集中提供编译进程序的默认站点名称和图片资源。
+// brandassets 包集中提供编译进程序的默认站点名称和图片资源。
 // 默认图片通过嵌入文件系统读取，不依赖部署目录中另行存在同名文件。
 package brandassets
 
@@ -14,6 +14,7 @@ const (
 
 // Files 保存 files 目录中由嵌入通配符选中的全部资源。
 // 文件在嵌入文件系统中的路径包含 files/ 前缀，资源集合以实际目录内容为准。
+// 下方的 go:embed 通配符由 Go 构建工具读取，运行时不重新扫描磁盘目录。
 //
 //go:embed files/*
 var Files embed.FS

@@ -1,4 +1,4 @@
-"""Exercise bootstrap and shared settings against a disposable real server."""
+"""在一次性临时服务上验证启动流程和共享设置的实际行为。"""
 from pathlib import Path
 import argparse
 import http.cookiejar

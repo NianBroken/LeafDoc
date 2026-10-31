@@ -1,4 +1,5 @@
 {
+  // 此配置检查 Vite 配置及其导入模块，增量缓存写入依赖目录，不输出编译后的脚本。
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
@@ -7,14 +8,14 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* Bundler mode */
+    /* 模块路径按打包器规则解析，允许带 TypeScript 扩展名的导入，实际构建由 Vite 执行。 */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
 
-    /* Linting */
+    /* 严格类型检查同时拒绝未使用的局部变量、参数和未终止的 switch 分支。 */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

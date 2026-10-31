@@ -1,4 +1,4 @@
-// Package serviceports 从嵌入的端口表提供各项服务共用的固定监听端口。
+// serviceports 包从嵌入的端口表提供各项服务共用的固定监听端口。
 // 端口名称和数值由 ports.json 定义，本包只负责查询、排序和校验，
 // 不在查询过程中探测空闲端口，也不自动选择其他端口。
 package serviceports
@@ -12,6 +12,7 @@ import (
 )
 
 // allocation 保存构建时嵌入的 JSON 原始字节，查询函数每次从它解析端口表。
+// 下方的 go:embed 是编译器识别的资源指令，源码快照中的端口表决定二进制使用的数值。
 //
 //go:embed ports.json
 var allocation []byte

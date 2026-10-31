@@ -1,4 +1,4 @@
-// Package htmlutil 提供普通文本转义和指定标记替换，供生成 HTML 片段的代码调用。
+// htmlutil 包提供普通文本转义和指定标记替换，供生成 HTML 片段的代码调用。
 package htmlutil
 
 import (
@@ -9,8 +9,10 @@ import (
 // AllowedMarker 指定转义后文本中的一个标记及其替换片段。
 // HTML 不再经过转义，调用方必须明确掌握其内容。
 type AllowedMarker struct {
+	// Marker 匹配已经完成 HTML 转义的输出，含特殊字符的原始文本不能直接作为匹配值。
 	Marker string
-	HTML   string
+	// HTML 原样写入匹配位置，不再经过 EscapeText；内容安全由调用者负责。
+	HTML string
 }
 
 // EscapeText 将 HTML 特殊字符转换为实体，返回可按普通文本展示的字符串。

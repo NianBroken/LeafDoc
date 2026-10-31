@@ -64,11 +64,15 @@ func NewSizeBudget(max int64) *SizeBudget {
 // compressedSize 和 maxRatio 必须为正，written 必须超过 minFloor，才执行比较。
 // 比例错误不能撤销已经写出的数据，也不使本次 Write 的返回字节数变为零。
 type ratioLimitedWriter struct {
-	dst            io.Writer
+	// dst 承接实际输出；比例检查发生在它接受字节之后，无法阻止当前批次落入目标。
+	dst io.Writer
+	// compressedSize 来自调用方提供的归档声明，不从输入流测量。
 	compressedSize int64
-	maxRatio       int64
-	minFloor       int64
-	written        int64
+	// maxRatio 与 minFloor 共同控制是否拒绝当前累计输出。
+	maxRatio int64
+	minFloor int64
+	// written 按底层返回的实际写入数累计，包含随后触发比例错误的那次写入。
+	written int64
 }
 
 // Write 优先返回底层写入错误；底层成功后才检查当前累计值是否超过比例条件。
@@ -139,6 +143,7 @@ func CopyWithBudget(dst io.Writer, src io.Reader, declaredCompressedSize uint64,
 // 错误返回前超限字节已写到目标，调用方负责丢弃失败结果和关闭两端资源。
 // 本函数不校验 max 的取值范围，调用方需避免 max+1 发生整数溢出。
 func CopyWithLimit(dst io.Writer, src io.Reader, max int64) error {
+	// 限制的是从 src 取得的字节数；读写错误仍优先返回，不改写为大小超限错误。
 	n, err := io.Copy(dst, io.LimitReader(src, max+1))
 	if err != nil {
 		return err

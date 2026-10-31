@@ -1,4 +1,4 @@
-// Package localization 从嵌入词条表生成接口错误和邮件使用的提示文本。
+// localization 包从嵌入词条表生成接口错误和邮件使用的提示文本。
 // 本包按调用时的语言提供函数查询词条，不修改文档正文或账号标识。
 package localization
 
@@ -11,6 +11,7 @@ import (
 )
 
 // files 嵌入当前目录中的 JSON 词条，load 只加载明确列出的五种语言。
+// 下方的 go:embed 保持工具要求的原文；嵌入目录的文件集合与 load 的明确语言列表分别维护。
 //
 //go:embed *.json
 var files embed.FS

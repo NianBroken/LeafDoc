@@ -289,8 +289,8 @@ func (s *UserService) UpdatePassword(id string, newpassword string) error {
 	return nil
 }
 
-// DoesIDAndPasswordMatch 按 ID 查找并比较密码，失败使用统一凭据错误。
-// 此入口不登记登录尝试次数，也不清空成功返回用户中的密码摘要。
+// DoesIDAndPasswordMatch 按 ID 查找并比较密码，查找失败按账号查找规则映射，
+// 摘要比较失败返回凭据无效。此入口不登记登录尝试次数，也不清空成功结果的密码摘要。
 func (s *UserService) DoesIDAndPasswordMatch(id, password string) (*User, error) {
 	user, err := s.store.GetUserByID(id)
 	if err != nil {

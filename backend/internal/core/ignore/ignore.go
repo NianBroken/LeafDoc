@@ -1,4 +1,4 @@
-// Package ignore 读取 .leafdocignore 并编译路径匹配规则，也提供祖先规则合并缓存。
+// ignore 包读取 .leafdocignore 并编译路径匹配规则，也提供祖先规则合并缓存。
 // 实际匹配语义由 go-gitignore 提供，本包不自行实现模式语法。
 package ignore
 

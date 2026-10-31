@@ -1,4 +1,4 @@
-// Package maintenance 提供管理员恢复操作，直接使用现有用户和会话存储。
+// 管理员维护入口复用用户服务设置账号与密码，再通过会话存储撤销该账号的会话。
 package maintenance
 
 import (

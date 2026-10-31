@@ -1,10 +1,12 @@
 {
+  // 根配置组织应用与构建配置两个检查项目，自身不直接包含待编译文件。
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
+    // 根目录别名服务于使用本配置的工具，不取代子项目显式声明的路径规则。
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {

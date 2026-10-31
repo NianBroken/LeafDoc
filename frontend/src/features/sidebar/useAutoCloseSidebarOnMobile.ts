@@ -1,8 +1,10 @@
+// 侧栏在移动布局切换路径时自动关闭，锚点或查询参数变化不计作路径切换。
 import { useIsMobile } from '@/shared/lib/useIsMobile'
 import { useSidebarStore } from '@/features/sidebar/state/sidebar'
 import { useLayoutEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
 
+// 上次路径保存在 ref，桌面布局也同步该值；转为移动布局本身不会触发路径差异。
 export function useAutoCloseSidebarOnMobile() {
   const location = useLocation()
   const isMobile = useIsMobile()

@@ -16,6 +16,7 @@ func notifyCommitted() {
 	changes.Lock()
 	defer changes.Unlock()
 	changes.version++
+	// 通知发送和订阅表修改共用此锁，遍历期间取消订阅不会改变正在遍历的映射。
 	for client := range changes.clients {
 		select {
 		case client <- struct{}{}:
@@ -33,6 +34,7 @@ func Version() uint64 {
 
 // Subscribe 注册容量为一的通道，返回只读端和取消函数，不发送初始状态。
 // 取消只从订阅表删除，不关闭通道，不清除已经排队的信号，可重复调用。
+// 调用方结束等待时应使用自己的退出信号，不能依赖取消函数关闭此通道。
 func Subscribe() (<-chan struct{}, func()) {
 	client := make(chan struct{}, 1)
 	changes.Lock()

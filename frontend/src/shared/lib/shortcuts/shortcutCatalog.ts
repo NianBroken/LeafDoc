@@ -1,6 +1,9 @@
+// 集中保存快捷键的身份、组合、显示文字和适用模式，供帮助列表与注册入口共同读取。
+// 此文件只提供定义与筛选，不监听键盘事件，也不把 customizable 标记保存为用户配置。
 import { AppMode } from '@/shared/lib/useAppMode'
 import { HotKeyDefinition } from '@/shared/state/hotkeys'
 
+// 各业务调用使用稳定身份查找定义，组合键变化无需修改调用处的身份字符串。
 export type ShortcutId =
   | 'dialog.close'
   | 'dialog.confirm'
@@ -29,6 +32,7 @@ export type ShortcutId =
   | 'asset.rename.confirm'
   | 'asset.rename.cancel'
 
+// 显示文字与实际匹配组合分别保存，Mac 标签只用于呈现，不改变 Mod 的匹配规则。
 export type ShortcutDefinition = {
   id: ShortcutId
   labelKey: string
@@ -36,11 +40,14 @@ export type ShortcutDefinition = {
   keyCombo: string
   defaultDisplayLabel: string
   macDisplayLabel?: string
+  // 数组同时供模式筛选与处理器注册使用，帮助列表按数组长度和翻译键排序。
   modes: AppMode[]
   customizable: boolean
+  // 仅显式 false 隐藏帮助条目，未提供此字段时仍可显示。
   showInShortcutsDialog?: boolean
 }
 
+// 对话框、跨页面导航和各工作模式共享同一清单，相同组合可在不同模式表示不同动作。
 export const shortcutDefinitions: ShortcutDefinition[] = [
   {
     id: 'dialog.close',
@@ -62,6 +69,7 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
   {
     id: 'shortcuts.help.open',
+    // 帮助入口跨查看、编辑、历史和设置模式显示，匹配物理斜线键。
     labelKey: 'shortcutsHelp.items.openShortcutsHelp.action',
     categoryKey: 'shortcutsHelp.categories.navigation',
     keyCombo: 'Mod+Slash',
@@ -82,6 +90,7 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
   {
     id: 'sidebar.explorer.open',
+    // 侧栏快捷键只声明包含侧栏的三个模式，不包含设置模式。
     labelKey: 'shortcutsHelp.items.openExplorer.action',
     categoryKey: 'shortcutsHelp.categories.navigation',
     keyCombo: 'Mod+Shift+KeyE',
@@ -102,6 +111,7 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
   {
     id: 'viewer.page.edit',
+    // 查看模式动作在此只声明组合和模式，是否可执行由注册处的条件处理。
     labelKey: 'shortcutsHelp.items.editPage.action',
     categoryKey: 'shortcutsHelp.categories.viewing',
     keyCombo: 'Mod+KeyE',
@@ -172,6 +182,7 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
   {
     id: 'editor.page.close',
+    // Escape 在编辑模式表示关闭编辑器，与对话框和历史模式各自的 Escape 定义独立。
     labelKey: 'shortcutsHelp.items.closeEditor.action',
     categoryKey: 'shortcutsHelp.categories.editing',
     keyCombo: 'Escape',
@@ -211,6 +222,7 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
   {
     id: 'editor.heading.one',
+    // 标题级别按数字物理键区分，显示文字与键盘事件使用的 Digit 名称分开保存。
     labelKey: 'shortcutsHelp.items.insertHeadingOne.action',
     categoryKey: 'shortcutsHelp.categories.editing',
     keyCombo: 'Mod+Alt+Digit1',
@@ -279,6 +291,7 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
   {
     id: 'asset.rename.confirm',
+    // 附件重命名复用对话框按键，但不重复展示在快捷键帮助列表中。
     labelKey: 'shortcutsHelp.items.confirmRename.action',
     categoryKey: 'shortcutsHelp.categories.dialogs',
     keyCombo: 'Enter',
@@ -299,10 +312,12 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
 ]
 
+// 模块加载时建立查找表，保存清单对象引用；之后向清单数组追加条目不会自动进入此表。
 const shortcutDefinitionMap = new Map(
   shortcutDefinitions.map((definition) => [definition.id, definition]),
 )
 
+// 身份不存在时抛错，成功时返回定义本身，不创建副本或提供默认快捷键。
 export function getShortcutDefinition(id: ShortcutId): ShortcutDefinition {
   const definition = shortcutDefinitionMap.get(id)
 
@@ -313,6 +328,8 @@ export function getShortcutDefinition(id: ShortcutId): ShortcutDefinition {
   return definition
 }
 
+// 只保留当前模式且未明确隐藏的条目，模式数少的条目排前，再按翻译键文本排序。
+// filter 创建新数组，因此排序不改变集中清单原来的排列。
 export function getVisibleShortcutsForMode(
   mode: AppMode,
 ): ShortcutDefinition[] {
@@ -331,6 +348,8 @@ export function getVisibleShortcutsForMode(
     })
 }
 
+// 先去重输入模式，再按定义身份合并条目，避免跨模式快捷键在同一帮助列表重复出现。
+// 合并后沿用单模式的排序规则，返回数组独立，内部定义对象仍与清单共享。
 export function getVisibleShortcutsForModes(
   modes: AppMode[],
 ): ShortcutDefinition[] {
@@ -351,6 +370,7 @@ export function getVisibleShortcutsForModes(
   })
 }
 
+// Mac 请求且定义提供专用文字时采用专用值，其余情况使用默认显示文字。
 export function getShortcutDisplayLabel(id: ShortcutId, isMacOS: boolean) {
   const definition = getShortcutDefinition(id)
   return isMacOS && definition.macDisplayLabel
@@ -358,6 +378,8 @@ export function getShortcutDisplayLabel(id: ShortcutId, isMacOS: boolean) {
     : definition.defaultDisplayLabel
 }
 
+// 将清单组合、模式与调用方动作装配为处理器描述，enabled 缺省为 true。
+// shouldHandle 仅透传给实际事件处理层，此处不执行动作，也不注册或注销处理器。
 export function createHotkeyDefinition(
   id: ShortcutId,
   action: () => void,

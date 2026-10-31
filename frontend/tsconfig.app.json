@@ -1,4 +1,5 @@
 {
+  // 应用与测试源码共用此检查配置，编译只检查类型，不向源码目录输出 JavaScript。
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "incremental": true,
@@ -9,7 +10,7 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* Bundler mode */
+    /* 模块由打包器解析，支持 JSON 导入与 React 自动 JSX 运行时。 */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
@@ -18,14 +19,14 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* 严格检查未使用内容和分支贯穿，弃用提示采用此配置声明的版本处理规则。 */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "ignoreDeprecations": "6.0",
 
-    /* shadncn */
+    /* @ 别名映射源码目录，此处供类型检查解析，Vite 配置另行提供运行时解析。 */
     "paths": {
       "@/*": ["./src/*"]
     }

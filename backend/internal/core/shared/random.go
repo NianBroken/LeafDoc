@@ -30,6 +30,7 @@ func GenerateRandomPassword(length int) (string, error) {
 	password := make([]byte, length)
 	// rand.Int 在字符下标范围内均匀取值，每轮只决定当前位置的一个字符。
 	for i := range password {
+		// 上界不包含字符集合长度，因此随机下标始终落在切片可访问范围内。
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
 		if err != nil {
 			return "", err

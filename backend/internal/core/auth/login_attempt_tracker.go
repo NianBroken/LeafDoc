@@ -14,6 +14,7 @@ const (
 
 // loginAttemptEntry 保存未被成功登录清除的尝试数及锁定截止时间。
 type loginAttemptEntry struct {
+	// failures 统计当前锁定周期内登记的尝试，达到阈值后归零并写入截止时间。
 	failures    int
 	lockedUntil time.Time
 }
@@ -46,6 +47,7 @@ func (t *loginAttemptTracker) recordAttempt(userID string) bool {
 	}
 
 	if now.Before(e.lockedUntil) {
+		// 被拒绝的请求不再增加计数，也不把锁定截止时间向后延长。
 		return false
 	}
 

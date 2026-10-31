@@ -1,32 +1,32 @@
-# If you prefer the allow list template instead of the deny list, see community template:
+# 此文件按路径和后缀排除本机构建、运行与工具产物，以下链接指向允许列表形式的参考模板。
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
 #
-# Binaries for programs and plugins
+# 程序和插件的二进制产物不跟踪，源码和构建声明继续保留。
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
+# go test -c 输出的测试程序不跟踪。
 *.test
 
-# Main binary
+# 后端目录内编译出的应用程序不跟踪。
 /backend/leafdoc
 
-# Output of the go coverage tool, specifically when used with LiteIDE
+# 排除 .out 输出文件，包括匹配该后缀的覆盖率报告。
 *.out
 
-# Dependency directories (remove the comment below to include it)
+# 排除 Node 依赖目录；下一行 vendor 只是注释示例，不构成实际忽略规则。
 # vendor/
 node_modules/
 frontend/node_modules/
 
-# Go workspace file
+# Go 本地工作区配置与校验文件不作为项目模块声明提交。
 go.work
 go.work.sum
 
-# env file
+# 私有环境配置不跟踪，避免提交连接资料。
 other/.env
 
 other/releases/*
@@ -35,10 +35,10 @@ other/releases/*
 other/dist/*
 !other/dist/.gitkeep
 
-# data dir
+# 实例正文、附件及运行状态均存放在此数据目录，不跟踪其内容。
 other/data/
 
-# test database files
+# 排除匹配后缀的本地数据库文件，测试仍可在临时目录创建它们。
 *.db
 
 __debug*
@@ -50,7 +50,7 @@ local
 
 ui.zip
 
-# Local editor configuration and generated files
+# 排除本地编辑器配置、系统目录元数据以及常见日志、临时文件和报告。
 .vscode/
 .idea/
 .fleet/
@@ -66,20 +66,20 @@ desktop.ini
 .cache/
 coverage/
 
-# Generated embedded frontend output
+# 后端嵌入页面由前端构建生成，目录占位文件除外，不跟踪生成内容。
 backend/internal/http/dist/*
 !backend/internal/http/dist/.gitkeep
 
-# Project instructions are versioned; personal agent overlays stay local.
+# 项目规则文件参与版本管理，个人规则覆盖文件和所列工具目录保持本地。
 /AGENTS.local.md
 /CLAUDE.local.md
 .claude/
 .github/
 
-# Local environment overrides
+# 排除私有环境文件的派生名称，后面的显式例外允许共享示例文件。
 other/.env.*
 
-# Generated build, tool cache and temporary output
+# 排除构建目录、包管理缓存、类型检查缓存和临时脚本产物。
 backend/build/
 other/build/
 dist-ssr/
@@ -95,7 +95,7 @@ temp/
 __pycache__/
 *.pyc
 
-# Database journals and editor recovery files
+# 排除数据库日志、其他本地数据库格式、编辑器交换文件和恢复备份。
 *.db-wal
 *.db-shm
 *.db-journal
@@ -114,7 +114,7 @@ __pycache__/
 *.swo
 *~
 
-# Playwright reports and generated load-test credentials and results
+# 浏览器测试报告与压力测试生成的会话、账号和结果不参与版本管理。
 playwright-report/
 blob-report/
 /loadtest/results/

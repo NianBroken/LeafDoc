@@ -1,3 +1,4 @@
+// 本配置组合 TypeScript、React 和源码安全检查，规则只作用于各块匹配的路径。
 import js from '@eslint/js'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
@@ -5,6 +6,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
+  // 这些路径整体跳过检查，组件库目录不会进入后续 src 规则块。
   { ignores: ['dist', 'src/shared/components/ui', 'node_modules'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -29,10 +31,9 @@ export default tseslint.config(
     },
   },
   {
-    // XSS guard: wiki content is user-controlled, so HTML must only reach the
-    // DOM through the sanitized Markdown pipeline (features/preview). A
-    // justified exception needs an eslint-disable-next-line comment saying why
-    // the input is safe.
+    // 业务源码禁止所列动态执行和直接写入 HTML 的语法，测试文件与测试初始化除外。
+    // 选择器检查语法形式，不分析字符串是否已净化，也不追踪别名或计算属性中的调用。
+    // 确需逐行豁免时，工具控制标记保留原文，并在附近说明输入来源及安全条件。
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}', 'src/test-setup.ts'],
     rules: {

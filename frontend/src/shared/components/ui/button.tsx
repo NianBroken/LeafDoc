@@ -1,3 +1,4 @@
+// 按钮外观按 variant 与 size 组合，组件与确认对话框可共同使用同一类名定义。
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
@@ -5,9 +6,10 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/shared/lib/utils'
 
 const buttonVariants = cva(
-  // Focus identifies keyboard position independently of a button's business color.
+  // 键盘焦点环使用界面文字颜色，与默认、危险等业务背景颜色分别控制。
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-interface-text disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
+    // 外观决定背景、边框和悬停效果，尺寸决定高度、间距与图标按钮宽度。
     variants: {
       variant: {
         default:
@@ -28,6 +30,7 @@ const buttonVariants = cva(
         icon: 'h-9 w-9',
       },
     },
+    // 未指定外观或尺寸时分别采用 default，不从父组件推断业务用途。
     defaultVariants: {
       variant: 'default',
       size: 'default',
@@ -35,6 +38,7 @@ const buttonVariants = cva(
   },
 )
 
+// 原生按钮属性与样式变体共同构成公开属性，asChild 选择把属性交给子节点。
 export interface ButtonProps
   extends
     React.ButtonHTMLAttributes<HTMLButtonElement>,
@@ -42,6 +46,8 @@ export interface ButtonProps
   asChild?: boolean
 }
 
+// 普通模式渲染 button，asChild 模式使用 Slot；其余事件、禁用等属性原样传递。
+// 此包装层不指定 type，表单内按钮的提交行为由调用方显式设置或浏览器默认规则决定。
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button'

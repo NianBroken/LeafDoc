@@ -1,3 +1,5 @@
+// 本文件验证修改请求中的双重提交令牌：浏览器 Cookie 保存一份，调用方显式提交一份。
+// 中间件只核对两份值，令牌生成和 Cookie 生命周期由 CSRFCookie 负责。
 package security
 
 import (

@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- 页面是站点信息模板，站点名、基础路径和图标由实际提供 HTML 的服务填充。 -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -9,6 +10,7 @@
     <title>{{__SITE_NAME__}}</title>
   </head>
   <body>
+    <!-- React 从 main.tsx 挂载到此节点，脚本路径在生产构建时由 Vite 处理。 -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

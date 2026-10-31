@@ -60,6 +60,7 @@ export default function LoginForm() {
     setLoading(true)
 
     try {
+      // 输入按当前文本直接提交，组件不裁剪用户名或密码，服务端决定凭据是否有效。
       await login(identifier, password)
       // 会话已由 login 写入存储，导航替换当前历史项以免后退回到登录表单。
       navigate(redirectTo || '/', { replace: true })
@@ -91,6 +92,7 @@ export default function LoginForm() {
         <form onSubmit={handleCredentialsSubmit} className="login__form">
           {logoHeader}
 
+          {/* 浏览器要求两个字段非空，输入状态分别保存账号标识与密码，不写入会话缓存。 */}
           <div className="login__field">
             <Input
               type="text"

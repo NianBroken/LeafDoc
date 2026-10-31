@@ -1,8 +1,6 @@
-// Barrel for the admin-only settings sections (roles: ['admin']).
-// Re-exported from one module so their `lazy()` imports in lazy-routes.tsx
-// share a single dynamic-import specifier and land in one chunk instead of
-// one per section. Account stays out of this barrel since it's visible to
-// non-admin users too, and non-admins shouldn't download admin-only code.
+// 本模块集中转出管理设置组件，供应用路由用同一动态导入入口选择具体组件。
+// 账号与偏好面板不在导出列表中，它们的路由可见性由各自的登记项控制。
+// 导出本身不执行权限检查，路由守卫与后端接口分别负责访问控制。
 export { default as ApiKeysManagement } from '@/features/apikeys/ApiKeysManagement'
 export { default as BrandingSettings } from '@/features/branding/BrandingSettings'
 export { default as Importer } from '@/features/importer/Importer'

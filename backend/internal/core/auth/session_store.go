@@ -1,3 +1,5 @@
+// 本文件把刷新会话记录读写串行化，并管理周期清理任务的启动与停止。
+// 数据表的创建和迁移交给 database.Open，存储方法只操作会话表与认证代际表。
 package auth
 
 import (
@@ -17,7 +19,7 @@ type SessionStore struct {
 	storageDir string
 	db         *sql.DB
 	cancel     context.CancelFunc
-	done       chan struct{}
+	done       chan struct{} // 只由清理协程关闭，Close 通过接收关闭信号等待资源使用结束。
 	log        *slog.Logger
 }
 
@@ -192,6 +194,7 @@ func (s *SessionStore) DeleteAllSessions() error {
 
 // CleanupExpiredSessions 删除到期秒小于或等于当前秒的记录，不按撤销时间清理未到期行。
 func (s *SessionStore) CleanupExpiredSessions() error {
+	// 清理使用小于等于，而 IsActive 使用严格大于；到期秒边界的判断分属两个入口。
 	now := time.Now()
 	return s.withDB(func(db *sql.DB) error {
 		_, err := db.Exec(`

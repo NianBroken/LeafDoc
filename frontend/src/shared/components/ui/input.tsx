@@ -1,11 +1,15 @@
+// 原生输入与组合输入外框统一边框、焦点和禁用样式，不维护独立输入状态。
 import * as React from 'react'
 
 import { cn } from '@/shared/lib/utils'
 
-// Native time fields retain their picker and align its icon with other controls.
+// 时间输入保留浏览器原生选择器，通过 WebKit 伪元素定位图标并预留右侧空间。
+// 这些选择器只影响支持对应伪元素的浏览器，其余原生输入属性仍原样传递。
 const timeInputClasses =
   'relative min-w-0 pr-9 [&::-webkit-datetime-edit]:p-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:h-4 [&::-webkit-calendar-picker-indicator]:w-4 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:opacity-50 dark:[&::-webkit-calendar-picker-indicator]:invert disabled:[&::-webkit-calendar-picker-indicator]:cursor-not-allowed'
 
+// 只有 type 严格为 time 时合并专用类名，调用方类名放在末尾参加冲突处理。
+// ref 指向实际 input，value、onChange 和校验属性均由调用方控制。
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
   ({ className, type, ...props }, ref) => {
     return (
@@ -24,7 +28,8 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
 )
 Input.displayName = 'Input'
 
-// Adornments occupy their own flex slots so editable text never runs underneath them.
+// 组合外框按 flex 为输入与装饰节点分配空间，直接子输入去掉自身边框和焦点环。
+// 外框在内部元素获得焦点时显示统一焦点环，文字区域以 flex-1 使用剩余宽度。
 function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div

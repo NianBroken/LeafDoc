@@ -66,9 +66,7 @@ expect nvmrc-lts-alias         fail 'toolchain go1.27.1' 'lts/*\n'   "$BOTH"
 expect nvmrc-empty             fail 'toolchain go1.27.1' ''          "$BOTH"
 expect no-go-image             fail 'toolchain go1.27.1' '26\n'      "$NODE_FROM\n"
 
-# mise config: any line naming node fails (except the setting that makes mise
-# read .nvmrc); go only as "latest" or the exact toolchain version. Deliberately
-# strict: tables that aren't tools ([env], [[tasks]]) count too.
+# mise 配置中出现 node 都应失败，允许读取 .nvmrc 的设置除外。go 只允许 latest 或完整 toolchain 版本，其他表也按严格规则检查。
 expect mise-no-tools           ok   'toolchain go1.27.1' '26\n'      "$BOTH" '[settings]\nidiomatic_version_file_enable_tools = ["node"]\n'
 expect mise-go-latest          ok   'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\ngo = "latest"\n'
 expect mise-go-match           ok   'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\ngo = "1.27.1"\n'
@@ -83,7 +81,7 @@ expect mise-node-inline-table  fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[t
 expect mise-quoted-key-drift   fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\n"node" = "24"\n'
 expect mise-crlf-drift         fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\r\nnode = "24"\r\n'
 expect mise-other-section      fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[env]\nnode = "24"\n[tools]\ngo = "latest"\n'
-# The other committed files mise reads; per-user overrides are left alone.
+# 检查 mise 会读取的其他已提交文件，用户本地覆盖文件保持不检查。
 expect dot-mise-node           fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\nnode = "24"\n' .mise.toml
 expect mise-dir-node           fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\nnode = "24"\n' mise/config.toml
 expect dot-mise-dir-node       fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\nnode = "24"\n' .mise/config.toml
@@ -103,7 +101,7 @@ expect mise-inline-comment     fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[t
 expect mise-indented-spaced    fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\n  node   =   "24"\n'
 expect mise-header-comment     fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools] # pins\nnode = "24"\n'
 expect mise-array-of-tables    fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\ngo = "latest"\n[[tasks]]\nnode = "24"\n'
-# Spellings mise 2026.10 resolves to the same tool (checked with `mise ls --current`).
+# 这些写法在当前 mise 中都指向同一工具，测试确认它们不会绕过检查。
 expect mise-spaced-header      fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[ tools ]\nnode = "24"\n'
 expect mise-node-subtable      fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools.node]\nversion = "24"\n'
 expect mise-dotted-key         fail 'toolchain go1.27.1' '26\n'      "$BOTH" 'tools.node = "24"\n'
@@ -113,8 +111,7 @@ expect mise-core-prefix        fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[t
 expect mise-top-inline-table   fail 'toolchain go1.27.1' '26\n'      "$BOTH" 'tools = { node = "24" }\n'
 expect mise-asdf-backend       fail 'toolchain go1.27.1' '26\n'      "$BOTH" '[tools]\n"asdf:nodejs" = "24"\n'
 expect mise-go-single-quoted   ok   'toolchain go1.27.1' '26\n'      "$BOTH" "[tools]\ngo = 'latest'\n"
-# The Dev Container gets Node and Go from mise too: naming either fails,
-# outside // comments.
+# Dev Container 同样通过 mise 获取 Node 和 Go，JSON 字符串之外声明任一工具都应失败。
 DEVC=.devcontainer/devcontainer.json
 expect devcontainer-mise-only  ok   'toolchain go1.27.1' '26\n'      "$BOTH" '// Node and Go come from mise.\n{\n  "features": { "ghcr.io/devcontainers-extra/features/mise:1": {} }\n}\n' "$DEVC"
 expect devcontainer-node-feature fail 'toolchain go1.27.1' '26\n'    "$BOTH" '{\n  "features": { "ghcr.io/devcontainers/features/node:1": { "version": "26" } }\n}\n' "$DEVC"
@@ -129,16 +126,16 @@ expect devcontainer-url        ok   'toolchain go1.27.1' '26\n'      "$BOTH" '{ 
 expect devcontainer-trailing-comment ok 'toolchain go1.27.1' '26\n'  "$BOTH" '{ "name": "x" // no Node or Go pin here\n}\n' "$DEVC"
 expect devcontainer-crlf-comment ok 'toolchain go1.27.1' '26\n'      "$BOTH" '// Node from .nvmrc\r\n{ "name": "x" }\r\n' "$DEVC"
 expect devcontainer-other-file ok   'toolchain go1.27.1' '26\n'      "$BOTH" 'FROM node:24\n' .devcontainer/Dockerfile
-# Comment markers inside JSON strings don't hide the rest of the line.
+# JSON 字符串中的注释标记不能截断后续内容。
 expect devcontainer-url-then-node fail 'toolchain go1.27.1' '26\n'   "$BOTH" '{ "postCreateCommand": "curl -fsSL https://example.com/x.sh | sh && mise use -g node@24" }\n' "$DEVC"
 expect devcontainer-hash-then-node fail 'toolchain go1.27.1' '26\n'  "$BOTH" '{ "postCreateCommand": "echo \\"#\\" && mise use node@24" }\n' "$DEVC"
 expect devcontainer-escaped-quote-comment ok 'toolchain go1.27.1' '26\n' "$BOTH" '{ "name": "a \\"b\\"" } // Node from .nvmrc\n' "$DEVC"
-# The other places the Dev Container spec looks for the file.
+# 检查 Dev Container 规范支持的其他配置文件位置。
 expect devcontainer-root-file  fail 'toolchain go1.27.1' '26\n'      "$BOTH" '{ "image": "mcr.microsoft.com/devcontainers/go:1" }\n' .devcontainer.json
 expect devcontainer-subdir-file fail 'toolchain go1.27.1' '26\n'     "$BOTH" '{ "image": "mcr.microsoft.com/devcontainers/go:1" }\n' .devcontainer/go/devcontainer.json
 expect devcontainer-subdir-ok  ok   'toolchain go1.27.1' '26\n'      "$BOTH" '// Go from go.mod\n{ "name": "x" }\n' .devcontainer/x/devcontainer.json
 
-# Missing files must fail, never print the success line.
+# 缺少必要文件时必须失败，不能输出成功信息。
 dir="$WORK/missing"
 install_script "$dir"
 for file in go.mod .nvmrc Dockerfile; do
