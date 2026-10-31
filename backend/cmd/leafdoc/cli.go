@@ -82,7 +82,7 @@ func newRootCommand() *cli.Command {
 // 未指定子命令时执行服务动作，多余位置参数按未知命令拒绝。
 func newRootCommandWithConfig(cfg *serverConfig) *cli.Command {
 	return &cli.Command{
-		Name:        "LeafDoc",
+		Name:        ProjectName,
 		Usage:       "LeafDoc documentation server",
 		UsageText:   rootUsageText,
 		Description: rootDescription,

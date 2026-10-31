@@ -304,3 +304,12 @@ func (w *Wiki) Close() error {
 
 	return errors.Join(errs...)
 }
+
+// WaitForStartup 等待已登记的初始索引完成，供安装校验在关闭服务前确认搜索可用。
+func (w *Wiki) WaitForStartup() error {
+	w.reloadWG.Wait()
+	if w.status != nil && w.status.IsFailed() {
+		return fmt.Errorf("搜索初始化失败")
+	}
+	return nil
+}

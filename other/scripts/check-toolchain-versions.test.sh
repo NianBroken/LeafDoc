@@ -26,7 +26,6 @@ expect() {
     printf 'module example.com/x\n\ngo 1.26.0\n\n%s\n' "$toolchain" > "$dir/go.mod"
     printf '%b' "$nvmrc" > "$dir/.nvmrc"
     printf '%b' "$dockerfile" > "$dir/Dockerfile"
-    printf '%b' "$dockerfile" > "$dir/Dockerfile.builder"
     printf '%b' "$dockerfile" > "$dir/Dockerfile.tools"
     if [[ $# -ge 6 ]]; then
         mkdir -p "$(dirname "$dir/$mise_file")"
@@ -139,11 +138,10 @@ expect devcontainer-subdir-ok  ok   'toolchain go1.27.1' '26\n'      "$BOTH" '//
 dir="$WORK/missing"
 install_script "$dir"
 for file in go.mod .nvmrc Dockerfile; do
-    rm -f "$dir/go.mod" "$dir/.nvmrc" "$dir/Dockerfile" "$dir/Dockerfile.builder"
+    rm -f "$dir/go.mod" "$dir/.nvmrc" "$dir/Dockerfile"
     printf 'module example.com/x\n\ngo 1.26.0\n\ntoolchain go1.27.1\n' > "$dir/go.mod"
     printf '26\n' > "$dir/.nvmrc"
     printf '%b' "$BOTH" > "$dir/Dockerfile"
-    printf '%b' "$BOTH" > "$dir/Dockerfile.builder"
     rm "$dir/$file"
     if out="$("$dir/scripts/check-toolchain-versions.sh" 2>&1)" || [[ "$out" == *"versions match"* ]]; then
         echo "FAIL missing $file -> ok, want fail"

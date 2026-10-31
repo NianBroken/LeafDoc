@@ -5,12 +5,12 @@ import path from 'node:path';
 import { findProjectRoot } from './project-root.mjs';
 
 const root = findProjectRoot();
-const expected = new Set(['backend', 'frontend', 'other']);
+const expected = new Set(['backend', 'frontend', 'other', 'installers']);
 // 隐藏目录不参与根目录集合比较，普通文件也不被当作目录校验。
 const actual = new Set(fs.readdirSync(root, { withFileTypes: true }).filter((entry) =>
   entry.isDirectory() && !entry.name.startsWith('.')).map((entry) => entry.name));
 const failures = [];
-for (const name of expected) if (!actual.has(name)) failures.push(`missing root directory: ${name}`);
+for (const name of expected) if (name !== 'installers' && !actual.has(name)) failures.push(`missing root directory: ${name}`);
 for (const name of actual) if (!expected.has(name)) failures.push(`unexpected root directory: ${name}`);
 // 入口按路径存在性检查，不解析内容，也不区分普通文件与其他路径类型。
 for (const file of ['backend/go.mod', 'backend/go.sum', 'frontend/package.json', 'frontend/package-lock.json', 'other/scripts/deploy.sh', 'other/scripts/server.sh', 'other/scripts/test-container-recovery.sh', 'other/compose.yaml']) {

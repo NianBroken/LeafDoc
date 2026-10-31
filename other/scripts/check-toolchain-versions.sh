@@ -13,12 +13,12 @@ if [[ -f backend/go.mod ]]; then
     GO_MANIFEST=backend/go.mod
     NODE_MANIFEST=other/.nvmrc
     SCRIPT_ROOT=other/scripts
-    DOCKERFILES=(other/Dockerfile other/Dockerfile.builder other/Dockerfile.tools)
+    DOCKERFILES=(other/Dockerfile other/Dockerfile.tools)
 else
     GO_MANIFEST=go.mod
     NODE_MANIFEST=.nvmrc
     SCRIPT_ROOT=scripts
-    DOCKERFILES=(Dockerfile Dockerfile.builder Dockerfile.tools)
+    DOCKERFILES=(Dockerfile Dockerfile.tools)
 fi
 # shellcheck source=other/scripts/lib/toolchain-versions.sh
 . "$SCRIPT_ROOT/lib/toolchain-versions.sh"

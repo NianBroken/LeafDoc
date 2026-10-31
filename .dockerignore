@@ -20,9 +20,6 @@ backend/cmd/leafdoc/data/
 # 排除调试器生成的临时可执行文件，双星号覆盖下级目录。
 **/__debug_bin*
 
-# 排除名为 assets 和 public 的匹配路径；规则不按文件是否被代码引用作额外判断。
-assets/
-public/
 
 # 排除版本库内部数据、工作流配置和本地工具目录。
 .git/
@@ -38,3 +35,7 @@ other/.env.*
 # Windows 可执行文件不能参与此处的 Linux 镜像构建。
 *.exe
 *.exe~
+
+# 离线发行产物与本机验证资料不参与提交或镜像上下文。
+installers/
+.validation/

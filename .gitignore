@@ -142,3 +142,7 @@ lerna-debug.log*
 *.user
 *.userosscache
 *.sln.docstates
+
+# 离线发行产物与本机验证资料不参与提交或镜像上下文。
+installers/
+.validation/

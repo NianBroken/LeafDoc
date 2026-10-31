@@ -1058,15 +1058,6 @@ func TestDockerfile_GoBuildLdflags_InjectsAppVersion(t *testing.T) {
 	}
 }
 
-// TestDockerfileBuilder_GoBuildLdflags_InjectsAppVersion 对二进制构建镜像执行相同版本注入检查。
-func TestDockerfileBuilder_GoBuildLdflags_InjectsAppVersion(t *testing.T) {
-	line := goBuildLdflagsLine(t, filepath.Join("..", "..", "..", "other", "Dockerfile.builder"))
-
-	if !strings.Contains(line, "-X main.Version=${APP_VERSION}") {
-		t.Fatalf("expected Dockerfile.builder go build ldflags to inject main.Version from APP_VERSION, got: %s", line)
-	}
-}
-
 // dockerBuildStageDeclaresArg 找到首个标记行，向前定位所属 FROM 阶段，
 // 只在该阶段起点到标记之间检查独立 ARG 声明，避免把其他阶段的声明当作有效来源。
 func dockerBuildStageDeclaresArg(t *testing.T, dockerfilePath, marker, argName string) bool {
@@ -1114,17 +1105,9 @@ func TestDockerfile_GoBuildStage_DeclaresAppVersionArg(t *testing.T) {
 	}
 }
 
-// TestDockerfileBuilder_GoBuildStage_DeclaresAppVersionArg 检查二进制构建阶段的版本参数作用域。
-func TestDockerfileBuilder_GoBuildStage_DeclaresAppVersionArg(t *testing.T) {
-	if !dockerBuildStageDeclaresArg(t, filepath.Join("..", "..", "..", "other", "Dockerfile.builder"), "go build", "APP_VERSION") {
-		t.Fatal("Dockerfile.builder's builder stage uses ${APP_VERSION} without declaring ARG APP_VERSION in that stage")
-	}
-}
-
-// TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue 实际运行版本脚本，
-// 确认显式 APP_VERSION 原样输出。Windows 使用 Node 入口，其他平台使用 Bash 入口，
-// 此测试不核对仓库标签回退分支。
-func TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue(t *testing.T) {
+// TestResolveVersionScript_UsesProjectMetadata 实际运行版本脚本，
+// 确认 APP_VERSION 不覆盖集中项目版本。Windows 使用 Node 入口，其他平台使用 Bash 入口。
+func TestResolveVersionScript_UsesProjectMetadata(t *testing.T) {
 	scriptPath := filepath.Join("..", "..", "..", "other", "scripts", "resolve-version.sh")
 	cmdName, cmdArgs := "bash", []string{scriptPath}
 	if runtime.GOOS == "windows" {
@@ -1138,19 +1121,29 @@ func TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue(t *testing.T
 		t.Fatalf("resolve-version.sh failed: %v", err)
 	}
 
-	if got := strings.TrimSpace(string(out)); got != "v9.9.9-test" {
-		t.Fatalf("expected resolve-version.sh to echo APP_VERSION override, got: %q", got)
+	metadataBytes, err := os.ReadFile(filepath.Join("..", "..", "..", "other", "project.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(out)); got != metadata.Version {
+		t.Fatalf("expected central project version %q despite APP_VERSION override, got: %q", metadata.Version, got)
 	}
 }
 
-// TestContainerBuildUsesLinuxAndSharedVersion 检查容器入口包含共享版本脚本、
-// 版本参数与 Linux 构建标记，测试仅核对源码文字，不运行镜像构建。
+// TestContainerBuildUsesLinuxAndSharedVersion 检查容器入口转发唯一打包脚本，
+// 并保留 Linux 检查运行约定，测试不执行完整发行构建。
 func TestContainerBuildUsesLinuxAndSharedVersion(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "other", "scripts", "container.mjs"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"resolve-version.mjs", "APP_VERSION=", "GOOS=linux", "'linux'"} {
+	for _, required := range []string{"package.mjs", "GOOS=linux", "'linux'"} {
 		if !strings.Contains(string(raw), required) {
 			t.Fatalf("container launcher missing %q", required)
 		}

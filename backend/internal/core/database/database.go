@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/core/installation"
 	"github.com/go-sql-driver/mysql"
 )
 
@@ -73,9 +74,15 @@ func IsDuplicate(err error) bool {
 	return errors.As(err, &violation) && violation.Number == 1062
 }
 
-// Configuration 从存储目录向父级寻找最近的 .env，并以进程环境变量逐项覆盖文件值。
+// Configuration 优先读取安装实例的结构化记录，子存储向父级查找同一实例。
+// 没有安装记录时沿用最近 .env 与进程环境变量的开发配置。
 // 环境变量即使为空也覆盖文件值。配置解析不创建数据库，不提供其他存储引擎回退。
 func Configuration(storageDir string) (*mysql.Config, error) {
+	if c, err := installation.Find(storageDir); err == nil {
+		return c.MySQL()
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
 	values := map[string]string{}
 	directory, err := filepath.Abs(storageDir)
 	if err != nil {

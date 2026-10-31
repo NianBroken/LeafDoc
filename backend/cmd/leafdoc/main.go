@@ -50,6 +50,9 @@ import (
 // 构建脚本可用 -X main.Version 指定版本，指标与快照元数据读取同一值。
 var Version = "dev"
 
+// ProjectName 由正式构建读取集中元数据并通过链接参数注入。
+var ProjectName = "LeafDoc"
+
 // setupLogger 根据环境中的精确小写级别配置默认日志器，未识别值使用 info。
 // json 选择 JSON 输出，其余格式使用文本，所有记录均附带调用位置。
 func setupLogger(w io.Writer, format string) {
@@ -139,7 +142,10 @@ func runResetAdminPasswordCommand(cfg *serverConfig) error {
 
 // runServerCommand 在根命令没有子命令时组装并运行服务。
 // 先校验配置，再加载设置、创建 Wiki、备份恢复与 HTTP 路由。
-func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) error {
+func runServerCommand(ctx context.Context, cmd *cli.Command, cfg *serverConfig) error {
+	if err := prepareInstallation(ctx, cfg); err != nil {
+		return err
+	}
 	// 大小参数已通过命令校验，这里取得数值供上传入口设置请求限额。
 	basePath := normalizeBasePath(cfg.server.basePath)
 	maxAssetUploadSize := mustParseByteSize(cfg.frontend.maxAssetUploadSize, "max asset upload size")

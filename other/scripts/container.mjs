@@ -1,10 +1,9 @@
 // 本脚本把构建、依赖安装与验证命令交给 Linux 容器执行。
 // 宿主只负责定位项目、读取版本配置及调用 Docker，不在宿主安装项目依赖。
-import { spawnSync, execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { findProjectRoot } from './project-root.mjs';
 // 项目位置动态定位，镜像标签与命令名称集中声明，未给动作时执行应用构建。
 const root = findProjectRoot();
@@ -24,8 +23,7 @@ if (system.error) throw system.error;
 if (system.status !== 0 || system.stdout.trim() !== 'linux') throw new Error('Docker must be running Linux containers');
 // build 和 release 在此使用同一构建路径，不由这个入口发布到远端仓库。
 if (action === 'build' || action === 'release') {
-  const version = execFileSync(process.execPath, [fileURLToPath(new URL('./resolve-version.mjs', import.meta.url))], { encoding: 'utf8' }).trim();
-  execute(['build', '-f', 'other/Dockerfile', '--build-arg', `APP_VERSION=${version}`, '-t', image, '.']);
+  executePackage();
 } else {
   // 每个验证动作映射为容器内命令，shell 的错误退出使串联检查在失败处结束。
   const commands = {
@@ -65,4 +63,11 @@ if (action === 'build' || action === 'release') {
   }
   // 验证容器退出即删除，Go 构建缓存通过命名卷跨调用复用，源码来自工具镜像构建。
   execute(['run', '--rm', '--mount', 'type=volume,source=leafdoc-linux-go-cache,target=/root/.cache/go-build', '-e', 'GOOS=linux', executionImage, 'sh', '-ec', commands[action]]);
+}
+
+// 构建与发行别名共用唯一打包实现。
+function executePackage() {
+ const result = spawnSync(process.execPath, [path.join(root, 'other/scripts/package.mjs')], { cwd: root, stdio: 'inherit', windowsHide: true });
+ if (result.error) throw result.error;
+ if (result.status !== 0) process.exit(result.status || 1);
 }

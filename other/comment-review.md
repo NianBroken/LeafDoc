@@ -900,7 +900,6 @@
 | `other/.golangci.yml` | .yml | 已全文阅读 | 检查器第二版配置格式，声明静态检查、格式工具和排除路径。 | 待统一验收 |
 | `other/.nvmrc` | .nvmrc | 已全文阅读 | Node 主版本 26 的版本声明，由工具链核对脚本读取，不支持行内说明。 | 待统一验收 |
 | `other/Dockerfile` | 无扩展名 | 已全文阅读 | 前端、后端与运行三阶段镜像，核实依赖缓存、嵌入文件与链接参数。 | 待统一验收 |
-| `other/Dockerfile.builder` | .builder | 已全文阅读 | 按架构和 CGO 参数输出 Linux 二进制的构建阶段，不提供运行入口。 | 待统一验收 |
 | `other/Dockerfile.lint` | .lint | 已全文阅读 | 从命名上下文复制固定版本检查器，继承工具镜像中的源码与依赖。 | 待统一验收 |
 | `other/Dockerfile.tools` | .tools | 已全文阅读 | 构建 Linux 工具与源码快照，依赖层分离于源码层。 | 待统一验收 |
 | `other/Makefile` | 无扩展名 | 已全文阅读 | 容器任务统一入口和 Windows 启动目标，cross 实际运行 vet，release 实际构建本地镜像。 | 待统一验收 |
