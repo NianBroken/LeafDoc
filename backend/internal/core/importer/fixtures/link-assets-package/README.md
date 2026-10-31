@@ -1,13 +1,7 @@
-# Import Fixture: Links, Wiki Links, Assets
+# 导入样例使用说明
 
-This fixture package covers:
+本目录是导入器的测试输入，不是项目启动入口。它用于检查 Markdown 页面、相对路径、根路径、目录入口、Wiki 链接和附件在导入后的对应关系。
 
-- relative markdown links
-- absolute markdown links
-- container links
-- Obsidian wiki links
-- relative assets
-- root-based assets
-- inline code that must stay unchanged
-- fenced code blocks that must stay unchanged
-- reserved slug handling via `Reference/API.md`
+将整个目录打包为 ZIP 后，在导入页面先创建计划，检查目标路径和冲突，再执行导入。保留目录层级和资源文件，不能只上传本说明文件。
+
+`Reference/API.md` 用于检查保留路径段处理，`Guides/Setup.md` 用于检查代码中的链接文字不被改写。

@@ -61,5 +61,7 @@ try {
   if (JSON.stringify(before) !== JSON.stringify(inventory())) throw new Error('构建期间源码发生变化，请重新打包');
   run('docker', ['run', '--rm', '--user', '0', '--entrypoint', 'sh', '--mount', `type=bind,source=${temporary},target=/work`, image, '-ec', `set -o pipefail; cd /work/bundle && tar -cf - . | gzip -9 > /work/${name}.tar.gz`]);
   fs.copyFileSync(path.join(temporary, `${name}.tar.gz`), path.join(output, `${name}.tar.gz`));
+  // 本地启动入口使用稳定标签，只有完整发行成功后才将其指向本次构建。
+  run('docker', ['tag', image, `${metadata.name.toLowerCase()}:local`]);
   console.log(`产物: ${path.join(output, name + '.tar.gz')}\nSHA256: ${digest(path.join(output, name + '.tar.gz'))}\n源码摘要: ${sourceHash}`);
 } finally { fs.rmSync(temporary, { recursive: true, force: true }); }

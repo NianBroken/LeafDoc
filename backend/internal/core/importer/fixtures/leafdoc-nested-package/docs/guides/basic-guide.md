@@ -8,6 +8,21 @@ leafdoc_last_author_id: bob
 difficulty: beginner
 ---
 
-# Basic Guide
+# 导入样例：basic-guide
 
-This guide links back to [Introduction](/intro) and [Documentation](/docs).
+本页面用于验证导入后的页面位置、正文及链接关系。路径中的名称是测试标识，保留其拼写以检查同名页面和目录解析。
+
+## 页面与资源引用
+
+[Introduction](/intro)
+
+[Documentation](/docs)
+
+## 原样保留的代码文本
+
+`[[Project Plan]]`
+
+```markdown
+[Introduction](/intro)
+[Documentation](/docs)
+```

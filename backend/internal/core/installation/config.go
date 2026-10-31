@@ -118,7 +118,7 @@ func (c *Config) MySQL() (*mysql.Config, error) {
 }
 
 // Save 先同步临时文件再替换正式记录，目录和文件均限制访问权限。
-func Save(dir string, c *Config) error {
+func Save(dir string, c *Config) (err error) {
 	if !c.Complete {
 		return errors.New("拒绝保存未完成的安装")
 	}
@@ -134,7 +134,11 @@ func Save(dir string, c *Config) error {
 		return err
 	}
 	name := f.Name()
-	defer os.Remove(name)
+	defer func() {
+		if removeErr := os.Remove(name); removeErr != nil && !os.IsNotExist(removeErr) {
+			err = errors.Join(err, fmt.Errorf("清理安装临时文件: %w", removeErr))
+		}
+	}()
 	if err = f.Chmod(0600); err == nil {
 		_, err = f.Write(b)
 	}
