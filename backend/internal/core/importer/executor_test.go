@@ -13,6 +13,8 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
+// fakeExecWiki 记录执行器对页面和附件接口的调用，允许回调控制页面返回结果。
+// 它不写入真实存储，公开附件路径和页面标识使用测试值。
 type fakeExecWiki struct {
 	hash string
 
@@ -31,12 +33,16 @@ type fakeExecWiki struct {
 	lastUploadMaxBytes int64
 }
 
+// TreeHash 返回测试维护的摘要，普通成功写入会追加变化标记。
 func (f *fakeExecWiki) TreeHash() string { return f.hash }
 
+// LookupPagePath 不属于执行器的调用流程，调用即触发 panic 以暴露意外依赖。
 func (f *fakeExecWiki) LookupPagePath(path string) (*tree.PathLookup, error) {
 	panic("not used by Executor")
 }
 
+// EnsurePath 保存调用顺序和节点类型，再交给自定义回调或返回最小页面。
+// 默认分支直接读取 kind，测试调用须提供非空类型指针。
 func (f *fakeExecWiki) EnsurePath(userID string, targetPath string, title string, kind *tree.NodeKind) (*tree.Page, error) {
 	f.ensureCalls++
 	f.ensureTargets = append(f.ensureTargets, targetPath)
@@ -49,6 +55,7 @@ func (f *fakeExecWiki) EnsurePath(userID string, targetPath string, title string
 	return &tree.Page{PageNode: &tree.PageNode{ID: "p1", Title: title, Slug: "slug", Kind: *kind}}, nil
 }
 
+// UpdatePage 记录最后正文和标题序列，回调负责自定义行为时不执行默认摘要变化。
 func (f *fakeExecWiki) UpdatePage(userID string, id, title, slug string, content *string, kind *tree.NodeKind) (*tree.Page, error) {
 	f.updateCalls++
 	f.lastUpdatedContent = content
@@ -56,11 +63,12 @@ func (f *fakeExecWiki) UpdatePage(userID string, id, title, slug string, content
 	if f.updateFn != nil {
 		return f.updateFn(userID, id, title, slug, content, kind)
 	}
-	// simulate tree change
+	// 摘要变化用于判断执行器是否记录写入之后的页面树状态。
 	f.hash += "-changed"
 	return &tree.Page{PageNode: &tree.PageNode{ID: id, Title: title, Slug: slug, Kind: *kind}}, nil
 }
 
+// UploadAsset 记录上传次数、文件名和传入上限，不读取或验证文件内容。
 func (f *fakeExecWiki) UploadAsset(userID, pageID string, file multipart.File, filename string, maxBytes int64) (string, error) {
 	f.uploadCalls++
 	f.uploadedAssets = append(f.uploadedAssets, filename)
@@ -68,6 +76,7 @@ func (f *fakeExecWiki) UploadAsset(userID, pageID string, file multipart.File, f
 	return "/assets/" + pageID + "/" + filename, nil
 }
 
+// writeTmp 按斜杠形式相对路径建立测试文件，所需父目录随文件一并创建。
 func writeTmp(t *testing.T, dir, rel, content string) {
 	t.Helper()
 	abs := filepath.Join(dir, filepath.FromSlash(rel))
@@ -79,6 +88,8 @@ func writeTmp(t *testing.T, dir, rel, content string) {
 	}
 }
 
+// TestExecutor_StalePlan 验证计划摘要与当前树摘要不一致时立即拒绝执行。
+// 过期计划返回空结果，不进入页面建立或正文处理。
 func TestExecutor_StalePlan(t *testing.T) {
 	w := &fakeExecWiki{hash: "new"}
 	plan := &PlanResult{TreeHash: "old"}
@@ -94,6 +105,8 @@ func TestExecutor_StalePlan(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_HappyPath_PreservesNonInternalFrontmatter 验证创建流程保留自定义元信息。
+// 通过重新解析写入正文检查集合、普通 title 和正文内容，并确认源系统 ID 没有复制。
 func TestExecutor_Create_HappyPath_PreservesNonInternalFrontmatter(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "a.md", "---\naliases:\n  - x\ncustom_key: keep-me\nleafdoc_id: source-id\nleafdoc_title: Source Title\ntitle: X\n---\n\n# Heading\nBody")
@@ -127,6 +140,7 @@ func TestExecutor_Create_HappyPath_PreservesNonInternalFrontmatter(t *testing.T)
 	if w.lastUpdatedContent == nil {
 		t.Fatalf("expected content to be passed to UpdatePage")
 	}
+	// 对实际传给 UpdatePage 的文本执行真实解析，不只检查原始字符串片段。
 	fm, body, has, err := markdown.ParseFrontmatter(*w.lastUpdatedContent)
 	if err != nil {
 		t.Fatalf("ParseFrontmatter err: %v", err)
@@ -159,6 +173,8 @@ func TestExecutor_Create_HappyPath_PreservesNonInternalFrontmatter(t *testing.T)
 	}
 }
 
+// TestExecutor_Create_HappyPath_PreservesDistinctExtraFieldValues
+// 使用不同标量值和嵌套映射，验证导入重组不会把额外字段混淆或丢失。
 func TestExecutor_Create_HappyPath_PreservesDistinctExtraFieldValues(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "a.md", "---\nalpha: first\nbeta: second\nnested:\n  key: value\n---\n\nBody")
@@ -200,6 +216,8 @@ func TestExecutor_Create_HappyPath_PreservesDistinctExtraFieldValues(t *testing.
 	}
 }
 
+// TestExecutor_Skip_DoesNotCallWiki 验证跳过动作不调用页面建立和内容写入接口。
+// 摘要读取仍属于正常执行流程，因此这里的断言针对两种写操作。
 func TestExecutor_Skip_DoesNotCallWiki(t *testing.T) {
 	tmp := t.TempDir()
 	w := &fakeExecWiki{hash: "h1"}
@@ -225,6 +243,8 @@ func TestExecutor_Skip_DoesNotCallWiki(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_EnsurePathError_SkipsItem 注入页面建立错误，确认单项失败被累计。
+// Execute 仍返回结果而非整体错误，正文写入次数必须为零。
 func TestExecutor_Create_EnsurePathError_SkipsItem(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "a.md", "Body")
@@ -259,13 +279,15 @@ func TestExecutor_Create_EnsurePathError_SkipsItem(t *testing.T) {
 	}
 }
 
+// TestExecutor_UnknownAction_SkipsItem 使用已声明但未由执行分支处理的 update 动作。
+// 该项按跳过累计，并保留 unknown action 错误文字。
 func TestExecutor_UnknownAction_SkipsItem(t *testing.T) {
 	tmp := t.TempDir()
 	w := &fakeExecWiki{hash: "h1"}
 	plan := &PlanResult{
 		TreeHash: "h1",
 		Items: []PlanItem{
-			{SourcePath: "a.md", TargetPath: "docs/a", Action: PlanActionUpdate}, // not handled in switch
+			{SourcePath: "a.md", TargetPath: "docs/a", Action: PlanActionUpdate}, // 执行器没有对应的更新分支。
 		},
 	}
 	opts := &PlanOptions{SourceBasePath: tmp}
@@ -283,6 +305,8 @@ func TestExecutor_UnknownAction_SkipsItem(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_FolderIndexAndSiblingPage_ImportsSectionThenNestedPage
+// 按计划先执行目录首页再执行普通页面，检查路径、类型与写入标题的顺序。
 func TestExecutor_Create_FolderIndexAndSiblingPage_ImportsSectionThenNestedPage(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Ordner/index.md", `---
@@ -324,6 +348,9 @@ title: Ordner
 	}
 }
 
+// TestExecutor_Create_RewritesMarkdownAndWikiLinksToImportedPages
+// 验证相对文件路径、根路径、无扩展名路径和目录首页均映射到计划中的页面。
+// 双中括号链接保留语法与别名，只把路径提示转换为目标页面路由。
 func TestExecutor_Create_RewritesMarkdownAndWikiLinksToImportedPages(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Guides/index.md", "# Guides")
@@ -382,6 +409,8 @@ func TestExecutor_Create_RewritesMarkdownAndWikiLinksToImportedPages(t *testing.
 	}
 }
 
+// TestExecutor_Create_UploadsRelativeAndRootAssets 验证两种附件定位方式及同页缓存。
+// 三处引用只有两个不同文件，应上传两次，并将配置的字节上限传给上传接口。
 func TestExecutor_Create_UploadsRelativeAndRootAssets(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Guides/Setup.md", strings.Join([]string{
@@ -428,6 +457,8 @@ func TestExecutor_Create_UploadsRelativeAndRootAssets(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_WikiLinkToNonImageAssetStaysNormalLink
+// 对同一个 PDF，普通双中括号引用输出链接，显式嵌入标记仍输出带感叹号的语法。
 func TestExecutor_Create_WikiLinkToNonImageAssetStaysNormalLink(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Guides/Setup.md", strings.Join([]string{
@@ -463,6 +494,9 @@ func TestExecutor_Create_WikiLinkToNonImageAssetStaysNormalLink(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_WikiLinkFallsBackToUniqueNestedBasenameOnly
+// 同时放入唯一名称与重复名称候选，确认不带路径的双中括号文字保留原格式。
+// 本断言检查最终正文，不单独断言内部名称查找是否命中。
 func TestExecutor_Create_WikiLinkFallsBackToUniqueNestedBasenameOnly(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Home.md", strings.Join([]string{
@@ -511,6 +545,8 @@ func TestExecutor_Create_WikiLinkFallsBackToUniqueNestedBasenameOnly(t *testing.
 	}
 }
 
+// TestExecutor_Create_WikiLinkResolvesUniqueNestedPathSuffix
+// 链接省略导入包顶级目录时，唯一后缀匹配必须还原完整目标路径并保留别名。
 func TestExecutor_Create_WikiLinkResolvesUniqueNestedPathSuffix(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "knowledge-main/tools/kubernetes/resources/StatefulSet.md", strings.Join([]string{
@@ -551,6 +587,8 @@ func TestExecutor_Create_WikiLinkResolvesUniqueNestedPathSuffix(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_UnresolvedWikiLinkStaysAsWikiLink
+// 对计划中不存在且没有路径提示的页面名称，导入后仍保留双中括号引用。
 func TestExecutor_Create_UnresolvedWikiLinkStaysAsWikiLink(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Home.md", strings.Join([]string{
@@ -589,6 +627,8 @@ func TestExecutor_Create_UnresolvedWikiLinkStaysAsWikiLink(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_DoesNotRewriteLinksInsideCode 对相同目标同时设置代码内与代码外引用。
+// 代码内示例保持源路径，普通正文链接必须转换，用以确认分段处理确实生效。
 func TestExecutor_Create_DoesNotRewriteLinksInsideCode(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Guides/Setup.md", strings.Join([]string{
@@ -645,6 +685,8 @@ func TestExecutor_Create_DoesNotRewriteLinksInsideCode(t *testing.T) {
 	}
 }
 
+// TestExecutor_Create_RewritesWindowsStyleMarkdownAndAssetPaths
+// 使用反斜杠相对地址验证页面和附件都能经过地址规范处理，不要求 Windows 磁盘布局。
 func TestExecutor_Create_RewritesWindowsStyleMarkdownAndAssetPaths(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Guides/Setup.md", strings.Join([]string{
@@ -692,6 +734,8 @@ func TestExecutor_Create_RewritesWindowsStyleMarkdownAndAssetPaths(t *testing.T)
 	}
 }
 
+// TestExecutor_Create_LeavesWindowsDriveLetterPathsUntouched
+// 验证带盘符的示例绝对路径不被当作普通导入相对地址改写，正文保留原文字。
 func TestExecutor_Create_LeavesWindowsDriveLetterPathsUntouched(t *testing.T) {
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Guides/Setup.md", strings.Join([]string{

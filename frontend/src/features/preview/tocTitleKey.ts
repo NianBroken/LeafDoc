@@ -1,6 +1,4 @@
-// "On this page" only makes sense once there's something to jump to; a
-// page with attachments but no headings should label the button/panel after
-// what it actually lists instead.
+// 有标题时显示页内目录名称，无标题但有下载项时显示下载列表名称，两者都为空仍使用页内目录名称。
 export function tocTitleKey(
   entryCount: number,
   downloadCount: number,

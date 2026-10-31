@@ -1,7 +1,6 @@
 #!/bin/bash
-# Tests check-toolchain-versions.sh against fixture repositories in a temp
-# dir: a copy of the script runs from <fixture>/scripts, so it reads the
-# fixture's go.mod, .nvmrc, Dockerfiles and mise config instead of the real ones.
+# 在临时目录构造多个版本配置仓库，验证检查器接受与拒绝的版本来源组合。
+# 测试副本从各自脚本目录定位仓库，运行结束时删除临时文件树。
 set -u
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -12,14 +11,14 @@ GO_FROM='FROM golang:1.27.1-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d3743
 NODE_FROM='FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS frontend'
 
 FAILURES=0
-# install_script <dir>: the script and the helper it sources, under <dir>/scripts.
+# 将被测脚本及其公共解析函数放入样例仓库的 scripts 目录。
 install_script() {
     mkdir -p "$1/scripts/lib"
     cp "$ROOT/other/scripts/check-toolchain-versions.sh" "$1/scripts/"
     cp "$ROOT/other/scripts/lib/toolchain-versions.sh" "$1/scripts/lib/"
 }
 
-# expect <name> <want ok|fail> <go.mod toolchain line> <.nvmrc content (printf)> <Dockerfile body (printf)> [mise config body (printf)] [its file, default mise.toml]
+# 创建具名样例并比较脚本实际退出结果与预期，配置正文按 printf 转义规则写入。
 expect() {
     local name="$1" want="$2" toolchain="$3" nvmrc="$4" dockerfile="$5" mise="${6-}" mise_file="${7:-mise.toml}"
     local dir="$WORK/$name" got
@@ -33,7 +32,7 @@ expect() {
         mkdir -p "$(dirname "$dir/$mise_file")"
         printf '%b' "$mise" > "$dir/$mise_file"
     fi
-    # Run from another directory: the script must find its repository itself.
+    # 从样例仓库之外启动，确认脚本能够根据自身位置定位项目根目录。
     if (cd "$WORK" && "$dir/scripts/check-toolchain-versions.sh") >/dev/null 2>&1; then
         got="ok"
     else

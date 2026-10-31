@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// TestSplitFrontmatter 对比前置区段、正文和识别标记，覆盖有效头部与普通 Markdown。
+// 表内输入包含 BOM、Windows 换行、缺少结束线、空区段与引用式链接定义。
+// 仅出现分隔线或冒号不等于有效头部，未识别时正文应保留对应文本。
 func TestSplitFrontmatter(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -111,6 +114,7 @@ func TestSplitFrontmatter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// 逐项比较三个结果，避免只检查头部内容而忽略正文被误删的情况。
 			fm, body, has := splitFrontmatter(tt.input)
 
 			if has != tt.wantHas {
@@ -126,6 +130,9 @@ func TestSplitFrontmatter(t *testing.T) {
 	}
 }
 
+// TestParseFrontmatter 检查已知字段、未知字段保留及正文拆分的完整结果。
+// 标题别名仍保存在扩展字段，专用标题字段优先；标识去除边缘空白而标题保留空白。
+// 兼容处理只针对实现支持的字段和占位形式，任意自定义字段中的非法冒号仍应报错。
 func TestParseFrontmatter(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -228,6 +235,7 @@ func TestParseFrontmatter(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			// 识别到头部后解析失败仍报告 has 为真，并将完整原文作为正文返回。
 			name:        "invalid YAML in frontmatter",
 			input:       "---\nleafdoc_id: [invalid: yaml: structure\n---\nBody",
 			wantFM:      Frontmatter{},
@@ -259,6 +267,7 @@ func TestParseFrontmatter(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			// 未加引号的模板占位值按字符串保留，不执行模板展开。
 			name:  "template placeholder scalar is treated as string",
 			input: "---\nDatum: {{date}}\n---\nBody",
 			wantFM: Frontmatter{
@@ -355,6 +364,7 @@ func TestParseFrontmatter(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			// 块文本中的同名文字属于 notes 内容，不应被当成顶层 LeafDoc 字段处理。
 			name:  "an indented line inside an unrelated block-scalar field is not corrupted by the colon fixup",
 			input: "---\nleafdoc_title: ADR-0001: Filesystem as Source of Truth\nnotes: |\n  Meeting notes.\n  leafdoc_title: v2: draft notes not real metadata\n---\nBody",
 			wantFM: Frontmatter{
@@ -408,9 +418,7 @@ func TestParseFrontmatter(t *testing.T) {
 				t.Fatalf("has = %v, want %v", has, tt.wantHas)
 			}
 
-			// WasRepaired() is asserted separately (see
-			// TestParseFrontmatter_WasRepaired); this table only cares about
-			// the parsed field values, so ignore it for the DeepEqual here.
+			// 本表核对解析字段，兼容处理标记在专门用例中断言，因此比较前归零该内部字段。
 			fm.repaired = false
 			if !reflect.DeepEqual(fm, tt.wantFM) {
 				t.Fatalf("frontmatter = %+v, want %+v", fm, tt.wantFM)
@@ -423,6 +431,9 @@ func TestParseFrontmatter(t *testing.T) {
 	}
 }
 
+// TestBuildMarkdownWithFrontmatter 以完整字符串核对头部生成、字段顺序、引号和正文换行。
+// 缺少有效标识时直接输出正文，即使存在标题也不据此创建 LeafDoc 头部。
+// 有效标识存在时，元数据与扩展属性按生成器规定顺序输出。
 func TestBuildMarkdownWithFrontmatter(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -532,6 +543,7 @@ func TestBuildMarkdownWithFrontmatter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// 精确比较输出，字段语义相同但排版或换行不同也不能通过。
 			got, err := BuildMarkdownWithFrontmatter(tt.fm, tt.body)
 
 			if (err != nil) != tt.wantErr {
@@ -545,6 +557,8 @@ func TestBuildMarkdownWithFrontmatter(t *testing.T) {
 	}
 }
 
+// TestParseFrontmatterAndBuildRoundtrip 按解析、生成、再次解析的顺序验证语义保持。
+// 比较识别标记、字段结构和正文，不要求生成后的 YAML 与原始排版逐字一致。
 func TestParseFrontmatterAndBuildRoundtrip(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -609,6 +623,8 @@ func TestParseFrontmatterAndBuildRoundtrip(t *testing.T) {
 	}
 }
 
+// TestParseFrontmatter_ScalarLeafDocValuesArePreserved 确认数字标识和布尔标题转为字符串。
+// YAML 的原始标量类型不会导致这两个字符串字段丢失。
 func TestParseFrontmatter_ScalarLeafDocValuesArePreserved(t *testing.T) {
 	fm, body, has, err := ParseFrontmatter(`---
 leafdoc_id: 123
@@ -632,6 +648,8 @@ Body`)
 	}
 }
 
+// TestBuildMarkdownWithFrontmatter_SortsExtraFieldsDeterministically 将逆序扩展键写入映射。
+// 输出必须按键排序扩展属性，再按既定顺序写 LeafDoc 字段，不受映射遍历顺序影响。
 func TestBuildMarkdownWithFrontmatter_SortsExtraFieldsDeterministically(t *testing.T) {
 	fm := Frontmatter{
 		LeafDocID:    "abc123",
@@ -659,6 +677,8 @@ Content`
 	}
 }
 
+// TestBuildMarkdownWithExtraFrontmatter_SortsExtraFieldsDeterministically 验证纯扩展头部的排序规则。
+// 此入口不要求 LeafDoc 标识，仍可为正文生成仅含自定义属性的头部。
 func TestBuildMarkdownWithExtraFrontmatter_SortsExtraFieldsDeterministically(t *testing.T) {
 	got, err := BuildMarkdownWithExtraFrontmatter(map[string]interface{}{
 		"z_key": "last",
@@ -678,6 +698,8 @@ Content`
 	}
 }
 
+// TestFrontmatter_MetadataRoundtripRFC3339 使用 UTC 秒级时间文本验证元数据往返。
+// 时间值在这里是字符串，测试同时核对创建者、作者、标题、标识与正文。
 func TestFrontmatter_MetadataRoundtripRFC3339(t *testing.T) {
 	createdAt := time.Date(2026, time.March, 21, 10, 15, 30, 0, time.UTC).Format(time.RFC3339)
 	updatedAt := time.Date(2026, time.March, 21, 11, 16, 31, 0, time.UTC).Format(time.RFC3339)
@@ -711,6 +733,8 @@ func TestFrontmatter_MetadataRoundtripRFC3339(t *testing.T) {
 	}
 }
 
+// TestParseFrontmatter_WasRepaired 区分直接成功、兼容处理后成功和实际解析失败的标记。
+// 普通头部与失败返回的零值不带标记，未加引号的受支持冒号值处理成功后带标记。
 func TestParseFrontmatter_WasRepaired(t *testing.T) {
 	t.Run("clean frontmatter is not marked as repaired", func(t *testing.T) {
 		fm, _, has, err := ParseFrontmatter("---\nleafdoc_id: abc123\nleafdoc_title: My Title\n---\nBody")
@@ -743,17 +767,16 @@ func TestParseFrontmatter_WasRepaired(t *testing.T) {
 	})
 }
 
-// TestKnownLeafDocStringFrontmatterKeys_MatchesFrontmatterStruct guards
-// against knownLeafDocStringFrontmatterKeys silently drifting out of sync
-// with the Frontmatter struct: every string field with a "leafdoc_*" yaml
-// tag (other than the bool leafdoc_pinned) must appear in the whitelist, or
-// that field silently loses unquoted-colon recovery with no compiler error.
+// TestKnownLeafDocStringFrontmatterKeys_MatchesFrontmatterStruct 通过反射检查兼容处理键集合。
+// 所有带 leafdoc_ YAML 名称的字符串字段必须在集合内，布尔字段和非持久字段跳过。
+// 此断言检查结构体到集合的覆盖，不禁止集合中存在其他键。
 func TestKnownLeafDocStringFrontmatterKeys_MatchesFrontmatterStruct(t *testing.T) {
 	whitelisted := make(map[string]bool, len(knownLeafDocStringFrontmatterKeys))
 	for _, key := range knownLeafDocStringFrontmatterKeys {
 		whitelisted[key] = true
 	}
 
+	// 只考察实际字符串字段，再提取 YAML 标签逗号之前的字段名称。
 	fmType := reflect.TypeOf(Frontmatter{})
 	for i := 0; i < fmType.NumField(); i++ {
 		field := fmType.Field(i)

@@ -1,3 +1,4 @@
+// 本文件声明界面展示、资源上传和修订参数，启动入口将它们分发给路由与 Wiki。
 package main
 
 import (
@@ -8,7 +9,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// frontendOptions holds the options for frontend appearance, features and revisions.
+// frontendOptions 保存界面选项、功能开关与修订保留策略。
+// 解析只填写字段，具体服务和路由读取这些值后决定实际功能行为。
 type frontendOptions struct {
 	defaultLanguage         string
 	injectCodeInHeader      string
@@ -22,13 +24,13 @@ type frontendOptions struct {
 	revisionCoalesceWindow  time.Duration
 }
 
-// Flags declares them. Adding an option here is the whole change: the flag,
-// its default, its environment variable and its help text are one literal,
-// and --help is generated from it.
+// Flags 声明环境来源与默认值，上传大小连同默认值接受字节解析校验，
+// 时长由 cli 库解析，布尔环境值支持公共来源定义的文字形式。
 func (o *frontendOptions) Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "default-language",
+			Name: "default-language",
+			// 此处提供启动选项，路由还会读取全局持久化语言偏好。
 			Destination: &o.defaultLanguage,
 			Value:       defaults.Language,
 			Category:    catFrontend,
@@ -37,7 +39,8 @@ func (o *frontendOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.StringFlag{
-			Name:        "inject-code-in-header",
+			Name: "inject-code-in-header",
+			// 内容作为可信头部片段传入模板，此处不清洗 HTML 或脚本。
 			Destination: &o.injectCodeInHeader,
 			Category:    catFrontend,
 			Usage:       "raw HTML/JS injected into <head> (analytics, custom CSS); trusted code only, it is not sanitized",
@@ -45,7 +48,8 @@ func (o *frontendOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.StringFlag{
-			Name:        "custom-stylesheet",
+			Name: "custom-stylesheet",
+			// 路由按数据目录解析并提供 custom.css，此处仅裁剪空白。
 			Destination: &o.customStylesheet,
 			Category:    catFrontend,
 			Usage:       "a .css file inside the data dir, served as /custom.css (under --base-path when set)",
@@ -71,7 +75,8 @@ func (o *frontendOptions) Flags() []cli.Flag {
 			Config:           trimmed,
 		},
 		&cli.BoolFlag{
-			Name:        "enable-revision",
+			Name: "enable-revision",
+			// 历史服务与前端功能开关共用此值，默认未启用。
 			Destination: &o.enableRevision,
 			Category:    catFeatures,
 			Usage:       "enable the revision / page history feature",
@@ -92,7 +97,8 @@ func (o *frontendOptions) Flags() []cli.Flag {
 			Sources:     envBoolVars("LEAFDOC_ENABLE_API_KEY_MANAGEMENT"),
 		},
 		&cli.IntFlag{
-			Name:        "max-revision-history",
+			Name: "max-revision-history",
+			// 此上限与同一作者短时间保存的合并窗口一起传给修订服务。
 			Destination: &o.maxRevisionHistory,
 			Category:    catRevisions,
 			Usage:       "maximum revisions kept per page; 0 = unlimited",

@@ -1,5 +1,6 @@
 //go:build !windows
 
+// 本文件替换系统执行入口检查重启参数，不实际替换或结束测试进程。
 package restore
 
 import (
@@ -8,6 +9,7 @@ import (
 	"testing"
 )
 
+// 捕获当前执行路径、完整参数和环境，结束时恢复全局执行函数供其他用例使用。
 func TestSelfRestart_CallsExecWithCurrentExecutableArgsAndEnv(t *testing.T) {
 	orig := execFn
 	t.Cleanup(func() { execFn = orig })
@@ -38,6 +40,7 @@ func TestSelfRestart_CallsExecWithCurrentExecutableArgsAndEnv(t *testing.T) {
 	}
 }
 
+// 执行替身返回权限错误时，重启入口应保留同一错误，不转换成成功。
 func TestSelfRestart_PropagatesExecError(t *testing.T) {
 	orig := execFn
 	t.Cleanup(func() { execFn = orig })

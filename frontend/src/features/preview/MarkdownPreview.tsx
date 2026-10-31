@@ -66,15 +66,23 @@ import {
 import { previewSanitizeSchema } from '@/features/preview/previewSanitizeSchema'
 
 type Props = {
+  // 要解析并显示的 Markdown 原文，内容变化会触发解析结果重算。
   content: string
+  // 当前页面路径供内部链接解析和预览错误边界重置使用。
   path?: string
+  // 将文档中的资源地址转换为实际访问地址的页面级解析函数。
   resolveAssetUrl?: (src: string) => string
+  // 控制标题是否包裹为可复制锚点链接。
   enableHeadlineLinks?: boolean
+  // 控制标题目录数据与目录入口的生成。
   showToc?: boolean
+  // 控制目录项是否提供滚动跳转。
   tocClickable?: boolean
+  // 目录切换为悬浮状态时通知外层页面。
   onStickyTocChange?: (show: boolean) => void
 }
 
+// 组合 Markdown 解析插件、HTML 渲染器和页面内目录，生成预览内容。
 export default function MarkdownPreview({
   content,
   path,
@@ -84,6 +92,7 @@ export default function MarkdownPreview({
   tocClickable = true,
   onStickyTocChange,
 }: Props) {
+  // 当前语言用于提示块标题，设计模式用于 Mermaid 图表的配色。
   const { i18n } = useTranslation('viewer')
   const treeById = useTreeStore((s) => s.byId)
   const resolvedMode = useResolvedDesignMode()
@@ -118,6 +127,7 @@ export default function MarkdownPreview({
         ClassAttributes<HTMLImageElement> &
         ImgHTMLAttributes<HTMLImageElement>) => {
         void node
+        // PDF 使用嵌入查看器，其他图片由图片组件处理加载和尺寸。
         if (isPdfSrc(props.src)) {
           return (
             <MarkdownPdfEmbed {...props} resolveAssetUrl={resolveAssetUrl} />
@@ -130,6 +140,7 @@ export default function MarkdownPreview({
         ...props
       }: MarkdownNodeProp & AudioHTMLAttributes<HTMLAudioElement>) => {
         void node
+        // 音频与视频先解析页面资源地址，再规范化为实际媒体地址。
         const resolvedSrc = resolveAssetUrl?.(props.src ?? '') ?? props.src
         return (
           <audio
@@ -161,6 +172,7 @@ export default function MarkdownPreview({
           'data-footnotes'?: boolean | string
         }) => {
         void node
+        // 脚注 section 转为带专用样式的 div，普通 section 保留语义标签。
         if ('data-footnotes' in props) {
           return (
             <div
@@ -186,6 +198,7 @@ export default function MarkdownPreview({
         ClassAttributes<HTMLLIElement> &
         HTMLAttributes<HTMLLIElement>) => {
         void node
+        // 单段落列表项去除多余的段落包装，复杂列表项仍按原子节点输出。
         const childArray = Array.isArray(children) ? children : [children]
         const meaningfulChildren = childArray.filter(
           (child) => child !== null && child !== undefined && child !== false,
@@ -213,6 +226,7 @@ export default function MarkdownPreview({
           'data-line'?: string
         }) => {
         void node
+        // 识别提示块标记后，将标记段落转换成本地化标题。
         const shoutoutConfig = getShoutoutConfig(children)
 
         if (!shoutoutConfig) {
@@ -332,6 +346,7 @@ export default function MarkdownPreview({
         ClassAttributes<HTMLTableElement> &
         HTMLAttributes<HTMLTableElement>) => {
         void node
+        // 表格容器支持横向滚动，单元格提示共用统一的触发延迟。
         return (
           <TooltipProvider delayDuration={300}>
             <div className="table-wrapper">
@@ -376,6 +391,7 @@ export default function MarkdownPreview({
           'data-line-numbers'?: string | boolean
         }) => {
         void node
+        // Mermaid 代码渲染为图表，其余代码根据语言类名进入代码块或行内组件。
         const { className, children, 'data-line': dataLine } = props
         if (className?.includes('language-mermaid')) {
           const code = String(children ?? '').trim()
@@ -419,11 +435,13 @@ export default function MarkdownPreview({
   )
 
   const wikiTitleIndex = useMemo(
+    // 由当前树节点构造标题索引，供 Wiki 链接预处理识别名称和歧义。
     () => buildWikiTitleIndex(treeById),
     [treeById],
   )
 
   const normalizedContent = useMemo(
+    // 预处理顺序为 Wiki 链接解析、提示块转换和列表缩进规范化。
     () =>
       normalizeMarkdownListIndentation(
         normalizeMarkdownBlocks(
@@ -437,6 +455,7 @@ export default function MarkdownPreview({
   )
 
   const tocEntries = useMemo(
+    // 目录隐藏时跳过标题扫描，避免计算不会显示的目录数据。
     () => (showToc ? extractTocEntries(normalizedContent) : []),
     [showToc, normalizedContent],
   )
@@ -445,6 +464,7 @@ export default function MarkdownPreview({
   const [showStickyToc, setShowStickyToc] = useState(false)
 
   useEffect(() => {
+    // 目录超过三项时观察文档流锚点，离开视口后通知页面显示悬浮目录。
     if (!showToc || tocEntries.length <= 3) return
     const el = inFlowRef.current
     if (!el) return
@@ -461,17 +481,14 @@ export default function MarkdownPreview({
     return () => observer.disconnect()
   }, [showToc, tocEntries.length, onStickyTocChange])
 
-  // Memoized on the resolved markdown string: tree updates (e.g. drag reorder
-  // in the sidebar) swap the store's byId identity on every change, and without
-  // this the whole remark/rehype pipeline would re-parse and re-render the
-  // article on each of those updates even though nothing in it changed.
+  // 正文按规范化文本和渲染依赖缓存，树顺序变化不会触发无关的重新解析。
   const markdownBody = useMemo(
     () => (
       <MarkdownPreviewErrorBoundary resetKey={`${path ?? ''}:${content}`}>
         <>
           <ReactMarkdown
-            // singleDollarTextMath disabled: $var in bash/code prose would be parsed
-            // as math delimiters and conflict with wikilink preprocessing. Use $$...$$ for math.
+            // 单美元符号不作为数学分隔符，避免 Shell 变量和正文文本被误认作公式。
+            // 块级数学仍由 remarkMath 解析，行内数学语法不参与转换。
             remarkPlugins={[
               [remarkMath, { singleDollarTextMath: false }],
               remarkGfm,

@@ -1,3 +1,4 @@
+// 本文件定义标签计数与按标签筛选的页面摘要，转换过程不执行标签索引查询。
 package dto
 
 import (
@@ -7,13 +8,13 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
-// TagCount is returned by the tag listing endpoint.
+// TagCount 保存一个标签及其关联数量，具体统计口径由调用方提供。
 type TagCount struct {
 	Tag   string `json:"tag"`
 	Count int    `json:"count"`
 }
 
-// TaggedPage is the reduced page DTO returned by the tag filter endpoint.
+// TaggedPage 包含路径、摘要、标签和作者元数据，不包含正文或递归子节点。
 type TaggedPage struct {
 	ID           string          `json:"id"`
 	Title        string          `json:"title"`
@@ -27,7 +28,9 @@ type TaggedPage struct {
 	LastAuthor   *auth.UserLabel `json:"lastAuthor,omitempty"`
 }
 
-// ToTaggedPage builds a TaggedPage from a PageNode, its tags, and an optional user resolver.
+// ToTaggedPage 使用传入标签和摘要，不从节点重新提取它们。空标签切片转为非空空数组，
+// 非空切片直接复用而不复制底层数组；调用方应避免转换后并发修改。
+// 零时间不格式化，用户标签解析错误不阻止返回页面摘要。
 func ToTaggedPage(node *tree.PageNode, pageTags []string, excerpt string, userResolver *auth.UserResolver) *TaggedPage {
 	if pageTags == nil {
 		pageTags = []string{}

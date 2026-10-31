@@ -1,3 +1,4 @@
+// 设置表格统一列布局和单元格样式，并仅为溢出文字提供完整内容提示。
 import { useEffect, useRef, useState } from 'react'
 import type { ComponentProps, CSSProperties } from 'react'
 import { cn } from '@/shared/lib/utils'
@@ -10,7 +11,7 @@ import {
 
 type SettingsTableProps = ComponentProps<'table'> & { columns: number }
 
-// Headers and cells share their left inset; content never adds compensating padding.
+// SettingsTableHeader 生成列标题及内部文字容器，列语义通过 scope=col 表达。
 export function SettingsTableHeader({
   children,
 }: {
@@ -23,7 +24,8 @@ export function SettingsTableHeader({
   )
 }
 
-// Column count controls total width; shared CSS owns the dimensions of each cell.
+// SettingsTable 通过 CSS 变量和 col 元素数量表达列数，其余 table 属性原样透传。
+// 自定义列数变量覆盖传入 style 中同名变量，TooltipProvider 使用三百毫秒延迟。
 export function SettingsTable({
   columns,
   className,
@@ -51,7 +53,8 @@ export function SettingsTable({
   )
 }
 
-// Only overflowing text enters the tab order and opens a portaled full-text hint.
+// TableCellContent 比较实际滚动宽度和可见宽度，只有溢出且有文字时显示提示并可聚焦。
+// 提示使用 textContent，不复制子组件结构或渲染 HTML 字符串。
 export function TableCellContent({ children }: { children: React.ReactNode }) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [overflowText, setOverflowText] = useState('')
@@ -59,6 +62,7 @@ export function TableCellContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const element = contentRef.current
     if (!element) return
+    // 测量同时响应尺寸、窗口大小和子树文字变化，不在每次渲染主动重建观察器。
     const measure = () => {
       setOverflowText(
         element.scrollWidth > element.clientWidth
@@ -68,6 +72,7 @@ export function TableCellContent({ children }: { children: React.ReactNode }) {
     }
     const resizeObserver =
       typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    // ResizeObserver 不可用时仍监听窗口变化，MutationObserver 在此直接要求环境提供。
     const mutationObserver = new MutationObserver(measure)
     measure()
     resizeObserver?.observe(element)
@@ -77,6 +82,7 @@ export function TableCellContent({ children }: { children: React.ReactNode }) {
       subtree: true,
       characterData: true,
     })
+    // 卸载时断开两个观察器并移除窗口监听，避免节点被持续引用。
     return () => {
       resizeObserver?.disconnect()
       window.removeEventListener('resize', measure)
@@ -104,7 +110,8 @@ export function TableCellContent({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Text uses an accessible overflow hint; controls retain their own layout and focus.
+// SettingsTableCell 文本模式使用溢出提示，controls 模式只提供控件布局容器。
+// 控件自身的焦点和提示行为由其组件处理，不套用文字溢出测量。
 export function SettingsTableCell({
   children,
   className,

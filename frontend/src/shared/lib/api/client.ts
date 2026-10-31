@@ -1,3 +1,5 @@
+// 本文件统一请求携带凭据、CSRF 请求头、会话刷新和接口错误解释。
+// 请求成功后的 JSON 只作类型断言，不执行响应结构校验。
 import type { SessionUser } from '@/shared/contracts/auth'
 import i18next from '@/shared/lib/i18n'
 import { useSessionStore } from '@/shared/state/session'
@@ -8,17 +10,21 @@ import {
   isApiLocalizedErrorResponse,
 } from '@/shared/lib/api/errors'
 
+// 认证提示在调用时读取当前语言，不在模块加载时固定翻译结果。
 const t = (key: string) => i18next.t(key, { ns: 'auth' })
 
+// 登录和刷新响应携带访问令牌失效秒值与用户，不把令牌正文保存到此结构。
 export type AuthResponse = {
   accessTokenExpiresAt: number
   message: string
   user: SessionUser
 }
 
+// 刷新最多等待十五秒，令牌剩余不超过六十秒时请求前尝试刷新。
 const REFRESH_TIMEOUT_MS = 15000
 const REFRESH_THRESHOLD_SECONDS = 60
 
+// ApiError 保留非成功响应的状态码，供上层区分认证、缺失资源等错误。
 export class ApiError extends Error {
   status: number
 
@@ -29,10 +35,12 @@ export class ApiError extends Error {
   }
 }
 
+// 从当前协议对应的可读 Cookie 取 CSRF 值，解码失败保留原始文本。
+// 无 document 或无匹配项返回 null，不回退读取另一协议的 Cookie。
 export function getCsrfTokenFromCookie(): string | null {
   if (typeof document === 'undefined') return null
 
-  // Local HTTP and HTTPS deployments can coexist on one host with distinct cookies.
+  // HTTPS 使用带 __Host- 前缀的名称，HTTP 使用普通名称，分别匹配完整 Cookie 边界。
   const hostMatch =
     globalThis.location?.protocol === 'https:'
       ? document.cookie.match(/(?:^|;\s*)__Host-leafdoc_csrf=([^;]+)/)
@@ -46,10 +54,8 @@ export function getCsrfTokenFromCookie(): string | null {
   }
 }
 
-// Field-validation errors ({ error: 'validation_error', fields: [...] }) are
-// re-thrown untouched so callers can surface per-field messages instead of
-// the literal string "validation_error"; localized errors become
-// ApiLocalizedError. Both are surfaced the same way by every request path.
+// throwIfStructuredError 对 validation_error 对象原样抛出，不在这里校验 fields 内容。
+// 可识别的本地化结构包装成 ApiLocalizedError，其他输入直接结束，由调用方继续解释。
 export function throwIfStructuredError(errorBody: unknown): void {
   if (
     errorBody &&
@@ -63,7 +69,7 @@ export function throwIfStructuredError(errorBody: unknown): void {
   }
 }
 
-// stringField returns errorBody[field] when it is a string (including "").
+// stringField 只读取对象中指定字符串属性，空字符串也作为有效结果返回。
 export function stringField(
   errorBody: unknown,
   field: 'error' | 'message',
@@ -73,9 +79,9 @@ export function stringField(
   return typeof value === 'string' ? value : undefined
 }
 
-// fetchWithAuth sends an authenticated request and resolves the parsed JSON
-// body (null when the response has none). T only types the result for the
-// caller; the body is not validated at runtime.
+// fetchWithAuth 按当前认证模式发送带 Cookie 的请求，成功时返回解析后的 JSON。
+// 空白响应返回 null，T 只约束调用方的静态类型，不验证服务端数据形状。
+// retry 仅控制收到 401 后是否刷新重试，不控制请求前的到期刷新判断。
 export async function fetchWithAuth<T = unknown>(
   path: string,
   options: RequestInit = {},
@@ -87,6 +93,7 @@ export async function fetchWithAuth<T = unknown>(
   const httpRemoteUserEnabled = config.httpRemoteUserEnabled
   const configLoadSucceeded = config.configLoadSucceeded
 
+  // 复制传入请求头，非 FormData 一律设 JSON 类型，包括未带正文的读取请求。
   const headers = new Headers(options.headers || {})
   if (!(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
@@ -100,6 +107,7 @@ export async function fetchWithAuth<T = unknown>(
     }
   }
 
+  // 非 FormData 对象正文直接 JSON.stringify，不按 Blob 等其他对象类型分流。
   let originalBody = options.body
   if (
     options.body &&
@@ -109,6 +117,7 @@ export async function fetchWithAuth<T = unknown>(
     originalBody = JSON.stringify(options.body)
   }
 
+  // 每次重试复用已构造的头和正文，credentials 在展开 options 后固定为 include。
   const doFetch = async (): Promise<Response> => {
     return fetch(`${API_BASE_URL}${path}`, {
       ...options,
@@ -128,15 +137,8 @@ export async function fetchWithAuth<T = unknown>(
     try {
       await ensureRefresh()
     } catch {
-      // A refresh failure only proves the session is really gone once the
-      // auth mode is confirmed (configLoadSucceeded) — otherwise this could
-      // just as easily be a header-auth deployment whose refresh-token call
-      // was always going to 422 (accessTokenExpiresAt is never set in that
-      // mode, so the check above fires on every request). Forcing this
-      // request to fail on that guess — instead of letting the real request
-      // decide, the same way it already does when httpRemoteUserEnabled is
-      // *confirmed* true — is what caused GitHub #1407 (spurious
-      // CSRF-token-missing logouts, autosave breaking mid-edit).
+      // 仅在配置已成功加载时将刷新失败判为会话失效并清理登录状态。
+      // 模式尚未确认时继续实际请求，让响应决定是否可访问，不先强制退出。
       if (configLoadSucceeded) {
         await clearSessionState(sessionLogout)
         throw new Error(t('apiErrors.unauthorized'))
@@ -144,6 +146,7 @@ export async function fetchWithAuth<T = unknown>(
     }
   }
 
+  // 用户主动中止原样传播，fetch 抛出的 TypeError 转成当前语言网络提示。
   const request = async () => {
     try {
       return await doFetch()
@@ -156,6 +159,7 @@ export async function fetchWithAuth<T = unknown>(
   }
   let res = await request()
 
+  // 非远程用户模式收到 401 时最多执行这一轮刷新和重试，不递归调用自身。
   if (res.status === 401 && retry && !httpRemoteUserEnabled) {
     try {
       await ensureRefresh()
@@ -165,13 +169,11 @@ export async function fetchWithAuth<T = unknown>(
         await clearSessionState(sessionLogout)
         throw new Error(t('apiErrors.unauthorized'))
       }
-      // Unconfirmed mode: don't force a logout, but don't fabricate success
-      // either — `res` still holds the original 401 from above, so it falls
-      // through to the generic !res.ok handling below and surfaces as a
-      // normal error instead of a silent retry loop.
+      // 未确认模式下保留当前非成功响应，继续标准错误处理，不循环刷新或返回伪成功。
     }
   }
 
+  // 非成功响应先解析结构，非法 JSON 使用状态码通用提示，不向界面暴露原始 HTML。
   if (!res.ok) {
     const errorText = await res.text()
     let errorBody: unknown = null
@@ -197,6 +199,7 @@ export async function fetchWithAuth<T = unknown>(
   return JSON.parse(text) as T
 }
 
+// 全局共享同一个进行中的刷新 Promise，使并发请求等待同一刷新结果。
 declare global {
   var __leafdocRefreshPromise: Promise<void> | null
 }
@@ -205,6 +208,8 @@ if (typeof globalThis.__leafdocRefreshPromise === 'undefined') {
   globalThis.__leafdocRefreshPromise = null
 }
 
+// 远程用户模式或没有用户不刷新，已登录但缺失到期时间时立即尝试刷新。
+// 有到期秒值时与当前整秒比较，已过期和临近到期均进入刷新。
 function shouldRefreshBeforeRequest(
   user: AuthResponse['user'] | null,
   accessTokenExpiresAt: number | null,
@@ -222,6 +227,7 @@ function shouldRefreshBeforeRequest(
   return accessTokenExpiresAt - nowInSeconds <= REFRESH_THRESHOLD_SECONDS
 }
 
+// 先请求服务端退出，不论请求成功与否都清理前端状态；退出错误仍会向上传播。
 async function clearSessionState(sessionLogout: () => void) {
   try {
     await endServerSession()
@@ -230,18 +236,11 @@ async function clearSessionState(sessionLogout: () => void) {
   }
 }
 
+// ensureRefresh 在普通会话模式下复用进行中的刷新，完成或失败后清空全局引用。
 export function ensureRefresh(): Promise<void> {
   const { httpRemoteUserEnabled } = authRuntime.readConfig()
-  // Session-token refresh only applies to session/JWT auth — skip it
-  // whenever that's confirmed false, instead of relying on every caller to
-  // have already checked httpRemoteUserEnabled itself. Deliberately NOT
-  // gated on configLoadSucceeded: attempting a refresh while the auth mode
-  // is still unconfirmed is harmless by itself (worst case one wasted call),
-  // and skipping it here entirely would permanently disable refresh for
-  // session-auth deployments that hit one bad /api/config fetch. The actual
-  // risk — treating an unconfirmed-mode refresh failure as confirmed
-  // unauthorized and forcing a logout — is guarded at the reaction site in
-  // fetchWithAuth instead, not here.
+  // 当前配置启用远程用户时直接成功结束。此处不要求配置已加载成功，
+  // 未确认模式仍允许尝试刷新，失败是否触发退出由 fetchWithAuth 的调用分支判断。
   if (httpRemoteUserEnabled) {
     return Promise.resolve()
   }
@@ -254,6 +253,8 @@ export function ensureRefresh(): Promise<void> {
   return globalThis.__leafdocRefreshPromise
 }
 
+// refreshAccessToken 用独立控制器约束刷新请求，成功后依次更新到期秒值与用户。
+// 此调用只带 Cookie，不通过 fetchWithAuth，也不附加通用写入路径的 CSRF 头。
 async function refreshAccessToken() {
   const store = useSessionStore.getState()
   const controller = new AbortController()
@@ -283,11 +284,13 @@ async function refreshAccessToken() {
 
     throw error
   } finally {
+    // 网络成功、服务端失败和中止均清除计时器，避免请求结束后继续触发中止。
     window.clearTimeout(timeoutId)
   }
 }
 
-// Session termination uses the same cookie and CSRF policy as other writes.
+// endServerSession 直接发送带 Cookie 与可用 CSRF 头的退出请求，不触发自动刷新。
+// 这里只验证 HTTP 成功状态，不读取返回正文，也不直接清理前端状态。
 export async function endServerSession(): Promise<void> {
   const headers = new Headers()
   const csrfToken = getCsrfTokenFromCookie()
@@ -301,7 +304,8 @@ export async function endServerSession(): Promise<void> {
     throw new ApiError(t('apiErrors.requestFailed'), response.status)
 }
 
-// Unstructured HTTP failures use their actual response status without exposing HTML.
+// httpFailureMessage 按已知状态选择翻译键，五百段使用服务失败，其余使用请求失败。
+// 不拼接状态正文，避免把无法解析的 HTML 页面作为界面消息显示。
 function httpFailureMessage(status: number): string {
   const keys: Record<number, string> = {
     400: 'invalid request input',

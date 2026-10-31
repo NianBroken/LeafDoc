@@ -11,6 +11,8 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
+// TestZipExtractor_ValidateExtractedFiles 解压仓库中的固定归档并检查预期文件路径。
+// 测试结束清理整个工作区；这里检查文件存在性，不比较解压后的正文内容。
 func TestZipExtractor_ValidateExtractedFiles(t *testing.T) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -29,7 +31,7 @@ func TestZipExtractor_ValidateExtractedFiles(t *testing.T) {
 		}
 	}()
 
-	// Check if expected files exist
+	// 同时覆盖根目录文件和分区目录中的文件，确认相对层级在解压后保留。
 	expectedFiles := []string{
 		"home.md",
 		"features/index.md",
@@ -44,6 +46,7 @@ func TestZipExtractor_ValidateExtractedFiles(t *testing.T) {
 	}
 }
 
+// TestZipExtractor_Cleanup 验证工作区清理会使整个解压根目录不再存在。
 func TestZipExtractor_Cleanup(t *testing.T) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -59,20 +62,19 @@ func TestZipExtractor_Cleanup(t *testing.T) {
 
 	workspaceRoot := ws.Root
 
-	// Cleanup
+	// 显式执行清理，再用文件系统查询确认根目录已被删除。
 	if err := ws.Cleanup(); err != nil {
 		t.Fatalf("Cleanup failed: %v", err)
 	}
 
-	// Verify cleanup
+	// 必须得到不存在结果，其他查询错误也不能满足此断言。
 	if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
 		t.Errorf("Workspace root %s still exists after cleanup", workspaceRoot)
 	}
 }
 
-// writeRawZip writes a zip file with exactly the given entries (name ->
-// content) for tests that need to control the zip's contents precisely,
-// same shape as internal/core/restore/swap_test.go's helper.
+// writeRawZip 根据条目名与内容映射建立临时 ZIP，供测试精确控制解压大小。
+// 映射遍历不保证条目顺序，所有条目写入后依次关闭归档写入器与磁盘文件。
 func writeRawZip(t *testing.T, entries map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -101,11 +103,8 @@ func writeRawZip(t *testing.T, entries map[string]string) string {
 	return zipPath
 }
 
-// Regression tests for the zip-bomb unbounded-decompression DoS
-// (CWE-409): extractToDirWithLimits must enforce a per-file cap, a
-// cumulative-per-archive cap, and a decompression-ratio cap, instead of
-// the raw io.Copy this used to be.
-
+// TestZipExtractor_ExtractToDirWithLimits_RejectsEntryLargerThanPerFileLimit
+// 使用 200 字节内容和 100 字节单文件上限，隔离验证单文件大小错误分类。
 func TestZipExtractor_ExtractToDirWithLimits_RejectsEntryLargerThanPerFileLimit(t *testing.T) {
 	zipPath := writeRawZip(t, map[string]string{
 		"big.txt": strings.Repeat("A", 200),
@@ -127,6 +126,8 @@ func TestZipExtractor_ExtractToDirWithLimits_RejectsEntryLargerThanPerFileLimit(
 	}
 }
 
+// TestZipExtractor_ExtractToDirWithLimits_RejectsManyFilesSummingPastCumulativeLimit
+// 每个文件都低于单文件限制，但多个 60 字节文件共用 100 字节预算时必须失败。
 func TestZipExtractor_ExtractToDirWithLimits_RejectsManyFilesSummingPastCumulativeLimit(t *testing.T) {
 	zipPath := writeRawZip(t, map[string]string{
 		"a.txt": strings.Repeat("A", 60),
@@ -150,6 +151,8 @@ func TestZipExtractor_ExtractToDirWithLimits_RejectsManyFilesSummingPastCumulati
 	}
 }
 
+// TestZipExtractor_ExtractToDirWithLimits_RejectsHighDecompressionRatio
+// 使用重复字节产生高压缩率内容，大小限制放宽，只检验解压比例错误。
 func TestZipExtractor_ExtractToDirWithLimits_RejectsHighDecompressionRatio(t *testing.T) {
 	zipPath := writeRawZip(t, map[string]string{
 		"bomb.txt": strings.Repeat("A", 5000),
@@ -171,6 +174,8 @@ func TestZipExtractor_ExtractToDirWithLimits_RejectsHighDecompressionRatio(t *te
 	}
 }
 
+// TestZipExtractor_ExtractToDirWithLimits_AllowsLowRatioContentUnderFloor
+// 40 字节内容未达到 50 字节比例检查门槛，验证小文件不因比例阈值被拒绝。
 func TestZipExtractor_ExtractToDirWithLimits_AllowsLowRatioContentUnderFloor(t *testing.T) {
 	zipPath := writeRawZip(t, map[string]string{
 		"small.txt": strings.Repeat("A", 40),

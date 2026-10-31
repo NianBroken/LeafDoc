@@ -10,14 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TestRespondWithPageError_FavoritesStoreUnavailable_Returns503 is the
-// regression test for a real bug found in review: favorites use cases
-// propagate favorites.ErrCodeFavoritesStoreUnavailable (surfaced while a
-// live restore has favorites.db suspended) unwrapped, but pageErrorStatus
-// had no case for it and fell through to the generic 500 default — unlike
-// apikeys' equivalent case for its own store, which already maps to 503. A
-// client can't tell "retry shortly" apart from "something is broken"
-// without this.
+// TestRespondWithPageError_FavoritesStoreUnavailable_Returns503
+// 构造带收藏存储不可用代码的本地化错误，通过真实页面错误响应入口检查 503 状态。
+// 断言只验证状态映射，不触发备份恢复或实际暂停收藏存储。
 func TestRespondWithPageError_FavoritesStoreUnavailable_Returns503(t *testing.T) {
 	t.Parallel()
 

@@ -1,3 +1,4 @@
+// 本文件直接测试空恢复管理器的拒绝响应，不挂载管理员认证中间件。
 package wikirestore
 
 import (
@@ -8,10 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// init 让最小测试路由在 Gin 测试模式运行。
 func init() {
 	gin.SetMode(gin.TestMode)
 }
 
+// newTestRouter 注册真实恢复处理器，保持参数路径与进度入口的解析方式一致。
 func newTestRouter(routes *Routes) *gin.Engine {
 	r := gin.New()
 	r.POST("/restore/upload", routes.handleTriggerUpload)
@@ -22,6 +25,7 @@ func newTestRouter(routes *Routes) *gin.Engine {
 	return r
 }
 
+// TestHandleTrigger_NotEnabledWhenManagerNil 验证已有快照恢复先检查管理器依赖。
 func TestHandleTrigger_NotEnabledWhenManagerNil(t *testing.T) {
 	router := newTestRouter(&Routes{})
 
@@ -34,6 +38,7 @@ func TestHandleTrigger_NotEnabledWhenManagerNil(t *testing.T) {
 	}
 }
 
+// TestHandleStatus_NotEnabledWhenManagerNil 验证状态查询对未启用功能返回 503。
 func TestHandleStatus_NotEnabledWhenManagerNil(t *testing.T) {
 	router := newTestRouter(&Routes{})
 
@@ -46,6 +51,7 @@ func TestHandleStatus_NotEnabledWhenManagerNil(t *testing.T) {
 	}
 }
 
+// TestHandleSelfRestart_NotEnabledWhenManagerNil 验证无管理器时不会调用平台重启。
 func TestHandleSelfRestart_NotEnabledWhenManagerNil(t *testing.T) {
 	router := newTestRouter(&Routes{})
 

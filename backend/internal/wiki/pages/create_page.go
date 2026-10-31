@@ -13,7 +13,8 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
-// CreatePageInput is the input for CreatePageUseCase.
+// CreatePageInput 提供创建用户、父标识、标题、路径段和明确节点类型。
+// 标题只检查空字符串，路径段交给统一名称验证器检查。
 type CreatePageInput struct {
 	UserID   string
 	ParentID *string
@@ -22,12 +23,13 @@ type CreatePageInput struct {
 	Kind     *tree.NodeKind
 }
 
-// CreatePageOutput is the output of CreatePageUseCase.
+// CreatePageOutput 返回完成页面保存流程的页面对象及初始正文。
 type CreatePageOutput struct {
 	Page *tree.Page
 }
 
-// CreatePageUseCase creates a new page in the tree and fires post-save side effects.
+// CreatePageUseCase 验证输入、建立树节点并向页面保存编排器发送创建事件。
+// 支持绑定执行器的派生处理与页面保存共用外层工作单元。
 type CreatePageUseCase struct {
 	tree         *tree.TreeService
 	slug         *tree.SlugService
@@ -36,7 +38,7 @@ type CreatePageUseCase struct {
 	metrics      *httpmetrics.HTTPMetrics
 }
 
-// NewCreatePageUseCase constructs a CreatePageUseCase.
+// NewCreatePageUseCase 保存树、名称规则、编排器、日志和指标依赖，不执行页面操作。
 func NewCreatePageUseCase(
 	t *tree.TreeService,
 	s *tree.SlugService,
@@ -47,7 +49,8 @@ func NewCreatePageUseCase(
 	return &CreatePageUseCase{tree: t, slug: s, orchestrator: o, log: log, metrics: metrics}
 }
 
-// Execute validates input, creates the page node, and fires post-save side effects.
+// Execute 未绑定工作单元时先复制用例并绑定事务树，再执行验证与保存。
+// 字段校验错误汇总返回，读取或事件处理错误使外层工作单元失败。
 func (uc *CreatePageUseCase) Execute(ctx context.Context, in CreatePageInput) (out *CreatePageOutput, err error) {
 	if !uc.tree.InUnitOfWork() {
 		var result *CreatePageOutput
@@ -62,6 +65,7 @@ func (uc *CreatePageUseCase) Execute(ctx context.Context, in CreatePageInput) (o
 		return result, err
 	}
 
+	// 在实际工作单元内统计一次保存耗时，命名返回值提供最终错误状态。
 	started := time.Now()
 	defer func() {
 		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationCreate), err, started)
@@ -85,6 +89,7 @@ func (uc *CreatePageUseCase) Execute(ctx context.Context, in CreatePageInput) (o
 		return nil, ve
 	}
 
+	// 显式非空父标识必须可查询，创建入口随后检查父类型与同级冲突。
 	if in.ParentID != nil && *in.ParentID != "" {
 		if _, err := uc.tree.FindPageByID(*in.ParentID); err != nil {
 			return nil, err
@@ -101,6 +106,7 @@ func (uc *CreatePageUseCase) Execute(ctx context.Context, in CreatePageInput) (o
 		return nil, err
 	}
 
+	// 事件使用刚读取的页面作为 After，派生处理按编排器注册顺序执行。
 	if err := uc.orchestrator.Run(pagesave.PageSaveEvent{
 		Operation: pagesave.PageOperationCreate,
 		UserID:    in.UserID,

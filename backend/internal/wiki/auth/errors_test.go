@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestRespondWithAuthError_UserStoreUnavailable 确认恢复暂停的用户存储返回 503。
 func TestRespondWithAuthError_UserStoreUnavailable(t *testing.T) {
 	t.Parallel()
 
@@ -29,6 +30,7 @@ func TestRespondWithAuthError_UserStoreUnavailable(t *testing.T) {
 	}
 }
 
+// TestRespondWithAuthError_EditorLimitReached 核对编辑者配额错误的 403 与完整翻译字段。
 func TestRespondWithAuthError_EditorLimitReached(t *testing.T) {
 	t.Parallel()
 

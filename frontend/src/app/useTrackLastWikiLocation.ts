@@ -1,22 +1,19 @@
-// Records the current route into useLastWikiLocationStore whenever the app is
-// not on a Settings page. Mounted once from AppLayout, which stays mounted
-// across view/edit/history/settings navigations, so by the time SettingsLayout
-// reads the store it holds the location the user came from.
-//
-// The Settings check is deliberately an exact `/settings` / `/settings/` match
-// rather than `useAppMode()` — the latter uses `startsWith('/settings')`, which
-// also matches an ordinary page whose slug happens to begin with "settings".
+// 在位置变化后保存非设置页面的位置，设置页面因此可读取进入前的位置。
+// 判断只接受 settings 独立路径段，不把 settings-guide 等普通页面当作设置页。
 
 import { useLastWikiLocationStore } from '@/shared/state/lastWikiLocation'
 import { stripBasePath } from '@/shared/lib/routePath'
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 
+// isSettingsPath 去除部署基路径后识别设置根路径及其子路径，剥离失败沿用原路径。
 function isSettingsPath(pathname: string) {
   const path = stripBasePath(pathname) ?? pathname
   return path === '/settings' || path.startsWith('/settings/')
 }
 
+// useTrackLastWikiLocation 保留搜索串和导航 state，不记录 URL hash。
+// 只写入共享状态，不在副作用中发起页面跳转。
 export function useTrackLastWikiLocation() {
   const location = useLocation()
   const setLocation = useLastWikiLocationStore((s) => s.setLocation)

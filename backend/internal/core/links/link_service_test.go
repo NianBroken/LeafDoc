@@ -1,9 +1,13 @@
+// 本文件使用正文样本验证普通链接与双链的提取规则。测试不连接索引数据库，
+// 只检查过滤、目标文本、顺序和去重，不验证目标页面是否实际存在。
 package links
 
 import (
 	"testing"
 )
 
+// 混合相对路径、绝对路径、查询串和片段，确认保留站内目标的原顺序，
+// 去掉查询串与片段，并排除纯锚点、网页地址和邮件地址。
 func TestExtractLinksFromMarkdown_FiltersExternalAndNormalizes(t *testing.T) {
 	md := `
 # Example
@@ -39,6 +43,7 @@ With both: [Both](/docs/page5?foo=bar#section)
 	}
 }
 
+// 大写网页协议和混合大小写邮件协议仍应被过滤，普通站内目标保留。
 func TestExtractLinksFromMarkdown_IgnoresExternalLinksCaseInsensitive(t *testing.T) {
 	md := `
 [HTTPS](HTTPS://example.com)
@@ -57,6 +62,7 @@ func TestExtractLinksFromMarkdown_IgnoresExternalLinksCaseInsensitive(t *testing
 	}
 }
 
+// 两种受支持的附件目录前缀均不进入页面出链，其他页面目标仍可提取。
 func TestExtractLinksFromMarkdown_IgnoresAssetDestinations(t *testing.T) {
 	md := `
 Asset absolute: [File](/assets/abc/manual.pdf)
@@ -77,6 +83,7 @@ Internal: [Page](/docs/page1)
 	}
 }
 
+// 进一步覆盖 HTTP、HTTPS 和 MAILTO 的不同大小写组合，避免过滤只接受小写文本。
 func TestExtractLinksFromMarkdown_IgnoresMixedCaseExternalSchemes(t *testing.T) {
 	md := `
 Uppercase HTTPS: [A](HTTPS://example.com)
@@ -100,6 +107,7 @@ Internal: [Page](/docs/page1)
 	}
 }
 
+// 双链返回目标而不是别名，含斜杠目标保持原文，普通 Markdown 链接不混入结果。
 func TestExtractWikiLinksFromMarkdown_BasicSyntax(t *testing.T) {
 	md := `
 See [[Project Plan]] for details.
@@ -119,6 +127,7 @@ Normal [link](/docs/page) stays untouched.
 	}
 }
 
+// 同一目标出现多次或使用不同别名时，只保留一项目标文本。
 func TestExtractWikiLinksFromMarkdown_DeduplicatesTargets(t *testing.T) {
 	md := `[[Notes]] and [[Notes]] again and [[Notes|different alias]].`
 	got := extractWikiLinksFromMarkdown(md)
@@ -130,6 +139,7 @@ func TestExtractWikiLinksFromMarkdown_DeduplicatesTargets(t *testing.T) {
 	}
 }
 
+// 围栏代码中的 shell 条件样本不得形成页面双链，结果必须为空。
 func TestExtractWikiLinksFromMarkdown_IgnoresFencedCodeBlock(t *testing.T) {
 	md := "```bash\nif [[ -n \"$computed_hash\" && -n \"$src_hash\" ]]; then\n  [[ \"$src_hash\" == sha256-* ]]\nfi\n```\n"
 
@@ -139,6 +149,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresFencedCodeBlock(t *testing.T) {
 	}
 }
 
+// 行内代码包裹的条件表达式不作为双链目标。
 func TestExtractWikiLinksFromMarkdown_IgnoresInlineCode(t *testing.T) {
 	got := extractWikiLinksFromMarkdown("`[[ -n $x ]]`")
 	if len(got) != 0 {
@@ -146,6 +157,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresInlineCode(t *testing.T) {
 	}
 }
 
+// 同一正文含真实双链与代码样本时，只提取代码区间之外的真实目标。
 func TestExtractWikiLinksFromMarkdown_MixedRealAndCodeBlock(t *testing.T) {
 	md := "See [[Real Page]].\n\n```\n[[ -z \"$x\" ]]\n```\n"
 
@@ -158,6 +170,8 @@ func TestExtractWikiLinksFromMarkdown_MixedRealAndCodeBlock(t *testing.T) {
 	}
 }
 
+// 缩进代码样本的双括号内容不形成目标；样本还含目标开头空格，
+// 因此本断言不单独证明排除结果只由代码区间识别造成。
 func TestExtractWikiLinksFromMarkdown_IgnoresIndentedCodeBlock(t *testing.T) {
 	got := extractWikiLinksFromMarkdown("    [[ Something ]]\n")
 	if len(got) != 0 {
@@ -165,6 +179,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresIndentedCodeBlock(t *testing.T) {
 	}
 }
 
+// 即使不在代码区间，双括号后的空白也让所列 shell 条件不符合双链正则。
 func TestExtractWikiLinksFromMarkdown_IgnoresBashConditionalsOutsideCodeBlocks(t *testing.T) {
 	cases := []string{
 		`if [[ -n "$computed_hash" && -n "$src_hash" ]]; then`,
@@ -178,6 +193,7 @@ func TestExtractWikiLinksFromMarkdown_IgnoresBashConditionalsOutsideCodeBlocks(t
 	}
 }
 
+// 完全不含双链结构的正文返回长度为零的结果，不要求 nil 与空切片的具体形式。
 func TestExtractWikiLinksFromMarkdown_Empty(t *testing.T) {
 	got := extractWikiLinksFromMarkdown("No wiki links here.")
 	if len(got) != 0 {

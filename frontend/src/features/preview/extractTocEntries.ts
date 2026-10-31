@@ -1,12 +1,14 @@
 import { slugifyHeadline } from '@/features/preview/rehypeLineNumber'
 
 export type TocEntry = {
+  // 目录只输出一至三级标题，文本为简化后的行内 Markdown，id 与页面标题锚点规则一致。
   level: 1 | 2 | 3
   text: string
   id: string
 }
 
 function stripInlineMarkdown(text: string): string {
+  // 移除注释、HTML 标签及常见链接和行内代码标记，保留读者看到的文字部分。
   return text
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<[^>]*>/g, '')
@@ -20,6 +22,7 @@ function stripInlineMarkdown(text: string): string {
 }
 
 export function extractTocEntries(markdown: string): TocEntry[] {
+  // 按行扫描 Markdown，追踪围栏代码范围并对重复标题累计生成稳定后缀。
   const lines = markdown.split('\n')
   const entries: TocEntry[] = []
   const slugCounts: Record<string, number> = {}
@@ -31,6 +34,7 @@ export function extractTocEntries(markdown: string): TocEntry[] {
     const line = lines[i]
 
     if (inCodeBlock) {
+      // 只有与开围栏符号相同且长度不短于开围栏的独立标记才能结束代码区域。
       const closeMatch = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/)
       if (
         closeMatch &&
@@ -52,7 +56,7 @@ export function extractTocEntries(markdown: string): TocEntry[] {
       continue
     }
 
-    // ATX headings: match H1-H6 for correct slug duplicate counting, only add H1-H3 to entries
+    // 六级 ATX 标题均参与重复 ID 计数，只有前三级进入目录列表。
     const atxMatch = line.match(/^(#{1,6})\s+(.+?)(?:\s+#+\s*)?$/)
     if (atxMatch) {
       const level = atxMatch[1].length
@@ -69,7 +73,7 @@ export function extractTocEntries(markdown: string): TocEntry[] {
       continue
     }
 
-    // Setext H1: line followed by ===
+    // Setext 一级标题由下一行等号标记，内容行和标记行一并消费。
     const nextLine = lines[i + 1]
     if (nextLine !== undefined) {
       const rawText = line.trim()
@@ -90,7 +94,7 @@ export function extractTocEntries(markdown: string): TocEntry[] {
         i++
         continue
       }
-      // Setext H2: line followed by ---
+      // Setext 二级标题由下一行连字符标记。
       if (rawText && /^-+\s*$/.test(nextLine)) {
         const text = stripInlineMarkdown(rawText)
         if (text) {

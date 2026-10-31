@@ -13,11 +13,13 @@ import (
 )
 
 const (
-	importMaxUploadSize = 500 << 20 // 500 MiB
+	// importMaxUploadSize 限制整个 ZIP 上传请求体，也作为 multipart 内存解析阈值。
+	importMaxUploadSize = 500 << 20 // 500 MiB。
+	// importPlanRoutePath 供创建、读取和清空当前计划的路由共用。
 	importPlanRoutePath = "/import/plan"
 )
 
-// Routes is the RouteRegistrar for the importer domain.
+// Routes 将当前导入计划的创建、轮询、启动及取消清理接入 HTTP。
 type Routes struct {
 	createPlan  *CreateImportPlanUseCase
 	getPlan     *GetImportPlanUseCase
@@ -28,7 +30,7 @@ type Routes struct {
 	log         *slog.Logger
 }
 
-// RoutesConfig holds the dependencies required to build a Routes instance.
+// RoutesConfig 保存用例及其共享服务，服务还用于接收路由层的资源上传限制。
 type RoutesConfig struct {
 	CreatePlan  *CreateImportPlanUseCase
 	GetPlan     *GetImportPlanUseCase
@@ -39,7 +41,7 @@ type RoutesConfig struct {
 	Log         *slog.Logger
 }
 
-// NewRoutes constructs the importer RouteRegistrar.
+// NewRoutes 保存依赖，不在构造时解压文件或启动导入。
 func NewRoutes(cfg RoutesConfig) *Routes {
 	return &Routes{
 		createPlan:  cfg.CreatePlan,
@@ -52,11 +54,11 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 为全部导入接口要求登录和编辑权限，读取当前计划也不采用公开读取豁免。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	opts := ctx.Opts
 
-	// Let the router's configured limit override the wiki-init default.
+	// 正的路由资源限制传给导入服务，用于执行中的单个资源处理，不改变固定 ZIP 请求限制。
 	if r.svc != nil && opts.MaxAssetUploadSizeBytes > 0 {
 		r.svc.SetAssetMaxUploadSizeBytes(opts.MaxAssetUploadSizeBytes)
 	}
@@ -69,8 +71,9 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	authGroup.DELETE(importPlanRoutePath, authmw.RequireEditorOrAdmin(), r.handleClearPlan)
 }
 
-// ─── Handlers ───────────────────────────────────────────────────────────────
-
+// handleCreatePlan 验证操作者后解析 ZIP 文件与目标基础路径，创建计划但不执行内容导入。
+// 表单解析错误统一映射为 413，文件缺失和打开失败分别映射为 400。
+// 已打开的上传文件由本处理器关闭，关闭失败写错误日志。
 func (r *Routes) handleCreatePlan(c *gin.Context) {
 	user := authmw.MustGetUser(c)
 	if user == nil {
@@ -111,11 +114,8 @@ func (r *Routes) handleCreatePlan(c *gin.Context) {
 	c.JSON(http.StatusOK, out.Plan)
 }
 
-// logRejectedZipExtraction logs the full detail behind a zip-extraction-cap
-// rejection (exact byte counts, the internal call-path context) server-side
-// — the user-facing response deliberately only ever gets the static,
-// curated message these codes carry (see CreateImportPlanUseCase.Execute),
-// so this is the one place that detail would otherwise be lost entirely.
+// logRejectedZipExtraction 仅对三种解压限制错误记录底层原因，保留字节数量及调用链信息。
+// 对外消息由用例采用固定模板，内部原因通过日志单独保存，其他错误不在这里记录。
 func logRejectedZipExtraction(log *slog.Logger, err error) {
 	loc, ok := sharederrors.AsLocalizedError(err)
 	if !ok {
@@ -127,6 +127,7 @@ func logRejectedZipExtraction(log *slog.Logger, err error) {
 	}
 }
 
+// handleGetPlan 返回当前计划快照，无计划经用例转换为空成功结果而不是 404。
 func (r *Routes) handleGetPlan(c *gin.Context) {
 	out, err := r.getPlan.Execute(c.Request.Context())
 	if err != nil {
@@ -136,6 +137,8 @@ func (r *Routes) handleGetPlan(c *gin.Context) {
 	c.JSON(http.StatusOK, out.Plan)
 }
 
+// handleExecute 将当前用户作为导入作者提交启动请求，不等待后台导入结束。
+// 刚启动或状态仍运行中时返回 202，其余成功状态返回 200。
 func (r *Routes) handleExecute(c *gin.Context) {
 	user := authmw.MustGetUser(c)
 	if user == nil {
@@ -155,6 +158,7 @@ func (r *Routes) handleExecute(c *gin.Context) {
 	c.JSON(statusCode, out.State)
 }
 
+// handleClearPlan 对未退出的取消任务返回 202 与状态，清理完成后返回 200 和空值。
 func (r *Routes) handleClearPlan(c *gin.Context) {
 	state, err := r.clearPlan.Execute(c.Request.Context())
 	if err != nil {
@@ -162,7 +166,7 @@ func (r *Routes) handleClearPlan(c *gin.Context) {
 		return
 	}
 	if state != nil {
-		// Cancel was requested but execution is still running.
+		// 非空状态表示取消标记已设置，执行尚未结束，前端继续轮询。
 		c.JSON(http.StatusAccepted, state)
 		return
 	}

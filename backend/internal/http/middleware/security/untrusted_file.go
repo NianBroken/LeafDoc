@@ -7,11 +7,9 @@ import (
 	"strings"
 )
 
-// inlineFileExts lists the extensions that may be rendered by the browser
-// when navigated to directly. Everything else (HTML, SVG, XML, unknown or
-// missing extensions, ...) is served as a download, so uploaded content can
-// never execute as a document on the wiki origin (stored XSS).
-// Embedding via <img>, <video>, <audio> or the PDF embed is unaffected.
+// inlineFileExts 指定以 inline 方式发送的图片、音视频和 PDF 扩展名。
+// 扩展名不在集合中时要求下载，包括 HTML、SVG、XML、未知扩展名与无扩展名文件。
+// 选择依据是文件名而非内容检测，内容类型仍由文件响应的其他处理决定。
 var inlineFileExts = map[string]struct{}{
 	".png": {}, ".jpg": {}, ".jpeg": {}, ".gif": {}, ".webp": {}, ".avif": {}, ".bmp": {}, ".ico": {},
 	".pdf": {},
@@ -19,18 +17,15 @@ var inlineFileExts = map[string]struct{}{
 	".mp3": {}, ".wav": {}, ".ogg": {}, ".oga": {}, ".m4a": {}, ".flac": {}, ".aac": {}, ".opus": {},
 }
 
-// SetUntrustedFileHeaders hardens a response that serves user-supplied file
-// bytes from the wiki origin. It must be applied by every route that serves
-// uploaded assets (live or from a revision), not just /assets:
-//   - nosniff, so the declared type is final;
-//   - Content-Disposition attachment for every type not on the inline
-//     allowlist, so active content is downloaded instead of rendered;
-//   - CSP sandbox, so even a document that does render runs in an opaque
-//     origin without access to the wiki's cookies or API. PDF is exempt
-//     because Chrome refuses to render PDFs in a sandboxed document.
+// SetUntrustedFileHeaders 为用户文件响应设置禁止类型嗅探及内容展示方式。
+// 除 PDF 外写入无授权项的 CSP sandbox，约束被浏览器当作文档加载的内容。
+// PDF 分支不写该头，也不删除调用方已经设置的同名头。
+// 文件名取路径末段，使用标准库编码进 Content-Disposition；编码失败时只保留展示类型。
+// 函数只操作响应头，不验证文件内容，也不负责实际发送文件。
 func SetUntrustedFileHeaders(h http.Header, name string) {
 	h.Set("X-Content-Type-Options", "nosniff")
 
+	// 扩展名转小写后比较，名称大小写不会改变 PDF 豁免和内联集合的判断。
 	ext := strings.ToLower(path.Ext(name))
 	if ext != ".pdf" {
 		h.Set("Content-Security-Policy", "sandbox")

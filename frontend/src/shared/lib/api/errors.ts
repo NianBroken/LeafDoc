@@ -1,5 +1,8 @@
+// 本文件把接口结构错误、字段错误和普通异常转换为可展示的中文或当前语言提示。
+// 翻译依据 errors 命名空间，未找到词条时保留服务端文本或调用方回退文本。
 import i18next from '@/shared/lib/i18n'
 
+// 服务端本地化错误包含稳定类别、原提示、翻译模板和可选字符串参数。
 export type ApiLocalizedErrorDetail = {
   code: string
   message: string
@@ -7,16 +10,20 @@ export type ApiLocalizedErrorDetail = {
   args?: string[]
 }
 
+// 结构错误在响应顶层的 error 属性中保存详细对象。
 export type ApiLocalizedErrorResponse = {
   error: ApiLocalizedErrorDetail
 }
 
+// 界面使用的统一错误形状，字段错误可与全局提示同时存在。
 export type ApiUiError = {
   message: string
   code?: string
   fields?: Record<string, string>
 }
 
+// 包装服务端详细错误，保留原消息和模板供显示时按当前语言翻译。
+// 参数数组直接保存传入引用，缺失时创建空数组，不执行深拷贝或运行时类型校验。
 export class ApiLocalizedError extends Error {
   code: string
   template: string
@@ -31,6 +38,7 @@ export class ApiLocalizedError extends Error {
   }
 }
 
+// 仅检查两层对象和三个字符串字段，不校验 args 是否数组、成员类型或错误码是否已知。
 export function isApiLocalizedErrorResponse(
   value: unknown,
 ): value is ApiLocalizedErrorResponse {
@@ -47,6 +55,7 @@ export function isApiLocalizedErrorResponse(
   )
 }
 
+// 只接受当前类的实例，不把形状相似的普通对象自动转换为错误实例。
 export function asApiLocalizedError(err: unknown): ApiLocalizedError | null {
   if (err instanceof ApiLocalizedError) {
     return err
@@ -54,6 +63,8 @@ export function asApiLocalizedError(err: unknown): ApiLocalizedError | null {
   return null
 }
 
+// 本地化错误优先按 page_not_found 错误码判断，其余对象只要 status 精确为数字 404 即接受。
+// 本地化错误带其他错误码时直接返回 false，不继续检查它的 status 字段。
 export function isPageNotFoundError(err: unknown): boolean {
   if (err instanceof ApiLocalizedError) {
     return err.code === 'page_not_found'
@@ -71,6 +82,8 @@ export function isPageNotFoundError(err: unknown): boolean {
   return false
 }
 
+// 按原模板中的 %s 顺序替换参数，缺少参数时保留占位符，多余参数在末尾集中展示。
+// 替换由回调完成，参数中的美元符号和 %s 不再当作替换规则或新占位符处理。
 export function formatLocalizedErrorTemplate(
   template: string,
   args: string[] = [],
@@ -91,6 +104,8 @@ export function formatLocalizedErrorTemplate(
   return `${formatted} (${args.slice(argIndex).join(', ')})`
 }
 
+// 优先解释字段错误，再解释本地化错误实例，其他情况走通用消息提取。
+// 字段提示以中文分号连接，得到空文本时才采用 fallback。
 export function mapApiError(err: unknown, fallback: string): ApiUiError {
   const validation = readFieldErrors(err)
   if (validation)
@@ -118,7 +133,8 @@ export function mapApiError(err: unknown, fallback: string): ApiUiError {
   }
 }
 
-// Field messages remain attached to their inputs and also work in global notices.
+// readFieldErrors 只接受 validation_error 与数组 fields 的组合，其他形状返回 null。
+// 合法条目按小写消息键翻译，相同字段后面的提示覆盖前面的提示，空数组返回空对象。
 export function readFieldErrors(err: unknown): Record<string, string> | null {
   if (
     !err ||
@@ -144,6 +160,8 @@ export function readFieldErrors(err: unknown): Record<string, string> | null {
   return fields
 }
 
+// getErrorMessage 依次提取字段提示、Error 消息和回退文本，不读取任意对象的 message。
+// 网络 TypeError 和 TimeoutError 使用固定翻译键，其他 Error 消息按小写键尝试翻译。
 export function getErrorMessage(err: unknown, fallback: string): string {
   const fields = readFieldErrors(err)
   if (fields) return Object.values(fields).join('；') || fallback

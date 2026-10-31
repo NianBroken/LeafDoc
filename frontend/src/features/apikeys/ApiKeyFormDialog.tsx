@@ -1,3 +1,5 @@
+// 此表单创建只读权限密钥，并在当前对话框内展示创建响应中的明文令牌。
+// 用户列表来自外部已加载的用户存储，组件不在内部请求用户列表。
 import BaseDialog from '@/shared/components/BaseDialog'
 import { Button } from '@/shared/components/ui/button'
 import { FormInput } from '@/shared/components/FormInput'
@@ -17,28 +19,19 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+// 名称输入框保留回车交给对话框快捷键处理，不放行其他页面快捷键。
 const DIALOG_INPUT_ALLOWED_HOTKEYS = 'Enter'
 
-// expiresAt holds a plain "YYYY-MM-DD" from the date input — the user's
-// LOCAL calendar date, with no timezone attached (that's what a date picker
-// means: "the day I clicked," not a UTC date). The backend expects RFC3339
-// and rejects a non-future expiry, so this normalizes to the end of that day
-// — but end of day in the user's OWN timezone, not UTC. Anchoring to UTC
-// directly (`${dateOnly}T23:59:59Z`) is wrong two ways: for timezones west of
-// UTC it can still land in the past for "today", and for timezones east of
-// UTC the resulting instant lands in the small hours of the *next* local day,
-// so a key the admin picked "Jan 1" for shows as expiring "Jan 2" once
-// rendered back in their own timezone. Parsing the string WITHOUT a "Z"
-// suffix makes the browser treat it as local time (a plain ECMA-262
-// date-time-without-offset string is always local, unlike a date-only string
-// which is UTC — the exact opposite of what's needed here), so this
-// constructs local end-of-day and only then converts to the UTC instant the
-// wire format needs.
+// toExpiresAtRFC3339 将日期输入的本地日历日期转换为该日 23:59:59 的 UTC 时刻。
+// 拼接的时间没有时区后缀，Date 按浏览器本地时区解释，再由 toISOString 输出 Z 格式。
+// 空日期表示不设置到期时间；非空值不在这里验证日期或未来性，异常交给提交分支处理。
 function toExpiresAtRFC3339(dateOnly: string): string | undefined {
   if (!dateOnly) return undefined
   return new Date(`${dateOnly}T23:59:59`).toISOString()
 }
 
+// ApiKeyFormDialog 在创建成功后切换为令牌展示状态，不自动关闭或再次提交。
+// 名称、所属用户和到期日期各自保存，字段错误由公共映射器填入。
 export function ApiKeyFormDialog() {
   const { t } = useTranslation('apikeys')
   const [name, setName] = useState('')
@@ -52,23 +45,19 @@ export function ApiKeyFormDialog() {
   const users = useUserStore((s) => s.users)
 
   const handleCreate = async (): Promise<boolean> => {
-    if (!name || !userId) return false // Should not happen due to button disabling
+    if (!name || !userId) return false // 与按钮禁用条件一致，空输入不提交请求。
 
     setLoading(true)
     try {
       const created = await createApiKey({
         name,
         userId,
-        // Role is intentionally omitted — the create dialog only mints
-        // viewer-scoped keys for now (see Select removal below); the
-        // backend defaults to viewer when role is absent. Editor/admin
-        // roles are accepted by the API for direct use; whether to offer
-        // them in this dialog is a separate product decision.
+        // 请求不携带 role，核心服务为空角色采用 viewer，不从所选用户推导更高权限。
         expiresAt: toExpiresAtRFC3339(expiresAt),
       })
       toast.success(t('create.successToast'))
       setResult(created)
-      return false // Keep the dialog open to reveal the secret
+      return false // 保持打开，让用户查看并复制只在创建响应中返回的令牌。
     } catch (err) {
       console.warn(err)
       handleFieldErrors(err, setFieldErrors, t('create.errorFallback'))
@@ -79,6 +68,7 @@ export function ApiKeyFormDialog() {
   }
 
   const handleCopy = async () => {
+    // 只复制已创建结果中的令牌，剪贴板权限或接口失败会展示独立错误提示。
     if (!result) return
     try {
       await navigator.clipboard.writeText(result.secret)
@@ -99,6 +89,7 @@ export function ApiKeyFormDialog() {
       onClose={() => true}
       onConfirm={handleCreate}
       testidPrefix="api-key-form-dialog"
+      // 创建后将取消位置用作完成按钮，并隐藏提交按钮，避免重复创建。
       cancelButton={
         result
           ? { label: t('secret.done'), variant: 'default', autoFocus: true }
@@ -121,6 +112,7 @@ export function ApiKeyFormDialog() {
             ]
       }
     >
+      {/* 结果存在时仅展示令牌，未创建时显示输入控件，状态切换不依赖另一次列表查询。 */}
       {result ? (
         <div className="space-y-4 pt-2">
           <FormInput
@@ -149,6 +141,7 @@ export function ApiKeyFormDialog() {
             name="name"
             value={name}
             onChange={(val) => {
+              // 编辑名称时只清除名称错误，不清除其他字段的服务器校验结果。
               setName(val)
               setFieldErrors((prev) => ({ ...prev, name: '' }))
             }}

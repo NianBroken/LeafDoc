@@ -1,3 +1,5 @@
+// 本文件把历史正文、额外前置字段和资源写回现有页面，并记录恢复操作。
+// 数据库页面更新与资源目录替换分步执行，失败后通过显式补偿尝试恢复现场。
 package revision
 
 import (
@@ -15,6 +17,9 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
+// RestoreRevision 要求现有页面和历史记录均存在，裁去两个 ID 边缘空白后执行。
+// 恢复历史标题和内容，保留当前 slug，不使用历史父节点、路径或页面类型重建结构。
+// 版本检查使用 VersionUnchecked，资源或恢复记录失败时尝试回写之前的页面和资源。
 func (s *Service) RestoreRevision(pageID, revisionID, authorID string) error {
 	pageID = strings.TrimSpace(pageID)
 	revisionID = strings.TrimSpace(revisionID)
@@ -57,6 +62,7 @@ func (s *Service) RestoreRevision(pageID, revisionID, authorID string) error {
 		)
 	}
 
+	// 页面存在性先在锁外检查，后续历史读取、现场捕获与写回在同实例页面锁内进行。
 	mu := s.pageWriteLock(pageID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -104,6 +110,7 @@ func (s *Service) RestoreRevision(pageID, revisionID, authorID string) error {
 		)
 	}
 
+	// 捕获操作前页面状态供失败补偿使用，此步骤不主动保存一条操作前历史。
 	beforeState, err := s.capturePageState(pageID, true)
 	if err != nil {
 		return sharederrors.NewLocalizedError(
@@ -143,6 +150,8 @@ func (s *Service) RestoreRevision(pageID, revisionID, authorID string) error {
 		)
 	}
 
+	// 页面已经写入后才替换资源。资源失败时尝试分别还原正文和资源，
+	// 补偿失败只记警告，最终仍返回最初资源恢复错误，不承诺补偿全部成功。
 	if err := s.restoreAssets(pageID, assets); err != nil {
 		restoreRollbackContent, rollbackPreserveFrontmatter, buildErr := buildRestoredRawContent(beforeState.ExtraFrontmatter, beforeState.Content)
 		if buildErr != nil {
@@ -173,6 +182,7 @@ func (s *Service) RestoreRevision(pageID, revisionID, authorID string) error {
 		)
 	}
 
+	// 历史保存失败同样触发现场补偿，已产生的正文块或资源块不在此分支统一删除。
 	if err := s.recordRestoreRevision(pageID, authorID); err != nil {
 		restoreRollbackContent, rollbackPreserveFrontmatter, buildErr := buildRestoredRawContent(beforeState.ExtraFrontmatter, beforeState.Content)
 		if buildErr != nil {
@@ -206,6 +216,8 @@ func (s *Service) RestoreRevision(pageID, revisionID, authorID string) error {
 	return nil
 }
 
+// buildRestoredRawContent 有额外字段时重新构建 Markdown，并通知页面更新保留前置字段。
+// 没有额外字段则直接返回正文及 false，不插入空前置字段区段。
 func buildRestoredRawContent(extra map[string]interface{}, body string) (string, bool, error) {
 	if len(extra) == 0 {
 		return body, false, nil
@@ -219,6 +231,9 @@ func buildRestoredRawContent(extra map[string]interface{}, body string) (string,
 	return raw, true, nil
 }
 
+// restoreAssets 先移除现有页面资源目录，再根据清单逐项恢复，空清单保持目录不存在。
+// 名称逐项裁边缘空白并按当前系统路径规则校验，重复名称拒绝写入。
+// 校验和复制发生在原目录删除之后，失败时目录中已写入项保留，外层负责补偿。
 func (s *Service) restoreAssets(pageID string, refs []AssetRef) error {
 	dir := s.liveAssetDir(pageID)
 	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
@@ -250,6 +265,8 @@ func (s *Service) restoreAssets(pageID string, refs []AssetRef) error {
 	return nil
 }
 
+// recordRestoreRevision 捕获恢复后的完整现场，依次保存正文、资源块、清单和恢复描述。
+// 本方法由已持页面锁的恢复入口调用，不再次取锁，也不执行保存后数量裁剪。
 func (s *Service) recordRestoreRevision(pageID, authorID string) error {
 	state, err := s.capturePageState(pageID, true)
 	if err != nil {

@@ -1,3 +1,4 @@
+// 管理站点名称、标志和图标，名称通过独立表单保存，资源选择与删除直接调用状态动作。
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { mapApiError } from '@/shared/lib/api/errors'
@@ -15,7 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useSetTitle } from '@/features/viewer/setTitle'
 
-// Both labels share intrinsic sizing so translations keep preview centers aligned.
+// 每个预览标签同时渲染两种文字，由样式控制展示布局，非当前种类对辅助阅读隐藏。
 function BrandingPreviewLabel({ kind }: { kind: 'logo' | 'favicon' }) {
   const { t } = useTranslation('branding')
 
@@ -31,6 +32,7 @@ function BrandingPreviewLabel({ kind }: { kind: 'logo' | 'favicon' }) {
 }
 
 export default function BrandingSettings() {
+  // 状态容器提供服务端配置、文件限制和请求状态，组件保留尚未提交的名称草稿。
   const {
     siteName,
     logoFile,
@@ -58,20 +60,24 @@ export default function BrandingSettings() {
 
   const [localSiteName, setLocalSiteName] = useState(siteName)
   const [saving, setSaving] = useState(false)
+  // 引用同步阻止重复保存，saving 状态用于控制按钮和输入框的显示与禁用。
   const saveInFlight = useRef(false)
 
   const logoInputRef = useRef<HTMLInputElement>(null)
   const faviconInputRef = useRef<HTMLInputElement>(null)
 
   useLayoutEffect(() => {
+    // 挂载时请求品牌配置，具体加载失败状态由状态容器保存。
     loadBranding()
   }, [loadBranding])
 
   useEffect(() => {
+    // 仅在共享站点名称变化时重设草稿，单独上传图片不会直接重设名称。
     setLocalSiteName(siteName)
   }, [siteName])
 
   const handleLogoDelete = async () => {
+    // 等待删除动作完成后显示成功提示，失败消息通过统一接口错误映射生成。
     try {
       await deleteLogo()
       toast.success(t('toast.logoDeleted'))
@@ -81,6 +87,7 @@ export default function BrandingSettings() {
   }
 
   const handleFaviconDelete = async () => {
+    // 图标删除还会由状态动作切换页面图标，这里负责用户操作反馈。
     try {
       await deleteFavicon()
       toast.success(t('toast.faviconDeleted'))
@@ -90,6 +97,7 @@ export default function BrandingSettings() {
   }
 
   const handleSave = async () => {
+    // 保存中或任一品牌请求处于加载状态时忽略提交，提交内容只包含站点名称。
     if (saveInFlight.current || isLoading) return
     saveInFlight.current = true
     setSaving(true)
@@ -101,12 +109,14 @@ export default function BrandingSettings() {
     } catch (err) {
       toast.error(mapApiError(err, t('toast.brandingSaveFailed')).message)
     } finally {
+      // 请求无论成功或失败均释放同步锁，并恢复保存按钮状态。
       saveInFlight.current = false
       setSaving(false)
     }
   }
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 仅使用选择列表的第一个文件，立即清空输入值，使同一文件能够再次触发选择事件。
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
@@ -122,6 +132,7 @@ export default function BrandingSettings() {
   const handleFaviconUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
+    // 未选择文件时直接返回；实际类型和大小检查位于上传接口的服务端实现。
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
@@ -144,6 +155,7 @@ export default function BrandingSettings() {
           </p>
         )}
         <form
+          // 阻止浏览器原生提交刷新页面，名称保存由异步动作处理。
           className="settings__section"
           onSubmit={(event) => {
             event.preventDefault()
@@ -220,6 +232,7 @@ export default function BrandingSettings() {
 
           <div className="settings__field">
             <input
+              // 隐藏的文件控件由上传按钮触发，accept 为选择器提示，不替代服务端校验。
               type="file"
               ref={logoInputRef}
               onChange={handleLogoUpload}

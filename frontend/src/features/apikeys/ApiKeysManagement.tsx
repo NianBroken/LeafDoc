@@ -1,3 +1,4 @@
+// 此页面并行读取密钥和用户列表，将所属账号标识映射为名称并提供创建与撤销入口。
 import {
   SettingsTable,
   SettingsTableCell,
@@ -13,6 +14,7 @@ import { useSetTitle } from '@/features/viewer/setTitle'
 import { CreateApiKeyButton } from '@/features/apikeys/CreateApiKeyButton'
 import { DeleteApiKeyButton } from '@/features/apikeys/DeleteApiKeyButton'
 
+// 时间由共享格式器使用用户偏好展示，空值以占位文字表示。
 export default function ApiKeysManagement() {
   const { t } = useTranslation('apikeys')
   const { formatDateTime } = useDateTimeFormat()
@@ -23,6 +25,7 @@ export default function ApiKeysManagement() {
   useSetTitle({ title: t('page.title') })
 
   useEffect(() => {
+    // 两个请求都成功才正常结束加载，任一失败显示错误；已有成功请求不回滚。
     Promise.all([loadApiKeys(), loadUsers()])
       .catch((err) => {
         console.warn(err)
@@ -34,14 +37,17 @@ export default function ApiKeysManagement() {
       })
 
     return () => {
+      // 页面离开或依赖变化时清空密钥状态，不清空用户列表，也不取消在途加载。
       reset()
     }
   }, [loadApiKeys, loadUsers, reset, t])
 
   const usernameById = useMemo(
+    // 用户列表变化时重建查找表，避免每行重复遍历整个用户数组。
     () => new Map(users.map((u) => [u.id, u.username])),
     [users],
   )
+  // 找不到用户记录时显示原始标识，仍能识别密钥所属对象。
   const usernameFor = (userId: string) => usernameById.get(userId) ?? userId
 
   return (
@@ -78,6 +84,7 @@ export default function ApiKeysManagement() {
               </tr>
             </thead>
             <tbody>
+              {/* 加载、空列表和数据行按 loading 与列表长度互斥显示。 */}
               {loading && (
                 <tr>
                   <SettingsTableCell
@@ -132,6 +139,7 @@ export default function ApiKeysManagement() {
                       content="controls"
                     >
                       <div className="settings__actions">
+                        {/* 已撤销记录只显示状态，仍有效的记录提供撤销确认入口。 */}
                         {apiKey.revokedAt ? (
                           <span className="settings__table-body-message">
                             {t('table.revoked')}

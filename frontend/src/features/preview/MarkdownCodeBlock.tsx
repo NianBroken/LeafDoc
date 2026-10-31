@@ -18,6 +18,7 @@ type CodeElementProps = {
   'data-line-numbers'?: string | boolean
 }
 
+// 识别代码围栏转换器写入的行号标记，也兼容 class 中的旧式标记。
 function hasLineNumbers(props: CodeElementProps): boolean {
   const flag = props['data-line-numbers']
   if (flag === true || flag === 'true' || flag === '') {
@@ -26,12 +27,14 @@ function hasLineNumbers(props: CodeElementProps): boolean {
   return (props.className ?? '').split(/\s+/).some((cls) => cls.endsWith('='))
 }
 
+// 将代码节点包装为带复制按钮的代码块，并按需把高亮内容拆成逐行结构。
 export default function MarkdownCodeBlock(
   props: ClassAttributes<HTMLPreElement> &
     HTMLAttributes<HTMLPreElement> & { children?: ReactNode; node?: unknown },
 ) {
   const { t } = useTranslation('viewer')
   const { children, node, ...preProps } = props
+  // node 由 Markdown 组件接口传入，此处的展示只依赖实际渲染出的子节点。
   void node
   const child = Array.isArray(children) ? children[0] : children
   const childIsCodeElement = isValidElement<CodeElementProps>(child)
@@ -40,6 +43,7 @@ export default function MarkdownCodeBlock(
   const { copied, copyCode } = useCodeCopy(code)
 
   if (!childIsCodeElement) {
+    // 普通 pre 内容不符合代码节点结构，保留原始 HTML 渲染形态。
     return <pre {...preProps}>{children}</pre>
   }
 
@@ -47,6 +51,7 @@ export default function MarkdownCodeBlock(
 
   const isCodeBlock = className.includes('language-') || code.includes('\n')
   if (!isCodeBlock) {
+    // 单行且没有语言标记的内容按普通 pre 展示，不增加代码块工具栏。
     return <pre {...preProps}>{children}</pre>
   }
 

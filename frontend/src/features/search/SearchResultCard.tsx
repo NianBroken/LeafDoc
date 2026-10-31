@@ -1,3 +1,4 @@
+// 展示搜索命中项的标题、摘要、种类和路径，并把锚点引用交给列表处理键盘定位。
 import i18next from '@/shared/lib/i18n'
 import { SearchResultItem } from '@/shared/lib/api/search'
 import { createNavigationVisitState } from '@/shared/lib/navigationVisit'
@@ -25,6 +26,7 @@ const SearchResultCard = forwardRef<HTMLAnchorElement, SearchResultCardProps>(
   ) {
     const location = useLocation()
     const currentEditorPageId = usePageEditorStore(
+      // 优先使用当前编辑页面，没有时使用初始页面 ID，使编辑中的搜索结果也能突出显示。
       (state) => state.page?.id ?? state.initialPage?.id,
     )
     const currentViewPath = normalizeWikiRoutePath(
@@ -32,6 +34,7 @@ const SearchResultCard = forwardRef<HTMLAnchorElement, SearchResultCardProps>(
     )
     const resultPath = normalizeWikiRoutePath(item.path)
     const resultUrl = `${resultPath}${location.search}`
+    // 路由匹配、编辑页面匹配和键盘选中任一成立即显示选中样式，只有路由匹配设置 aria-current。
     const isRouteActive = currentViewPath === resultPath
     const isEditorActive = currentEditorPageId === item.page_id
     const isActive = isRouteActive || isEditorActive || isSelected
@@ -42,6 +45,7 @@ const SearchResultCard = forwardRef<HTMLAnchorElement, SearchResultCardProps>(
 
     return (
       <Link
+        // 保留现有查询参数，导航状态使用访问标记，使页面打开流程能够区分访问事件。
         ref={ref}
         to={resultUrl}
         state={createNavigationVisitState()}
@@ -67,6 +71,7 @@ const SearchResultCard = forwardRef<HTMLAnchorElement, SearchResultCardProps>(
           <span className="search-result-card__badge">{kindLabel}</span>
         </div>
         <div className="search-result-card__path">
+          {/* 路径分隔符两侧加入空格仅用于展示，不改变链接地址。 */}
           {item.path.split('/').join(' / ')}
         </div>
       </Link>

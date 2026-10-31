@@ -1,3 +1,4 @@
+// 将树拖放坐标和节点关系解析为父节点 ID 与插入位置，不执行接口调用或修改树状态。
 import { NODE_KIND_SECTION, PageNode } from '@/shared/lib/api/pages'
 
 export const ROOT_ID = 'root'
@@ -11,11 +12,12 @@ export type DropTarget = {
 
 export type DropResolution = {
   parentId: string
-  // Index among the parent's children with the dragged node removed
+  // 插入索引以移除被拖节点后的目标子列表为基准。
   index: number
 }
 
 export function collectSubtreeIds(node: PageNode): Set<string> {
+  // 深度遍历拖动节点及全部后代，用于禁止把节点放入自己的子树。
   const ids = new Set<string>()
   const walk = (n: PageNode) => {
     ids.add(n.id)
@@ -25,15 +27,15 @@ export function collectSubtreeIds(node: PageNode): Set<string> {
   return ids
 }
 
-// Every row splits 25/50/25: top quarter = before, middle half = into,
-// bottom quarter = after. Dropping "into" a page nests the dragged node
-// inside it — the backend converts the page into a section on move.
+// 节点行按垂直比例分为前四分之一、中央一半和后四分之一，分别对应前置、嵌入和后置。
+// 嵌入普通页面时，服务端在移动操作中将目标页转换为分区。
 export function getDropZone(
   pointerY: number,
   rect: { top: number; height: number },
 ): DropZone | null {
   if (rect.height <= 0) return null
   const fraction = (pointerY - rect.top) / rect.height
+  // 非正高度没有可计算区域，边界四分之一归入中央嵌入区域。
 
   if (fraction < 0.25) return 'before'
   if (fraction > 0.75) return 'after'
@@ -53,6 +55,7 @@ export function resolveDrop({
   byId: Record<string, PageNode>
   isNodeOpen: (id: string) => boolean
 }): DropResolution | null {
+  // 嵌入总是在目标节点末尾追加；前后投放使用目标的兄弟列表定位。
   if (zone === 'inside') {
     const children = (target.children ?? []).filter((c) => c.id !== dragged.id)
     return { parentId: target.id, index: children.length }
@@ -65,9 +68,7 @@ export function resolveDrop({
   if (targetIndex === -1) return null
 
   if (zone === 'after') {
-    // Dropping right below an expanded section visually points at the slot
-    // above its first child, so place the node there instead of after the
-    // whole section.
+    // 展开的分区后四分之一在界面上对应首个子项上方，存在其他子项时插到子列表开头。
     if (
       target.kind === NODE_KIND_SECTION &&
       isNodeOpen(target.id) &&
@@ -86,6 +87,7 @@ export function buildOrderedIds(
   draggedId: string,
   index: number,
 ): string[] {
+  // 先剔除旧位置，再把目标 ID 插入裁剪到有效范围内的索引。
   const ids = children.map((c) => c.id).filter((id) => id !== draggedId)
   const insertAt = Math.max(0, Math.min(index, ids.length))
   ids.splice(insertAt, 0, draggedId)

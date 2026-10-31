@@ -1,23 +1,13 @@
 import { buildViewUrl } from '@/shared/lib/routePath'
 
 /**
- * Wiki-domain path helpers.
- *
- * This file is responsible for path semantics inside the wiki itself:
- * normalized page paths, parent-page paths, route-to-lookup conversion, and
- * relative Markdown link resolution.
- *
- * It should not deal with the configured browser base path. That responsibility
- * stays in `routePath.ts`.
+ * 本文件处理页面路径、父路径、树查询键和相对链接，不直接读取部署前缀配置。
+ * 路由类型转换交给 routePath.ts，再对结果执行页面路径规范化。
  */
 
 /**
- * Normalizes a wiki route/path.
- *
- * Rules:
- * - remove query string and hash fragment
- * - ensure a leading slash
- * - remove trailing slashes except for the root path
+ * 按文本去掉查询串和片段，保证前导斜线并去掉非根路径的末尾斜线。
+ * 不合并路径中间的连续斜线，不解析点目录，也不进行 URL 解码。
  */
 export function normalizeWikiRoutePath(path: string): string {
   let normalized = path.split('?')[0].split('#')[0]
@@ -34,9 +24,8 @@ export function normalizeWikiRoutePath(path: string): string {
 }
 
 /**
- * Converts a normalized wiki route/path into the tree lookup key format.
- *
- * Example: `/docs/getting-started` -> `docs/getting-started`
+ * 先规范页面路径，再移除唯一的前导斜线，根路径对应空查询键。
+ * 输入中的额外前导斜线不在规范函数中合并，因此此处只删除第一个字符。
  */
 export function toWikiLookupPath(path: string): string {
   const normalized = normalizeWikiRoutePath(path)
@@ -44,21 +33,16 @@ export function toWikiLookupPath(path: string): string {
 }
 
 /**
- * Converts any supported route variant to the normalized wiki route/path.
- *
- * Examples:
- * - `/docs` -> `/docs`
- * - `/e/docs` -> `/docs`
- * - `/history/docs` -> `/docs`
+ * 将支持的编辑、历史和查看路由统一转为带前导斜线的页面路径。
+ * buildViewUrl 负责路由前缀，当前规范步骤继续去掉查询串、片段和末尾斜线。
  */
 export function getWikiTargetRoutePath(pathname: string): string {
   return normalizeWikiRoutePath(buildViewUrl(pathname))
 }
 
 /**
- * Resolves a relative Markdown link against the current wiki page path.
- *
- * The result is always an absolute wiki route/path without query or hash.
+ * 把当前页面路径当作目录基准，使用 URL 规则解析相对目标，再只取 pathname。
+ * 外部目标也仅保留路径，协议、主机、查询串和片段不在结果中，非法 URL 会直接抛错。
  */
 export function resolveWikiLinkPath(currentPath: string, href: string): string {
   const normalizedCurrentPath = normalizeWikiRoutePath(currentPath)
@@ -73,9 +57,8 @@ export function resolveWikiLinkPath(currentPath: string, href: string): string {
 }
 
 /**
- * Returns the parent wiki route/path for a page.
- *
- * Top-level pages resolve to `/`.
+ * 去掉查询串和片段后按非空斜线片段取父路径，根与顶层页面均返回 /。
+ * 分段时过滤空串，因此返回父路径不会保留输入中的中间重复斜线。
  */
 export function getParentWikiRoutePath(path: string): string {
   const normalized = normalizeWikiRoutePath(path)
@@ -93,11 +76,8 @@ export function getParentWikiRoutePath(path: string): string {
 }
 
 /**
- * Computes the viewer route to open after deleting a page or section.
- *
- * If the deleted page is currently open, or the current route is nested below
- * it, the redirect goes to the deleted page's parent. Otherwise the current
- * route is kept unchanged.
+ * 当前查看页面等于删除目标或位于其下级时，返回删除目标的父路径。
+ * 无需跳转时返回规范后的原路由，保留其编辑或历史前缀，但去掉查询串和片段。
  */
 export function getDeleteRedirectRoutePath(
   currentLocationPath: string,

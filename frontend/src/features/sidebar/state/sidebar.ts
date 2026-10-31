@@ -1,6 +1,4 @@
-// Maintains sidebar visibility, width and active panel.
-// This store manages sidebar state: visibility and active mode (tree/search).
-// The state is persisted across sessions using localStorage.
+// 保存侧栏显示状态、宽度及当前面板，状态通过本地存储持续保留。
 
 import { SIDEBAR_TREE_PANEL_ID } from '@/shared/lib/registries/instances'
 import { create } from 'zustand'
@@ -20,9 +18,7 @@ type SidebarStore = {
   sidebarWidth: number
   setSidebarWidth: (width: number) => void
 
-  // Bumped whenever the search shortcut is triggered while the search panel
-  // is already open, so Search.tsx can refocus its input even though
-  // sidebarVisible/sidebarMode don't change value (no re-render otherwise).
+  // 搜索面板已打开时再次按快捷键递增，用于通知面板重新聚焦输入框。
   searchFocusRequestId: number
   requestSearchFocus: () => void
 }

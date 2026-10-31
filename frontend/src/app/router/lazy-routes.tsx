@@ -1,14 +1,12 @@
+// 集中声明路由组件加载入口，React lazy 在组件首次渲染时调用对应导入函数。
 import { lazy } from 'react'
 
 export const AccountSettings = lazy(
   () => import('@/features/settings/account/AccountSettings'),
 )
 
-// The admin-only settings sections share one dynamic-import specifier
-// (../settings/adminSections) so the bundler collapses them into a single
-// chunk, loaded once when an admin opens any one of them. One chunk per
-// section saved almost no bytes but cost a network round-trip on every
-// switch between settings tabs.
+// 管理设置共用 adminSections 模块入口，各包装器从同一模块选择自己的命名导出。
+// 加载边界只负责代码获取，管理员权限仍由设置守卫判断。
 export const ApiKeysManagement = lazy(() =>
   import('@/features/settings/adminSections').then((m) => ({
     default: m.ApiKeysManagement,
@@ -50,6 +48,7 @@ export const BrokenLinks = lazy(() =>
   })),
 )
 
+// 认证和编辑等页面各自使用实际功能模块入口，加载期间由上层 Suspense 显示占位。
 export const LoginForm = lazy(() => import('@/features/auth/LoginForm'))
 export const ForgotPasswordForm = lazy(
   () => import('@/features/auth/ForgotPasswordForm'),
@@ -68,6 +67,7 @@ export const PermalinkRedirect = lazy(
   () => import('@/features/page/PermalinkRedirect'),
 )
 export const RootRedirect = lazy(() => import('@/features/page/RootRedirect'))
+// 查看器使用静态导出，其代码随本模块依赖加载，不经过这里的 lazy 包装。
 export { default as PageViewer } from '@/features/viewer/PageViewer'
 
 export const PreferencesSettings = lazy(

@@ -1,3 +1,5 @@
+// 本文件验证临时文件提交、跨平台路径处理和解压复制的三类限额错误。
+// 文件写入均使用测试临时目录，不触碰实际实例的正文和附件。
 package shared
 
 import (
@@ -11,6 +13,7 @@ import (
 	"testing"
 )
 
+// TestWriteFileAtomic_WritesToTargetFile 在目标不存在时写入字节，并从最终路径核对正文。
 func TestWriteFileAtomic_WritesToTargetFile(t *testing.T) {
 	tmp := t.TempDir()
 	target := filepath.Join(tmp, "page.md")
@@ -28,6 +31,8 @@ func TestWriteFileAtomic_WritesToTargetFile(t *testing.T) {
 	}
 }
 
+// TestAtomicWriteDir_WindowsPath 将 Windows 风格路径作为输入，在各平台统一比较斜线路径。
+// 两个案例分别覆盖页面目录与多级附件目录，不要求这些示例路径实际存在。
 func TestAtomicWriteDir_WindowsPath(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -56,6 +61,8 @@ func TestAtomicWriteDir_WindowsPath(t *testing.T) {
 	}
 }
 
+// TestWriteStreamAtomic_WritesToTargetFile 检查数据流提交后的正文和非 Windows 文件权限。
+// Windows 不参与 Unix 权限位断言，但仍必须满足内容写入和目标存在要求。
 func TestWriteStreamAtomic_WritesToTargetFile(t *testing.T) {
 	tmp := t.TempDir()
 	target := filepath.Join(tmp, "asset.bin")
@@ -83,11 +90,10 @@ func TestWriteStreamAtomic_WritesToTargetFile(t *testing.T) {
 	}
 }
 
-// Regression tests for the zip-bomb unbounded-decompression DoS (CWE-409)
-// fix's CopyWithBudget primitive: which cap trips must be attributed
-// correctly, and an attacker-controlled declared compressed size that
-// overflows int64 must not silently disable the decompression-ratio check.
+// 下列用例分别检查单项超限、总预算超限和压缩大小声明溢出时的错误类别。
+// 每个测试都放宽与其目标无关的限制，使断言能够对应到指定的判断路径。
 
+// TestCopyWithBudget_ReportsErrFileTooLarge_WhenEntryCapIsBinding 验证较小的单项上限决定错误类别。
 func TestCopyWithBudget_ReportsErrFileTooLarge_WhenEntryCapIsBinding(t *testing.T) {
 	limits := ExtractionLimits{MaxEntryBytes: 10, MaxTotalBytes: 1000, MaxRatio: 1 << 30, RatioFloorBytes: 1 << 30}
 	budget := NewSizeBudget(limits.MaxTotalBytes)
@@ -98,10 +104,11 @@ func TestCopyWithBudget_ReportsErrFileTooLarge_WhenEntryCapIsBinding(t *testing.
 	}
 }
 
+// TestCopyWithBudget_ReportsErrCumulativeSizeTooLarge_WhenBudgetCapIsBinding 验证共享剩余额度更小时返回总量错误。
 func TestCopyWithBudget_ReportsErrCumulativeSizeTooLarge_WhenBudgetCapIsBinding(t *testing.T) {
 	limits := ExtractionLimits{MaxEntryBytes: 1000, MaxTotalBytes: 1000, MaxRatio: 1 << 30, RatioFloorBytes: 1 << 30}
 	budget := NewSizeBudget(limits.MaxTotalBytes)
-	budget.remaining = 10 // simulate most of the archive's budget already spent
+	budget.remaining = 10 // 直接设置剩余预算，表达前面条目已经消耗大部分额度的状态。
 
 	err := CopyWithBudget(&bytes.Buffer{}, strings.NewReader(strings.Repeat("A", 20)), 0, limits, budget)
 	if !errors.Is(err, ErrCumulativeSizeTooLarge) {
@@ -109,15 +116,13 @@ func TestCopyWithBudget_ReportsErrCumulativeSizeTooLarge_WhenBudgetCapIsBinding(
 	}
 }
 
+// TestCopyWithBudget_ClampsOverflowingDeclaredCompressedSize_KeepsRatioCheckFailClosed 检查转换溢出不会停用比例限制。
 func TestCopyWithBudget_ClampsOverflowingDeclaredCompressedSize_KeepsRatioCheckFailClosed(t *testing.T) {
 	limits := ExtractionLimits{MaxEntryBytes: 1 << 30, MaxTotalBytes: 1 << 30, MaxRatio: 3, RatioFloorBytes: 50}
 	budget := NewSizeBudget(limits.MaxTotalBytes)
 
-	// A declared compressed size near uint64 max overflows a naive int64
-	// conversion to a negative number. If that silently disabled the ratio
-	// check (compressedSize > 0 becomes false), this copy would succeed
-	// despite decompressing well past the floor at a ratio no real entry of
-	// this declared size could produce.
+	// 最大 uint64 转为 int64 后为负，复制函数会将压缩大小置为 1。
+	// 五千字节输出超过五十字节起检值，必须触发比例错误，而非因负值跳过检查。
 	declaredCompressedSize := uint64(math.MaxUint64)
 	err := CopyWithBudget(&bytes.Buffer{}, strings.NewReader(strings.Repeat("A", 5000)), declaredCompressedSize, limits, budget)
 	if !errors.Is(err, ErrDecompressionRatioTooHigh) {

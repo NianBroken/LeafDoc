@@ -1,4 +1,4 @@
-// Registration ownership remains stable when React effects clean up out of order.
+// React 效果清理顺序变化时，快捷键注册仍由当前拥有者稳定维护。
 import { beforeEach, expect, it, vi } from 'vitest'
 import { useHotKeysStore, type HotKeyDefinition } from './hotkeys'
 

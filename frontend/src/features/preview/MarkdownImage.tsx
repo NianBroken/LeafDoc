@@ -7,13 +7,16 @@ type MarkdownImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   resolveAssetUrl?: (src: string) => string
 }
 
+// Markdown 图片使用带版本的资源地址，并在普通点击时打开站内预览对话框。
 function shouldOpenPreview(e: React.MouseEvent<HTMLImageElement>) {
+  // 仅未按修饰键的鼠标左键用于站内预览。
   if (e.button !== 0) return false
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false
   return true
 }
 
 function shouldOpenInNewTab(e: React.MouseEvent<HTMLImageElement>) {
+  // Ctrl 或 Command 加鼠标左键采用新标签页打开图片资源。
   return e.button === 0 && (e.metaKey || e.ctrlKey)
 }
 
@@ -25,6 +28,7 @@ export function MarkdownImage({
   resolveAssetUrl,
   ...rest
 }: MarkdownImageProps) {
+  // 资源解析函数先处理相对附件路径，随后追加缓存版本参数。
   const openDialog = useDialogsStore((s) => s.openDialog)
   const resolvedSrc = useMemo(
     () => resolveAssetUrl?.(src) ?? src,
@@ -37,22 +41,13 @@ export function MarkdownImage({
 
   return (
     <img
-      // Sanitized or missing URLs have no source and cannot open a preview.
+      // 空资源地址不设置 src，也不触发预览光标。
       src={versionedSrc || undefined}
       alt={alt}
       style={{
-        // Tailwind's preflight resets images to `display: block`, which forces
-        // a line break between an image and any text that follows it on the
-        // same Markdown line (`![alt](img) text`). Keep Markdown images inline
-        // so trailing/leading text stays on the same line (#1471).
+        // 将图片设为行内块，避免预设样式把同一 Markdown 段落中的相邻文字换到新行。
         display: 'inline-block',
-        // Tailwind Typography's `prose img` rule adds a 2em top/bottom margin
-        // sized for a standalone block-level figure. On an inline-block image
-        // that margin never collapses with the surrounding paragraph's own
-        // margin, so it stacked on top of it and produced an oversized gap
-        // around "image + text" lines (and before a wrapped second line of
-        // the same paragraph). Let the paragraph's margin be the only source
-        // of vertical spacing (#1524).
+        // 清除图片块默认上下边距，段落间距由外围段落样式单独提供。
         marginTop: 0,
         marginBottom: 0,
         ...style,
@@ -71,9 +66,7 @@ export function MarkdownImage({
 
         if (!versionedSrc) return
 
-        // Images wrapped in a link (Markdown `[![alt](img)](url)` or raw
-        // `<a><img></a>`) should follow the link instead of opening the
-        // preview dialog.
+        // 图片位于链接内部时保留链接的导航行为，不拦截为预览对话框。
         if (e.currentTarget.closest('a')) {
           return
         }

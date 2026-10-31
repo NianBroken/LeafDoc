@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// exemptPathSegmentSequences 列出维护期间仍可请求的恢复及登录会话路径片段。
+// 匹配允许前面存在部署基础路径，也允许序列后面继续存在子路径。
 var exemptPathSegmentSequences = [][]string{
 	{"api", "admin", "restore"},
 	{"api", "auth", "login"},
@@ -16,11 +18,9 @@ var exemptPathSegmentSequences = [][]string{
 	{"api", "auth", "logout"},
 }
 
-// pathContainsSegments reports whether path contains the given sequence of
-// segments consecutively, anywhere — so it works regardless of --base-path
-// (the sequence just needs to appear somewhere after whatever prefix), and
-// so "restore-policy" (a different segment) never matches a check for
-// "restore".
+// pathContainsSegments 按斜杠拆分路径，查找连续且逐段完全相等的目标序列。
+// 搜索从每个可容纳目标序列的位置开始，因而支持前缀部署路径。
+// restore-policy 不等于 restore，单个路径段的文字前缀不构成命中。
 func pathContainsSegments(path string, want []string) bool {
 	segments := strings.Split(strings.Trim(path, "/"), "/")
 	for start := 0; start+len(want) <= len(segments); start++ {
@@ -38,6 +38,7 @@ func pathContainsSegments(path string, want []string) bool {
 	return false
 }
 
+// isExemptPath 在任一豁免序列命中时返回 true，不要求目标序列占满整个路径。
 func isExemptPath(path string) bool {
 	for _, want := range exemptPathSegmentSequences {
 		if pathContainsSegments(path, want) {
@@ -47,9 +48,9 @@ func isExemptPath(path string) bool {
 	return false
 }
 
-// WriteGateMiddleware returns 503 for any non-GET/HEAD/OPTIONS request while
-// gate is engaged (a restore is swapping live files), so a write never lands
-// in a directory that's about to be renamed away.
+// WriteGateMiddleware 将普通写请求登记到恢复门禁，门禁关闭时返回 503。
+// GET、HEAD、OPTIONS 及豁免路径直接通过，不登记为活动写请求。
+// 成功进入的请求在后续处理结束时退出计数，使恢复流程能够等待这些请求排空。
 func WriteGateMiddleware(gate *restore.WriteGate) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
@@ -63,6 +64,7 @@ func WriteGateMiddleware(gate *restore.WriteGate) gin.HandlerFunc {
 			return
 		}
 
+		// 判断与登记由门禁统一完成，避免在恢复开始与请求进入之间分开检查状态。
 		leave, ok := gate.TryEnter()
 		if !ok {
 			loc, _ := sharederrors.AsLocalizedError(restore.ErrWritesDisabled)
@@ -75,6 +77,7 @@ func WriteGateMiddleware(gate *restore.WriteGate) gin.HandlerFunc {
 			})
 			return
 		}
+		// 延迟退出也覆盖后续处理提前返回的路径，不将完成请求留在活动计数内。
 		defer leave()
 
 		c.Next()

@@ -1,3 +1,5 @@
+// 本文件提供字节和数据流两种临时文件写入方式，在写入完成后替换目标文件。
+// 临时文件放在目标目录，调用方负责保证该目录已经存在。
 package shared
 
 import (
@@ -10,15 +12,19 @@ import (
 	"strings"
 )
 
+// 关闭失败的日志文本由多条写入失败路径共用，原始操作错误仍作为返回值保留。
 const errFailedToCloseTempFile = "failed to close temp file"
 
+// atomicWriteDir 将两种斜线统一为当前平台可识别的路径，再提取父目录。
+// 处理过程不创建目录，也不验证传入路径对应的文件是否存在。
 func atomicWriteDir(filename string) string {
 	normalized := strings.ReplaceAll(filename, `\`, `/`)
 	return filepath.Dir(filepath.FromSlash(normalized))
 }
 
-// WriteFileAtomic writes data to filename atomically by writing to a temp file
-// in the same directory and then renaming it over the target.
+// WriteFileAtomic 将完整字节写入目标目录中的临时文件，同步并关闭后替换目标。
+// perm 非零时应用指定权限，零值保留 CreateTemp 设置的权限。
+// 创建、权限、写入、同步、关闭和替换失败均返回对应错误，不提前删除目标文件。
 func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
 	dir := atomicWriteDir(filename)
 
@@ -28,11 +34,12 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
 	}
 
 	tmpName := tmpFile.Name()
-	// Ensure the temp file is removed in case of an error
+	// 函数返回时尝试移除临时路径。替换成功后该路径已经不存在，移除结果不参与返回值。
 	defer func() {
 		_ = os.Remove(tmpName)
 	}()
 
+	// 字节写入方式在写入前设置权限，区别于下方数据流方式的写入后设置。
 	if perm != 0 {
 		if err := tmpFile.Chmod(perm); err != nil {
 			chmodErr := fmt.Errorf("chmod temp file: %w", err)
@@ -51,6 +58,7 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
 		return writeErr
 	}
 
+	// 同步失败会终止替换，关闭失败单独记日志，保留同步错误作为本次返回原因。
 	if err := tmpFile.Sync(); err != nil {
 		syncErr := fmt.Errorf("sync temp file: %w", err)
 		if closeErr := tmpFile.Close(); closeErr != nil {
@@ -63,6 +71,7 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
 		return fmt.Errorf("close temp file: %w", err)
 	}
 
+	// 关闭句柄后调用平台实现，Windows 和其他平台使用各自的文件替换接口。
 	if err := atomicReplace(tmpName, filename); err != nil {
 		return fmt.Errorf("rename temp file: %w", err)
 	}
@@ -70,6 +79,9 @@ func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
+// WriteStreamAtomic 从 src 读取内容，写入临时文件并在成功后替换目标路径。
+// CopyWithLimit 最多写入 maxBytes 加一字节来识别超限，超限时不替换目标。
+// 函数不关闭 src，源数据的生命周期由调用方管理。
 func WriteStreamAtomic(targetPath string, src io.Reader, maxBytes int64, perm os.FileMode) error {
 	dir := atomicWriteDir(targetPath)
 
@@ -79,7 +91,8 @@ func WriteStreamAtomic(targetPath string, src io.Reader, maxBytes int64, perm os
 	}
 	tmp := out.Name()
 
-	// Ensure cleanup on failure
+	// ok 表示目标替换已成功，out 为 nil 表示句柄已经显式关闭。
+	// 未成功时尝试删除临时文件；延迟关闭失败会记日志并结束清理，不再执行删除。
 	ok := false
 	defer func() {
 		if out == nil {
@@ -102,12 +115,12 @@ func WriteStreamAtomic(targetPath string, src io.Reader, maxBytes int64, perm os
 		return err
 	}
 
-	// Best-effort durability
+	// 数据同步是提交前的必要步骤，失败直接返回，不继续权限设置和目标替换。
 	if err := out.Sync(); err != nil {
 		return err
 	}
 
-	// Chmod after writing so partial content is never world-readable.
+	// 数据写完后才应用非零权限，写入期间使用 CreateTemp 的初始访问权限。
 	if perm != 0 {
 		if err := out.Chmod(perm); err != nil {
 			return fmt.Errorf("chmod temp file: %w", err)
@@ -117,6 +130,7 @@ func WriteStreamAtomic(targetPath string, src io.Reader, maxBytes int64, perm os
 	if err := out.Close(); err != nil {
 		return err
 	}
+	// 清空句柄引用，使延迟清理不会重复关闭已经成功关闭的文件。
 	out = nil
 
 	if err := atomicReplace(tmp, targetPath); err != nil {

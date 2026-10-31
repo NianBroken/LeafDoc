@@ -1,4 +1,4 @@
-// Descendants already carry the server directory order; never sort a second time.
+// 后代顺序已来自服务端目录，按树遍历顺序使用，不再单独排序。
 import { NODE_KIND_PAGE, type PageNode } from '@/shared/lib/api/pages'
 
 export function firstDescendantPage(section: PageNode): PageNode | null {

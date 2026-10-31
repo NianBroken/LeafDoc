@@ -15,6 +15,8 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
+// ImporterService 串联上传暂存、解压、规划、状态保存和计划执行。
+// 服务使用单份当前计划，后台执行的进度与取消请求通过 PlanStore 交换。
 type ImporterService struct {
 	planner                 *Planner
 	planStore               *PlanStore
@@ -25,6 +27,8 @@ type ImporterService struct {
 	zipExtractionLimits     shared.ExtractionLimits
 }
 
+// CurrentPlanState 是对外返回的当前计划视图，不包含本机工作区路径和执行用户。
+// TreeHash 来自原计划，执行后的树摘要位于 ExecutionResult 中。
 type CurrentPlanState struct {
 	ID              string           `json:"id"`
 	TreeHash        string           `json:"tree_hash"`
@@ -37,14 +41,9 @@ type CurrentPlanState struct {
 	ExecutionProgress
 }
 
-// SetAssetMaxUploadSizeBytes overrides the asset upload size limit after
-// construction. Values <= 0 are ignored. The zip-extraction per-file cap is
-// raised to match whenever it's configured larger than
-// shared.DefaultZipExtractionLimits.MaxEntryBytes: an admin who's opted into
-// bigger single-asset uploads has already accepted files that size onto
-// disk one at a time, so an import zip containing one of those same
-// legitimately-sized assets shouldn't be rejected by a zip-specific cap that
-// assumed the old, smaller default.
+// SetAssetMaxUploadSizeBytes 接受正数附件上限，非正数不改变现有配置。
+// 若该值超过当前解压单文件上限，同时提高解压上限，使允许上传的附件能被解压。
+// 较小值只影响附件上传，不降低已有解压单文件上限。
 func (is *ImporterService) SetAssetMaxUploadSizeBytes(n int64) {
 	if n > 0 {
 		is.assetMaxUploadSizeBytes = n
@@ -54,15 +53,15 @@ func (is *ImporterService) SetAssetMaxUploadSizeBytes(n int64) {
 	}
 }
 
-// SetZipExtractionLimits overrides the per-file/cumulative/decompression-ratio
-// caps enforced while extracting an uploaded zip (see shared.ExtractionLimits).
-// Production always uses shared.DefaultZipExtractionLimits; this exists so
-// tests can exercise the same real-filesystem extraction path with small,
-// fast-to-construct fixtures instead of multi-hundred-MiB ones.
+// SetZipExtractionLimits 直接保存解压限制，供下一次上传解压使用。
+// 它不重新与附件大小上限比较，调用顺序会影响最终单文件解压限制。
 func (is *ImporterService) SetZipExtractionLimits(limits shared.ExtractionLimits) {
 	is.zipExtractionLimits = limits
 }
 
+// NewImporterService 设置附件和解压默认限制，并建立工作区的基础目录配置。
+// 空工作区路径使用系统临时目录下的 wiki-imports，目录在实际解压时建立。
+// 构造完成即检查持久化的运行状态，符合条件时启动后台恢复执行。
 func NewImporterService(planner *Planner, planStore *PlanStore, workspaceBaseDir string, assetMaxUploadSizeBytes int64) *ImporterService {
 	if assetMaxUploadSizeBytes <= 0 {
 		assetMaxUploadSizeBytes = assets.DefaultMaxUploadSizeBytes
@@ -87,9 +86,11 @@ func NewImporterService(planner *Planner, planStore *PlanStore, workspaceBaseDir
 	return service
 }
 
-// CreateImportPlanFromFolder creates an import plan from a folder path
+// CreateImportPlanFromFolder 扫描指定目录并保存一份待执行计划，目录归入计划工作区。
+// 计划完成或清理时会删除该目录，调用方须传入允许由导入流程清理的目录。
+// 正在运行的计划不能替换，其他已有计划先删除工作区再清空状态。
 func (is *ImporterService) CreateImportPlanFromFolder(folderPath string, targetBasePath string) (*PlanResult, error) {
-	// single-plan semantics: cleanup old plan workspace if present
+	// 旧状态读取成功才进入清理；其他读取错误由后续保存操作继续报告。
 	if old, err := is.planStore.Get(); err == nil && old != nil {
 		if old.ExecutionStatus == ExecutionStatusRunning {
 			return nil, ErrImportExecutionRunning
@@ -132,7 +133,7 @@ func (is *ImporterService) CreateImportPlanFromFolder(folderPath string, targetB
 	return plan, nil
 }
 
-// GetCurrentPlan retrieves the currently stored import plan
+// GetCurrentPlan 将状态库返回的计划转换为对外视图，读取错误直接向上传递。
 func (is *ImporterService) GetCurrentPlan() (*CurrentPlanState, error) {
 	sp, err := is.planStore.Get()
 	if err != nil {
@@ -141,7 +142,8 @@ func (is *ImporterService) GetCurrentPlan() (*CurrentPlanState, error) {
 	return currentPlanStateFromStored(sp), nil
 }
 
-// ClearCurrentPlan clears the currently stored import plan
+// ClearCurrentPlan 拒绝清理运行中的计划，其余计划先尝试删除工作区再清空状态。
+// 工作区删除失败只记录日志，不阻止清除计划，最终返回值来自状态库 Clear。
 func (is *ImporterService) ClearCurrentPlan() error {
 	if sp, err := is.planStore.Get(); err == nil && sp != nil {
 		if sp.ExecutionStatus == ExecutionStatusRunning {
@@ -155,6 +157,7 @@ func (is *ImporterService) ClearCurrentPlan() error {
 	return err
 }
 
+// CancelCurrentPlan 请求当前后台执行在计划项边界停止，返回状态与是否首次设置标记。
 func (is *ImporterService) CancelCurrentPlan() (*CurrentPlanState, bool, error) {
 	sp, requested, err := is.planStore.RequestCancel()
 	if err != nil {
@@ -163,7 +166,9 @@ func (is *ImporterService) CancelCurrentPlan() (*CurrentPlanState, bool, error) 
 	return currentPlanStateFromStored(sp), requested, nil
 }
 
-// ExecuteCurrentPlan executes the currently stored import plan
+// ExecuteCurrentPlan 同步占用并执行当前计划，已完成计划直接返回保存的执行结果。
+// 执行结束先保存最终状态，再删除工作区；最终状态保存失败时不清理工作区。
+// 执行器返回错误时对外返回该错误，部分结果保存在状态库而不随此返回值交付。
 func (is *ImporterService) ExecuteCurrentPlan(userID string) (*ExecutionResult, error) {
 	sp, started, err := is.planStore.TryStartExecution(userID)
 	if err != nil {
@@ -197,6 +202,9 @@ func (is *ImporterService) ExecuteCurrentPlan(userID string) (*ExecutionResult, 
 	return res, nil
 }
 
+// StartCurrentPlanExecution 成功占用状态后启动后台协程，立即返回启动时的计划视图。
+// 重复调用不启动第二个协程，started 表示此调用是否实际开始执行。
+// 后台结束先保存结果再清理工作区，保存失败保留工作区并记录错误。
 func (is *ImporterService) StartCurrentPlanExecution(userID string) (*CurrentPlanState, bool, error) {
 	sp, started, err := is.planStore.TryStartExecution(userID)
 	if err != nil {
@@ -217,7 +225,8 @@ func (is *ImporterService) StartCurrentPlanExecution(userID string) (*CurrentPla
 	return currentPlanStateFromStored(sp), started, nil
 }
 
-// FindMarkdownEntries finds markdown files in the given source base path
+// FindMarkdownEntries 遍历源目录，收集扩展名不区分大小写的 .md 文件相对路径。
+// 遍历或相对路径计算失败会放弃整个结果，不返回已经收集的部分列表。
 func FindMarkdownEntries(sourceBasePath string) ([]ImportMDFile, error) {
 	out := []ImportMDFile{}
 
@@ -244,7 +253,7 @@ func FindMarkdownEntries(sourceBasePath string) ([]ImportMDFile, error) {
 		return nil
 	})
 
-	// Order entries by depth (shallow first)
+	// 先按路径层级从浅到深排列，同层按源路径文字排序。
 	if err == nil {
 		sort.SliceStable(out, func(i, j int) bool {
 			depthI := strings.Count(out[i].SourcePath, "/")
@@ -256,7 +265,8 @@ func FindMarkdownEntries(sourceBasePath string) ([]ImportMDFile, error) {
 		})
 	}
 
-	// index.md should always come first if present
+	// 再稳定地把所有 index.md 放在普通页面之前，两组内部保留上一轮排序。
+	// 因此深层分区首页也会先于浅层普通页面处理。
 	if err == nil {
 		sort.SliceStable(out, func(i, j int) bool {
 			nameI := strings.ToLower(filepath.Base(out[i].SourcePath))
@@ -277,7 +287,8 @@ func FindMarkdownEntries(sourceBasePath string) ([]ImportMDFile, error) {
 	return out, nil
 }
 
-// CreateImportPlanFromZipUpload creates an import plan from an uploaded zip file
+// CreateImportPlanFromZipUpload 暂存上传流并解压，然后使用解压目录建立计划。
+// 建立计划失败时清理解压目录，清理错误记录日志而不覆盖原始建计划错误。
 func (is *ImporterService) CreateImportPlanFromZipUpload(
 	r io.Reader,
 	targetBasePath string,
@@ -297,6 +308,9 @@ func (is *ImporterService) CreateImportPlanFromZipUpload(
 	return plan, nil
 }
 
+// extractZipReaderToTemp 将上传流完整写入临时 ZIP，关闭后交给解压器处理。
+// 临时 ZIP 无论成功失败都会尝试删除，成功解压的目录留给计划生命周期管理。
+// 上传暂存使用 io.Copy，此处不对输入流累计字节数设置独立上限。
 func (is *ImporterService) extractZipReaderToTemp(r io.Reader) (*ZipWorkspace, error) {
 	if err := os.MkdirAll(is.workspaceBaseDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create import temp dir: %w", err)
@@ -328,6 +342,8 @@ func (is *ImporterService) extractZipReaderToTemp(r io.Reader) (*ZipWorkspace, e
 	return ws, nil
 }
 
+// executeStoredPlan 为状态快照建立执行器，并连接进度保存、取消检查和恢复位置。
+// 进度保存失败记录日志，回调不向执行器返回错误，因此不会直接停止执行循环。
 func (is *ImporterService) executeStoredPlan(sp *StoredPlan) (*ExecutionResult, error) {
 	exec := NewExecutor(sp.Plan, &sp.PlanOptions, is.assetMaxUploadSizeBytes, is.planner.wiki, is.planner.log).
 		WithProgressCallback(func(progress ExecutionProgress, result *ExecutionResult) {
@@ -342,6 +358,7 @@ func (is *ImporterService) executeStoredPlan(sp *StoredPlan) (*ExecutionResult, 
 	return exec.Execute(sp.ExecutionUserID)
 }
 
+// cleanupWorkspace 删除非空工作区路径，失败仅记录日志，不修改已保存的执行状态。
 func (is *ImporterService) cleanupWorkspace(workspaceRoot string) {
 	if workspaceRoot == "" {
 		return
@@ -351,6 +368,8 @@ func (is *ImporterService) cleanupWorkspace(workspaceRoot string) {
 	}
 }
 
+// currentPlanStateFromStored 组装公开状态字段，空对象或空计划返回空值。
+// 此处不深复制计划项和执行结果，隔离程度沿用状态库提供的快照。
 func currentPlanStateFromStored(sp *StoredPlan) *CurrentPlanState {
 	if sp == nil || sp.Plan == nil {
 		return nil
@@ -375,6 +394,9 @@ func currentPlanStateFromStored(sp *StoredPlan) *CurrentPlanState {
 	}
 }
 
+// resumeInterruptedExecution 只恢复保存为 running 的计划，其他状态保持原样。
+// 缺少执行用户时使用 system，然后在后台从保存的处理位置继续。
+// 读取或最终保存失败会记录错误，最终保存失败时保留工作区。
 func (is *ImporterService) resumeInterruptedExecution() {
 	sp, err := is.planStore.Get()
 	if err != nil || sp == nil {

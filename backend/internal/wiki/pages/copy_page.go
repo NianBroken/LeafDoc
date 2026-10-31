@@ -13,7 +13,7 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
-// CopyPageInput is the input for CopyPageUseCase.
+// CopyPageInput 指定来源页面及目标父标识、标题和路径段，不携带来源版本约束。
 type CopyPageInput struct {
 	UserID         string
 	SourcePageID   string
@@ -22,12 +22,13 @@ type CopyPageInput struct {
 	Slug           string
 }
 
-// CopyPageOutput is the output of CopyPageUseCase.
+// CopyPageOutput 返回已保存复制正文并完成创建事件处理的目标页面。
 type CopyPageOutput struct {
 	Page *tree.Page
 }
 
-// CopyPageUseCase duplicates a page and its assets under a new slug/title.
+// CopyPageUseCase 将来源纯正文和附件复制到一个普通页面，不复制来源子树或节点类型。
+// 来源自定义页首字段不随纯正文复制，目标使用其自身节点管理字段。
 type CopyPageUseCase struct {
 	tree         *tree.TreeService
 	slug         *tree.SlugService
@@ -36,7 +37,7 @@ type CopyPageUseCase struct {
 	log          *slog.Logger
 }
 
-// NewCopyPageUseCase constructs a CopyPageUseCase.
+// NewCopyPageUseCase 保存页面、附件和保存编排依赖，不执行复制。
 func NewCopyPageUseCase(
 	t *tree.TreeService,
 	s *tree.SlugService,
@@ -47,7 +48,9 @@ func NewCopyPageUseCase(
 	return &CopyPageUseCase{tree: t, slug: s, assets: a, orchestrator: o, log: log}
 }
 
-// Execute copies the source page to a new node with duplicated assets.
+// Execute 在页面工作单元内验证目标名称，读取来源后建立普通页面并复制附件。
+// 正文中的来源附件地址前缀通过字符串替换改为目标标识，不解析具体 Markdown 语法。
+// 部分失败分支尝试删除目标节点，清理错误被忽略；附件磁盘操作不随数据库自动回滚。
 func (uc *CopyPageUseCase) Execute(ctx context.Context, in CopyPageInput) (*CopyPageOutput, error) {
 	if !uc.tree.InUnitOfWork() {
 		var result *CopyPageOutput
@@ -83,6 +86,7 @@ func (uc *CopyPageUseCase) Execute(ctx context.Context, in CopyPageInput) (*Copy
 	if err != nil {
 		return nil, err
 	}
+	// 清理使用内部跳过版本标记，不向外暴露；此回调只删除页面记录，不删除附件。
 	cleanup := func() { _ = uc.tree.DeleteNode(in.UserID, *copyID, false, tree.VersionUnchecked) }
 
 	copyPage, err := uc.tree.GetPage(*copyID)
@@ -96,6 +100,7 @@ func (uc *CopyPageUseCase) Execute(ctx context.Context, in CopyPageInput) (*Copy
 		return nil, err
 	}
 
+	// 仅替换完整附件路径前缀，其他相对地址、页面链接和代码示例中的匹配文字沿用字符串规则。
 	updatedContent := strings.ReplaceAll(page.Content, "/assets/"+page.ID+"/", "/assets/"+copyPage.ID+"/")
 	if err := uc.tree.UpdateNode(tree.UpdateNodeInput{
 		UserID:          in.UserID,
@@ -110,7 +115,7 @@ func (uc *CopyPageUseCase) Execute(ctx context.Context, in CopyPageInput) (*Copy
 		return nil, err
 	}
 
-	// Re-fetch after content update so After reflects the final state.
+	// 写入正文后重新读取，创建事件取得的是最终内容而不是初始标题正文。
 	copyPage, err = uc.tree.GetPage(copyPage.ID)
 	if err != nil {
 		return nil, err

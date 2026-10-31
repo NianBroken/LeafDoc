@@ -10,36 +10,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// APIKeyConfig holds the configuration for Bearer API-key authentication.
+// APIKeyConfig 将密钥解析服务与客户端请求次数限制器交给鉴权中间件。
+// 服务为空时整个密钥鉴权路径跳过，限制器为空时只跳过次数限制。
 type APIKeyConfig struct {
 	Service *coreauth.APIKeyService
-	// RateLimiter throttles repeated failed Bearer-auth attempts per client
-	// IP (a valid key resets its own count — see NotifyResult). Optional;
-	// nil disables rate limiting for this path.
+	// RateLimiter 在解析 LeafDoc 密钥前按连接对端地址登记请求。
+	// 成功解析后是否清空该地址的全部记录，由限制器的 resetOnSuccess 决定。
 	RateLimiter *security.KeyedLimiter
 }
 
-// InjectAPIKeyUser reads an "Authorization: Bearer <token>" header carrying a
-// LeafDoc API key and, on success, stores the resolved user in the Gin
-// context so that RequireAuth can short-circuit JWT/cookie validation — the
-// same contract InjectRemoteUser uses for reverse-proxy header auth.
-//
-// Behaviour by case:
-//   - service not configured (feature unused)      → no-op, normal auth applies
-//   - user already set upstream                     → no-op, don't override
-//   - no Authorization header, or the bearer value
-//     isn't shaped like a LeafDoc key               → no-op (cookie/proxy auth still works)
-//   - LeafDoc-shaped token, rate limited            → 429
-//   - LeafDoc-shaped token, valid                   → user set in context
-//   - LeafDoc-shaped token, invalid/revoked/expired → 401
-//   - LeafDoc-shaped token, store suspended for a
-//     live restore                                   → 503, not counted as a failed attempt
-//
-// Note on writes: a successfully resolved key sets security.APIKeyAuthContextKey,
-// which CSRFMiddleware treats as proof the request is not browser-forgeable and
-// skips its cookie check for. Writes are then limited only by the usual role
-// guards (role(user) ∩ role(key)). Routes that manage credentials, sessions or
-// users must opt out with RequireCookieSession.
+// InjectAPIKeyUser 识别 Bearer 请求头中的 LeafDoc 密钥，并将解析结果写入 user。
+// 上游已设置 user 时直接继续，不覆盖该值，也不在这里检查其具体类型。
+// 缺少密钥或令牌不符合 LeafDoc 密钥形式时继续后续 Cookie 等鉴权路径。
+// 符合密钥形式的请求在解析前接受次数检查，超限返回 429，解析失败返回 401。
+// 存储暂停返回 503，并按成功结果通知限制器，允许配置中的成功清空规则生效。
+// 成功结果同时带有 API 密钥标记，供 CSRF 中间件放行及凭据管理路由拒绝使用。
+// 实际读写权限仍由解析后的用户角色和后续路由权限中间件共同约束。
 func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if cfg.Service == nil {
@@ -69,14 +55,8 @@ func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 
 		user, err := cfg.Service.Resolve(token)
 		if loc, ok := coreauth.AsStoreUnavailableErr(err); ok {
-			// An in-progress live restore is an operational condition, not a
-			// failed auth attempt. Allow() above already recorded a hit for
-			// this request, so undo it the same way a successful request
-			// would (NotifyResult(key, true)) rather than leaving it counted
-			// — otherwise a sequential, backed-off retry doing exactly what
-			// the 503 asks could still trip the limiter. A burst that already
-			// exceeded Allow()'s own capacity is unaffected either way, same
-			// as it would be for any other error.
+			// 暂停存储不作为无效凭据处理。启用成功清空时删除该地址的全部历史，
+			// 并非只撤销当前一次登记；关闭该配置时已经登记的请求仍留在窗口内。
 			if cfg.RateLimiter != nil {
 				cfg.RateLimiter.NotifyResult(limiterKey, true)
 			}
@@ -92,12 +72,15 @@ func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 			return
 		}
 
+		// 用户对象包含服务计算出的有效角色，标记表示密钥已经通过实际解析。
 		c.Set("user", user)
 		c.Set(security.APIKeyAuthContextKey, true)
 		c.Next()
 	}
 }
 
+// bearerToken 只接受大小写完全一致的 Bearer 前缀，去除令牌两端空白。
+// 不匹配时返回空字符串，使调用方继续其他鉴权路径。
 func bearerToken(header string) string {
 	const prefix = "Bearer "
 	if !strings.HasPrefix(header, prefix) {

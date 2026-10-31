@@ -1,7 +1,5 @@
 // Registers a single outline back-arrow toolbar button plus a matching
-// hotkey for "leave this app mode" flows (history, settings, ...), and
-// cleans both up on unmount. Extracted out of PageHistoryPage's original
-// hand-rolled version so settings mode can reuse the exact same pattern.
+// 同时注册退出按钮与快捷键动作，并在组件卸载时清理两种入口。
 
 import {
   createHotkeyDefinition,

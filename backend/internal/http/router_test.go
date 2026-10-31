@@ -7,6 +7,7 @@ import (
 	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
 )
 
+// TestBuildCustomStylesheetTag 确认标签引用带部署前缀的公开路由，不包含磁盘文件位置。
 func TestBuildCustomStylesheetTag(t *testing.T) {
 	tag := httpinternal.BuildCustomStylesheetTag("/wiki", "/tmp/custom.css")
 
@@ -16,6 +17,7 @@ func TestBuildCustomStylesheetTag(t *testing.T) {
 	}
 }
 
+// TestBuildCustomStylesheetTag_EmptyPath 确认未配置样式时不输出空链接标签。
 func TestBuildCustomStylesheetTag_EmptyPath(t *testing.T) {
 	tag := httpinternal.BuildCustomStylesheetTag("", "")
 	if tag != "" {
@@ -23,6 +25,7 @@ func TestBuildCustomStylesheetTag_EmptyPath(t *testing.T) {
 	}
 }
 
+// TestInjectIntoHead 检查样式片段出现在处理结果中，不对整个 HTML 排版作精确断言。
 func TestInjectIntoHead(t *testing.T) {
 	html := "<html><head></head><body></body></html>"
 	got := httpinternal.InjectIntoHead(html, `<link rel="stylesheet" href="/custom.css">`)
@@ -32,6 +35,7 @@ func TestInjectIntoHead(t *testing.T) {
 	}
 }
 
+// TestBuildFrontendFaviconHref 交叉验证默认或品牌图标与有无部署前缀的四种地址。
 func TestBuildFrontendFaviconHref(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -72,6 +76,7 @@ func TestBuildFrontendFaviconHref(t *testing.T) {
 	}
 }
 
+// TestBuildCustomStylesheetTag_WhitespacePath 确认全空白样式路径与空配置同样不生成标签。
 func TestBuildCustomStylesheetTag_WhitespacePath(t *testing.T) {
 	tag := httpinternal.BuildCustomStylesheetTag("/wiki", "   ")
 	if tag != "" {

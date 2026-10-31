@@ -1,3 +1,4 @@
+// 此表单提交账号标识并展示统一确认，不向用户区分该标识是否对应真实账号。
 import { mapApiError } from '@/shared/lib/api/errors'
 import { toast } from 'sonner'
 import { Button } from '@/shared/components/ui/button'
@@ -8,18 +9,17 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
+// 站点名称取自品牌状态，提交和确认页面共用同一个浏览器标题。
 export default function ForgotPasswordForm() {
   const { t } = useTranslation('auth')
   const { siteName } = useBrandingStore()
   const [identifier, setIdentifier] = useState('')
   const [loading, setLoading] = useState(false)
-  // Once true, the form always shows the same generic confirmation — the
-  // backend deliberately returns identical success responses whether or not
-  // the identifier resolved to a real account (see requestPasswordReset's
-  // doc comment), so the UI must not try to distinguish the two either.
+  // 请求成功后固定进入确认分支，不从响应推断邮箱是否存在或邮件是否送达。
   const [submitted, setSubmitted] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // 禁止浏览器表单导航，等待 API 后切换状态，失败保留输入并映射错误提示。
     e.preventDefault()
     setLoading(true)
     try {
@@ -33,6 +33,7 @@ export default function ForgotPasswordForm() {
   }
 
   if (submitted) {
+    // 确认页不再提供重复提交表单，只提供返回登录入口。
     return (
       <>
         <title>{t('forgotPassword.pageTitle', { siteName })}</title>

@@ -1,7 +1,9 @@
+// 本文件直接验证恢复任务状态对象，不执行实际文件交换或数据库恢复。
 package restore
 
 import "testing"
 
+// 新任务不运行、不完成、无阶段且无需介入，供管理器识别初始状态。
 func TestJob_NewJobIsIdle(t *testing.T) {
 	job := NewJob()
 	s := job.Status()
@@ -20,6 +22,7 @@ func TestJob_NewJobIsIdle(t *testing.T) {
 	}
 }
 
+// 空闲任务成功开始后，状态副本必须显示正在运行。
 func TestJob_StartSetsRunning(t *testing.T) {
 	job := NewJob()
 
@@ -32,6 +35,7 @@ func TestJob_StartSetsRunning(t *testing.T) {
 	}
 }
 
+// 连续开始同一运行任务应被第二次调用拒绝，不另建任务状态。
 func TestJob_StartReturnsFalseWhenAlreadyRunning(t *testing.T) {
 	job := NewJob()
 	job.Start()
@@ -41,6 +45,7 @@ func TestJob_StartReturnsFalseWhenAlreadyRunning(t *testing.T) {
 	}
 }
 
+// 设置交换阶段后，状态接口返回对应字符串，不靠实际交换资源推进阶段。
 func TestJob_SetPhaseUpdatesPhase(t *testing.T) {
 	job := NewJob()
 	job.Start()
@@ -51,6 +56,7 @@ func TestJob_SetPhaseUpdatesPhase(t *testing.T) {
 	}
 }
 
+// 从普通运行态成功结束后，运行标记清空、完成标记置位且没有错误或介入标记。
 func TestJob_FinishSuccess(t *testing.T) {
 	job := NewJob()
 	job.Start()
@@ -71,6 +77,7 @@ func TestJob_FinishSuccess(t *testing.T) {
 	}
 }
 
+// 需要介入的结束入口保存错误文本，同时结束运行并设置介入标记。
 func TestJob_FinishNeedsIntervention(t *testing.T) {
 	job := NewJob()
 	job.Start()
@@ -91,6 +98,8 @@ func TestJob_FinishNeedsIntervention(t *testing.T) {
 	}
 }
 
+// Job 自身允许已结束任务再次开始并清空介入标记，
+// 管理器拒绝介入状态的新任务属于上层规则，不由这个对象执行。
 func TestJob_StartAfterFinishNeedsInterventionResetsFlag(t *testing.T) {
 	job := NewJob()
 	job.Start()
@@ -104,6 +113,7 @@ func TestJob_StartAfterFinishNeedsInterventionResetsFlag(t *testing.T) {
 	}
 }
 
+// 非致命版本提示能通过状态接口读到，不需要结束任务。
 func TestJob_SetVersionWarning(t *testing.T) {
 	job := NewJob()
 	job.Start()
@@ -114,6 +124,7 @@ func TestJob_SetVersionWarning(t *testing.T) {
 	}
 }
 
+// errTest 将固定测试文本实现为 error，便于精确检查状态中的错误内容。
 type errTest string
 
 func (e errTest) Error() string { return string(e) }

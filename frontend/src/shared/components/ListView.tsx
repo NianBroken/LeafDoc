@@ -1,5 +1,7 @@
+// 提供列表外框、标题、项目和状态行，数据加载与选中状态由调用方维护。
 import { type ElementType, type ReactNode } from 'react'
 
+// as 控制外层标签或组件，未提供时使用 aside，其余区块以共享类名组织布局。
 type ListViewProps = {
   header?: ReactNode
   footer?: ReactNode
@@ -24,6 +26,7 @@ type ListViewStatusProps = {
   className?: string
 }
 
+// ListView 总是保留内容容器，header 和 footer 只有值为真时才渲染对应区域。
 export function ListView({
   header,
   footer,
@@ -44,14 +47,18 @@ export function ListView({
   )
 }
 
+// ListViewHeader 只提供标题样式，不决定标题层级或添加交互。
 export function ListViewHeader({ children }: { children: ReactNode }) {
   return <div className="list-view__title">{children}</div>
 }
 
+// ListViewList 为条目集合提供布局 div，不自动生成 ul 或 li 语义。
 export function ListViewList({ children }: { children: ReactNode }) {
   return <div className="list-view__list">{children}</div>
 }
 
+// ListViewItem 使用 type=button 避免误提交外围表单，active 仅控制类名。
+// 点击原样调用回调，不在内部切换选中状态。
 export function ListViewItem({
   children,
   active = false,
@@ -71,6 +78,7 @@ export function ListViewItem({
   )
 }
 
+// ListViewStatus 按 error 标志切换状态文字样式，不自动记录日志或发起重试。
 export function ListViewStatus({
   children,
   error = false,

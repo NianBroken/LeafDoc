@@ -1,4 +1,4 @@
-// Hook to provide toolbar actions for the page viewer
+// 为页面查看工具栏提供与当前页面状态关联的操作。
 
 import { NODE_KIND_PAGE, type Page } from '@/shared/lib/api/pages'
 import {

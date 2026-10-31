@@ -1,3 +1,5 @@
+// 本文件用真实表单和存储验证提交条件、令牌展示、剪贴板、日期转换和字段错误。
+// 网络与提示组件被替换，测试不创建服务器密钥。
 import { expectDiagnostics } from '@/shared/testutil/expectedDiagnostics'
 import '@/shared/lib/i18n'
 import { DIALOG_API_KEY_FORM } from '@/shared/lib/registries/instances'
@@ -9,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiKeyFormDialog } from '@/features/apikeys/ApiKeyFormDialog'
 
-// Radix Select relies on jsdom APIs that jsdom doesn't implement.
+// 为 Radix Select 使用的指针与滚动接口提供测试环境实现，避免模拟 DOM 缺失方法。
 beforeAll(() => {
   Element.prototype.hasPointerCapture = () => false
   Element.prototype.releasePointerCapture = () => {}
@@ -36,6 +38,7 @@ vi.mock('@/shared/lib/api/users', () => ({
 import * as apiKeyAPI from '@/shared/lib/api/apikeys'
 
 describe('ApiKeyFormDialog', () => {
+  // 每个场景打开同一种对话框并提供一个所属用户，清除上个场景的状态和调用记录。
   beforeEach(() => {
     useDialogsStore.setState({
       dialogType: DIALOG_API_KEY_FORM,
@@ -57,6 +60,7 @@ describe('ApiKeyFormDialog', () => {
   })
 
   it('disables Create until a name and an owner are set', async () => {
+    // 分别检查初始、只有名称、名称与所属用户均已填写三个阶段。
     const user = userEvent.setup()
     render(<ApiKeyFormDialog />)
 
@@ -82,8 +86,7 @@ describe('ApiKeyFormDialog', () => {
 
   it('reveals the one-time secret after creation and copies it', async () => {
     const user = userEvent.setup()
-    // userEvent.setup() installs its own navigator.clipboard stub, so ours
-    // must be defined after that call, not before.
+    // userEvent.setup 会设置剪贴板替身，这里在其后安装可断言的写入函数。
     const clipboardWriteText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: clipboardWriteText },
@@ -118,8 +121,7 @@ describe('ApiKeyFormDialog', () => {
         'lw_ab12cd34_supersecret',
       ),
     )
-    // Role is intentionally omitted from the create call — the dialog only
-    // mints viewer-scoped keys for now (see Fix 6 in the API keys review).
+    // 表单请求携带名称和用户但省略角色，后端按空角色采用查看者权限。
     expect(apiKeyAPI.createApiKey).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'agent key', userId: 'u1' }),
     )
@@ -130,20 +132,15 @@ describe('ApiKeyFormDialog', () => {
     await user.click(screen.getByTestId('api-key-secret-copy'))
     expect(clipboardWriteText).toHaveBeenCalledWith('lw_ab12cd34_supersecret')
 
-    // Confirm button is gone in the reveal state; only "Done" remains.
+    // 令牌展示状态不再提供创建确认按钮，避免同一表单继续提交。
     expect(
       screen.queryByTestId('api-key-form-dialog-button-confirm'),
     ).not.toBeInTheDocument()
   })
 
   it('normalizes a same-day expiry to the end of the local day', async () => {
-    // Regression test, two bugs: (1) normalizing to midnight UTC made
-    // picking "today" produce an already-expired key in effectively every
-    // timezone; (2) anchoring end-of-day to UTC directly (rather than the
-    // user's local timezone) shifted the displayed expiry to the next
-    // calendar day for timezones east of UTC. The expected value is computed
-    // the same way the component does, so this test is correct regardless of
-    // which timezone it runs in.
+    // 预期值按运行环境本地时区构造当日结束时刻，再转为 UTC。
+    // 断言提交的字符串而非固定偏移，测试不向后端验证日期是否在未来。
     const expectedExpiresAt = new Date('2026-07-07T23:59:59').toISOString()
     const user = userEvent.setup()
     ;(apiKeyAPI.createApiKey as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -178,6 +175,7 @@ describe('ApiKeyFormDialog', () => {
   })
 
   it('surfaces field validation errors from the API without closing the dialog', async () => {
+    // 登记预期告警并让请求返回字段错误，确认名称下方显示后端文字。
     const user = userEvent.setup()
     expectDiagnostics('warn', [
       [
@@ -202,7 +200,7 @@ describe('ApiKeyFormDialog', () => {
     await waitFor(() =>
       expect(screen.getByText('Name must not be empty')).toBeInTheDocument(),
     )
-    // Dialog stays open (secret never revealed).
+    // 提交失败没有进入令牌展示分支，输入表单仍供用户纠正字段。
     expect(screen.queryByTestId('api-key-secret')).not.toBeInTheDocument()
   })
 })

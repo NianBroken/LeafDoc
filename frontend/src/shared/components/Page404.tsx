@@ -1,3 +1,4 @@
+// 显示页面未找到状态，并在路径查询允许且当前非只读时提供按路径创建入口。
 import { Button } from '@/shared/components/ui/button'
 import { lookupPath } from '@/shared/lib/api/pages'
 import { DIALOG_CREATE_PAGE_BY_PATH } from '@/shared/lib/registries/instances'
@@ -11,6 +12,8 @@ type Page404Props = {
   allowCreate?: boolean
 }
 
+// Page404 只打开创建对话框，不直接调用页面创建接口。
+// allowCreate 为 false 或目标路径为空时不发起路径查询。
 export default function Page404({
   targetPath,
   allowCreate = false,
@@ -29,6 +32,7 @@ export default function Page404({
   useEffect(() => {
     if (!allowCreate || !targetPath) return
 
+    // 依赖变化或卸载后只阻止迟到状态写入，不取消已发出的查询请求。
     let active = true
 
     const loadLookup = async () => {
@@ -41,6 +45,7 @@ export default function Page404({
           })
         }
       } catch {
+        // 查询失败视为不允许显示创建按钮，不在此显示额外错误或重新请求。
         if (active) {
           setLookupState({
             path: targetPath,
@@ -57,6 +62,7 @@ export default function Page404({
     }
   }, [allowCreate, targetPath])
 
+  // 查询结果须对应当前目标路径，防止路径切换期间显示前一个目标的创建许可。
   const showCreate =
     Boolean(targetPath) &&
     allowCreate &&

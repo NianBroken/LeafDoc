@@ -1,4 +1,4 @@
-// store to manage the viewer state
+// 保存当前查看页面、加载结果和导航状态，异步页面读取通过共享动作更新。
 // f.g. loading, error, page data
 
 import { getPageByPath, Page } from '@/shared/lib/api/pages'

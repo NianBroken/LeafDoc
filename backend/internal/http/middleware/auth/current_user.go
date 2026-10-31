@@ -1,3 +1,4 @@
+// 本文件读取认证中间件已保存的用户与认证方式，不自行校验令牌或查询数据库。
 package auth
 
 import (
@@ -8,7 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// MustGetUser returns the authenticated user from context or aborts the request.
+// MustGetUser 读取非空用户指针，未设置返回禁止访问，类型错误或空指针返回服务器错误。
+// 失败会中止 Gin 处理链并返回 nil，调用方仍须停止后续对返回值的访问。
 func MustGetUser(c *gin.Context) *auth.User {
 	v, exists := c.Get("user")
 	if !exists {
@@ -25,7 +27,7 @@ func MustGetUser(c *gin.Context) *auth.User {
 	return user
 }
 
-// TryGetUser returns the authenticated user from context, or nil if not set.
+// TryGetUser 在缺少值、类型错误或保存空用户指针时返回 nil，不写响应或中止请求。
 func TryGetUser(c *gin.Context) *auth.User {
 	v, exists := c.Get("user")
 	if !exists {
@@ -38,9 +40,8 @@ func TryGetUser(c *gin.Context) *auth.User {
 	return user
 }
 
-// IsAPIKeyAuth reports whether the current request's user was resolved from
-// a Bearer API key (set by InjectAPIKeyUser) rather than a normal cookie/JWT
-// session or reverse-proxy header.
+// IsAPIKeyAuth 读取共享上下文键并转换为布尔值，缺失或其他类型均返回 false。
+// 正常链中标记由成功解析密钥的 InjectAPIKeyUser 写入，此函数不再次验证凭据。
 func IsAPIKeyAuth(c *gin.Context) bool {
 	v, _ := c.Get(security.APIKeyAuthContextKey)
 	b, _ := v.(bool)

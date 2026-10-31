@@ -1,3 +1,5 @@
+// 本文件验证普通路径规则对绝对、相对和下级链接的处理，
+// 同时确认外部地址、图片和附件目标不作为该入口的页面路径替换对象。
 package links
 
 import (
@@ -5,6 +7,7 @@ import (
 	"testing"
 )
 
+// 同一规则改写绝对目标、相对目标和下级目标，并保留下级路径的片段后缀。
 func TestMarkdownRefactorEngine_Rewrite_RewritesAbsoluteAndRelativeTargets(t *testing.T) {
 	content := `
 [Absolute](/docs/b)
@@ -39,6 +42,8 @@ func TestMarkdownRefactorEngine_Rewrite_RewritesAbsoluteAndRelativeTargets(t *te
 	}
 }
 
+// 来源和目标都随同一前缀移动时，相对关系保持一致。
+// 计划仍包含一条替换，即使计算后的目标文本与原文相同。
 func TestMarkdownRefactorEngine_Rewrite_UsesMovedSourcePathForRelativeLinks(t *testing.T) {
 	content := `[Relative](../shared)`
 
@@ -55,6 +60,7 @@ func TestMarkdownRefactorEngine_Rewrite_UsesMovedSourcePathForRelativeLinks(t *t
 	}
 }
 
+// 两种附件前缀均保持原文，只重写同时出现的普通页面目标。
 func TestMarkdownRefactorEngine_Rewrite_IgnoresAssetLinks(t *testing.T) {
 	content := `
 [AssetAbs](/assets/abc/manual.pdf)

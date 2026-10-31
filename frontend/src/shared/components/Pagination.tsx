@@ -1,5 +1,8 @@
+// 通用分页条使用从零开始的页索引，展示时转换为从一开始的页码。
 import { useTranslation } from 'react-i18next'
 
+// Pagination 根据总条数和每页大小计算页数，只有一页或更少时不显示。
+// 参数校验由调用方负责，limit 须为正数，page 应处于有效范围。
 export function Pagination({
   total,
   page,
@@ -12,6 +15,7 @@ export function Pagination({
   onPageChange: (page: number) => void
 }) {
   const { t } = useTranslation('common')
+  // 上下页回调分别约束下界和上界，不在组件内保存页索引或读取数据。
   const totalPages = Math.ceil(total / limit)
   if (totalPages <= 1) return null
 

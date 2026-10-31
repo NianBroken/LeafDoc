@@ -1,9 +1,7 @@
 import { defaultSchema } from 'rehype-sanitize'
 
-// Sanitizer schema for rendered markdown: the default GitHub schema plus the
-// wikilink protocols, media tags and the attributes LeafDoc's own plugins add.
-// Only MarkdownPreview passes it to rehype-sanitize. Never mutate it: its nested
-// arrays are shared with rehype-sanitize's defaultSchema.
+// 在默认 Markdown 清理规则上允许内部维基链接协议、音视频标签及渲染插件生成的属性。
+// 属性列表通过新数组合并，避免修改清理库提供的共享默认数组。
 export const previewSanitizeSchema = {
   ...defaultSchema,
   clobberPrefix: '',

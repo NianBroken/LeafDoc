@@ -1,3 +1,4 @@
+// 应用根组件装配注册表、运行配置、会话初始化、设置同步和路由容器。
 import '@/app/registrations'
 import ForcePasswordChange from '@/features/auth/ForcePasswordChange'
 import { startSettingsSync } from '@/app/settingsSync'
@@ -17,6 +18,7 @@ import { useBrandingStore } from '@/features/branding/state/branding'
 import { useConfigStore } from '@/shared/state/config'
 import { useRestoreStore } from '@/features/restore/state/restore'
 
+// App 在配置尝试结束且会话不处于刷新状态时显示主体，强制改密状态优先于路由。
 function App() {
   const { t } = useTranslation('common')
   const configHasLoaded = useConfigStore((s) => s.hasLoaded)
@@ -28,7 +30,7 @@ function App() {
   const loadBranding = useBrandingStore((s) => s.loadBranding)
   const lastConfigErrorRef = useRef<string | null>(null)
 
-  // bootstrap authentication on app start -> session store
+  // 配置尝试结束后启用身份初始化，真实配置成功标志由该 Hook 内部另行读取。
   useBootstrapAuth(configHasLoaded)
 
   const userId = useSessionStore((s) => s.user?.id ?? null)
@@ -38,6 +40,7 @@ function App() {
 
   const mustChangePassword = useSessionStore((s) => s.user?.mustChangePassword)
   const isRestoring = useRestoreStore((s) => s.isLoading || s.requiresLogin)
+  // 恢复处理中或要求重新登录时停止设置同步，恢复条件解除后重新建立同步生命周期。
   useEffect(() => {
     if (!isRestoring) return startSettingsSync()
   }, [isRestoring])
@@ -46,9 +49,7 @@ function App() {
     loadConfig()
   }, [loadConfig])
 
-  // Favorites are per-user server truth — (re)load whenever the logged-in
-  // user changes, and clear them on logout so a second user on the same
-  // browser never sees the first user's favorites.
+  // 用户 ID 或强制改密状态变化时读取或清空收藏，匿名和待改密状态不保留收藏展示。
   useEffect(() => {
     if (userId && !mustChangePassword) {
       loadFavorites()
@@ -58,10 +59,11 @@ function App() {
   }, [userId, mustChangePassword, loadFavorites, clearFavorites])
 
   useLayoutEffect(() => {
-    // Load branding configuration
+    // 布局副作用中发起品牌配置加载，不阻塞等待请求完成。
     loadBranding()
   }, [loadBranding])
 
+  // 相同错误连续出现时只显示一次通知，错误消失后允许同一消息再次显示。
   useEffect(() => {
     if (!configError) {
       lastConfigErrorRef.current = null
@@ -77,7 +79,8 @@ function App() {
   const [router, setRouter] = useState<ReturnType<
     typeof createLeafDocRouter
   > | null>(null)
-  // Router ownership follows configuration readiness and releases history listeners on cleanup.
+  // 配置相关路由选项变化时创建新实例，清理时 dispose 释放其历史监听等资源。
+  // configHasLoaded 包含最终失败状态，并不单独要求配置请求成功。
   useEffect(() => {
     if (!configHasLoaded) return
     const instance = createLeafDocRouter(

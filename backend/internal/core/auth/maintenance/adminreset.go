@@ -1,3 +1,4 @@
+// Package maintenance 提供管理员恢复操作，直接使用现有用户和会话存储。
 package maintenance
 
 import (
@@ -7,7 +8,9 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/auth"
 )
 
-// ResetAdminPassword updates an administrator and revokes that account's sessions.
+// ResetAdminPassword 先通过用户服务设置管理员信息和密码，再撤销该用户的全部会话。
+// 两阶段不在同一事务中，会话存储打开或撤销失败时密码操作已经完成。
+// 用户与会话连接均延迟关闭，关闭失败记录到默认日志器，不覆盖主要返回结果。
 func ResetAdminPassword(storageDir, username, email string, password ...string) (*auth.User, error) {
 	store, err := auth.NewUserStore(storageDir)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// newTestRouter 将所有路径与方法交给同一成功处理函数，令返回码只反映门禁判断。
 func newTestRouter(gate *restore.WriteGate) *gin.Engine {
 	r := gin.New()
 	r.Use(WriteGateMiddleware(gate))
@@ -19,6 +20,7 @@ func newTestRouter(gate *restore.WriteGate) *gin.Engine {
 	return r
 }
 
+// TestWriteGateMiddleware_AllowsWritesWhenDisengaged 确认开放门禁允许普通页面写请求。
 func TestWriteGateMiddleware_AllowsWritesWhenDisengaged(t *testing.T) {
 	router := newTestRouter(restore.NewWriteGate())
 
@@ -31,6 +33,7 @@ func TestWriteGateMiddleware_AllowsWritesWhenDisengaged(t *testing.T) {
 	}
 }
 
+// TestWriteGateMiddleware_BlocksWritesWhenEngaged 确认关闭门禁时普通 POST 返回 503。
 func TestWriteGateMiddleware_BlocksWritesWhenEngaged(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()
@@ -45,6 +48,7 @@ func TestWriteGateMiddleware_BlocksWritesWhenEngaged(t *testing.T) {
 	}
 }
 
+// TestWriteGateMiddleware_ExemptsGetHeadOptionsEvenWhenEngaged 逐一验证三个免登记方法。
 func TestWriteGateMiddleware_ExemptsGetHeadOptionsEvenWhenEngaged(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()
@@ -61,6 +65,7 @@ func TestWriteGateMiddleware_ExemptsGetHeadOptionsEvenWhenEngaged(t *testing.T) 
 	}
 }
 
+// TestWriteGateMiddleware_ExemptsRestoreAdminPathEvenWhenEngaged 检查恢复任务与重启子路径仍可调用。
 func TestWriteGateMiddleware_ExemptsRestoreAdminPathEvenWhenEngaged(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()
@@ -77,6 +82,7 @@ func TestWriteGateMiddleware_ExemptsRestoreAdminPathEvenWhenEngaged(t *testing.T
 	}
 }
 
+// TestWriteGateMiddleware_StillBlocksOtherAdminPathsWhenEngaged 确认管理员身份路径不整体获得豁免。
 func TestWriteGateMiddleware_StillBlocksOtherAdminPathsWhenEngaged(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()
@@ -91,14 +97,8 @@ func TestWriteGateMiddleware_StillBlocksOtherAdminPathsWhenEngaged(t *testing.T)
 	}
 }
 
-// TestWriteGateMiddleware_DoesNotMatchUnrelatedRouteWithSimilarName is the
-// regression test for a real bug found in review: the exemption used to be a
-// raw strings.Contains(path, "/api/admin/restore") check, which would also
-// match an unrelated route whose name merely contains "restore" as a
-// substring of a different segment (e.g. a hypothetical
-// /api/admin/restore-policy), silently bypassing the gate for it. The fix
-// matches whole path segments, so a distinct segment like "restore-policy"
-// must not match a check for "restore".
+// TestWriteGateMiddleware_DoesNotMatchUnrelatedRouteWithSimilarName 确认路径段按完整文字比较。
+// restore-policy 与 restore 是两个不同段，前者不在恢复路径豁免范围内。
 func TestWriteGateMiddleware_DoesNotMatchUnrelatedRouteWithSimilarName(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()
@@ -113,14 +113,8 @@ func TestWriteGateMiddleware_DoesNotMatchUnrelatedRouteWithSimilarName(t *testin
 	}
 }
 
-// TestWriteGateMiddleware_ExemptionSurvivesBasePathPrefix is the regression
-// test for the second half of the same bug: with a raw substring check, an
-// operator-configured --base-path that itself embeds "/api/admin/restore"
-// (e.g. "/api/admin/restore-portal") would make *every* route in the app
-// match the exemption, turning the gate into a permanent no-op. The
-// segment-based fix must still correctly exempt only the real restore admin
-// path even when preceded by an arbitrary base-path-like prefix, and must
-// not exempt unrelated routes just because that prefix is present.
+// TestWriteGateMiddleware_ExemptionSurvivesBasePathPrefix 比较带相同部署前缀的两个路径。
+// 恢复接口允许 POST，普通页面接口仍返回 503，前缀不改变路径段匹配规则。
 func TestWriteGateMiddleware_ExemptionSurvivesBasePathPrefix(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()
@@ -141,6 +135,8 @@ func TestWriteGateMiddleware_ExemptionSurvivesBasePathPrefix(t *testing.T) {
 	}
 }
 
+// TestWriteGateMiddleware_RespondsWithLocalizedErrorShape 检查错误体包含代码、消息与翻译模板字段。
+// 断言通过文本包含检查完成，不将其描述为完整 JSON 结构校验。
 func TestWriteGateMiddleware_RespondsWithLocalizedErrorShape(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()
@@ -161,8 +157,8 @@ func TestWriteGateMiddleware_RespondsWithLocalizedErrorShape(t *testing.T) {
 	}
 }
 
-// Restore progress remains readable during maintenance, while the capability
-// endpoint receives no exemption for write requests.
+// TestRestoreProgressDuringMaintenance 确认进度路径在维护时可读，但不获得写请求豁免。
+// 同时覆盖根部署路径与带 wiki 前缀的部署路径。
 func TestRestoreProgressDuringMaintenance(t *testing.T) {
 	gate := restore.NewWriteGate()
 	gate.Engage()

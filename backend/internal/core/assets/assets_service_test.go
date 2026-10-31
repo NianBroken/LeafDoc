@@ -1,3 +1,5 @@
+// 本文件在临时目录中验证附件上传、列表、删除、重命名、文件名约束和体积限制。
+// 上传流由测试创建并关闭，目录由测试框架清理，不接触运行实例的业务附件。
 package assets
 
 import (
@@ -14,12 +16,14 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/testutil"
 )
 
+// 通常用例给上传流一千零二十四字节额度，超限用例单独传入更小上限。
 const testAssetMaxBytes int64 = 1024
 
+// 上传一个附件后检查公开地址列表，确认地址中的页面 ID 与页面路径段分离。
 func TestSaveAndListAsset(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "lonely-page", ID: "a7b3"}
-	// Create index.md page
+	// 准备页面目录与正文样本，附件仍由服务写入独立的 assets/页面ID 目录。
 	pagePath := filepath.Join(tmp, "lonely-page")
 	if err := os.MkdirAll(pagePath, 0755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
@@ -59,10 +63,12 @@ func TestSaveAndListAsset(t *testing.T) {
 	}
 }
 
+// 先上传附件，再调用页面级附件删除入口，确认列表对已删除目录返回空结果。
+// 本用例没有删除页面节点，也不验证页面树的删除流程。
 func TestDeletePageAndEnsureAllAssetsAreDeleted(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "lonely-page", ID: "a7b3"}
-	// Create index.md page
+	// 创建页面正文作为场景数据，删除入口只针对附件目录。
 	pagePath := filepath.Join(tmp, "lonely-page")
 	if err := os.MkdirAll(pagePath, 0755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
@@ -103,11 +109,14 @@ func TestDeletePageAndEnsureAllAssetsAreDeleted(t *testing.T) {
 	}
 }
 
+// 连续上传三份同名附件，验证名称冲突处理保留三条文件记录。
+// 断言不限定重名后的具体序号文本；此样本的空页面 ID 使附件直接落在附件根目录。
 func TestSlugCollision(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "collision-page"}
 	service := NewAssetService(tmp, tree.NewSlugService())
 
+	// 每轮重新创建可读流，延迟关闭捕获该轮句柄，避免复用已读到末尾的上传流。
 	for i := 0; i < 3; i++ {
 		file, name, err := testutil.CreateMultipartFile("logo.png", []byte("image"))
 		if err != nil {
@@ -135,10 +144,11 @@ func TestSlugCollision(t *testing.T) {
 	}
 }
 
+// 同扩展名的合法主体重命名后，列表应只包含新的公开地址。
 func TestAssetRename(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "rename-page", ID: "c3d4"}
-	// Create index.md page
+	// 页面正文保持原路径，附件名称在独立的页面 ID 目录内变化。
 	pagePath := filepath.Join(tmp, "rename-page")
 	if err := os.MkdirAll(pagePath, 0755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
@@ -184,6 +194,7 @@ func TestAssetRename(t *testing.T) {
 	}
 }
 
+// 附件目录存在而目标文件缺失时，删除必须返回 asset_not_found 本地化错误。
 func TestDeleteMissingAssetReturnsNotFound(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "delete-page", ID: "delete-page-id"}
@@ -209,6 +220,7 @@ func TestDeleteMissingAssetReturnsNotFound(t *testing.T) {
 	}
 }
 
+// 将 Windows 风格输入与输出都按正斜杠比较，验证两类路径拼接共用规范化处理。
 func TestAssetDiskPaths_WindowsPath(t *testing.T) {
 	if got, want := strings.ReplaceAll(assetPageDiskPath(`C:\wiki\data\assets`, "a7b3"), `\`, `/`), `C:/wiki/data/assets/a7b3`; got != want {
 		t.Fatalf("asset page path = %q, want %q", got, want)
@@ -218,6 +230,8 @@ func TestAssetDiskPaths_WindowsPath(t *testing.T) {
 	}
 }
 
+// 验证普通名称可通过，空值、点路径段和包含任一方向分隔符的名称被拒绝。
+// 样本覆盖路径分隔限制，不代表覆盖操作系统的全部文件名约束。
 func TestValidateFilename(t *testing.T) {
 	good := []string{"my-image.png", "file.jpg", "a", "foo-bar.webp"}
 	for _, name := range good {
@@ -242,6 +256,8 @@ func TestValidateFilename(t *testing.T) {
 	}
 }
 
+// 在页面附件目录已经存在的前提下逐个提交路径穿越名称，
+// 确认删除入口在接触目标文件前返回 asset_invalid_name。
 func TestDeleteAsset_PathTraversal(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "test-page", ID: "traversal-delete"}
@@ -278,6 +294,8 @@ func TestDeleteAsset_PathTraversal(t *testing.T) {
 	}
 }
 
+// 重命名使用非法旧名称与合法新名称，确认旧名称检查拒绝目录逃逸样本。
+// 本用例不验证非法新名称，那部分由生产代码的路径段校验负责。
 func TestRenameAsset_OldFilenamePathTraversal(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "test-page", ID: "traversal-rename"}
@@ -314,6 +332,7 @@ func TestRenameAsset_OldFilenamePathTraversal(t *testing.T) {
 	}
 }
 
+// 公开地址必须始终使用 URL 正斜杠，不把宿主系统路径分隔符带入返回值。
 func TestAssetPublicPath_UsesForwardSlashes(t *testing.T) {
 	service := NewAssetService(t.TempDir(), tree.NewSlugService())
 	page := &tree.PageNode{ID: "a7b3"}
@@ -323,6 +342,8 @@ func TestAssetPublicPath_UsesForwardSlashes(t *testing.T) {
 	}
 }
 
+// 将三十二字节上传流限制为八字节，确认错误链保留 ErrFileTooLarge，
+// 并检查页面附件目录内没有正式文件或遗留临时文件。
 func TestSaveAssetForPage_TooLarge_DoesNotLeavePartialFile(t *testing.T) {
 	tmp := t.TempDir()
 	page := &tree.PageNode{Slug: "limit-page", ID: "limit-page-id"}

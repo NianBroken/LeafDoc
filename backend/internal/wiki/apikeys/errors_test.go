@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestRespondWithAPIKeyError_StoreUnavailable 确认密钥存储暂停作为 503 返回而非普通鉴权失败。
 func TestRespondWithAPIKeyError_StoreUnavailable(t *testing.T) {
 	t.Parallel()
 
@@ -30,6 +31,7 @@ func TestRespondWithAPIKeyError_StoreUnavailable(t *testing.T) {
 	}
 }
 
+// TestRespondWithAPIKeyError_UserStoreUnavailable 确认所属用户存储暂停沿用相同的服务不可用状态。
 func TestRespondWithAPIKeyError_UserStoreUnavailable(t *testing.T) {
 	t.Parallel()
 

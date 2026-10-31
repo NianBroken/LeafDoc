@@ -1,3 +1,4 @@
+// 本文件使用固定时刻验证每日调度，无需等待真实计时器或执行归档。
 package snapshot
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// UTC 十六点三十分对应上海次日零点三十分，下一次上海两点对应 UTC 十八点。
 func TestNextScheduledRun_UsesDailyTimeZone(t *testing.T) {
 	now := time.Date(2026, time.October, 27, 16, 30, 0, 0, time.UTC)
 	settings := Settings{Enabled: true, Mode: scheduleModeDaily, Hour: 2, Minute: 0, TimeZone: "Asia/Shanghai"}
@@ -18,6 +20,7 @@ func TestNextScheduledRun_UsesDailyTimeZone(t *testing.T) {
 	}
 }
 
+// 当前时间恰好等于每日调度时间时，返回下一日而不是立即再次执行。
 func TestNextScheduledRun_AtScheduledTimeMovesToFollowingDay(t *testing.T) {
 	location, err := time.LoadLocation("UTC")
 	if err != nil {
@@ -35,7 +38,7 @@ func TestNextScheduledRun_AtScheduledTimeMovesToFollowingDay(t *testing.T) {
 	}
 }
 
-// Shanghai midnight is the next local calendar day, including exactly at midnight.
+// 上海午夜调度分别覆盖午夜之前及恰好午夜，后一种输入必须落到再下一个午夜。
 func TestNextScheduledShanghaiMidnight(t *testing.T) {
 	settings := Settings{Enabled: true, Mode: scheduleModeDaily, Hour: 0, Minute: 0, TimeZone: "Asia/Shanghai"}
 	for _, now := range []time.Time{time.Date(2026, 10, 30, 8, 0, 0, 0, time.UTC), time.Date(2026, 10, 30, 16, 0, 0, 0, time.UTC)} {

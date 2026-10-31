@@ -1,3 +1,4 @@
+// 提供单个树节点的操作菜单，按权限与节点种类显示增删改、移动、固定和收藏动作。
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +78,7 @@ export default function TreeNodeActionsMenu({
   const addFavorite = useFavoritesStore((s) => s.addFavorite)
   const removeFavorite = useFavoritesStore((s) => s.removeFavorite)
   const hasChildren = children && children.length > 0
+  // 子节点检查用于菜单入口显隐，分区与页面名称由实际节点种类取得。
   const navigate = useNavigate()
   const setOpenMenuNodeId = useTreeNodeActionsMenusStore(
     (s) => s.setOpenMenuNodeId,
@@ -92,6 +94,7 @@ export default function TreeNodeActionsMenu({
       : i18next.t('common.sectionCapitalized', { ns: 'page' })
 
   const handleConvertPage = useCallback(() => {
+    // 仅在空分区入口调用转换；版本冲突时刷新树并在当前查看同一节点时重新读取页面。
     convertPage(
       nodeId,
       nodeKind === NODE_KIND_PAGE ? NODE_KIND_SECTION : NODE_KIND_PAGE,
@@ -130,6 +133,7 @@ export default function TreeNodeActionsMenu({
   }, [])
 
   const handleTogglePin = useCallback(() => {
+    // 固定请求携带节点版本，接口成功后用返回版本更新本地树，失败显示映射后的错误文本。
     const newPinned = !node.pinned
     pinPage(nodeId, nodeVersion, newPinned)
       .then((updated) => {
@@ -144,6 +148,7 @@ export default function TreeNodeActionsMenu({
   }, [nodeId, nodeVersion, node.pinned, setPinnedLocally, t])
 
   const handleToggleFavorite = useCallback(async () => {
+    // 收藏动作复用乐观状态容器，接口失败由容器回滚并在此处显示错误提示。
     try {
       if (isFavorited) {
         await removeFavorite(nodeId)
@@ -159,6 +164,7 @@ export default function TreeNodeActionsMenu({
 
   const handleRenamePage = useCallback(
     async (title: string, slug: string) => {
+      // 编辑器正在编辑目标节点时拒绝从菜单改名，避免覆盖编辑页面中的当前状态。
       if (currentEditorPageId === nodeId) {
         toast.warning(
           t('treeActions.renameEditingWarning', { item: itemLabel }),
@@ -172,12 +178,14 @@ export default function TreeNodeActionsMenu({
         const slugChanged = page.slug !== slug
 
         if (!titleChanged && !slugChanged) {
+          // 标题与路径段都未改变时不调用更新接口，也不刷新树。
           return
         }
 
         let updatedPage: Page | null
 
         if (slugChanged && enableLinkRefactor) {
+          // 仅路径段变化且功能开关开启时显示影响预览，取消返回空值并终止提交。
           const preview = await previewPageRefactor(page.id, {
             kind: 'rename',
             title,
@@ -214,6 +222,7 @@ export default function TreeNodeActionsMenu({
         await reloadTree()
 
         const viewerPage = useViewerStore.getState().page
+        // 当前查看页存在时合并接口数据，并保留响应中未提供的标签和属性字段。
         if (viewerPage?.id === nodeId && updatedPage) {
           useViewerStore.setState({
             page: {
@@ -231,6 +240,7 @@ export default function TreeNodeActionsMenu({
         const currentRouterPath =
           stripBasePath(currentRoutePath) ?? currentRoutePath
         if (currentRouterPath === `/${node.path}` && updatedPage?.path) {
+          // 只有浏览器当前正位于原节点路径时才导航到新路径。
           navigate(`/${updatedPage.path}`)
         }
 
@@ -238,6 +248,7 @@ export default function TreeNodeActionsMenu({
           t('treeActions.renamedToast', { item: itemLabelCapitalized }),
         )
       } catch (err) {
+        // 版本冲突刷新树并提示重试，其余错误统一映射后显示。
         const localized = asApiLocalizedError(err)
         if (localized?.code === 'page_version_conflict') {
           await reloadTree()
@@ -276,6 +287,7 @@ export default function TreeNodeActionsMenu({
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
+        {/* 只读环境隐藏编辑操作，登录者仍可使用收藏入口。 */}
         {!readOnlyMode && (
           <>
             <DropdownMenuItem
@@ -422,6 +434,7 @@ export default function TreeNodeActionsMenu({
                   currentEditorPageId === node.id
 
                 if (isCurrentlyEditedNode) {
+                  // 禁止从删除菜单移除当前编辑节点，其他节点打开确认对话框并计算离开路径。
                   toast.warning(
                     t('treeActions.deleteEditingWarning', { item: itemLabel }),
                   )

@@ -15,14 +15,16 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
+// fakeWiki 为规划和执行测试提供可控制的路径查询、页面建立及写入结果。
+// 调用计数与最后写入正文用于断言调用行为，不连接数据库或真实页面树。
 type fakeWiki struct {
 	treeHash string
 
-	// planner part
+	// 规划查询优先返回指定错误，其次按目标路径读取预设查询结果。
 	lookups   map[string]*tree.PathLookup
 	lookupErr error
 
-	// executor part
+	// 执行调用记录与故障开关，用于验证失败分支是否停止后续写入。
 	ensureCalls        int
 	updateCalls        int
 	lastUpdatedContent *string
@@ -33,8 +35,10 @@ type fakeWiki struct {
 	updateErr     error
 }
 
+// TreeHash 返回测试指定的树摘要，成功写入时由 UpdatePage 追加标记。
 func (f *fakeWiki) TreeHash() string { return f.treeHash }
 
+// LookupPagePath 对未预设的路径返回不存在结果，不自动推导父级节点。
 func (f *fakeWiki) LookupPagePath(p string) (*tree.PathLookup, error) {
 	if f.lookupErr != nil {
 		return nil, f.lookupErr
@@ -45,6 +49,8 @@ func (f *fakeWiki) LookupPagePath(p string) (*tree.PathLookup, error) {
 	return &tree.PathLookup{Path: p, Exists: false, Segments: []tree.PathSegment{}}, nil
 }
 
+// EnsurePath 先记录调用，再按回调、错误、空页面开关的顺序选择返回路径。
+// 普通成功路径只建立最小页面对象，不实际维护目标路径对应的树结构。
 func (f *fakeWiki) EnsurePath(userID string, targetPath string, title string, kind *tree.NodeKind) (*tree.Page, error) {
 	f.ensureCalls++
 	if f.ensureFn != nil {
@@ -60,7 +66,7 @@ func (f *fakeWiki) EnsurePath(userID string, targetPath string, title string, ki
 	if kind != nil {
 		k = *kind
 	}
-	// create minimal page object
+	// 仅填充执行测试访问的字段，默认路径段固定为测试值。
 	return &tree.Page{PageNode: &tree.PageNode{
 		ID:    "p1",
 		Title: title,
@@ -69,13 +75,14 @@ func (f *fakeWiki) EnsurePath(userID string, targetPath string, title string, ki
 	}}, nil
 }
 
+// UpdatePage 记录正文指针与调用数，成功时更改树摘要并返回传入的页面元信息。
 func (f *fakeWiki) UpdatePage(userID string, id, title, slug string, content *string, kind *tree.NodeKind) (*tree.Page, error) {
 	f.updateCalls++
 	f.lastUpdatedContent = content
 	if f.updateErr != nil {
 		return nil, f.updateErr
 	}
-	// simulate tree change after update
+	// 用摘要后缀表示写入已发生，供执行结果的前后状态断言使用。
 	f.treeHash += "-changed"
 	k := tree.NodeKindPage
 	if kind != nil {
@@ -89,14 +96,18 @@ func (f *fakeWiki) UpdatePage(userID string, id, title, slug string, content *st
 	}}, nil
 }
 
+// UploadAsset 只构造公开路径，不读取文件流，也不实施大小限制。
 func (f *fakeWiki) UploadAsset(userID, pageID string, file multipart.File, filename string, maxBytes int64) (string, error) {
 	return "/assets/" + pageID + "/" + filename, nil
 }
 
+// newPlannerWithFake 让测试共享实际路径名称生成器，存储根目录留空。
 func newPlannerWithFake(w *fakeWiki) *Planner {
 	return NewPlanner(w, tree.NewSlugService(), "")
 }
 
+// TestPlanner_CreatePlan_CreateNewPage_NonIndex 验证普通文件映射为创建页面动作。
+// 标题来自正文标题，目标基础路径与规范化文件名组合，树摘要来自 Wiki 替身。
 func TestPlanner_CreatePlan_CreateNewPage_NonIndex(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "My Page.md", "# Hello\n\nbody")
@@ -142,6 +153,8 @@ func TestPlanner_CreatePlan_CreateNewPage_NonIndex(t *testing.T) {
 	}
 }
 
+// TestPlanner_CreatePlan_CreateNewSection_IndexMd 验证目录首页映射为分区而非子页面。
+// YAML 标题优先于正文标题，目标路径不保留 index 文件名。
 func TestPlanner_CreatePlan_CreateNewSection_IndexMd(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "Guides/index.md", "---\ntitle: Guides\n---\n\n# Ignored")
@@ -175,6 +188,8 @@ func TestPlanner_CreatePlan_CreateNewSection_IndexMd(t *testing.T) {
 	}
 }
 
+// TestPlanner_CreatePlan_PrefersLeafDocTitleOverTitle 同时提供两个标题字段与正文标题。
+// 计划项必须采用 leafdoc_title，确认导入标题沿用实际 Markdown 标题提取优先级。
 func TestPlanner_CreatePlan_PrefersLeafDocTitleOverTitle(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "Guide.md", "---\nleafdoc_title: Preferred Title\ntitle: Fallback Title\n---\n\n# Heading")
@@ -198,6 +213,9 @@ func TestPlanner_CreatePlan_PrefersLeafDocTitleOverTitle(t *testing.T) {
 	}
 }
 
+// TestPlanner_CreatePlan_TitleFallbackPriority_WindowsPathFilenameFallback
+// 直接测试 Markdown 对象的标题提取，覆盖元信息、首个标题与 Windows 文件名回退。
+// 此测试没有调用规划器，也不要求给出的 Windows 示例路径真实存在。
 func TestPlanner_CreatePlan_TitleFallbackPriority_WindowsPathFilenameFallback(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -239,6 +257,8 @@ func TestPlanner_CreatePlan_TitleFallbackPriority_WindowsPathFilenameFallback(t 
 	}
 }
 
+// TestPlanner_CreatePlan_SkipExisting_UsesLookupLastSegment 验证已存在目标默认跳过。
+// 页面标识和期望路径段取查询末段，不使用源文件推导值覆盖现有节点身份。
 func TestPlanner_CreatePlan_SkipExisting_UsesLookupLastSegment(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "a.md", "# A")
@@ -288,6 +308,8 @@ func TestPlanner_CreatePlan_SkipExisting_UsesLookupLastSegment(t *testing.T) {
 	}
 }
 
+// TestPlanner_CreatePlan_Error_SourceMissing_IsCollected 确认源文件缺失成为单项错误。
+// 整份计划仍成功返回，失败来源不进入可执行 Items。
 func TestPlanner_CreatePlan_Error_SourceMissing_IsCollected(t *testing.T) {
 	tmp := t.TempDir()
 	wiki := &fakeWiki{treeHash: "h", lookups: map[string]*tree.PathLookup{}}
@@ -308,6 +330,8 @@ func TestPlanner_CreatePlan_Error_SourceMissing_IsCollected(t *testing.T) {
 	}
 }
 
+// TestPlanner_CreatePlan_Error_SourceIsDirectory_IsCollected 验证目录不能作为文件条目导入。
+// 该失败记录到 Errors，不产生计划项，也不使 CreatePlan 返回整体错误。
 func TestPlanner_CreatePlan_Error_SourceIsDirectory_IsCollected(t *testing.T) {
 	tmp := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(tmp, "dir"), 0o755); err != nil {
@@ -332,6 +356,8 @@ func TestPlanner_CreatePlan_Error_SourceIsDirectory_IsCollected(t *testing.T) {
 	}
 }
 
+// TestPlanner_CreatePlan_Error_ExistingZeroSegments_IsCollected
+// 构造存在目标却没有路径段的查询结果，验证规划器拒绝无法读取末段的状态。
 func TestPlanner_CreatePlan_Error_ExistingZeroSegments_IsCollected(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "x.md", "# X")
@@ -359,8 +385,8 @@ func TestPlanner_CreatePlan_Error_ExistingZeroSegments_IsCollected(t *testing.T)
 	}
 }
 
-// ---- Title extraction -------------------------------------------------------
-
+// TestPlanner_CreatePlan_TitleExtractionError_AddsNote 用加载替身注入标题读取错误。
+// 文件存在性仍通过真实磁盘检查，错误只进入备注，标题回退到目标路径末段。
 func TestPlanner_CreatePlan_TitleExtractionError_AddsNote(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "unreadable.md", "# Title")
@@ -390,14 +416,15 @@ func TestPlanner_CreatePlan_TitleExtractionError_AddsNote(t *testing.T) {
 	if !strings.Contains(it.Notes[0], "Failed to load markdown file for title extraction") {
 		t.Fatalf("Note = %q (should contain 'Failed to load markdown file for title extraction')", it.Notes[0])
 	}
-	// Title should still be set (fallback to filename)
+	// 加载对象为空时采用已推导目标路径的末段，不读取正文标题。
 	if it.Title != "unreadable" {
 		t.Fatalf("Title = %q (want unreadable)", it.Title)
 	}
 }
 
+// TestPlanner_analyzeEntry_NormalizesSourceDirSegments 验证目录名称也经过统一路径段转换。
 func TestPlanner_analyzeEntry_NormalizesSourceDirSegments(t *testing.T) {
-	// "My Guides/Intro.md" -> "my-guides/intro" via centralized SlugService creation normalization.
+	// 含空格的源目录变为 my-guides，再与目标基础路径和文件名路径段组合。
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "My Guides/Intro.md", "# Intro")
 
@@ -419,6 +446,8 @@ func TestPlanner_analyzeEntry_NormalizesSourceDirSegments(t *testing.T) {
 	}
 }
 
+// TestPlanner_analyzeEntry_ReservedSlugSegmentsUseCentralizedSafeNormalization
+// 以保留名称 API 验证路径生成器的避让结果同时写入目标路径与期望路径段。
 func TestPlanner_analyzeEntry_ReservedSlugSegmentsUseCentralizedSafeNormalization(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "Reference/API.md", "# API")
@@ -444,9 +473,10 @@ func TestPlanner_analyzeEntry_ReservedSlugSegmentsUseCentralizedSafeNormalizatio
 	}
 }
 
+// TestPlanner_analyzeEntry_InvalidSourceDirSegment_ReturnsError
+// 验证纯标点目录无法形成有效路径段时，该文件进入错误列表。
 func TestPlanner_analyzeEntry_InvalidSourceDirSegment_ReturnsError(t *testing.T) {
-	// Import path normalization still rejects segments that collapse to an empty slug.
-	// A segment like "!!!" normalizes to "", so planning should report an error.
+	// 目录 !!! 去除不支持的字符后为空，不能形成可执行页面路径。
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "!!!/a.md", "# A")
 
@@ -466,16 +496,16 @@ func TestPlanner_analyzeEntry_InvalidSourceDirSegment_ReturnsError(t *testing.T)
 	if len(res.Errors) != 1 {
 		t.Fatalf("Errors len = %d (want 1)", len(res.Errors))
 	}
-	// optional: grobe Assertion, dass es ein Validate-Fehler ist
+	// 错误文字必须非空，此处不约束具体错误类型或完整消息。
 	if res.Errors[0] == "" {
 		t.Fatalf("unexpected error: %v", res.Errors[0])
 	}
 }
 
+// TestPlanner_CreatePlan_RootIndexMd_EmptyWikiPath_UsesFallbackTitle
+// 验证根目录首页在标题加载失败时使用 index 作为回退标题，并保留失败备注。
 func TestPlanner_CreatePlan_RootIndexMd_EmptyWikiPath_UsesFallbackTitle(t *testing.T) {
-	// Test case for root-level index.md with empty TargetBasePath and markdown loading failure
-	// When wikiPath is empty, path.Base("") returns ".", which is not meaningful.
-	// The fix should use filename without extension as fallback.
+	// 目标基础路径为空，因此根目录 index.md 对应空路由和分区节点。
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "index.md", "# Title")
 
@@ -485,7 +515,7 @@ func TestPlanner_CreatePlan_RootIndexMd_EmptyWikiPath_UsesFallbackTitle(t *testi
 
 	res, err := p.CreatePlan([]ImportMDFile{{SourcePath: "index.md"}}, PlanOptions{
 		SourceBasePath: tmp,
-		TargetBasePath: "", // empty target base path
+		TargetBasePath: "", // 空基础路径使该首页直接映射到根位置。
 	})
 	if err != nil {
 		t.Fatalf("CreatePlan err: %v", err)
@@ -504,11 +534,11 @@ func TestPlanner_CreatePlan_RootIndexMd_EmptyWikiPath_UsesFallbackTitle(t *testi
 	if it.Kind != tree.NodeKindSection {
 		t.Fatalf("Kind = %v (want Section)", it.Kind)
 	}
-	// The title should fallback to "index" (filename without .md), not "." from path.Base("")
+	// 空路由的标题回退使用源文件名，不使用 path.Base 返回的点号。
 	if it.Title != "index" {
 		t.Fatalf("Title = %q (want index as fallback when wikiPath is empty and markdown fails)", it.Title)
 	}
-	// Should have a note about failed markdown loading
+	// 标题加载失败属于可保留的备注，计划仍包含这个分区。
 	if len(it.Notes) == 0 {
 		t.Fatalf("Expected notes about failed markdown loading")
 	}
@@ -517,6 +547,8 @@ func TestPlanner_CreatePlan_RootIndexMd_EmptyWikiPath_UsesFallbackTitle(t *testi
 	}
 }
 
+// TestPlanner_CreatePlan_FolderIndexAndSiblingPage_MapToSectionAndNestedPage
+// 验证同目录首页与普通文件分别映射为分区及分区内页面，名称相同也不合并目标。
 func TestPlanner_CreatePlan_FolderIndexAndSiblingPage_MapToSectionAndNestedPage(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "Ordner/index.md", `---
@@ -557,6 +589,8 @@ title: Ordner
 	}
 }
 
+// TestPlanner_CreatePlan_FolderMarkdownWithoutIndex_RemainsNestedPage
+// 验证缺少目录首页时，普通文件仍保留父目录层级，不自动提升为分区首页。
 func TestPlanner_CreatePlan_FolderMarkdownWithoutIndex_RemainsNestedPage(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "Ordner/Ordner.md", "# Unterseite")
@@ -587,6 +621,8 @@ func TestPlanner_CreatePlan_FolderMarkdownWithoutIndex_RemainsNestedPage(t *test
 	}
 }
 
+// TestPlanner_CreatePlan_CreateNewSection_IndexUppercaseMD
+// 验证首页识别不区分扩展名大小写，index.MD 与小写形式具有相同分区映射。
 func TestPlanner_CreatePlan_CreateNewSection_IndexUppercaseMD(t *testing.T) {
 	tmp := t.TempDir()
 	testutil.WriteFile(t, tmp, "Guides/index.MD", `---
@@ -614,16 +650,18 @@ title: Guides
 	}
 }
 
+// TestPlanner_CreatePlan_SkipsIgnoredPaths 使用真实忽略缓存过滤 drafts 目录中的目标。
+// 断言只保留未命中的 readme 页面，不把被忽略文件当作计划错误。
 func TestPlanner_CreatePlan_SkipsIgnoredPaths(t *testing.T) {
 	tmp := t.TempDir()
-	// Create source files under root/ to match production structure
+	// 测试存储根目录包含 root 子目录，与规划器查询忽略缓存的目录结构一致。
 	if err := os.MkdirAll(filepath.Join(tmp, "root", "drafts"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	testutil.WriteFile(t, tmp, "root/readme.md", "# Readme")
 	testutil.WriteFile(t, tmp, "root/drafts/note.md", "# Draft Note")
 
-	// Create .leafdocignore inside root/
+	// 根目录规则过滤 drafts 子目录，缓存以同一个 root 目录为边界。
 	mustWriteLeafdocIgnore(t, filepath.Join(tmp, "root"), "drafts/")
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 
@@ -650,16 +688,18 @@ func TestPlanner_CreatePlan_SkipsIgnoredPaths(t *testing.T) {
 	}
 }
 
+// TestPlanner_CreatePlan_IncludesNonIgnoredPaths 验证存在忽略文件并不代表过滤所有输入。
+// 规则只匹配日志文件，两个 Markdown 源文件都必须进入计划。
 func TestPlanner_CreatePlan_IncludesNonIgnoredPaths(t *testing.T) {
 	tmp := t.TempDir()
-	// Create source files under root/ to match production structure
+	// 在存储 root 层级建立源文件，让规则查询使用实际目录结构。
 	if err := os.MkdirAll(filepath.Join(tmp, "root", "notes"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	testutil.WriteFile(t, tmp, "root/readme.md", "# Readme")
 	testutil.WriteFile(t, tmp, "root/notes/note.md", "# Note")
 
-	// Create .leafdocignore that doesn't match any of our files
+	// 日志后缀规则与两个源文件均不匹配，用作不会过滤页面的对照。
 	mustWriteLeafdocIgnore(t, filepath.Join(tmp, "root"), "*.log")
 	cache := ignore.NewCache(filepath.Join(tmp, "root"))
 
@@ -683,7 +723,7 @@ func TestPlanner_CreatePlan_IncludesNonIgnoredPaths(t *testing.T) {
 	}
 }
 
-// mustWriteLeafdocIgnore writes a .leafdocignore file to dir with the given content.
+// mustWriteLeafdocIgnore 将指定规则写入目标目录的忽略文件，父目录由调用方建立。
 func mustWriteLeafdocIgnore(t *testing.T, dir, content string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, ".leafdocignore"), []byte(content), 0o644); err != nil {

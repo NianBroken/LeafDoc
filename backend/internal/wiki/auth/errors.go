@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 鉴权错误代码覆盖会话、账号管理、Cookie、邮件令牌和字段输入，供前端翻译及状态映射。
 const (
 	ErrCodeAuthUnavailable              = "auth_unavailable"
 	ErrCodeAuthInvalidCredentials       = "auth_invalid_credentials"
@@ -36,11 +37,13 @@ const (
 	ErrCodeAuthEditorLimitReached       = "auth_editor_limit_reached"
 )
 
+// respondWithAuthStatusError 将明确指定的状态与翻译信息交给公共 HTTP 错误编码器。
 func respondWithAuthStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
-// respondWithAuthError is the central error handler for auth endpoints.
+// respondWithAuthError 先处理本地化错误，再处理字段验证集合及已知哨兵错误。
+// 未分类错误写 Error 日志，并使用固定响应文本，底层原因不直接发给客户端。
 func respondWithAuthError(c *gin.Context, err error) {
 	if loc, ok := sharederrors.AsLocalizedError(err); ok {
 		respondWithAuthStatusError(c, authErrorStatus(loc.Code), loc.Code, loc.Message, loc.Template, loc.Args...)
@@ -86,6 +89,8 @@ func respondWithAuthError(c *gin.Context, err error) {
 	}
 }
 
+// authErrorStatus 对本地化代码执行明确映射，未列出的代码返回 500。
+// 此表与哨兵分支分别执行，例如本地化 auth_unavailable 为 403，普通不可用哨兵为 500。
 func authErrorStatus(code string) int {
 	switch code {
 	case ErrCodeAuthUserNotFound:

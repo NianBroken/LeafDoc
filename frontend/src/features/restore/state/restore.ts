@@ -1,3 +1,5 @@
+// 编排已有快照和上传文件两种恢复入口，取得任务凭据后持续轮询服务端状态。
+// 状态用于恢复界面的阶段展示、干预提示和成功后的重新登录引导。
 import { create } from 'zustand'
 import i18next from '@/shared/lib/i18n'
 import {
@@ -16,11 +18,11 @@ interface RestoreState {
   isLoading: boolean
   requiresLogin: boolean
   phase: string | null
-  // The job receipt covers database replacement and all derived-state rebuilds.
+  // 此标记初始化及触发时均为 false，轮询不将其置为 true，实际阶段由 phase 表达。
   isResyncPhase: boolean
   needsIntervention: boolean
   versionWarning: string | null
-  // Successful completion includes the server's derived-state rebuild.
+  // 此确认标记初始化及触发时为 true，当前状态动作不根据阶段将其置为 false。
   resyncConfirmed: boolean
   trigger: (id: string) => Promise<void>
   triggerUpload: (file: File) => Promise<void>
@@ -37,6 +39,7 @@ export const useRestoreStore = create<RestoreState>((set) => ({
   resyncConfirmed: true,
 
   trigger: async (id: string) => {
+    // 重设任务展示状态再提交快照 ID，此处不清空 requiresLogin，也不阻止并行触发。
     set({
       isLoading: true,
       phase: null,
@@ -55,6 +58,7 @@ export const useRestoreStore = create<RestoreState>((set) => ({
   },
 
   triggerUpload: async (file: File) => {
+    // 上传完成取得任务凭据后进入同一轮询流程，上传本身失败时直接结束加载并抛出。
     set({
       isLoading: true,
       phase: null,
@@ -73,20 +77,17 @@ export const useRestoreStore = create<RestoreState>((set) => ({
   },
 
   selfRestart: async () => {
+    // 发出服务端重启请求，界面不接收该动作的拒绝结果。
     try {
       await triggerSelfRestart()
     } catch {
-      // Expected: the connection drops when the server process replaces
-      // itself mid-request. Not a real failure — see triggerSelfRestart's
-      // doc comment in lib/api/restore.ts.
+      // 服务进程替换期间请求连接会中断；此分支统一忽略请求错误，不区分具体错误原因。
     }
   },
 }))
 
-// pollUntilDone polls the restore status endpoint until the job finishes,
-// updating phase/versionWarning as it goes — shared by trigger(id) and
-// triggerUpload(file) alike, since neither entrypoint affects how the
-// server-side job reports progress from here on.
+// 两种入口使用相同状态凭据轮询，每轮请求前等待固定间隔，不设总轮数或总时长上限。
+// 连续请求失败达到门槛才抛出；任一次成功响应都将连续失败计数归零。
 async function pollUntilDone(
   set: (partial: Partial<RestoreState>) => void,
   statusToken: string,
@@ -114,6 +115,7 @@ async function pollUntilDone(
     })
 
     if (status.done) {
+      // 完成状态优先检查人工干预，再检查任务错误；干预分支正常返回，交由界面展示处理入口。
       if (status.needsIntervention) {
         set({ isLoading: false, needsIntervention: true })
         return
@@ -131,6 +133,7 @@ async function pollUntilDone(
       return
     }
     if (!status.running) {
+      // 既未完成也未运行的响应无法继续追踪任务，结束加载并抛出本地化的任务丢失错误。
       set({ isLoading: false, phase: null })
       throw new Error(i18next.t('errors.jobLost', { ns: 'restore' }))
     }

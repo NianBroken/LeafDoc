@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// getMetricsBody 在内存中调用指标处理器，要求返回 200 后交出完整文本供样本断言。
 func getMetricsBody(t *testing.T, handler http.Handler) string {
 	t.Helper()
 
@@ -24,6 +25,7 @@ func getMetricsBody(t *testing.T, handler http.Handler) string {
 	return rec.Body.String()
 }
 
+// TestHTTPMetrics_ExportsPrometheusMetrics 发出一次健康请求，确认导出包含次数、耗时与活动数指标。
 func TestHTTPMetrics_ExportsPrometheusMetrics(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 
@@ -54,6 +56,7 @@ func TestHTTPMetrics_ExportsPrometheusMetrics(t *testing.T) {
 	}
 }
 
+// TestHTTPMetrics_ExportsBuildInfoWithVersionLabel 核对版本标签与恒为 1 的构建信息样本。
 func TestHTTPMetrics_ExportsBuildInfoWithVersionLabel(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 
@@ -66,6 +69,7 @@ func TestHTTPMetrics_ExportsBuildInfoWithVersionLabel(t *testing.T) {
 	}
 }
 
+// TestHTTPMetrics_ExportsGoRuntimeAndProcessMetrics 检查标准运行时样本，并在 Linux 检查进程样本。
 func TestHTTPMetrics_ExportsGoRuntimeAndProcessMetrics(t *testing.T) {
 	metrics := NewHTTPMetrics("test")
 
@@ -77,7 +81,7 @@ func TestHTTPMetrics_ExportsGoRuntimeAndProcessMetrics(t *testing.T) {
 		}
 	}
 
-	// The process collector reads /proc and only emits on Linux.
+	// 此测试仅在 Linux 要求进程指标存在，其他平台不对这些样本作断言。
 	if runtime.GOOS == "linux" {
 		for _, want := range []string{"process_resident_memory_bytes", "process_cpu_seconds_total", "process_open_fds"} {
 			if !strings.Contains(body, want) {
@@ -87,6 +91,7 @@ func TestHTTPMetrics_ExportsGoRuntimeAndProcessMetrics(t *testing.T) {
 	}
 }
 
+// TestHTTPMetrics_UsesNormalizedRouteLabel 核对已注册固定路径的方法、路由与状态标签。
 func TestHTTPMetrics_UsesNormalizedRouteLabel(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 
@@ -112,6 +117,7 @@ func TestHTTPMetrics_UsesNormalizedRouteLabel(t *testing.T) {
 	}
 }
 
+// TestHTTPMetrics_UsesRoutePatternForPathParams 确认标签使用 :id 模式，不泄入具体页面标识。
 func TestHTTPMetrics_UsesRoutePatternForPathParams(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 
@@ -140,6 +146,7 @@ func TestHTTPMetrics_UsesRoutePatternForPathParams(t *testing.T) {
 	}
 }
 
+// TestHTTPMetrics_UsesUnmatchedLabelForUnknownRoutes 确认未知路径汇总为 unmatched 且保留 404 状态。
 func TestHTTPMetrics_UsesUnmatchedLabelForUnknownRoutes(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 

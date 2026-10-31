@@ -1,4 +1,4 @@
-// Schedule choices preserve the server's duration values and IANA zone identifiers.
+// 计划选项保留服务端提供的时长值和时区标识。
 const intervalChoices = [
   { value: '1m', count: 1, unit: 'minutes' },
   { value: '5m', count: 5, unit: 'minutes' },
@@ -51,7 +51,7 @@ export function getIntervalOptions(currentValue: string) {
   return { options, value: matching?.value ?? currentValue }
 }
 
-// Runtime data supplies the zone list; saved aliases remain selectable as-is.
+// 时区列表来自运行时数据，已保存的别名继续作为原值提供给选择控件。
 export function getTimeZoneOptions(currentValue: string): string[] {
   const zones = Intl.supportedValuesOf?.('timeZone') ?? []
   return [

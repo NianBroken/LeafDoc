@@ -10,9 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const maxMultipartMemory = 32 << 20 // 32 MiB
+// maxMultipartMemory 是 multipart 解析保留文件内容的内存阈值，不是请求总大小限制。
+// 总大小由每次上传使用的 MaxBytesReader 控制。
+const maxMultipartMemory = 32 << 20 // 32 MiB。
 
-// Routes is the RouteRegistrar for the assets domain.
+// Routes 将资源查询、修改及静态文件响应绑定到现有用例和文件目录。
 type Routes struct {
 	upload      *UploadAssetUseCase
 	list        *ListAssetsUseCase
@@ -23,7 +25,7 @@ type Routes struct {
 	log         *slog.Logger
 }
 
-// RoutesConfig holds the dependencies required to build a Routes instance.
+// RoutesConfig 提供用例、鉴权、静态目录及日志，构造函数直接保存而不填充默认服务。
 type RoutesConfig struct {
 	Upload      *UploadAssetUseCase
 	List        *ListAssetsUseCase
@@ -34,7 +36,7 @@ type RoutesConfig struct {
 	Log         *slog.Logger
 }
 
-// NewRoutes constructs the assets RouteRegistrar.
+// NewRoutes 保存资源路由依赖，不在构造阶段读取磁盘或挂载 URL。
 func NewRoutes(cfg RoutesConfig) *Routes {
 	return &Routes{
 		upload:      cfg.Upload,
@@ -47,11 +49,12 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 分别挂载资源文件、页面资源列表与编辑者写接口。
+// 静态读取和列表使用公开读取门禁，写接口要求登录及管理员或编辑者角色。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	opts := ctx.Opts
 
-	// Static assets share the public read gate on a separate GET-only path.
+	// 静态文件组禁止目录列表，先设置不可信文件响应头，再执行公开或登录读取鉴权。
 	if r.assetsDir != "" {
 		assetsFS := gin.Dir(r.assetsDir, false)
 		assetsGroup := ctx.Base.Group("/assets")
@@ -62,21 +65,23 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 		assetsGroup.StaticFS("/", assetsFS)
 	}
 
-	// Listing a page's assets is a read: registered once, gated per request.
+	// 列表只注册一次，每次请求读取当前公开访问设置。
 	readGroup := ctx.APIReadGroup(r.authService)
 	readGroup.GET("/pages/:id/assets", r.handleList)
 
-	// Mutations always need a real authenticated editor/admin.
+	// 写操作通过通用鉴权及 CSRF 组，再检查有效用户的编辑权限。
 	authGroup := ctx.APIAuthGroup(r.authService)
 	authGroup.POST("/pages/:id/assets", authmw.RequireEditorOrAdmin(), r.handleUpload(opts.MaxAssetUploadSizeBytes))
 	authGroup.PUT("/pages/:id/assets/rename", authmw.RequireEditorOrAdmin(), r.handleRename)
 	authGroup.DELETE("/pages/:id/assets/:name", authmw.RequireEditorOrAdmin(), r.handleDelete)
 }
 
-// ─── Handlers ───────────────────────────────────────────────────────────────
-
+// handleUpload 限制整个请求体的字节数，再解析名为 file 的 multipart 文件。
+// 所有表单解析错误均返回 413，所有 FormFile 错误均返回缺少文件的 400。
+// 成功打开的文件由本处理器延迟关闭，用例成功后返回 201 与资源地址。
 func (r *Routes) handleUpload(maxUploadSize int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 限制包括 multipart 边界与字段开销，不只计算单个文件的内容字节。
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadSize)
 
 		if err := c.Request.ParseMultipartForm(maxMultipartMemory); err != nil {
@@ -112,6 +117,7 @@ func (r *Routes) handleUpload(maxUploadSize int64) gin.HandlerFunc {
 	}
 }
 
+// handleList 按页面标识取得资源地址列表，以 files 字段返回，失败交给资源错误映射。
 func (r *Routes) handleList(c *gin.Context) {
 	pageID := c.Param("id")
 	out, err := r.list.Execute(c.Request.Context(), ListAssetsInput{PageID: pageID})
@@ -122,6 +128,8 @@ func (r *Routes) handleList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"files": out.Files})
 }
 
+// handleRename 要求两个非空文件名，从鉴权上下文取得操作者后交给重命名用例。
+// 返回的 url 是资源服务形成的访问地址，不是磁盘文件路径。
 func (r *Routes) handleRename(c *gin.Context) {
 	pageID := c.Param("id")
 	var req struct {
@@ -146,6 +154,7 @@ func (r *Routes) handleRename(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"url": out.URL})
 }
 
+// handleDelete 拒绝空文件名，再按页面与文件名执行删除，成功返回固定确认消息。
 func (r *Routes) handleDelete(c *gin.Context) {
 	pageID := c.Param("id")
 	filename := c.Param("name")

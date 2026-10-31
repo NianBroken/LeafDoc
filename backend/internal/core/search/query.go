@@ -1,3 +1,4 @@
+// 本文件生成参数化搜索条件、分页排序，并对返回标题与摘要进行安全高亮。
 package search
 
 import (
@@ -13,15 +14,15 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/excerpt"
 )
 
+// defaultSearchLimit 用于非正数分页大小，负偏移另行归零。
 const defaultSearchLimit = 50
 
-// InnoDB supports at most 128 tokens per phrase. A rune bound also covers
-// ngram_token_size=1; longer literals use the complete substring predicate.
+// maxFullTextPhraseRunes 限制进入全文短语分支的字符数，超长词仍保留字面子串条件。
 const maxFullTextPhraseRunes = 128
 
-// Search queries MySQL, applies the caller's page filter, and escapes rendered text.
-// Full-text matches use ngram indexing; literal substring matching also handles
-// single characters, code punctuation, and words omitted by full-text stop rules.
+// Search 应用搜索词和可选页面集合，先查总数再查当前页，两个读取不创建共同事务。
+// nil 页面集合表示不额外限制，非 nil 空集合直接返回空结果；空查询且无页面 ID 也为空。
+// 成功结果标题和摘要先转义再插入 b 标签，标签统计保持空列表交给上层填充。
 func (s *MySQLIndex) Search(query string, pageIDs []string, offset, limit int) (*SearchResult, error) {
 	query = strings.TrimSpace(query)
 	if offset < 0 {
@@ -39,7 +40,8 @@ func (s *MySQLIndex) Search(query string, pageIDs []string, offset, limit int) (
 		if err := db.QueryRow("SELECT COUNT(*) FROM search_documents WHERE "+where, args...).Scan(&result.Count); err != nil {
 			return err
 		}
-		// Explicit title and heading weights keep concise document titles prominent.
+		// 排序分数包含标题字面命中二十分、标题段字面命中五分及自然语言全文分数。
+		// 计分使用完整显示查询串，不逐个重用 WHERE 中的分词条件。
 		rank := "0.0"
 		rankArgs := []any{}
 		if query != "" {
@@ -63,6 +65,7 @@ func (s *MySQLIndex) Search(query string, pageIDs []string, offset, limit int) (
 			}
 			item.Title = highlightLiteral(item.Title, displaySearchQuery(query))
 			item.Excerpt = highlightLiteral(searchExcerpt(content, displaySearchQuery(query)), displaySearchQuery(query))
+			// 将数据库相关度映射为接口分数，排序仍使用映射前 SQL relevance。
 			item.Rank = (1 + item.Rank) / (2 + item.Rank)
 			result.Items = append(result.Items, item)
 		}
@@ -71,7 +74,8 @@ func (s *MySQLIndex) Search(query string, pageIDs []string, offset, limit int) (
 	return result, err
 }
 
-// SearchPageIDs uses the identical filter as paginated search for tag facets.
+// SearchPageIDs 复用同一过滤条件返回全部匹配页面 ID，供标签统计范围计算。
+// 不分页、不计算相关度，按标题及页面 ID 排序。
 func (s *MySQLIndex) SearchPageIDs(query string, pageIDs []string) ([]string, error) {
 	query = strings.TrimSpace(query)
 	result := []string{}
@@ -97,7 +101,9 @@ func (s *MySQLIndex) SearchPageIDs(query string, pageIDs []string) ([]string, er
 	return result, err
 }
 
-// buildSearchWhereClause binds all input, including wildcard characters, as data.
+// buildSearchWhereClause 按空白分词，各词条件和页面集合条件用 AND 连接。
+// 仅允许表内列名映射参与 SQL 拼接，用户词和页面 ID 全部通过参数绑定。
+// 每词移除一个尾部星号和两端引号，已知列前缀指定范围，未知前缀作为文字保留。
 func buildSearchWhereClause(query string, pageIDs []string) (string, []any) {
 	clauses := []string{}
 	args := []any{}
@@ -119,6 +125,7 @@ func buildSearchWhereClause(query string, pageIDs []string) (string, []any) {
 		literal := "%" + escapeSearchLike(term) + "%"
 		clause := column + " LIKE ? ESCAPE '='"
 		termRunes := utf8.RuneCountInString(term)
+		// 未指定列且为规定长度的纯字母数字词时，全文短语命中与字面子串命中任选其一。
 		if scope == "" && termRunes >= 2 && termRunes <= maxFullTextPhraseRunes && isSearchWord(term) {
 			clause = "(MATCH(title, headings, content) AGAINST (? IN BOOLEAN MODE) OR " + clause + ")"
 			args = append(args, `"`+term+`"*`)
@@ -139,6 +146,7 @@ func buildSearchWhereClause(query string, pageIDs []string) (string, []any) {
 	return strings.Join(clauses, " AND "), args
 }
 
+// isSearchWord 只允许 Unicode 字母或数字，空串、空格及标点均返回 false。
 func isSearchWord(value string) bool {
 	for _, char := range value {
 		if !unicode.IsLetter(char) && !unicode.IsDigit(char) {
@@ -148,11 +156,13 @@ func isSearchWord(value string) bool {
 	return value != ""
 }
 
+// escapeSearchLike 使用等号作为 SQL LIKE 转义符，使百分号和下划线按文字匹配。
 func escapeSearchLike(value string) string {
 	return strings.NewReplacer("=", "==", "%", "=%", "_", "=_").Replace(value)
 }
 
-// highlightLiteral escapes each text fragment before adding the allowed bold tag.
+// highlightLiteral 对完整查询串进行忽略大小写的字面匹配，正则特殊字符均先转义。
+// 匹配和未匹配片段分别做 HTML 转义，只有函数写入的 b 标签作为标记保留。
 func highlightLiteral(value, query string) string {
 	if query == "" {
 		return html.EscapeString(value)
@@ -172,6 +182,9 @@ func highlightLiteral(value, query string) string {
 	return output.String()
 }
 
+// searchExcerpt 短文本完整保留，长文本默认从头截取公共摘要长度。
+// 找到非开头命中时尝试从命中前四十字符开始，两侧被截断时各加省略号。
+// 查找使用小写字符串索引，窗口截取使用原内容的字符切片。
 func searchExcerpt(content, query string) string {
 	text := []rune(content)
 	if len(text) <= excerpt.MaxRunes {
@@ -201,12 +214,14 @@ func searchExcerpt(content, query string) string {
 	return result
 }
 
-// searchColumns is an allow-list of SQL identifiers accepted by column filters.
+// searchColumns 是可接受列过滤前缀到真实 SQL 列名的唯一映射，输入前缀忽略大小写。
 var searchColumns = map[string]string{
 	"title": "title", "headings": "headings", "content": "content",
 	"path": "path", "filepath": "filepath", "pageid": "pageID", "kind": "kind",
 }
 
+// displaySearchQuery 去掉已知列前缀、每词一个尾部星号和两端双引号，再用空格连接。
+// 该结果用于计分、高亮和摘要定位，不是对 WHERE 查询语法的完整重建。
 func displaySearchQuery(query string) string {
 	fields := strings.Fields(query)
 	for i, field := range fields {

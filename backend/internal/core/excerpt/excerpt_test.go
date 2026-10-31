@@ -1,3 +1,5 @@
+// 本文件核验摘要与搜索文本的差异，包括代码保留、围栏识别和行内语法清理。
+// 所有样例只调用文本转换函数，不启动 Markdown 页面或浏览器。
 package excerpt
 
 import (
@@ -5,6 +7,7 @@ import (
 	"testing"
 )
 
+// 前置字段被剥离，摘要只取实际正文。
 func TestFromContent_PlainText(t *testing.T) {
 	raw := "---\ntitle: Hello\n---\n\nThis is the page body."
 	got := FromContent(raw)
@@ -13,6 +16,7 @@ func TestFromContent_PlainText(t *testing.T) {
 	}
 }
 
+// 没有前置字段时，普通文本原样进入摘要提取流程。
 func TestFromContent_NoFrontmatter(t *testing.T) {
 	raw := "Just plain content here."
 	got := FromContent(raw)
@@ -21,6 +25,7 @@ func TestFromContent_NoFrontmatter(t *testing.T) {
 	}
 }
 
+// 只有前置字段且正文为空时得到空摘要。
 func TestFromContent_EmptyBody(t *testing.T) {
 	raw := "---\ntitle: Hello\n---\n\n"
 	got := FromContent(raw)
@@ -29,6 +34,7 @@ func TestFromContent_EmptyBody(t *testing.T) {
 	}
 }
 
+// 空输入对应空结果，不生成替代内容。
 func TestFromContent_EmptyContent(t *testing.T) {
 	got := FromContent("")
 	if got != "" {
@@ -36,6 +42,7 @@ func TestFromContent_EmptyContent(t *testing.T) {
 	}
 }
 
+// 显示摘要去除代码块，同时保留两侧正文。
 func TestFromContent_StripsFencedCode(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\nBefore.\n\n```go\nfunc main() {}\n```\n\nAfter."
 	got := FromContent(raw)
@@ -47,6 +54,7 @@ func TestFromContent_StripsFencedCode(t *testing.T) {
 	}
 }
 
+// 搜索文本保留普通代码块内容，使代码词与正文词都能进入检索输入。
 func TestPlainTextForSearch_IncludesCodeBlockContent(t *testing.T) {
 	body := "Before.\n\n```go\nfunc main() {}\n```\n\nAfter."
 	got := PlainTextForSearch(body)
@@ -58,6 +66,7 @@ func TestPlainTextForSearch_IncludesCodeBlockContent(t *testing.T) {
 	}
 }
 
+// 标题文字保留，井号标记不显示。
 func TestFromContent_StripsMarkdownHeadings(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\n# Heading One\n\nSome body text."
 	got := FromContent(raw)
@@ -69,6 +78,7 @@ func TestFromContent_StripsMarkdownHeadings(t *testing.T) {
 	}
 }
 
+// 图片转换保留替代文字而移除目标地址和图片语法。
 func TestFromContent_StripsImageSyntax(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\n![alt text](image.png) Some text."
 	got := FromContent(raw)
@@ -80,6 +90,7 @@ func TestFromContent_StripsImageSyntax(t *testing.T) {
 	}
 }
 
+// 链接转换保留文字而移除 URL。
 func TestFromContent_StripsLinkSyntax(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\n[Click here](https://example.com) for more."
 	got := FromContent(raw)
@@ -91,6 +102,7 @@ func TestFromContent_StripsLinkSyntax(t *testing.T) {
 	}
 }
 
+// 长正文检查截断标记及字符数量范围，不依赖恰好截在某个单词之后。
 func TestFromContent_TruncatesLongContent(t *testing.T) {
 	body := strings.Repeat("word ", 200)
 	raw := "---\ntitle: T\n---\n\n" + body
@@ -104,6 +116,7 @@ func TestFromContent_TruncatesLongContent(t *testing.T) {
 	}
 }
 
+// 短正文不添加省略号。
 func TestFromContent_ShortContentNotTruncated(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\nShort body."
 	got := FromContent(raw)
@@ -112,6 +125,7 @@ func TestFromContent_ShortContentNotTruncated(t *testing.T) {
 	}
 }
 
+// 段落换行合并为空格，检查结果不含换行和连续双空格。
 func TestFromContent_CollapsesWhitespace(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\nLine one.\n\nLine two.\n\nLine three."
 	got := FromContent(raw)
@@ -123,6 +137,7 @@ func TestFromContent_CollapsesWhitespace(t *testing.T) {
 	}
 }
 
+// 显示摘要移除 HTML 标记，本断言检查指定标签已消失。
 func TestFromContent_StripsHTMLTags(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\n<strong>Bold</strong> text."
 	got := FromContent(raw)
@@ -131,6 +146,7 @@ func TestFromContent_StripsHTMLTags(t *testing.T) {
 	}
 }
 
+// 强调符号清理后，原文字和标点仍连续保留。
 func TestFromContent_StripsMarkdownEmphasisMarkers(t *testing.T) {
 	raw := "---\ntitle: T\n---\n\nLeafDoc **fett** und _kursiv_."
 	got := FromContent(raw)
@@ -142,6 +158,7 @@ func TestFromContent_StripsMarkdownEmphasisMarkers(t *testing.T) {
 	}
 }
 
+// 提示块去除三冒号围栏，但内置与自定义标签、块内正文都保留。
 func TestNormalizeMarkdownBody_KeepsLabelsAndRemovesShoutoutFenceSyntax(t *testing.T) {
 	body := strings.Join([]string{
 		"::: info",
@@ -165,6 +182,7 @@ func TestNormalizeMarkdownBody_KeepsLabelsAndRemovesShoutoutFenceSyntax(t *testi
 	}
 }
 
+// 代码围栏内的三冒号按字面内容保留，整个代码块与输入逐字一致。
 func TestNormalizeMarkdownBody_IgnoresCodeFences(t *testing.T) {
 	body := strings.Join([]string{
 		"```md",
@@ -181,6 +199,7 @@ func TestNormalizeMarkdownBody_IgnoresCodeFences(t *testing.T) {
 	}
 }
 
+// 表驱动样例分别核验普通双链、别名、图片嵌入及路径末段显示规则。
 func TestPlainTextFromMarkdown_StripsWikiLinks(t *testing.T) {
 	cases := []struct {
 		name string
@@ -203,6 +222,7 @@ func TestPlainTextFromMarkdown_StripsWikiLinks(t *testing.T) {
 	}
 }
 
+// 代码块内的双链按代码文字处理，页面名和别名均进入搜索文本。
 func TestPlainTextForSearch_WikiLinkAliasInCodeBlockPreservesPageName(t *testing.T) {
 	body := "```\n[[SomePage|Display Text]]\n```"
 	got := PlainTextForSearch(body)
@@ -214,6 +234,7 @@ func TestPlainTextForSearch_WikiLinkAliasInCodeBlockPreservesPageName(t *testing
 	}
 }
 
+// 代码中的图片嵌入不按正文图片删除，文件名仍可检索。
 func TestPlainTextForSearch_WikiImageInCodeBlockPreservesFilename(t *testing.T) {
 	body := "```\n![[screenshot.png]]\n```"
 	got := PlainTextForSearch(body)
@@ -222,6 +243,7 @@ func TestPlainTextForSearch_WikiImageInCodeBlockPreservesFilename(t *testing.T) 
 	}
 }
 
+// 围栏外的双链仍按正文规则提取别名，不保留被别名替代的页面名。
 func TestPlainTextForSearch_InlinePatternsProseMayRunNormally(t *testing.T) {
 	body := "See [[ProseLink|prose alias]] and ![[icon.png]] outside code."
 	got := PlainTextForSearch(body)
@@ -233,6 +255,7 @@ func TestPlainTextForSearch_InlinePatternsProseMayRunNormally(t *testing.T) {
 	}
 }
 
+// 同一输入混合正文与代码时，正文提取别名，代码保留页面名。
 func TestPlainTextForSearch_MixedCodeAndProsePatterns(t *testing.T) {
 	body := "See [[ProseLink|prose]] for info.\n\n```\n[[CodePage|code alias]]\n```"
 	got := PlainTextForSearch(body)
@@ -244,6 +267,7 @@ func TestPlainTextForSearch_MixedCodeAndProsePatterns(t *testing.T) {
 	}
 }
 
+// Mermaid 图表块不进入搜索文本，周围段落仍可检索。
 func TestPlainTextForSearch_ExcludesMermaidBlocks(t *testing.T) {
 	body := "Some prose.\n\n```mermaid\ngraph TD\n    A[Login] --> B{Auth ok?}\n```\n\nMore prose."
 	got := PlainTextForSearch(body)
@@ -255,6 +279,7 @@ func TestPlainTextForSearch_ExcludesMermaidBlocks(t *testing.T) {
 	}
 }
 
+// 显示摘要同样排除 Mermaid 图表语法。
 func TestPlainTextFromMarkdown_ExcludesMermaidBlocks(t *testing.T) {
 	body := "Some prose.\n\n```mermaid\ngraph TD\n    A[Login] --> B{Auth ok?}\n```\n\nMore prose."
 	got := PlainTextFromMarkdown(body)
@@ -263,8 +288,7 @@ func TestPlainTextFromMarkdown_ExcludesMermaidBlocks(t *testing.T) {
 	}
 }
 
-// Bug 1: fencePattern requires "^ {0,3}" (literal spaces), so "> ```go" (block-quote prefix)
-// doesn't match and fences inside block-quotes are invisible to applyInlinePatternsOutsideFences.
+// 引用块前缀下的代码围栏仍保护块内图片语法，文件名保留在搜索文本中。
 func TestPlainTextForSearch_WikiImageInBlockQuotedCodeBlock(t *testing.T) {
 	body := "> ```\n> ![[screenshot.png]]\n> ```"
 	got := PlainTextForSearch(body)
@@ -273,8 +297,7 @@ func TestPlainTextForSearch_WikiImageInBlockQuotedCodeBlock(t *testing.T) {
 	}
 }
 
-// Bug 2: the fence-OPENING line is processed by inline patterns because fence==nil
-// at the time of the if-check (nextFence is computed first but not yet assigned).
+// 开始围栏这一行本身不执行行内图片替换，后续代码文字也保持原样。
 func TestApplyInlinePatternsOutsideFences_FenceOpenLineNotProcessed(t *testing.T) {
 	input := "```![[img.png]]\ncurl\n```"
 	got := applyInlinePatternsOutsideFences(input)
@@ -287,6 +310,7 @@ func TestApplyInlinePatternsOutsideFences_FenceOpenLineNotProcessed(t *testing.T
 	}
 }
 
+// FromBody 处理无前置字段的正文，组合清理 HTML 与普通链接并保留可读文字。
 func TestFromBody_StripsHTMLAndMarkdown(t *testing.T) {
 	body := "<p><strong>Bold</strong> [link](https://example.com)</p>"
 	got := FromBody(body)

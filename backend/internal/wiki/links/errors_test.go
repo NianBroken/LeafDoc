@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestRespondWithLinkError_PageNotFound 精确核对页面缺失的 404 状态和结构化错误内容。
 func TestRespondWithLinkError_PageNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -33,6 +34,7 @@ func TestRespondWithLinkError_PageNotFound(t *testing.T) {
 	}
 }
 
+// TestRespondWithLinkError_ServiceUnavailable 检查未配置服务的标准 503 响应。
 func TestRespondWithLinkError_ServiceUnavailable(t *testing.T) {
 	t.Parallel()
 
@@ -51,6 +53,7 @@ func TestRespondWithLinkError_ServiceUnavailable(t *testing.T) {
 	}
 }
 
+// TestRespondWithLinkError_InternalErrorIsSanitized 确认存储关闭等内部细节不写入对外错误体。
 func TestRespondWithLinkError_InternalErrorIsSanitized(t *testing.T) {
 	t.Parallel()
 

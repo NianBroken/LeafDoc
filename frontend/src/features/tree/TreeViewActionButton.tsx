@@ -1,3 +1,4 @@
+// 统一树工具栏按钮的提示、可访问名称和测试标识，并阻止点击继续冒泡到树行。
 import { TooltipWrapper } from '@/shared/components/TooltipWrapper'
 import { ComponentPropsWithoutRef, forwardRef } from 'react'
 
@@ -22,6 +23,7 @@ export const TreeViewActionButton = forwardRef<
           ref={ref}
           type={type}
           onClick={(e) => {
+            // 先执行调用方动作，再阻止事件到达父级；不阻止按钮本身的默认行为。
             onClick?.(e)
             e.stopPropagation()
           }}

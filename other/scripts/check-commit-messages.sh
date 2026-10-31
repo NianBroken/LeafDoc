@@ -1,7 +1,6 @@
 #!/bin/bash
-# Fails when a non-merge commit in the given range doesn't have a Conventional
-# Commit subject (CONTRIBUTING.md#commit-style). Rebase merges keep these
-# commits on main, and other/scripts/changelog.sh groups the release notes by type.
+# 检查指定提交范围内非合并提交的标题是否符合项目约定格式。
+# 输出供工作流使用时转义百分号、回车和换行，避免特殊字符被解释为命令。
 #
 # Usage: other/scripts/check-commit-messages.sh <base>..<head>
 set -euo pipefail
@@ -14,10 +13,10 @@ RANGE="$1"
 
 TYPES='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
 CONVENTIONAL="^(${TYPES})(\([A-Za-z0-9][A-Za-z0-9._/-]*\))?!?: [^ ]"
-# GitHub's "Revert" button produces `Revert "<original subject>"`.
+# 允许 GitHub 撤销按钮生成的 Revert 标题格式。
 GITHUB_REVERT='^Revert ".+"$'
 
-# Workflow commands treat %, CR and LF specially in the message.
+# 工作流命令对百分号、回车和换行有特殊处理，逐项编码后输出。
 escape() {
     local s="${1//'%'/'%25'}"
     s="${s//$'\r'/'%0D'}"

@@ -41,6 +41,9 @@ import (
 	wikitags "github.com/NianBroken/LeafDoc/internal/wiki/tags"
 )
 
+// Wiki 汇集当前实例的核心服务、业务路由及后台重建任务生命周期。
+// 构造过程按依赖顺序初始化服务，路由层通过这些共享实例读取或修改内容。
+// reloadMu 串行化显式重建流程，reloadWG 跟踪后台任务，关闭上下文通知支持取消的阶段退出。
 type Wiki struct {
 	tree              *tree.TreeService
 	slug              *tree.SlugService
@@ -57,7 +60,7 @@ type Wiki struct {
 	status            *search.IndexingStatus
 	storageDir        string
 
-	// Domain route registrars (populated by NewWiki).
+	// 领域路由由启动阶段装配；快照、恢复和实例设置路由另由外部入口注入。
 	pagesRoutes            *wikipages.Routes
 	authRoutes             *wikiauth.Routes
 	assetsRoutes           *wikiassets.Routes
@@ -90,26 +93,31 @@ type Wiki struct {
 	metrics                *httpmetrics.HTTPMetrics
 }
 
+// SYSTEM_USER_ID 是系统建立基线历史时记录的作者标识，不表示当前登录用户。
 const SYSTEM_USER_ID = "system"
 
+// WikiOptions 提供核心服务构造参数，不在该结构体内读取环境或设置默认值。
+// 各服务分别执行自己的初始化及约束检查，已有管理员不因构造参数而直接重置。
 type WikiOptions struct {
-	StorageDir              string        // Path to storage directory
-	AdminUsername           string        // Initial admin username (optional; defaults to "admin")
-	AdminEmail              string        // Initial admin email (optional; defaults to "admin@localhost")
-	AdminPassword           string        // Initial admin password
-	JWTSecret               string        // JWT secret for authentication
-	AccessTokenTimeout      time.Duration // Access token timeout duration
-	RefreshTokenTimeout     time.Duration // Refresh token timeout duration
-	EnableRevision          bool          // Whether revision recording/storage is enabled
-	EnableAPIKeyManagement  bool          // Whether the experimental API key management feature is enabled
-	MaxRevisionHistory      int           // Max revisions kept per page; 0 = unlimited
-	EditorLimit             int           // Max admin+editor users allowed; 0 = unlimited
-	MaxAssetUploadSizeBytes int64         // Maximum allowed size in bytes for asset/import uploads; 0 = default
-	RevisionCoalesceWindow  time.Duration // Window for coalescing rapid successive saves; 0 = disabled
-	SMTP                    email.Config  // SMTP config for password-reset/invite email; SMTP.Enabled()==false disables the feature entirely
+	StorageDir              string        // 存储根目录，供各服务定位数据及资源。
+	AdminUsername           string        // 初始化管理员时使用的用户名。
+	AdminEmail              string        // 初始化管理员时使用的邮箱。
+	AdminPassword           string        // 初始化管理员时使用的密码，不在这里写入日志。
+	JWTSecret               string        // 会话管理器签发与验证令牌所用的密钥。
+	AccessTokenTimeout      time.Duration // 访问令牌有效期。
+	RefreshTokenTimeout     time.Duration // 刷新令牌有效期。
+	EnableRevision          bool          // 是否构造页面历史服务并建立基线。
+	EnableAPIKeyManagement  bool          // 是否构造 API 密钥存储与鉴权服务。
+	MaxRevisionHistory      int           // 交给历史服务的每页保留数量限制。
+	EditorLimit             int           // 交给用户服务的管理员及编辑者数量限制。
+	MaxAssetUploadSizeBytes int64         // 交给导入服务的资源及导入上传字节限制。
+	RevisionCoalesceWindow  time.Duration // 交给历史服务的连续保存合并窗口。
+	SMTP                    email.Config  // 邮件配置未启用时不构造邮件令牌存储与服务。
 	Metrics                 *httpmetrics.HTTPMetrics
 }
 
+// NewWiki 建立关闭上下文并执行启动流程，成功后返回可供路由装配的实例。
+// options 必须非空；任一步失败时调用 Close 清理已经初始化的资源，并返回原始启动错误。
 func NewWiki(options *WikiOptions) (*Wiki, error) {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	w := &Wiki{
@@ -121,8 +129,7 @@ func NewWiki(options *WikiOptions) (*Wiki, error) {
 		metrics:        options.Metrics,
 	}
 	if err := w.boot(options); err != nil {
-		// Close what the steps before the failing one opened: a leaked
-		// database handle keeps the file locked on Windows.
+		// 启动中断时仍需关闭前面步骤取得的存储句柄，清理失败单独记录而不替换启动错误。
 		if closeErr := w.Close(); closeErr != nil {
 			w.log.Error("error closing partially initialized wiki", "error", closeErr)
 		}
@@ -131,6 +138,9 @@ func NewWiki(options *WikiOptions) (*Wiki, error) {
 	return w, nil
 }
 
+// boot 先建立账号与内容服务，再构建派生索引、品牌资源、默认文档与可选历史。
+// 同步初始化错误立即返回，服务内部明确记录后继续的索引错误不在这里转换成失败。
+// 搜索初始索引在后台运行，boot 返回不表示该索引已经完成。
 func (w *Wiki) boot(options *WikiOptions) error {
 	if err := w.initAuth(options); err != nil {
 		return err
@@ -163,7 +173,7 @@ func (w *Wiki) boot(options *WikiOptions) error {
 	if err := w.initAvatarService(); err != nil {
 		return err
 	}
-	// Default documents exist before the revision service records their baseline.
+	// 默认文档先落入树中，再建立历史服务并为当前页面记录基线。
 	if err := w.EnsureDefaultDocuments(); err != nil {
 		return err
 	}
@@ -180,28 +190,23 @@ func (w *Wiki) boot(options *WikiOptions) error {
 	return nil
 }
 
-// AuthService returns the authentication service.
+// AuthService 返回当前鉴权服务，供路由和恢复配置复用同一会话入口。
 func (w *Wiki) AuthService() *auth.AuthService {
 	return w.auth
 }
 
-// BrandingService returns the branding service.
+// BrandingService 返回当前品牌服务，供首屏配置及品牌设置路由使用。
 func (w *Wiki) BrandingService() *branding.BrandingService {
 	return w.branding
 }
 
-// ─── Service getters (test infrastructure) ───────────────────────────────────
-
+// GetStorageDir 返回构造时保存的存储根目录，不进行清理或绝对路径转换。
 func (w *Wiki) GetStorageDir() string {
 	return w.storageDir
 }
 
-// UserService returns the current *auth.UserService: AuthService's live,
-// restore-swap-tracking one when auth is enabled (see AuthService.UserService),
-// falling back to the UserService constructed in initAuth when auth is
-// disabled — in that mode there's no AuthService and, per
-// internal/core/restore/manager.go's AuthService-nil guards, a live restore never
-// swaps this store either, so the fallback is never stale.
+// UserService 优先从鉴权服务获取当前用户服务，跟随恢复过程替换后的用户存储。
+// 鉴权服务尚未建立时返回初始化阶段保存的用户服务，供启动期解析器使用。
 func (w *Wiki) UserService() *auth.UserService {
 	if w.auth != nil {
 		return w.auth.UserService()
@@ -209,38 +214,40 @@ func (w *Wiki) UserService() *auth.UserService {
 	return w.user
 }
 
-// UserResolver returns the author-label resolver shared across page/tag/
-// property routes and the user-management use cases.
+// UserResolver 返回各页面、标签、属性及账号用例共享的作者名称解析器。
 func (w *Wiki) UserResolver() *auth.UserResolver {
 	return w.userResolver
 }
 
-// APIKeyService returns the API key service used for Bearer authentication.
+// APIKeyService 返回 Bearer 密钥服务，未启用相应功能时为空。
 func (w *Wiki) APIKeyService() *auth.APIKeyService {
 	return w.apiKeys
 }
 
-// Favorites returns the favorites store, e.g. for wiring into restore.Config.
+// Favorites 返回收藏存储，供页面用例与恢复配置引用同一存储实例。
 func (w *Wiki) Favorites() *favorites.FavoritesStore {
 	return w.favorites
 }
 
+// EmailTokenService 返回邮件令牌服务，邮件功能未启用时为空。
 func (w *Wiki) EmailTokenService() *auth.EmailTokenService {
 	return w.emailTokenService
 }
 
+// Close 通知后台重建退出并等待其结束，然后逐项关闭当前持有的存储。
+// 某个关闭操作失败不妨碍其余存储继续关闭，最终通过 errors.Join 汇总全部关闭错误。
+// 实例必须具备构造阶段建立的关闭函数，不支持未初始化的 Wiki 零值。
 func (w *Wiki) Close() error {
-	w.shutdownCancel() // signal in-flight reloads to abort
-	w.reloadWG.Wait()  // drain goroutines before closing stores
+	w.shutdownCancel() // 通知使用关闭上下文的索引或重建阶段取消。
+	w.reloadWG.Wait()  // 后台任务结束后再关闭其使用的存储。
 	if w.status != nil {
 		w.status.Finish()
 	}
 
-	// Close every store even when an earlier one fails, so no handle is
-	// leaked. Fields stay nil when NewWiki failed before reaching them.
+	// 初始化尚未到达的字段保持为空，按字段检查使失败启动也可使用同一清理路径。
 	var errs []error
 	if w.auth != nil {
-		// When auth is enabled, AuthService owns both the session store and user store.
+		// 鉴权服务负责关闭会话与用户存储，避免再通过 w.user 重复关闭。
 		if err := w.auth.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close auth: %w", err))
 		}
@@ -257,7 +264,7 @@ func (w *Wiki) Close() error {
 	}
 
 	if w.emailTokenService != nil {
-		w.emailTokenService.Close() // drains in-flight fire-and-forget password-reset sends
+		w.emailTokenService.Close() // 等待异步密码重置邮件发送结束，再关闭邮件令牌存储。
 	}
 	if w.emailTokenStore != nil {
 		if err := w.emailTokenStore.Close(); err != nil {

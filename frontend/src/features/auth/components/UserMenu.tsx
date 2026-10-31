@@ -1,3 +1,4 @@
+// 此菜单根据会话展示登录按钮或头像入口，并连接设置、快捷键帮助与登出操作。
 import {
   Avatar,
   AvatarFallback,
@@ -28,6 +29,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { RoleGuard } from '@/features/auth/components/RoleGuard'
 
+// 头像地址携带版本以跟随上传变化，菜单权限与页面只读状态分别由共享规则计算。
 export default function UserMenu() {
   const { t } = useTranslation('auth')
   const user = useSessionStore((s) => s.user)
@@ -42,6 +44,7 @@ export default function UserMenu() {
   const loginUrl = useConfigStore((s) => s.loginUrl)
 
   useEffect(() => {
+    // 仅已登录且非只读时注册帮助快捷键，依赖变化或卸载时按引用注销。
     if (!user || readOnly) {
       return
     }
@@ -55,6 +58,7 @@ export default function UserMenu() {
   }, [openDialog, readOnly, registerHotkey, unregisterHotkey, user])
 
   if (!user) {
+    // 外部登录地址存在时离开当前页面，否则使用应用内路由进入登录表单。
     return (
       <div className="user-menu">
         <Button
@@ -71,13 +75,13 @@ export default function UserMenu() {
 
   const handleLogout = async () => {
     if (logoutUrl) {
-      // Redirect immediately instead of clearing local session state first —
-      // clearing it here would flash the local login screen before the
-      // browser navigates away (see plans/logout-flash-and-external-user-management.md).
+      // 发起退出请求后立即跳转，不等待请求结束；logout 的 finally 仍会清空本地会话。
+      // 此分支不向用户展示退出请求失败，跳转动作与请求结果独立。
       authAPI.logout().catch(() => {})
       redirectToExternal(logoutUrl)
       return
     }
+    // 内置退出等待请求完成才导航，请求失败仍由 API 清空会话，但不会执行下一行导航。
     await authAPI.logout()
     navigate('/login')
   }
@@ -112,6 +116,7 @@ export default function UserMenu() {
               {i18next.t('shortcutsHelp.menuItem', { ns: 'viewer' })}
             </DropdownMenuItem>
           </RoleGuard>
+          {/* 代理认证只有配置外部退出地址才显示退出项，避免本地退出后代理立即重建会话。 */}
           {(!httpRemoteUserEnabled || logoutUrl) && (
             <DropdownMenuItem
               className="cursor-pointer"

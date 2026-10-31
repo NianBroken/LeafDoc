@@ -25,6 +25,9 @@ import (
 	wikitags "github.com/NianBroken/LeafDoc/internal/wiki/tags"
 )
 
+// buildRoutes 为各领域构造用例与路由对象，此时不向 Gin 引擎注册具体 URL。
+// 大部分路由共享已经初始化的服务，健康检查共享搜索状态，同步路由共享后台任务对象。
+// 快照、恢复及实例设置路由由外部设置入口另行提供。
 func (w *Wiki) buildRoutes(options *WikiOptions) {
 	w.pagesRoutes = w.buildPagesRoutes()
 	w.authRoutes = w.buildAuthRoutes()
@@ -51,8 +54,8 @@ func (w *Wiki) buildRoutes(options *WikiOptions) {
 	)
 }
 
-// ─── Domain route builder helpers ────────────────────────────────────────────
-
+// newPageOrchestrator 按搜索、链接、历史、标签、属性的顺序建立页面保存附带处理。
+// 每个处理器引用已有服务并接入同一日志与指标，未启用的历史服务以空值传递。
 func (w *Wiki) newPageOrchestrator() *pagesave.PageSaveOrchestrator {
 	return pagesave.NewPageSaveOrchestrator(
 		w.metrics,
@@ -64,6 +67,8 @@ func (w *Wiki) newPageOrchestrator() *pagesave.PageSaveOrchestrator {
 	)
 }
 
+// buildPagesRoutes 将页面查询、修改、重构、收藏和作者解析组装到页面领域路由。
+// 常规写用例共用本方法建立的编排器，重构与转换按各自用例直接接收所需服务。
 func (w *Wiki) buildPagesRoutes() *wikipages.Routes {
 	o := w.newPageOrchestrator()
 	return wikipages.NewRoutes(wikipages.RoutesConfig{
@@ -89,6 +94,8 @@ func (w *Wiki) buildPagesRoutes() *wikipages.Routes {
 	})
 }
 
+// buildAuthRoutes 将登录会话、用户管理和邮件凭据流程交给各自用例。
+// 用户与邮件服务使用方法入口动态获取，路由对象不固定保存构造时的用户存储。
 func (w *Wiki) buildAuthRoutes() *wikiauth.Routes {
 	return wikiauth.NewRoutes(wikiauth.RoutesConfig{
 		Login:             wikiauth.NewLoginUseCase(w.auth, w.metrics),
@@ -110,6 +117,8 @@ func (w *Wiki) buildAuthRoutes() *wikiauth.Routes {
 	})
 }
 
+// buildAssetsRoutes 接入页面存在性检查、资源读写和可选历史记录。
+// 文件服务目录直接取资源服务目录，确保文件响应与上传使用同一位置。
 func (w *Wiki) buildAssetsRoutes() *wikiassets.Routes {
 	return wikiassets.NewRoutes(wikiassets.RoutesConfig{
 		Upload:      wikiassets.NewUploadAssetUseCase(w.tree, w.asset, w.revision, w.log),
@@ -122,6 +131,8 @@ func (w *Wiki) buildAssetsRoutes() *wikiassets.Routes {
 	})
 }
 
+// buildRevisionsRoutes 将历史查询、比较、资源读取、完整性检查与恢复用例集中交给历史路由。
+// 单页恢复使用独立保存编排器，使恢复内容继续经过派生索引及其他保存处理。
 func (w *Wiki) buildRevisionsRoutes() *wikirevisions.Routes {
 	return wikirevisions.NewRoutes(wikirevisions.RoutesConfig{
 		ListRevisions:    wikirevisions.NewListRevisionsUseCase(w.revision),
@@ -136,6 +147,7 @@ func (w *Wiki) buildRevisionsRoutes() *wikirevisions.Routes {
 	})
 }
 
+// buildSearchRoutes 将搜索索引、标签及树交给查询用例，状态用例读取后台索引共享状态。
 func (w *Wiki) buildSearchRoutes() *wikisearch.Routes {
 	return wikisearch.NewRoutes(wikisearch.RoutesConfig{
 		Search:            wikisearch.NewSearchUseCase(w.searchIndex, w.tags, w.tree),
@@ -144,6 +156,7 @@ func (w *Wiki) buildSearchRoutes() *wikisearch.Routes {
 	})
 }
 
+// buildLinksRoutes 为链接状态查询提供链接服务与树，为失效链接查询只提供链接服务。
 func (w *Wiki) buildLinksRoutes() *wikilinks.Routes {
 	return wikilinks.NewRoutes(wikilinks.RoutesConfig{
 		GetLinkStatus:  wikilinks.NewGetLinkStatusUseCase(w.links, w.tree),
@@ -152,6 +165,7 @@ func (w *Wiki) buildLinksRoutes() *wikilinks.Routes {
 	})
 }
 
+// buildTagsRoutes 复用标签索引查询列表，按标签取页面时同时接入树和作者名称解析。
 func (w *Wiki) buildTagsRoutes() *wikitags.Routes {
 	return wikitags.NewRoutes(wikitags.RoutesConfig{
 		GetTags:        wikitags.NewGetTagsUseCase(w.tags),
@@ -160,6 +174,7 @@ func (w *Wiki) buildTagsRoutes() *wikitags.Routes {
 	})
 }
 
+// buildPropertiesRoutes 接入属性键查询及按属性取页面的用例，页面结果共用作者解析器。
 func (w *Wiki) buildPropertiesRoutes() *wikiproperties.Routes {
 	return wikiproperties.NewRoutes(wikiproperties.RoutesConfig{
 		GetPropertyKeys:    wikiproperties.NewGetPropertyKeysUseCase(w.props),
@@ -168,6 +183,8 @@ func (w *Wiki) buildPropertiesRoutes() *wikiproperties.Routes {
 	})
 }
 
+// buildBrandingRoutes 将品牌配置及标识、图标文件的读写统一绑定同一品牌服务。
+// 路由同时取得服务供品牌文件响应使用，写权限仍由路由注册时的鉴权规则决定。
 func (w *Wiki) buildBrandingRoutes() *wikibranding.Routes {
 	return wikibranding.NewRoutes(wikibranding.RoutesConfig{
 		GetBranding:     wikibranding.NewGetBrandingUseCase(w.branding),
@@ -182,6 +199,7 @@ func (w *Wiki) buildBrandingRoutes() *wikibranding.Routes {
 	})
 }
 
+// buildAvatarRoutes 让上传与删除共用头像服务，账号查询使用动态用户服务入口。
 func (w *Wiki) buildAvatarRoutes() *wikiavatar.Routes {
 	return wikiavatar.NewRoutes(wikiavatar.RoutesConfig{
 		UserService:   w.UserService,
@@ -192,6 +210,8 @@ func (w *Wiki) buildAvatarRoutes() *wikiavatar.Routes {
 	})
 }
 
+// buildAPIKeysRoutes 将创建、列出和撤销用例绑定同一密钥服务。
+// 服务未启用时仍构造路由对象，功能是否挂载由对应路由的配置规则处理。
 func (w *Wiki) buildAPIKeysRoutes() *wikiapikeys.Routes {
 	return wikiapikeys.NewRoutes(wikiapikeys.RoutesConfig{
 		CreateAPIKey: wikiapikeys.NewCreateAPIKeyUseCase(w.apiKeys),
@@ -201,6 +221,8 @@ func (w *Wiki) buildAPIKeysRoutes() *wikiapikeys.Routes {
 	})
 }
 
+// buildImporterRoutes 在存储根目录的 .importer 下保存当前计划及临时工作区。
+// 规划器通过适配器访问现有页面与资源，并复用忽略规则缓存；执行由导入服务统一协调。
 func (w *Wiki) buildImporterRoutes(options *WikiOptions) *wikiimporter.Routes {
 	importerDir := filepath.Join(options.StorageDir, ".importer")
 	adapter := NewWikiImportAdapter(w)
@@ -220,9 +242,8 @@ func (w *Wiki) buildImporterRoutes(options *WikiOptions) *wikiimporter.Routes {
 	})
 }
 
-// ─── Registrars / FrontendConfig ─────────────────────────────────────────────
-
-// Registrars returns all domain route registrars in registration order.
+// Registrars 按声明顺序返回基础领域路由，再追加已配置的快照、恢复与实例设置路由。
+// 返回的是当次建立的切片，设置可选路由后需要重新取得该列表才能看到对应对象。
 func (w *Wiki) Registrars() []httpinternal.RouteRegistrar {
 	registrars := []httpinternal.RouteRegistrar{
 		w.authRoutes,
@@ -253,24 +274,23 @@ func (w *Wiki) Registrars() []httpinternal.RouteRegistrar {
 	return registrars
 }
 
-// SetBackupRoutes sets the backup routes and must be called before router creation.
-
-// SetSnapshotRoutes sets the full-backup (snapshot) routes and must be called before router creation.
+// SetSnapshotRoutes 保存完整快照路由，应在取得注册器并构造 HTTP 路由之前调用。
 func (w *Wiki) SetSnapshotRoutes(r *wikisnapshot.Routes) {
 	w.snapshotRoutes = r
 }
 
-// SetRestoreRoutes sets the live-restore routes and must be called before router creation.
+// SetRestoreRoutes 保存在线恢复路由，不自动向已经构造的 HTTP 引擎注册地址。
 func (w *Wiki) SetRestoreRoutes(r *wikirestore.Routes) {
 	w.restoreRoutes = r
 }
 
-// SetInstanceSettingsRoutes sets the runtime instance-settings routes and must be called before router creation.
+// SetInstanceSettingsRoutes 保存运行期设置路由，供下一次取得注册器列表时追加。
 func (w *Wiki) SetInstanceSettingsRoutes(r *wikiinstancesettings.Routes) {
 	w.instanceSettingsRoutes = r
 }
 
-// FrontendConfig returns the minimal runtime data required by the router to serve the SPA.
+// FrontendConfig 提供存储位置与三个动态品牌回调，供 HTML 首屏渲染使用。
+// 各回调分别读取品牌配置，错误或空结果返回空字符串，由 HTTP 层采用自己的回退值。
 func (w *Wiki) FrontendConfig() httpinternal.FrontendConfig {
 	return httpinternal.FrontendConfig{
 		StorageDir: w.storageDir,

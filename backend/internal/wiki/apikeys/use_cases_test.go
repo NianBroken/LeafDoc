@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// TestCreateAPIKey_NilServiceReturnsAPIKeysDisabled 确认服务缺失优先于输入处理且返回同一哨兵错误。
 func TestCreateAPIKey_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
 	uc := NewCreateAPIKeyUseCase(nil)
 	_, err := uc.Execute(context.Background(), CreateAPIKeyInput{Name: "k", UserID: "u1", CreatedBy: "admin1"})
@@ -13,6 +14,7 @@ func TestCreateAPIKey_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
 	}
 }
 
+// TestListAPIKeys_NilServiceReturnsAPIKeysDisabled 确认列表入口不会解引用空服务。
 func TestListAPIKeys_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
 	uc := NewListAPIKeysUseCase(nil)
 	_, err := uc.Execute(context.Background())
@@ -21,6 +23,7 @@ func TestListAPIKeys_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
 	}
 }
 
+// TestRevokeAPIKey_NilServiceReturnsAPIKeysDisabled 确认撤销入口与创建、列表采用相同关闭语义。
 func TestRevokeAPIKey_NilServiceReturnsAPIKeysDisabled(t *testing.T) {
 	uc := NewRevokeAPIKeyUseCase(nil)
 	err := uc.Execute(context.Background(), RevokeAPIKeyInput{ID: "k1"})

@@ -1,3 +1,4 @@
+// 本文件用真实管理页面验证加载状态、所属用户映射、撤销状态与确认框参数。
 import '@/shared/lib/i18n'
 import { DIALOG_DELETE_API_KEY_CONFIRMATION } from '@/shared/lib/registries/instances'
 import { useApiKeyStore } from '@/features/apikeys/state/apikeys'
@@ -29,6 +30,7 @@ import * as apiKeyAPI from '@/shared/lib/api/apikeys'
 import * as userAPI from '@/shared/lib/api/users'
 
 describe('ApiKeysManagement', () => {
+  // 清空两个列表和全局对话框，防止上一场景的数据影响加载与空列表判断。
   beforeEach(() => {
     useApiKeyStore.setState({ apiKeys: [] })
     useUserStore.setState({ users: [] })
@@ -41,6 +43,7 @@ describe('ApiKeysManagement', () => {
   })
 
   it('shows a loading state then the empty state when there are no keys', async () => {
+    // 请求异步完成前展示加载文字，两个空结果完成后切换为空列表说明。
     ;(apiKeyAPI.getApiKeys as ReturnType<typeof vi.fn>).mockResolvedValue([])
     ;(userAPI.getUsers as ReturnType<typeof vi.fn>).mockResolvedValue([])
 
@@ -53,6 +56,7 @@ describe('ApiKeysManagement', () => {
   })
 
   it('renders the list of keys with the owning username resolved', async () => {
+    // 密钥和用户通过相同 userId 关联，角色显示使用翻译而非原始小写值。
     ;(apiKeyAPI.getApiKeys as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
         id: 'k1',
@@ -83,6 +87,7 @@ describe('ApiKeysManagement', () => {
   })
 
   it('shows "Revoked" instead of the revoke action for an already-revoked key', async () => {
+    // 撤销时间存在时使用状态文字，不向该行提供再次撤销的按钮。
     ;(apiKeyAPI.getApiKeys as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
         id: 'k1',
@@ -104,6 +109,7 @@ describe('ApiKeysManagement', () => {
   })
 
   it('clicking Revoke opens the delete confirmation dialog for that key', async () => {
+    // 点击仅修改全局对话框状态，核对名称与标识均来自选中记录。
     const user = userEvent.setup()
     ;(apiKeyAPI.getApiKeys as ReturnType<typeof vi.fn>).mockResolvedValue([
       {

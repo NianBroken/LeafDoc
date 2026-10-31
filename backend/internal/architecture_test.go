@@ -1,3 +1,5 @@
+// 本文件从非测试 Go 文件的导入声明检查分层依赖，不执行领域业务。
+// 扫描不按构建标签筛选，因此平台专用生产文件也参与边界检查。
 package internal_test
 
 import (
@@ -14,14 +16,14 @@ import (
 
 const modulePath = "github.com/NianBroken/LeafDoc/"
 
-// allowedSliceImports lists the internal/wiki slices other slices may import.
-// pagesave is the shared page-mutation pipeline every mutating slice uses.
+// allowedSliceImports 精确列出可被其他 Wiki 功能模块导入的共享包路径。
+// pagesave 提供共用页面写入流程，清单不自动允许其任意子包。
 var allowedSliceImports = map[string]bool{
 	"internal/wiki/pagesave": true,
 }
 
-// TestArchitecture_ImportBoundaries_FollowLayerRules enforces the layer rules
-// from docs/development/architecture.md.
+// TestArchitecture_ImportBoundaries_FollowLayerRules 枚举生产导入并逐边检查，
+// 将违规结果排序后报告，使输出顺序不受映射遍历顺序影响。
 func TestArchitecture_ImportBoundaries_FollowLayerRules(t *testing.T) {
 	imports := collectProductionImports(t, ".")
 	if len(imports) == 0 {
@@ -44,9 +46,8 @@ func TestArchitecture_ImportBoundaries_FollowLayerRules(t *testing.T) {
 	}
 }
 
-// violation returns why pkg must not import dep, or "" if the import is fine.
-// Both are module-relative paths like "internal/core/tree"; dep may also be a
-// third-party import path.
+// violation 返回首个适用层级规则的违规原因，空值表示导入被接受。
+// 本模块路径已去除模块前缀，第三方依赖保持完整路径。
 func violation(pkg, dep string) string {
 	switch {
 	case isUnder(pkg, "internal/core"):
@@ -75,11 +76,12 @@ func violation(pkg, dep string) string {
 	return ""
 }
 
+// isUnder 只接受根包或带斜线的后代，避免同名前缀包被误归类。
 func isUnder(pkg, root string) bool {
 	return pkg == root || strings.HasPrefix(pkg, root+"/")
 }
 
-// sliceOf returns "internal/wiki/<slice>" for any package inside a slice.
+// sliceOf 取前三段作为 Wiki 功能标识，更深子包归入同一功能模块。
 func sliceOf(pkg string) string {
 	parts := strings.SplitN(pkg, "/", 4)
 	if len(parts) < 3 {
@@ -88,9 +90,9 @@ func sliceOf(pkg string) string {
 	return strings.Join(parts[:3], "/")
 }
 
-// collectProductionImports maps every package under root (module-relative,
-// e.g. "internal/core/tree") to the imports of its non-test files. Module
-// imports are returned module-relative, others unchanged.
+// collectProductionImports 只解析非测试 Go 文件的导入，跳过 testdata、dist 和隐藏子目录。
+// 目录转换为 internal 下的包路径，当前模块导入去掉模块前缀，其他导入保持原文。
+// 无导入包也登记空项，遍历与解析失败直接使测试失败。
 func collectProductionImports(t *testing.T, root string) map[string][]string {
 	t.Helper()
 	result := map[string][]string{}
@@ -138,6 +140,8 @@ func collectProductionImports(t *testing.T, root string) map[string][]string {
 	return result
 }
 
+// TestArchitecture_Violation_DetectsForbiddenImports 用允许和拒绝的具体导入组合，
+// 验证核心层、HTTP 层、组装层、功能子包和共享 pagesave 的边界。
 func TestArchitecture_Violation_DetectsForbiddenImports(t *testing.T) {
 	cases := []struct {
 		pkg, dep      string

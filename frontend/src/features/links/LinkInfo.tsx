@@ -28,8 +28,7 @@ export function BacklinkInfo() {
   const clear = useLinkStatusStore((s) => s.clear)
 
   useEffect(() => {
-    // Clear link status when there is no page or the link metadata section is hidden,
-    // and fetch link status when a page is selected and the section is visible.
+    // 没有当前页面或配置隐藏链接信息时清空旧状态，目标页面可见时按页面 ID 请求链接数据。
     if (!pageID || hideLinkMetadataSection) {
       clear()
       return

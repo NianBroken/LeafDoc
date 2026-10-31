@@ -15,9 +15,8 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
-// ─── DTO types ───────────────────────────────────────────────────────────────
-
-// RevisionResponse is the JSON representation of a revision.
+// RevisionResponse 将历史元数据转换为 HTTP 字段，时间为文本，作者标签按当前缓存解析。
+// 内容及资源以摘要标识，正文与资源清单另放在快照响应中。
 type RevisionResponse struct {
 	ID                string              `json:"id"`
 	PageID            string              `json:"pageId"`
@@ -39,7 +38,7 @@ type RevisionResponse struct {
 	Summary           string              `json:"summary,omitempty"`
 }
 
-// RevisionAssetResponse is the JSON representation of a revision asset.
+// RevisionAssetResponse 提供历史资源名称、内容摘要、字节数与可选类型，不暴露磁盘路径。
 type RevisionAssetResponse struct {
 	Name      string `json:"name"`
 	SHA256    string `json:"sha256"`
@@ -47,20 +46,20 @@ type RevisionAssetResponse struct {
 	MIMEType  string `json:"mimeType,omitempty"`
 }
 
-// RevisionSnapshotResponse is the JSON representation of a revision snapshot.
+// RevisionSnapshotResponse 将版本信息、历史正文与资源清单组合为一个快照。
 type RevisionSnapshotResponse struct {
 	Revision *RevisionResponse       `json:"revision"`
 	Content  string                  `json:"content"`
 	Assets   []RevisionAssetResponse `json:"assets"`
 }
 
-// RevisionAssetDeltaResponse is the JSON representation of an asset delta.
+// RevisionAssetDeltaResponse 按名称给出服务计算的资源变化状态，不在响应层重算差异。
 type RevisionAssetDeltaResponse struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
 }
 
-// RevisionComparisonResponse is the JSON representation of a revision comparison.
+// RevisionComparisonResponse 同时返回两个快照、正文变化标记和资源变化列表。
 type RevisionComparisonResponse struct {
 	Base           *RevisionSnapshotResponse    `json:"base"`
 	Target         *RevisionSnapshotResponse    `json:"target"`
@@ -68,8 +67,7 @@ type RevisionComparisonResponse struct {
 	AssetChanges   []RevisionAssetDeltaResponse `json:"assetChanges"`
 }
 
-// ─── DTO mapper functions ─────────────────────────────────────────────────────
-
+// formatTime 将零时间映射为空文本，其他时间按自身时区格式化为 RFC3339，不强制转为 UTC。
 func formatTime(ts time.Time) string {
 	if ts.IsZero() {
 		return ""
@@ -77,6 +75,8 @@ func formatTime(ts time.Time) string {
 	return ts.Format(time.RFC3339)
 }
 
+// toRevisionResponse 对空版本返回空值，作者解析器缺失或解析失败时仍保留作者标识。
+// 其余字段直接复制，时间字段使用同一零值处理规则。
 func toRevisionResponse(rev *revision.Revision, userResolver *coreauth.UserResolver) *RevisionResponse {
 	if rev == nil {
 		return nil
@@ -107,6 +107,7 @@ func toRevisionResponse(rev *revision.Revision, userResolver *coreauth.UserResol
 	}
 }
 
+// toSnapshotResponse 按原清单顺序复制资源字段，空清单使用可编码为空数组的切片。
 func toSnapshotResponse(snapshot *revision.RevisionSnapshot, userResolver *coreauth.UserResolver) *RevisionSnapshotResponse {
 	if snapshot == nil {
 		return nil
@@ -122,6 +123,7 @@ func toSnapshotResponse(snapshot *revision.RevisionSnapshot, userResolver *corea
 	}
 }
 
+// toComparisonResponse 对两端快照复用同一转换入口，并复制已计算的资源状态与正文标记。
 func toComparisonResponse(cmp *revision.RevisionComparison, userResolver *coreauth.UserResolver) *RevisionComparisonResponse {
 	if cmp == nil {
 		return nil
@@ -138,27 +140,30 @@ func toComparisonResponse(cmp *revision.RevisionComparison, userResolver *coreau
 	}
 }
 
-// ─── ListRevisionsUseCase ────────────────────────────────────────────────────
-
+// ListRevisionsInput 提供页面、分页游标及条数，格式约束由 HTTP 层和历史服务处理。
 type ListRevisionsInput struct {
 	PageID string
 	Cursor string
 	Limit  int
 }
 
+// ListRevisionsOutput 保存当前页版本及继续读取所需游标。
 type ListRevisionsOutput struct {
 	Revisions  []*revision.Revision
 	NextCursor string
 }
 
+// ListRevisionsUseCase 将分页列表查询委托给可选历史服务。
 type ListRevisionsUseCase struct {
 	revision *revision.Service
 }
 
+// NewListRevisionsUseCase 保存服务指针，不在构造时读取页面历史。
 func NewListRevisionsUseCase(r *revision.Service) *ListRevisionsUseCase {
 	return &ListRevisionsUseCase{revision: r}
 }
 
+// Execute 在服务为空时返回空列表，否则保留服务的分页结果与错误，不使用请求上下文。
 func (uc *ListRevisionsUseCase) Execute(_ context.Context, in ListRevisionsInput) (*ListRevisionsOutput, error) {
 	if uc.revision == nil {
 		return &ListRevisionsOutput{Revisions: []*revision.Revision{}}, nil
@@ -170,25 +175,28 @@ func (uc *ListRevisionsUseCase) Execute(_ context.Context, in ListRevisionsInput
 	return &ListRevisionsOutput{Revisions: revs, NextCursor: nextCursor}, nil
 }
 
-// ─── GetRevisionUseCase ──────────────────────────────────────────────────────
-
+// GetRevisionInput 以页面和版本标识定位一个快照。
 type GetRevisionInput struct {
 	PageID     string
 	RevisionID string
 }
 
+// GetRevisionOutput 的空快照交由路由解释为版本不存在。
 type GetRevisionOutput struct {
 	Snapshot *revision.RevisionSnapshot
 }
 
+// GetRevisionUseCase 只读取历史快照，不恢复当前内容。
 type GetRevisionUseCase struct {
 	revision *revision.Service
 }
 
+// NewGetRevisionUseCase 保存快照服务。
 func NewGetRevisionUseCase(r *revision.Service) *GetRevisionUseCase {
 	return &GetRevisionUseCase{revision: r}
 }
 
+// Execute 对空服务返回空输出，其他读取错误原样返回。
 func (uc *GetRevisionUseCase) Execute(_ context.Context, in GetRevisionInput) (*GetRevisionOutput, error) {
 	if uc.revision == nil {
 		return &GetRevisionOutput{}, nil
@@ -200,26 +208,29 @@ func (uc *GetRevisionUseCase) Execute(_ context.Context, in GetRevisionInput) (*
 	return &GetRevisionOutput{Snapshot: snapshot}, nil
 }
 
-// ─── CompareRevisionsUseCase ─────────────────────────────────────────────────
-
+// CompareRevisionsInput 指定同一页面下的基准与目标版本。
 type CompareRevisionsInput struct {
 	PageID           string
 	BaseRevisionID   string
 	TargetRevisionID string
 }
 
+// CompareRevisionsOutput 保存服务形成的快照与资源差异。
 type CompareRevisionsOutput struct {
 	Comparison *revision.RevisionComparison
 }
 
+// CompareRevisionsUseCase 复用历史服务的比较规则，不在此层解析正文差异。
 type CompareRevisionsUseCase struct {
 	revision *revision.Service
 }
 
+// NewCompareRevisionsUseCase 保存比较服务入口。
 func NewCompareRevisionsUseCase(r *revision.Service) *CompareRevisionsUseCase {
 	return &CompareRevisionsUseCase{revision: r}
 }
 
+// Execute 对空服务返回空比较输出，调用方负责将空快照映射为读取结果。
 func (uc *CompareRevisionsUseCase) Execute(_ context.Context, in CompareRevisionsInput) (*CompareRevisionsOutput, error) {
 	if uc.revision == nil {
 		return &CompareRevisionsOutput{}, nil
@@ -231,26 +242,29 @@ func (uc *CompareRevisionsUseCase) Execute(_ context.Context, in CompareRevision
 	return &CompareRevisionsOutput{Comparison: comparison}, nil
 }
 
-// ─── GetRevisionAssetUseCase ─────────────────────────────────────────────────
-
+// GetRevisionAssetInput 在特定页面版本中按资源名定位内容。
 type GetRevisionAssetInput struct {
 	PageID     string
 	RevisionID string
 	AssetName  string
 }
 
+// GetRevisionAssetOutput 包含资源记录及内部字节文件位置，HTTP 层只用位置发送文件。
 type GetRevisionAssetOutput struct {
 	Asset *revision.RevisionAssetContent
 }
 
+// GetRevisionAssetUseCase 查询资源描述与内容位置，不自行打开文件句柄。
 type GetRevisionAssetUseCase struct {
 	revision *revision.Service
 }
 
+// NewGetRevisionAssetUseCase 保存历史资源读取服务。
 func NewGetRevisionAssetUseCase(r *revision.Service) *GetRevisionAssetUseCase {
 	return &GetRevisionAssetUseCase{revision: r}
 }
 
+// Execute 返回服务定位结果，空服务形成空输出，实际打开和关闭文件由响应处理器负责。
 func (uc *GetRevisionAssetUseCase) Execute(_ context.Context, in GetRevisionAssetInput) (*GetRevisionAssetOutput, error) {
 	if uc.revision == nil {
 		return &GetRevisionAssetOutput{}, nil
@@ -262,24 +276,27 @@ func (uc *GetRevisionAssetUseCase) Execute(_ context.Context, in GetRevisionAsse
 	return &GetRevisionAssetOutput{Asset: asset}, nil
 }
 
-// ─── GetLatestRevisionUseCase ────────────────────────────────────────────────
-
+// GetLatestRevisionInput 指定要读取最新版本的页面。
 type GetLatestRevisionInput struct {
 	PageID string
 }
 
+// GetLatestRevisionOutput 的空版本由路由映射为 404。
 type GetLatestRevisionOutput struct {
 	Revision *revision.Revision
 }
 
+// GetLatestRevisionUseCase 只取得服务选定的最新版本，不修改历史游标。
 type GetLatestRevisionUseCase struct {
 	revision *revision.Service
 }
 
+// NewGetLatestRevisionUseCase 保存历史服务。
 func NewGetLatestRevisionUseCase(r *revision.Service) *GetLatestRevisionUseCase {
 	return &GetLatestRevisionUseCase{revision: r}
 }
 
+// Execute 对缺失服务返回空输出，服务存在时直接转交查找结果及错误。
 func (uc *GetLatestRevisionUseCase) Execute(_ context.Context, in GetLatestRevisionInput) (*GetLatestRevisionOutput, error) {
 	if uc.revision == nil {
 		return &GetLatestRevisionOutput{}, nil
@@ -291,18 +308,19 @@ func (uc *GetLatestRevisionUseCase) Execute(_ context.Context, in GetLatestRevis
 	return &GetLatestRevisionOutput{Revision: rev}, nil
 }
 
-// ─── RestoreRevisionUseCase ──────────────────────────────────────────────────
-
+// RestoreRevisionInput 提供恢复作者与目标页面、版本，权限在路由层检查。
 type RestoreRevisionInput struct {
 	UserID     string
 	PageID     string
 	RevisionID string
 }
 
+// RestoreRevisionOutput 返回恢复后重新读取的当前页面。
 type RestoreRevisionOutput struct {
 	Page *tree.Page
 }
 
+// RestoreRevisionUseCase 将历史恢复和页面保存附带处理放入编排器管理的工作单元。
 type RestoreRevisionUseCase struct {
 	revision     *revision.Service
 	tree         *tree.TreeService
@@ -311,10 +329,14 @@ type RestoreRevisionUseCase struct {
 	metrics      *httpmetrics.HTTPMetrics
 }
 
+// NewRestoreRevisionUseCase 保存恢复、树、事务编排与指标依赖，不立即读取版本。
 func NewRestoreRevisionUseCase(r *revision.Service, t *tree.TreeService, o *pagesave.PageSaveOrchestrator, log *slog.Logger, metrics *httpmetrics.HTTPMetrics) *RestoreRevisionUseCase {
 	return &RestoreRevisionUseCase{revision: r, tree: t, orchestrator: o, log: log, metrics: metrics}
 }
 
+// Execute 在未绑定工作单元时由编排器取得执行器，复制用例并绑定树及历史服务后递归执行。
+// 绑定后的路径恢复版本、读取当前页并提交恢复事件，任何返回错误交由编排器处理事务。
+// 保存指标在绑定路径中记录，因此观察该路径返回错误，不等同于外层提交阶段的最终结果。
 func (uc *RestoreRevisionUseCase) Execute(ctx context.Context, in RestoreRevisionInput) (out *RestoreRevisionOutput, err error) {
 	if !uc.tree.InUnitOfWork() {
 		var result *RestoreRevisionOutput
@@ -330,6 +352,7 @@ func (uc *RestoreRevisionUseCase) Execute(ctx context.Context, in RestoreRevisio
 		return result, err
 	}
 
+	// 命名返回值 err 由 defer 读取，记录本路径耗时与结果。
 	started := time.Now()
 	defer func() {
 		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationRestore), err, started)
@@ -360,24 +383,27 @@ func (uc *RestoreRevisionUseCase) Execute(ctx context.Context, in RestoreRevisio
 	return &RestoreRevisionOutput{Page: page}, nil
 }
 
-// ─── CheckIntegrityUseCase ───────────────────────────────────────────────────
-
+// CheckIntegrityInput 指定要检查历史记录及引用资源完整性的页面。
 type CheckIntegrityInput struct {
 	PageID string
 }
 
+// CheckIntegrityOutput 返回服务发现的问题集合，不把发现问题本身转换为执行错误。
 type CheckIntegrityOutput struct {
 	Issues []revision.RevisionIntegrityIssue
 }
 
+// CheckIntegrityUseCase 为内部调用提供历史完整性检查，当前路由文件未挂载独立接口。
 type CheckIntegrityUseCase struct {
 	revision *revision.Service
 }
 
+// NewCheckIntegrityUseCase 保存历史检查服务。
 func NewCheckIntegrityUseCase(r *revision.Service) *CheckIntegrityUseCase {
 	return &CheckIntegrityUseCase{revision: r}
 }
 
+// Execute 对空服务返回空问题列表，其他情况下保留检查错误或问题结果，不使用请求取消。
 func (uc *CheckIntegrityUseCase) Execute(_ context.Context, in CheckIntegrityInput) (*CheckIntegrityOutput, error) {
 	if uc.revision == nil {
 		return &CheckIntegrityOutput{Issues: []revision.RevisionIntegrityIssue{}}, nil

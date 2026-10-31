@@ -1,3 +1,4 @@
+// 将常用高亮语言与额外语法包合并，并提供多个围栏名称到同一语法的别名。
 import autohotkey from 'highlight.js/lib/languages/autohotkey'
 import bash from 'highlight.js/lib/languages/bash'
 import dockerfile from 'highlight.js/lib/languages/dockerfile'

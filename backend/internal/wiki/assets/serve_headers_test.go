@@ -11,6 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// newAssetServeRouter 将样本写入自动清理的临时目录，再挂载真实静态文件处理与响应头中间件。
+// 此路由只验证文件响应规则，不包含生产路由的登录或公开读取门禁。
 func newAssetServeRouter(t *testing.T, files map[string]string) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -33,12 +35,15 @@ func newAssetServeRouter(t *testing.T, files map[string]string) *gin.Engine {
 	return engine
 }
 
+// getAsset 发出内存 GET 请求，保留状态、内容及响应头供调用方逐项断言。
 func getAsset(engine *gin.Engine, path string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	engine.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec
 }
 
+// TestAssetServeHeaders_ActiveContent_IsForcedDownload 检查实际文件响应对各类活动文档强制下载。
+// 样本中的脚本只是文件内容，不由测试执行；检查范围是 200 状态与三个安全响应头。
 func TestAssetServeHeaders_ActiveContent_IsForcedDownload(t *testing.T) {
 	const payload = `<script>alert(document.domain)</script>`
 	engine := newAssetServeRouter(t, map[string]string{
@@ -47,7 +52,7 @@ func TestAssetServeHeaders_ActiveContent_IsForcedDownload(t *testing.T) {
 		"p1/poc.xhtml": payload,
 		"p1/poc.xml":   payload,
 		"p1/x.svg":     `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`,
-		"p1/noext":     "<html>" + payload + "</html>", // Go sniffs this as text/html
+		"p1/noext":     "<html>" + payload + "</html>", // 无扩展名但内容包含 HTML，仍按下载规则处理。
 	})
 
 	for _, p := range []string{"poc.html", "poc.HTML", "poc.xhtml", "poc.xml", "x.svg", "noext"} {
@@ -67,6 +72,8 @@ func TestAssetServeHeaders_ActiveContent_IsForcedDownload(t *testing.T) {
 	}
 }
 
+// TestAssetServeHeaders_SafeMedia_StaysInline 确认集合内媒体扩展名维持内联及禁止嗅探。
+// 样本只用于文件发送与响应头，不要求具备能够解码播放的完整媒体内容。
 func TestAssetServeHeaders_SafeMedia_StaysInline(t *testing.T) {
 	engine := newAssetServeRouter(t, map[string]string{
 		"p1/doc.pdf":  "%PDF-1.4",

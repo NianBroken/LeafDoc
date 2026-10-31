@@ -1,3 +1,5 @@
+// 本文件把备份解压到数据目录内的暂存区，核对归档条目、摘要和数据库结构，
+// 再以目录改名实现四类资源的替换与回滚。数据库事务由 offline.go 编排。
 package restore
 
 import (
@@ -17,23 +19,25 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
-// backupMeta mirrors internal/core/snapshot's unexported backupMeta struct — the
-// shape written to backup-meta.json inside every snapshot ZIP.
+// backupMeta 对应归档内部的版本元数据，字段与快照写入格式一致。
+// 解码后不在这里校验 ID、创建时间或版本是否匹配当前实例。
 type backupMeta struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"createdAt"`
 	Version   string    `json:"version"`
 }
 
-// Required entries distinguish the versioned MySQL format from older archives.
+// 归档必须具有数据库载荷、版本元数据和校验清单三个入口。
 var requiredZipEntries = []string{"backup-meta.json", "database.json", "checksums.json"}
 
-// extractAndValidate verifies paths, size budgets, checksums and the database format.
-// The returned staging directory is owned and removed by the caller.
+// extractAndValidate 使用默认解压限额完成验证，成功返回的暂存目录由调用方删除。
 func extractAndValidate(zipPath, dataDir string) (stagingDir string, meta backupMeta, err error) {
 	return extractAndValidateWithLimits(zipPath, dataDir, shared.DefaultZipExtractionLimits)
 }
 
+// extractAndValidateWithLimits 先检查条目名称重复和必要入口，再逐项按共享预算解压。
+// 摘要与数据库格式通过后，确保四类资源暂存目录都存在；缺失资源会成为空目录，
+// 因而正常恢复会用空目录替换相应现有资源，不表示保留备份中缺少的资源。
 func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.ExtractionLimits) (stagingDir string, meta backupMeta, err error) {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -41,6 +45,7 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 	}
 	defer func() { _ = r.Close() }()
 
+	// 名称按宿主路径清理、正斜杠和小写形式去重，真正解压仍使用条目的原始名称。
 	present := map[string]bool{}
 	for _, f := range r.File {
 		name := strings.ToLower(filepath.ToSlash(filepath.Clean(f.Name)))
@@ -60,6 +65,7 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 		return "", backupMeta{}, fmt.Errorf("failed to create staging directory: %w", err)
 	}
 
+	// 全部文件共用总字节预算，单文件及压缩比例由每条目的复制工具继续检查。
 	budget := shared.NewSizeBudget(limits.MaxTotalBytes)
 	for _, f := range r.File {
 		if err := extractZipEntry(f, stagingDir, limits, budget); err != nil {
@@ -81,6 +87,7 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 	if err := validateArchive(stagingDir); err != nil {
 		return "", backupMeta{}, errors.Join(err, os.RemoveAll(stagingDir))
 	}
+	// 这些空目录在摘要检查之后创建，不要求空目录本身列在摘要清单中。
 	for _, name := range swapNames {
 		if err := os.MkdirAll(filepath.Join(stagingDir, name), 0o755); err != nil {
 			return "", backupMeta{}, errors.Join(err, os.RemoveAll(stagingDir))
@@ -90,8 +97,9 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 	return stagingDir, meta, nil
 }
 
-// extractZipEntry writes a single zip entry under destDir, rejecting any
-// entry whose path would escape destDir (zip slip).
+// extractZipEntry 使用宿主系统路径规则检查条目，拒绝点路径、双点开头、
+// 绝对路径和相对计算后逃出目标目录的路径。目录直接创建，其他条目按普通文件写入，
+// 不按照归档权限创建符号链接；文件和输入流都延迟关闭，关闭错误不返回。
 func extractZipEntry(f *zip.File, destDir string, limits shared.ExtractionLimits, budget *shared.SizeBudget) error {
 	cleanName := filepath.Clean(f.Name)
 	if cleanName == "." || strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
@@ -129,44 +137,33 @@ func extractZipEntry(f *zip.File, destDir string, limits shared.ExtractionLimits
 	return nil
 }
 
-// swapNames contains only file resources; business data is restored transactionally.
+// 目录交换仅覆盖四类文件资源，业务表通过数据库导入事务恢复。
 var swapNames = []string{"assets", "branding", "avatars", "revision-assets"}
 
-// swapItem is one live path <-> staged path pair.
+// swapItem 记录一个资源的当前路径、暂存路径、旁置旧副本与两步移动进度。
 type swapItem struct {
 	name       string
 	livePath   string
 	stagedPath string
 	preRestore string
-	// movedAside is true once SwapAll has passed the move-aside step for this
-	// item — i.e. either the live path existed and was successfully renamed
-	// to preRestore, or it didn't exist at all (nothing to move aside).
-	// Tracked independently of swapped so that if the *second* rename
-	// (staged -> live) then fails, RollbackAll still knows to check for and
-	// restore a preRestore copy instead of silently leaving the item missing.
+	// 当前路径成功移走或 Stat 未报告存在后设为真，即使第二步移入失败，
+	// 回滚仍需要检查旧副本。此状态与替换资源是否已就位分开保存。
 	movedAside bool
-	// swapped is true once this item's staged replacement was fully moved
-	// into place (implies movedAside; only items present in the staging dir
-	// get swapped at all).
+	// 暂存资源成功移入当前路径后设为真，此时 movedAside 已经为真。
 	swapped bool
 }
 
-// swapper drives the rename-aside/rename-in dance for every restorable item,
-// on both POSIX and Windows (os.Rename isn't atomic-over-an-existing-target
-// on Windows, so this two-step sequence is used uniformly rather than having
-// a separate Windows code path).
+// swapper 逐项先移走当前目录，再移入暂存目录，不要求改名直接覆盖已有目标。
+// 两次文件系统操作不是整体原子操作，进度字段用于失败时尝试恢复。
 type swapper struct {
 	items []*swapItem
-	// rename permits deterministic filesystem failure testing without permission assumptions.
+	// 测试可替换改名函数精确制造失败，回滚入口仍直接使用 os.Rename。
 	rename func(string, string) error
 }
 
-// newSwapper prepares the live<->staged path pairs. Items not present in
-// stagingDir (e.g. an empty assets/ dir at snapshot time, or an older
-// snapshot taken before branding.json was captured) are left untouched by
-// SwapAll rather than cleared — restore only ever brings back what the
-// snapshot actually captured, it never deletes live content the snapshot
-// simply didn't record.
+// newSwapper 生成四组路径及带纳秒时间文本的旧副本名称，不执行移动或预留名称。
+// 历史附件映射到 .leafdoc/blobs/assets，其余资源位于数据目录同名子目录。
+// 正常验证流程会建立所有暂存目录，因此缺失资源以空目录参与交换。
 func newSwapper(dataDir, stagingDir string) *swapper {
 	stamp := time.Now().UTC().Format("20060102T150405.000000000Z")
 	items := make([]*swapItem, 0, len(swapNames))
@@ -185,11 +182,9 @@ func newSwapper(dataDir, stagingDir string) *swapper {
 	return &swapper{items: items}
 }
 
-// SwapAll performs rename-aside then rename-in for every item present in the
-// staging dir, stopping at the first failure. It does not roll back on
-// failure itself — the caller decides how to handle a partial swap (see
-// Manager.rollbackOrIntervene), since the same rollback path is shared with
-// failures from later phases (auth reopen, branding reload).
+// SwapAll 按资源顺序执行两步改名，首个明确失败直接返回，不自行回滚。
+// 暂存路径任意 Stat 错误都会跳过该项，当前路径任意 Stat 错误都会跳过移走步骤；
+// 成功移入后记录 swapped，由调用方在数据库提交失败时选择回滚。
 func (sw *swapper) SwapAll() error {
 	rename := sw.rename
 	if rename == nil {
@@ -197,7 +192,7 @@ func (sw *swapper) SwapAll() error {
 	}
 	for _, item := range sw.items {
 		if _, err := os.Stat(item.stagedPath); err != nil {
-			continue // not captured by this snapshot; leave the live item alone
+			continue // 暂存路径 Stat 失败时保留当前资源，不区分具体错误原因。
 		}
 		if err := os.MkdirAll(filepath.Dir(item.livePath), 0o755); err != nil {
 			return fmt.Errorf("prepare restored resource directory: %w", err)
@@ -218,31 +213,23 @@ func (sw *swapper) SwapAll() error {
 	return nil
 }
 
-// RollbackAll reverses every item SwapAll touched: removes any restored
-// content currently at the live path and moves each .pre-restore-* copy back
-// into place. Driven by movedAside, not swapped — an item whose move-aside
-// succeeded but whose move-in then failed (SwapAll's second rename) has no
-// live content of its own at all right now, but still has a pre-restore copy
-// that must be put back; checking only swapped would skip it and leave the
-// item permanently missing. Best-effort — accumulates every error rather than
-// stopping at the first, so every item still gets attempted even if one fails.
+// RollbackAll 按资源顺序处理 movedAside 为真的项，删除当前路径后尝试把旧副本移回。
+// 某项失败仍继续其他项，并合并错误；旧副本 Stat 的任何错误都按无需移回处理。
+// 只有成功恢复或判定无副本时清空进度，失败项保留标记供调用方识别未完成恢复。
 func (sw *swapper) RollbackAll() error {
 	var errs []error
 	for _, item := range sw.items {
-		// swapped always implies movedAside (SwapAll only ever sets swapped
-		// after movedAside, in the same iteration), so movedAside alone is
-		// the correct "did SwapAll touch this item at all" check.
+		// 第二步移动失败也必须回滚，因此检查 movedAside 而不是只检查 swapped。
 		if !item.movedAside {
 			continue
 		}
-		// Safe no-op if the move-in step never ran (nothing to remove).
+		// 当前路径不存在时 RemoveAll 可成功，已移入资源则在此删除。
 		if err := os.RemoveAll(item.livePath); err != nil {
 			errs = append(errs, fmt.Errorf("%s: failed to remove restored content: %w", item.name, err))
 			continue
 		}
 		if _, statErr := os.Stat(item.preRestore); statErr != nil {
-			// Nothing was renamed aside (the live item didn't exist before
-			// the swap) — nothing to restore, the item is now correctly absent.
+			// 本分支不区分不存在与其他 Stat 错误，直接清空进度并继续。
 			item.movedAside = false
 			item.swapped = false
 			continue
@@ -257,9 +244,8 @@ func (sw *swapper) RollbackAll() error {
 	return errors.Join(errs...)
 }
 
-// CommitAll deletes every .pre-restore-* backup copy. Only call once the
-// entire restore sequence (swap + auth reopen + branding reload) has
-// succeeded — see Manager.runLocked.
+// CommitAll 删除已成功移入项的旧副本，失败记录警告并继续，不返回错误。
+// restoreStaged 在数据库提交成功后调用，在线设置与运行态重载尚在其后执行。
 func (sw *swapper) CommitAll() {
 	for _, item := range sw.items {
 		if !item.swapped {
@@ -271,7 +257,10 @@ func (sw *swapper) CommitAll() {
 	}
 }
 
-// validateArchive checks all extracted bytes before any live resource changes.
+// validateArchive 要求数据库和元数据各有非空摘要，并检查所有非目录文件。
+// 除清单自身外，每个文件都须有匹配 SHA-256，检查后删除对应键，
+// 剩余键表示清单声明了缺失资源。通过后再验证数据库载荷格式。
+// 摘要证明清单与载荷一致，不构成归档来源的签名认证。
 func validateArchive(dir string) error {
 	raw, err := os.ReadFile(filepath.Join(dir, "checksums.json"))
 	if err != nil {

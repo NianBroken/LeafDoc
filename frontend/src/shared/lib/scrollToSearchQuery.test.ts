@@ -4,8 +4,7 @@ import {
   scrollToSearchQuery,
 } from '@/shared/lib/scrollToSearchQuery'
 
-// jsdom has never implemented scrollIntoView; vi.spyOn requires the property
-// to exist on the prototype first (see other tests, e.g. MovePageDialog.test.tsx).
+// jsdom 未实现 scrollIntoView，测试先在原型上提供该属性，vi.spyOn 才能记录调用。
 Element.prototype.scrollIntoView = () => {}
 
 beforeEach(() => {

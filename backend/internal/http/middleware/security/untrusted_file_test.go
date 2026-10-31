@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// TestSetUntrustedFileHeaders_ActiveContent_IsSandboxedDownload 遍历活动文档与无扩展名路径。
+// 每个响应均应禁止嗅探、启用沙箱并要求下载，不通过真实浏览器执行文档。
 func TestSetUntrustedFileHeaders_ActiveContent_IsSandboxedDownload(t *testing.T) {
 	for _, name := range []string{"poc.html", "dir/poc.SVG", "poc.xml", "noext", "/assets/p1/"} {
 		h := http.Header{}
@@ -22,6 +24,8 @@ func TestSetUntrustedFileHeaders_ActiveContent_IsSandboxedDownload(t *testing.T)
 	}
 }
 
+// TestSetUntrustedFileHeaders_Media_IsInlineAndSandboxed 验证大写图片扩展名仍内联展示。
+// 文件名只保留路径末段，图片响应同样带有沙箱策略。
 func TestSetUntrustedFileHeaders_Media_IsInlineAndSandboxed(t *testing.T) {
 	h := http.Header{}
 	SetUntrustedFileHeaders(h, "/assets/p1/Pic.PNG")
@@ -33,6 +37,8 @@ func TestSetUntrustedFileHeaders_Media_IsInlineAndSandboxed(t *testing.T) {
 	}
 }
 
+// TestSetUntrustedFileHeaders_PDF_IsInlineWithoutSandbox 从空响应头开始验证 PDF 内联及沙箱豁免。
+// 禁止内容类型嗅探仍生效，本用例不测试调用方预先设置的沙箱头。
 func TestSetUntrustedFileHeaders_PDF_IsInlineWithoutSandbox(t *testing.T) {
 	h := http.Header{}
 	SetUntrustedFileHeaders(h, "doc.pdf")

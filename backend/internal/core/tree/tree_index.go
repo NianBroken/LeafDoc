@@ -1,13 +1,12 @@
+// 本文件维护节点 ID、标题及父级子 slug 索引，带 Locked 后缀的方法由调用方持锁。
 package tree
 
 import (
 	"strings"
 )
 
-// FindPagesByTitle returns all nodes whose title matches the given string
-// (case-insensitive) in pre-order (depth-first) tree order, so results are
-// stable across calls. Returns nil when the tree is not loaded or the title
-// is empty.
+// FindPagesByTitle 裁去查询标题边缘空白并转小写后读取标题索引，未加载或无结果返回 nil。
+// 返回的是索引切片本身，调用方不应修改；整体重建按前序遍历登记，增量登记按追加次序保存。
 func (t *TreeService) FindPagesByTitle(title string) []*PageNode {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -28,7 +27,7 @@ func (t *TreeService) FindPagesByTitle(title string) []*PageNode {
 	return nodes
 }
 
-// FindPageByID finds a page in the tree by its ID.
+// FindPageByID 持读锁取得结构节点，不加载正文，返回节点仍属于当前内存树。
 func (t *TreeService) FindPageByID(id string) (*PageNode, error) {
 	var result *PageNode
 	err := t.withRLockedTree(func() error {
@@ -47,6 +46,7 @@ func (t *TreeService) FindPageByID(id string) (*PageNode, error) {
 	return result, err
 }
 
+// getNodeByIDLocked 把 root 特殊映射到根节点，空 ID 返回 nil，其余直接查 ID 索引。
 func (t *TreeService) getNodeByIDLocked(id string) *PageNode {
 	if id == "" {
 		return nil
@@ -58,6 +58,8 @@ func (t *TreeService) getNodeByIDLocked(id string) *PageNode {
 	return t.nodesByID[id]
 }
 
+// rebuildIndexesLocked 丢弃旧索引，按当前 Children 次序深度优先重新登记。
+// nil 节点跳过，空 ID 和 root 不进入 ID 与标题索引，所有有效节点都建立子 slug 索引。
 func (t *TreeService) rebuildIndexesLocked() {
 	t.nodesByID = make(map[string]*PageNode)
 	t.nodesByTitle = make(map[string][]*PageNode)
@@ -87,6 +89,7 @@ func (t *TreeService) rebuildIndexesLocked() {
 	walk(t.tree)
 }
 
+// rebuildChildSlugIndexForParentLocked 为父节点重建小写 slug 映射，重复键由后项覆盖。
 func (t *TreeService) rebuildChildSlugIndexForParentLocked(parent *PageNode) {
 	if parent == nil {
 		return
@@ -102,6 +105,7 @@ func (t *TreeService) rebuildChildSlugIndexForParentLocked(parent *PageNode) {
 	t.childSlugs[parent.ID] = index
 }
 
+// addTitleIndexForNodeLocked 将非空标题节点追加到小写标题组，不去重也不裁标题空白。
 func (t *TreeService) addTitleIndexForNodeLocked(node *PageNode) {
 	if node == nil || node.Title == "" {
 		return
@@ -110,6 +114,7 @@ func (t *TreeService) addTitleIndexForNodeLocked(node *PageNode) {
 	t.nodesByTitle[key] = append(t.nodesByTitle[key], node)
 }
 
+// removeTitleIndexForNodeLocked 在对应标题组原切片上过滤相同 ID，空组删除映射键。
 func (t *TreeService) removeTitleIndexForNodeLocked(node *PageNode) {
 	if node == nil || node.Title == "" {
 		return
@@ -129,6 +134,7 @@ func (t *TreeService) removeTitleIndexForNodeLocked(node *PageNode) {
 	}
 }
 
+// indexNodeLocked 登记单节点，并重建该节点和其父级的子 slug 索引，不递归登记后代。
 func (t *TreeService) indexNodeLocked(node *PageNode) {
 	if node == nil {
 		return
@@ -144,6 +150,8 @@ func (t *TreeService) indexNodeLocked(node *PageNode) {
 	}
 }
 
+// removeNodeIndexLocked 递归移除整棵子树的三类索引，结束后重建原父级子 slug 映射。
+// 本方法不修改 Children 切片，调用方须先让父子结构与预期删除结果一致。
 func (t *TreeService) removeNodeIndexLocked(node *PageNode) {
 	if node == nil {
 		return
@@ -170,6 +178,8 @@ func (t *TreeService) removeNodeIndexLocked(node *PageNode) {
 	}
 }
 
+// findChildBySlugInParentLocked 优先用小写索引查找，只有父级没有索引时才线性回退。
+// 索引存在但未命中不会扫描切片，父节点为空直接返回 nil。
 func (t *TreeService) findChildBySlugInParentLocked(parent *PageNode, slug string) *PageNode {
 	if parent == nil {
 		return nil
@@ -188,6 +198,7 @@ func (t *TreeService) findChildBySlugInParentLocked(parent *PageNode, slug strin
 	return nil
 }
 
+// findChildBySlugExactInParentLocked 逐项精确比较 slug，不使用忽略大小写的索引。
 func (t *TreeService) findChildBySlugExactInParentLocked(parent *PageNode, slug string) *PageNode {
 	if parent == nil {
 		return nil

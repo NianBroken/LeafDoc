@@ -1,3 +1,4 @@
+// 本文件共用邀请接受与密码重置输入流程，依据模式调用不同接口并处理成功页面。
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { acceptInvite, confirmPasswordReset } from '@/shared/lib/api/auth'
@@ -7,21 +8,17 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 
+// reset 完成后展示确认，invite 完成后由 API 应用会话并导航首页。
 type SetPasswordFormProps = {
   mode: 'reset' | 'invite'
 }
 
-// Mirrors coreauth.MinPasswordLength. The backend rejects a shorter password
-// with a `validation_error` body; checking it here first spares the round
-// trip and shows a localized message (the backend's field messages are not
-// translated) — same reasoning as ChangeOwnPasswordPanel.
+// 此处以 JavaScript 字符串长度检查八个 UTF-16 代码单元，提前显示本地化提示。
+// 后端独立按 Go 字符串字节数校验，两者对非 ASCII 输入的计数单位不同。
 const MIN_PASSWORD_LENGTH = 8
 
-// SetPasswordForm backs both /reset-password and /accept-invite: the two
-// flows share everything except which endpoint they call and what happens on
-// success — a reset does NOT log the user in (the backend just revoked every
-// session for the account), while accepting an invite does (see
-// acceptInvite's doc comment in lib/api/auth.ts).
+// SetPasswordForm 从查询参数读取 token，缺少或空令牌时直接替换导航到登录页。
+// 重置确认 API 不应用会话；邀请接受 API 应用返回的认证信息，此处据此选择成功行为。
 export function SetPasswordForm({ mode }: SetPasswordFormProps) {
   const { t } = useTranslation('auth')
   const { siteName } = useBrandingStore()
@@ -42,6 +39,7 @@ export function SetPasswordForm({ mode }: SetPasswordFormProps) {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // 每次提交清空已有字段错误，长度与两次输入一致性通过后才设置加载状态并请求。
     e.preventDefault()
     setFieldErrors({})
 
@@ -50,8 +48,7 @@ export function SetPasswordForm({ mode }: SetPasswordFormProps) {
       return
     }
 
-    // The backend only ever sees `newPassword`, so the confirm-match check has
-    // no server-side counterpart and must run here.
+    // 请求只发送 newPassword，确认输入不发给后端，因此一致性由表单校验。
     if (newPassword !== confirmPassword) {
       setFieldErrors({ confirmPassword: t(`${ns}.passwordsDoNotMatch`) })
       return
@@ -64,13 +61,11 @@ export function SetPasswordForm({ mode }: SetPasswordFormProps) {
         setResetSucceeded(true)
       } else {
         await acceptInvite(token, newPassword)
-        // user already set in the store by acceptInvite
+        // acceptInvite 已写入会话，替换导航避免后退再次展示携带令牌的表单。
         navigate('/', { replace: true })
       }
     } catch (err) {
-      // Routes a `validation_error` body to per-field messages (e.g. a
-      // password the backend still rejects) and falls back to a toast for
-      // anything else — an invalid/expired token, a network failure.
+      // 字段校验错误写到对应输入下方，其他错误交给公共处理器显示提示。
       handleFieldErrors(err, setFieldErrors, t(`${ns}.errorFallback`))
     } finally {
       setLoading(false)
@@ -78,6 +73,7 @@ export function SetPasswordForm({ mode }: SetPasswordFormProps) {
   }
 
   if (resetSucceeded) {
+    // 重置成功后不继续显示令牌输入流程，提供显式返回登录的入口。
     return (
       <>
         <title>{t('resetPassword.pageTitle', { siteName })}</title>

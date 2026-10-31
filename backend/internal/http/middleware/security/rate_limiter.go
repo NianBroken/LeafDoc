@@ -9,13 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// KeyedLimiter is a per-key sliding-window rate limiter. NewRateLimiter wraps
-// one as a ready-to-use Gin middleware for the common case (rate-limit every
-// request through a route, abort-and-continue). KeyedLimiter itself is used
-// directly by callers that only want to rate-limit a subset of requests
-// handled inside a larger middleware — e.g. only requests presenting a Bearer
-// API key, checked inline within InjectAPIKeyUser — where wrapping the whole
-// downstream chain the way NewRateLimiter does isn't the right shape.
+// KeyedLimiter 按字符串键保存请求发生时间，只计入当前滑动时间窗口内的记录。
+// 互斥锁保护所有键的切片及删除操作，没有后台清理任务，清理由 Allow 触发。
+// 调用方可直接限制部分请求，也可使用 NewRateLimiter 将整个路由处理链包起来。
 type KeyedLimiter struct {
 	mu             sync.Mutex
 	hits           map[string][]time.Time
@@ -24,9 +20,9 @@ type KeyedLimiter struct {
 	resetOnSuccess bool
 }
 
-// NewKeyedLimiter creates a limiter allowing up to limit hits per window per
-// key. If resetOnSuccess is true, NotifyResult(key, true) clears that key's
-// history immediately, so repeated successes never accumulate toward the cap.
+// NewKeyedLimiter 保存每个键在 window 内允许登记的次数上限。
+// resetOnSuccess 开启时，成功通知立即删除该键的全部历史，并非只扣除一次。
+// 参数按传入值使用，这里不检查次数和窗口是否为正数。
 func NewKeyedLimiter(limit int, window time.Duration, resetOnSuccess bool) *KeyedLimiter {
 	return &KeyedLimiter{
 		hits:           make(map[string][]time.Time),
@@ -36,6 +32,8 @@ func NewKeyedLimiter(limit int, window time.Duration, resetOnSuccess bool) *Keye
 	}
 }
 
+// cleanup 在锁内遍历全部键，原地压紧仍严格晚于窗口起点的时间记录。
+// 恰好位于起点的记录也被丢弃，没有有效记录的键从映射中删除。
 func (rl *KeyedLimiter) cleanup() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -46,28 +44,28 @@ func (rl *KeyedLimiter) cleanup() {
 		n := 0
 		for _, t := range events {
 			if t.After(cutoff) {
-				// keep this event within the active window
+				// 有效记录向切片前部移动，复用现有存储空间。
 				events[n] = t
 				n++
 			}
 		}
 
 		if n == 0 {
-			// no more events in the current window for this key; remove entry
+			// 无有效记录时释放映射条目，避免长期保留不再请求的键。
 			delete(rl.hits, key)
 		} else {
-			// shrink slice to the kept events
+			// 只暴露压紧后的有效区间，后续计数不包含过期记录。
 			rl.hits[key] = events[:n]
 		}
 	}
 }
 
-// Allow reports whether a hit for key is permitted right now, recording it if
-// so. Returns false (without recording) once key is at its limit within the
-// current window.
+// Allow 清理历史后判断当前键是否达到上限，允许时登记本次时间并返回 true。
+// 达到上限返回 false，不将被拒绝的请求加入历史，因此拒绝本身不延长窗口。
 func (rl *KeyedLimiter) Allow(key string) bool {
 	rl.cleanup()
 
+	// 全局清理与本次判断分别加锁，这里按较晚的当前时间再次筛选目标键。
 	now := time.Now()
 	cutoff := now.Add(-rl.window)
 
@@ -88,13 +86,14 @@ func (rl *KeyedLimiter) Allow(key string) bool {
 		return false
 	}
 
+	// 上限判断与登记在同一临界区内，其他并发请求不能越过登记步骤抢占计数。
 	events = append(events, now)
 	rl.hits[key] = events
 	return true
 }
 
-// NotifyResult tells the limiter whether the request keyed by key ultimately
-// succeeded, so it can reset that key's count when configured to do so.
+// NotifyResult 在启用成功清空且 success 为 true 时删除该键的全部请求记录。
+// 失败结果或关闭成功清空时不改变历史，也不登记额外请求。
 func (rl *KeyedLimiter) NotifyResult(key string, success bool) {
 	if !rl.resetOnSuccess || !success {
 		return
@@ -104,9 +103,8 @@ func (rl *KeyedLimiter) NotifyResult(key string, success bool) {
 	delete(rl.hits, key)
 }
 
-// ClientKey extracts the rate-limit key (client host) from a request. Shared
-// by NewRateLimiter and any caller using a KeyedLimiter directly, so every
-// rate-limited path in the app keys by the same value.
+// ClientKey 从连接的 RemoteAddr 提取主机部分，解析失败则使用完整原值。
+// 这里不读取代理转发头，也不调用 Gin 的 ClientIP，因此代理后的请求按对端计数。
 func ClientKey(c *gin.Context) string {
 	host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
 	if err != nil {
@@ -115,9 +113,9 @@ func ClientKey(c *gin.Context) string {
 	return host
 }
 
-// NewRateLimiter returns Gin middleware that rate-limits by client host,
-// aborting with 429 once a key exceeds limit hits within window. If
-// resetOnSuccess is true, a 2xx response clears that key's count immediately.
+// NewRateLimiter 将按连接主机计数的限制器包装成 Gin 中间件。
+// 超限时返回 429 并终止处理链，允许时等待后续处理完成，再按响应状态通知结果。
+// 仅 200 至 299 的响应视为成功，是否清空历史仍遵循 resetOnSuccess。
 func NewRateLimiter(limit int, window time.Duration, resetOnSuccess bool) gin.HandlerFunc {
 	rl := NewKeyedLimiter(limit, window, resetOnSuccess)
 

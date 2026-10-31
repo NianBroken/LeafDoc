@@ -1,3 +1,5 @@
+// 保存服务端页面树及可供列表查询的双向索引，同时维护展开、选中、收藏固定等界面状态。
+// 树刷新后为每个节点补充父 ID，并重建路径索引、ID 索引和扁平搜索数据。
 import {
   fetchTree,
   NODE_KIND_PAGE,
@@ -13,6 +15,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 function buildIndexes(root: PageNode) {
+  // 深度遍历根节点及后代，分别按规范路径和 ID 建立引用同一节点对象的索引。
   const byPath: Record<string, PageNode> = {}
   const byId: Record<string, PageNode> = {}
 
@@ -27,6 +30,7 @@ function buildIndexes(root: PageNode) {
 }
 
 function collectExpandableNodeIds(root: PageNode | null): string[] {
+  // 不包含虚拟根节点，只收集当前确有子项的节点作为可展开项。
   if (!root) return []
   const out: string[] = []
 
@@ -43,6 +47,7 @@ function collectExpandableNodeIds(root: PageNode | null): string[] {
 }
 
 function assignParentIds(node: PageNode, parentId: string | null = null) {
+  // 遍历过程中直接写入树节点的 parentId，根节点父级为 null。
   node.parentId = parentId
   for (const child of node.children || []) {
     assignParentIds(child, node.id)
@@ -50,6 +55,7 @@ function assignParentIds(node: PageNode, parentId: string | null = null) {
 }
 
 function toSetRecord(ids: string[]): Record<string, true> {
+  // 将持久化的 ID 数组变为常量时间查询的布尔映射。
   const rec: Record<string, true> = {}
   for (const id of ids) rec[id] = true
   return rec
@@ -102,6 +108,7 @@ export const useTreeStore = create<TreeStore>()(
       byId: {},
       flatPages: [],
       expandAll: () => {
+        // 根据当前树重新计算有子项的节点 ID，同时替换数组和查询映射。
         const tree = get().tree
         const ids = collectExpandableNodeIds(tree)
         set({ openNodeIds: ids, openNodeIdSet: toSetRecord(ids) })
@@ -111,6 +118,7 @@ export const useTreeStore = create<TreeStore>()(
         set({ openNodeIds: [], openNodeIdSet: {} })
       },
       toggleNode: (id: string) => {
+        // 通过集合翻转单个节点状态，再同时生成持久化数组和查询映射。
         const current = new Set(get().openNodeIds)
 
         if (current.has(id)) current.delete(id)
@@ -121,6 +129,7 @@ export const useTreeStore = create<TreeStore>()(
       },
 
       openNode: (id: string) => {
+        // 已打开时不产生新状态引用，未打开时追加 ID 并重建映射。
         if (get().openNodeIdSet?.[id]) {
           return
         }
@@ -131,6 +140,7 @@ export const useTreeStore = create<TreeStore>()(
       },
 
       closeNode: (id: string) => {
+        // 已关闭时直接返回，已打开时从数组与映射中一并移除。
         if (!get().openNodeIdSet?.[id]) {
           return
         }
@@ -152,6 +162,7 @@ export const useTreeStore = create<TreeStore>()(
       getPageByPath: (path: string) => get().byPath?.[path] ?? null,
       getPageById: (id: string) => get().byId?.[id] ?? null,
       getPagesByTitle: (title: string) => {
+        // 只比较小写化后的完整标题，不进行子串匹配或去重。
         const lower = title.toLowerCase()
         return Object.values(get().byId ?? {}).filter(
           (n) => n.title.toLowerCase() === lower,
@@ -160,6 +171,7 @@ export const useTreeStore = create<TreeStore>()(
       getPathById: (id: string) => get().byId?.[id]?.path ?? null,
 
       getAncestors: (id: string) => {
+        // 沿父 ID 向根回溯，并从数组头部插入，返回由近到远的树路径顺序。
         const byId = get().byId
         const out: string[] = []
         let cur = byId?.[id]
@@ -171,6 +183,7 @@ export const useTreeStore = create<TreeStore>()(
       },
 
       openAncestorsForPath: (path: string) => {
+        // 路径不存在或目标位于根层时无需修改展开状态。
         const node = get().getPageByPath(path)
         if (!node) return
 
@@ -181,6 +194,7 @@ export const useTreeStore = create<TreeStore>()(
         let changed = false
         for (const id of ancestors) merged.add(id)
         for (const id of ancestors) {
+          // 只在至少一个祖先尚未打开时发布新状态，已完整展开时保持现有引用。
           if (!get().openNodeIdSet?.[id]) {
             changed = true
           }
@@ -195,6 +209,7 @@ export const useTreeStore = create<TreeStore>()(
       },
 
       patchNodeVersion: (id: string, version: string) => {
+        // 以新对象替换两个索引中的目标节点，不重建树形 children 结构。
         const byId = get().byId
         const byPath = get().byPath
         const node = byId?.[id]
@@ -211,6 +226,7 @@ export const useTreeStore = create<TreeStore>()(
         targetParentId: string,
         index: number,
       ) => {
+        // 使用结构化克隆隔离原树，在本地先呈现移动结果，随后由调用方提交并刷新服务端状态。
         const current = get().tree
         if (!current) return
 
@@ -223,12 +239,14 @@ export const useTreeStore = create<TreeStore>()(
         if (!node || !target || !oldParent?.children) return
 
         const oldIndex = oldParent.children.findIndex((c) => c.id === nodeId)
+        // 缺少节点、目标或原父子列表时提前退出，不发布部分移动结果。
         if (oldIndex === -1) return
         oldParent.children.splice(oldIndex, 1)
 
         const children = target.children ?? []
         target.children = children
         const insertAt = Math.max(0, Math.min(index, children.length))
+        // 索引夹在插入前子列表的有效边界内，页面作为父节点时同步转成分区。
         children.splice(insertAt, 0, node)
         if (target.kind === NODE_KIND_PAGE) {
           // Moving a node under a page converts that page into a section
@@ -237,6 +255,7 @@ export const useTreeStore = create<TreeStore>()(
         }
 
         assignParentIds(tree)
+        // 移动后重新计算父关系、索引、扁平搜索项和按标题排序的固定列表。
         const { byPath, byId } = buildIndexes(tree)
         const flatPages = buildFlatPageSearchItems(tree)
         const pinnedPages = Object.values(byId)
@@ -246,6 +265,7 @@ export const useTreeStore = create<TreeStore>()(
       },
 
       setPinnedLocally: (id: string, pinned: boolean, version: string) => {
+        // 只替换目标节点在索引中的对象，并从新 ID 索引重新派生固定列表。
         const byId = get().byId
         const byPath = get().byPath
         const node = byId?.[id]
@@ -263,6 +283,7 @@ export const useTreeStore = create<TreeStore>()(
       },
 
       reloadTree: async (options?: { silent?: boolean }) => {
+        // 静默刷新不显示全局加载状态；两种模式都会清除旧错误并请求整棵树。
         const silent = options?.silent === true
         if (silent) set({ error: null })
         else set({ loading: true, error: null })
@@ -273,6 +294,7 @@ export const useTreeStore = create<TreeStore>()(
           const { byPath, byId } = buildIndexes(tree)
           const flatPages = buildFlatPageSearchItems(tree)
           const persistedOpen = get().openNodeIds
+          // 重载使用请求完成时的展开 ID，建立映射但不丢失用户已保存的展开顺序。
           const pinnedPages = Object.values(byId)
             .filter((n) => n.pinned === true)
             .sort((a, b) => a.title.localeCompare(b.title))
@@ -284,8 +306,8 @@ export const useTreeStore = create<TreeStore>()(
             pinnedPages,
             openNodeIdSet: toSetRecord(persistedOpen),
           })
-          // FIXME: a better error handling is required here
         } catch (err: unknown) {
+          // 错误状态保留旧树数据，仅记录 Error 消息或统一本地化未知错误。
           if (err instanceof Error) {
             set({ error: err.message })
           } else {
@@ -294,12 +316,14 @@ export const useTreeStore = create<TreeStore>()(
             })
           }
         } finally {
+          // 静默模式不写 loading，避免后台刷新改变界面加载指示。
           if (!silent) set({ loading: false })
         }
       },
     }),
     {
       name: 'leafdoc-tree-open-node-ids',
+      // 仅将展开节点 ID 写入当前浏览器会话存储，树数据本身每次从服务端读取。
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         openNodeIds: state.openNodeIds,

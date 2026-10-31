@@ -4,6 +4,7 @@ import (
 	"testing"
 )
 
+// TestGenerateUniqueChildSlug_NoConflict 验证无同级冲突时直接采用规范化名称。
 func TestGenerateUniqueChildSlug_NoConflict(t *testing.T) {
 	parent := &PageNode{
 		Children: []*PageNode{},
@@ -17,6 +18,7 @@ func TestGenerateUniqueChildSlug_NoConflict(t *testing.T) {
 	}
 }
 
+// TestGenerateUniqueChildSlug_WithConflict 验证其他页面占用原名称时从数字后缀 1 开始避让。
 func TestGenerateUniqueChildSlug_WithConflict(t *testing.T) {
 	parent := &PageNode{
 		Children: []*PageNode{
@@ -32,6 +34,7 @@ func TestGenerateUniqueChildSlug_WithConflict(t *testing.T) {
 	}
 }
 
+// TestGenerateUniqueChildSlug_MultipleConflicts 验证连续已占用名称会依次跳过，选择首个空位。
 func TestGenerateUniqueChildSlug_MultipleConflicts(t *testing.T) {
 	parent := &PageNode{
 		Children: []*PageNode{
@@ -49,6 +52,7 @@ func TestGenerateUniqueChildSlug_MultipleConflicts(t *testing.T) {
 	}
 }
 
+// TestGenerateUniqueChildSlug_SlugShouldBeTheSame 验证当前页面自身的路径段不构成冲突。
 func TestGenerateUniqueChildSlug_SlugShouldBeTheSame(t *testing.T) {
 	parent := &PageNode{
 		Children: []*PageNode{
@@ -64,6 +68,8 @@ func TestGenerateUniqueChildSlug_SlugShouldBeTheSame(t *testing.T) {
 	}
 }
 
+// TestGenerateUniqueChildSlug_SpecialCharacters 验证实际字符转写结果，包括重音字母和连接符号。
+// 断言以 result 的比较值为准，失败提示字符串不参与路径生成。
 func TestGenerateUniqueChildSlug_SpecialCharacters(t *testing.T) {
 	parent := &PageNode{}
 
@@ -75,6 +81,8 @@ func TestGenerateUniqueChildSlug_SpecialCharacters(t *testing.T) {
 	}
 }
 
+// TestNormalizePath 覆盖多段名称、特殊字符、重复斜杠和前导斜杠的处理。
+// 此入口按整段文字规范处理，文件扩展名中的点也转为名称连接的一部分。
 func TestNormalizePath(t *testing.T) {
 	s := NewSlugService()
 
@@ -104,6 +112,21 @@ func TestNormalizePath(t *testing.T) {
 	}
 }
 
+// TestGenerateUniqueChildSlug_EmptyNormalizedInput 验证没有有效名称时直接返回空建议。
+// 空文本、空白和纯标点均不得进入数字后缀循环，也不能生成以连字符开头的候选。
+func TestGenerateUniqueChildSlug_EmptyNormalizedInput(t *testing.T) {
+	s := NewSlugService()
+	parent := &PageNode{Children: []*PageNode{{ID: "existing", Slug: "page"}}}
+	for _, input := range []string{"", " \t\n", "!!!", "___", "---"} {
+		t.Run(input, func(t *testing.T) {
+			if got := s.GenerateUniqueChildSlug(parent, "", input); got != "" {
+				t.Fatalf("GenerateUniqueChildSlug(%q) = %q, want empty", input, got)
+			}
+		})
+	}
+}
+
+// TestIsValidSlug_AllowsUppercase 明确区分验证与生成，验证器接受大写字母而不重写。
 func TestIsValidSlug_AllowsUppercase(t *testing.T) {
 	s := NewSlugService()
 
@@ -112,6 +135,7 @@ func TestIsValidSlug_AllowsUppercase(t *testing.T) {
 	}
 }
 
+// TestGenerateValidSlug_ReservedSlugGetsSuffix 验证保留名称 api 通过后缀形成可用名称。
 func TestGenerateValidSlug_ReservedSlugGetsSuffix(t *testing.T) {
 	s := NewSlugService()
 
@@ -120,6 +144,7 @@ func TestGenerateValidSlug_ReservedSlugGetsSuffix(t *testing.T) {
 	}
 }
 
+// TestNormalizePathToValidSlugs_ReservedSegmentGetsSuffix 验证多段路径逐段应用保留名称避让。
 func TestNormalizePathToValidSlugs_ReservedSegmentGetsSuffix(t *testing.T) {
 	s := NewSlugService()
 
@@ -132,6 +157,7 @@ func TestNormalizePathToValidSlugs_ReservedSegmentGetsSuffix(t *testing.T) {
 	}
 }
 
+// TestNormalizeFilenameToValidSlug_ReservedSlugGetsSuffix 验证避让后缀位于原扩展名之前。
 func TestNormalizeFilenameToValidSlug_ReservedSlugGetsSuffix(t *testing.T) {
 	s := NewSlugService()
 
@@ -144,6 +170,7 @@ func TestNormalizeFilenameToValidSlug_ReservedSlugGetsSuffix(t *testing.T) {
 	}
 }
 
+// TestNormalizeFilenameToValidSlug_UnderscoreFilename 验证下划线变为连字符且保留 .md 扩展名。
 func TestNormalizeFilenameToValidSlug_UnderscoreFilename(t *testing.T) {
 	s := NewSlugService()
 

@@ -16,13 +16,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Routes is the RouteRegistrar for the revisions domain.
+// 页面及版本必填消息由历史读取和恢复处理器共享，不作为状态判断依据。
 const (
 	errPageIDRequiredUserMsg   = "Page ID is required"
 	errPageIDRequiredLogMsg    = "page id is required"
 	errRevisionNotFoundUserMsg = "Revision not found"
 )
 
+// Routes 持有历史查询、资源读取与恢复用例，作者解析器用于响应中的名称标签。
+// 完整性用例保存在配置中，本文件的注册列表没有为它挂载独立 HTTP 路由。
 type Routes struct {
 	listRevisions    *ListRevisionsUseCase
 	getRevision      *GetRevisionUseCase
@@ -35,7 +37,7 @@ type Routes struct {
 	authService      *coreauth.AuthService
 }
 
-// RoutesConfig holds the dependencies required to build a Routes instance.
+// RoutesConfig 提供历史用例与鉴权、作者解析依赖。
 type RoutesConfig struct {
 	ListRevisions    *ListRevisionsUseCase
 	GetRevision      *GetRevisionUseCase
@@ -48,7 +50,7 @@ type RoutesConfig struct {
 	AuthService      *coreauth.AuthService
 }
 
-// NewRoutes constructs the revisions RouteRegistrar.
+// NewRoutes 保存依赖，功能是否挂载在 RegisterRoutes 中读取开关。
 func NewRoutes(cfg RoutesConfig) *Routes {
 	return &Routes{
 		listRevisions:    cfg.ListRevisions,
@@ -63,13 +65,14 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 只在历史功能启用时挂载接口，所有历史读取都要求鉴权，不使用公开读取组。
+// 恢复接口另外要求编辑者或管理员角色。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	opts := ctx.Opts
 
 	authGroup := ctx.APIAuthGroup(r.authService)
 
-	// Revision routes are behind the EnableRevision feature flag.
+	// 功能关闭时不注册这些 URL，而不是注册后返回空历史。
 	if opts.EnableRevision {
 		authGroup.GET("/pages/:id/revisions", r.handleListRevisions)
 		authGroup.GET("/pages/:id/revisions/latest", r.handleGetLatestRevision)
@@ -81,8 +84,8 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 
 }
 
-// ─── Handlers ───────────────────────────────────────────────────────────────
-
+// handleListRevisions 去除页面、游标与条数字符串的边缘空白，条数默认五十且限定一至二百。
+// 成功响应转换作者标签并返回下一页游标，服务错误走统一历史错误映射。
 func (r *Routes) handleListRevisions(c *gin.Context) {
 	pageID := strings.TrimSpace(c.Param("id"))
 	if pageID == "" {
@@ -120,6 +123,7 @@ func (r *Routes) handleListRevisions(c *gin.Context) {
 	})
 }
 
+// handleGetRevision 要求页面与版本标识，快照或其版本记录为空时直接返回 404。
 func (r *Routes) handleGetRevision(c *gin.Context) {
 	pageID := strings.TrimSpace(c.Param("id"))
 	revisionID := strings.TrimSpace(c.Param("revisionId"))
@@ -144,6 +148,7 @@ func (r *Routes) handleGetRevision(c *gin.Context) {
 	c.JSON(http.StatusOK, toSnapshotResponse(out.Snapshot, r.userResolver))
 }
 
+// handleGetLatestRevision 读取单页最新版本，服务返回空记录时作为版本不存在处理。
 func (r *Routes) handleGetLatestRevision(c *gin.Context) {
 	pageID := strings.TrimSpace(c.Param("id"))
 	if pageID == "" {
@@ -163,6 +168,8 @@ func (r *Routes) handleGetLatestRevision(c *gin.Context) {
 	c.JSON(http.StatusOK, toRevisionResponse(out.Revision, r.userResolver))
 }
 
+// handleCompareRevisions 要求页面、基准和目标版本，任一比较快照缺失时返回 404。
+// 差异计算由用例及历史服务完成，路由只转换响应结构。
 func (r *Routes) handleCompareRevisions(c *gin.Context) {
 	pageID := strings.TrimSpace(c.Param("id"))
 	baseRevisionID := strings.TrimSpace(c.Query("base"))
@@ -190,6 +197,9 @@ func (r *Routes) handleCompareRevisions(c *gin.Context) {
 	c.JSON(http.StatusOK, toComparisonResponse(out.Comparison, r.userResolver))
 }
 
+// handleGetRevisionAsset 从历史快照定位资源字节，打开文件并设置不可信内容响应头。
+// 类型优先用记录中的 MIME，其次按扩展名查询，再回退二进制流类型。
+// ServeContent 使用可定位文件及修改时间处理内容响应，文件关闭错误在当前实现中不报告。
 func (r *Routes) handleGetRevisionAsset(c *gin.Context) {
 	pageID := strings.TrimSpace(c.Param("id"))
 	revisionID := strings.TrimSpace(c.Param("revisionId"))
@@ -219,6 +229,7 @@ func (r *Routes) handleGetRevisionAsset(c *gin.Context) {
 		return
 	}
 
+	// 快照索引存在而实际字节文件无法打开时返回内部不可用错误，不当作空文件发送。
 	f, err := os.Open(out.Asset.Path)
 	if err != nil {
 		respondWithRevisionStatusError(c, http.StatusInternalServerError, ErrCodeRevisionPreviewAssetBlobUnavailable, "Revision asset blob is unavailable", "revision asset blob %s for page %s revision %s is unavailable", assetName, pageID, revisionID)
@@ -244,6 +255,7 @@ func (r *Routes) handleGetRevisionAsset(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, path.Base(assetName), stat.ModTime(), f)
 }
 
+// handleRestoreRevision 验证标识后使用当前用户作为恢复作者，成功返回当前页面公开结构。
 func (r *Routes) handleRestoreRevision(c *gin.Context) {
 	pageID := strings.TrimSpace(c.Param("id"))
 	revisionID := strings.TrimSpace(c.Param("revisionId"))

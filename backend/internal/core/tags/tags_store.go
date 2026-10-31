@@ -1,3 +1,4 @@
+// 本文件维护 page_tags 与 page_meta 表，标签和摘要均是能够由正文重建的索引。
 package tags
 
 import (
@@ -16,18 +17,21 @@ const (
 	sqlLimitFmt        = " LIMIT %d"
 )
 
+// TagsStore 用互斥锁串行化单个存储实例的访问，可绑定外层事务执行器。
+// 执行器视图不持有原连接，其锁也不与原实例共享。
 type TagsStore struct {
 	executor database.Executor
 	mu       sync.Mutex
 	db       *sql.DB
 }
 
+// TagCount 表示一个标签及拥有该标签的不同页面数量。
 type TagCount struct {
 	Tag   string `json:"tag"`
 	Count int    `json:"count"`
 }
 
-// NewTagsStore connects the domain store to the configured MySQL database.
+// NewTagsStore 打开配置对应的 MySQL 连接，成功后由存储对象负责关闭。
 func NewTagsStore(storageDir string) (*TagsStore, error) {
 	db, err := database.Open(storageDir)
 	if err != nil {
@@ -36,9 +40,9 @@ func NewTagsStore(storageDir string) (*TagsStore, error) {
 	return &TagsStore{db: db}, nil
 }
 
-// SetTagsForPage replaces all tags for the given page atomically.
-// Tags are stored as-is — normalization (lowercase, dedup, trim) is the caller's responsibility.
-// All write paths go through TagsService.SetTagsForPage or ExtractTagsFromContent, which enforce this.
+// SetTagsForPage 删除页面原标签后逐项插入传入标签，重复唯一键不改变已有值。
+// 本方法及服务同名方法均不转小写或裁去空白，正文提取路径单独执行这些规则。
+// 普通连接自行提交事务，外部执行器的提交和回滚仍归其所有者管理。
 func (s *TagsStore) SetTagsForPage(pageID string, tags []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -72,6 +76,7 @@ func (s *TagsStore) SetTagsForPage(pageID string, tags []string) error {
 	return tx.Commit()
 }
 
+// DeleteTagsForPage 只删除标签关系，保留该页在 page_meta 中的摘要。
 func (s *TagsStore) DeleteTagsForPage(pageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -80,8 +85,8 @@ func (s *TagsStore) DeleteTagsForPage(pageID string) error {
 	return err
 }
 
-// SetPageIndex atomically replaces tags and excerpt for a page.
-// Tags must already be normalized (lowercase, trimmed, deduped) by the caller.
+// SetPageIndex 在同一执行器中替换页面标签并写入摘要。
+// 标签原样存储，摘要无论是否为空都会写入 page_meta；外部事务由外层最终提交。
 func (s *TagsStore) SetPageIndex(pageID string, tags []string, excerpt string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -112,6 +117,7 @@ func (s *TagsStore) SetPageIndex(pageID string, tags []string, excerpt string) e
 		}
 	}
 
+	// 已存在页面元数据时只覆盖摘要字段，没有记录时插入一条。
 	if _, err := tx.Exec(
 		`INSERT INTO page_meta(page_id, excerpt) VALUES (?, ?)
 		 ON DUPLICATE KEY UPDATE excerpt = ?`,
@@ -124,7 +130,8 @@ func (s *TagsStore) SetPageIndex(pageID string, tags []string, excerpt string) e
 	return tx.Commit()
 }
 
-// DeletePageIndex removes tags and meta for a page atomically.
+// DeletePageIndex 依次删除单页标签和摘要，两步共享一个事务或外部执行器。
+// 普通事务任一步失败均尝试回滚，并把原执行错误交给调用方。
 func (s *TagsStore) DeletePageIndex(pageID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -145,9 +152,9 @@ func (s *TagsStore) DeletePageIndex(pageID string) error {
 	return tx.Commit()
 }
 
-// DeletePageIndexes removes tags and meta for all given pages in one
-// transaction, instead of one transaction per page — used by subtree
-// deletes, which can affect hundreds of pages in a single call.
+// DeletePageIndexes 用一组预编译语句逐页清理标签与摘要，空输入直接成功。
+// 所有页面共享一个事务，循环失败立即返回，延迟回滚释放未提交的普通事务。
+// 提交后的回滚结果被忽略，绑定外部执行器时这些提交与回滚调用不结束外层事务。
 func (s *TagsStore) DeletePageIndexes(pageIDs []string) error {
 	if len(pageIDs) == 0 {
 		return nil
@@ -188,7 +195,8 @@ func (s *TagsStore) DeletePageIndexes(pageIDs []string) error {
 	return tx.Commit()
 }
 
-// GetExcerptsForPages returns a map of pageID → excerpt for the given page IDs.
+// GetExcerptsForPages 通过参数化 IN 查询批量读取摘要，以页面 ID 建立映射。
+// 空输入返回空映射，没有元数据记录的页面不生成映射项。
 func (s *TagsStore) GetExcerptsForPages(pageIDs []string) (map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -223,6 +231,7 @@ func (s *TagsStore) GetExcerptsForPages(pageIDs []string) (map[string]string, er
 	return result, rows.Err()
 }
 
+// Clear 在同一事务或外部执行器中清空标签表与摘要表，不删除原始页面。
 func (s *TagsStore) Clear() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -242,7 +251,8 @@ func (s *TagsStore) Clear() error {
 	return tx.Commit()
 }
 
-// GetAllTags returns tags with page count, optionally filtered by prefix. limit <= 0 means no limit.
+// GetAllTags 对字面前缀匹配的标签统计不同页面数量。
+// 结果按数量降序、标签升序排列，limit 大于零时才添加行数限制。
 func (s *TagsStore) GetAllTags(filter string, limit int) ([]TagCount, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -275,9 +285,9 @@ func (s *TagsStore) GetAllTags(filter string, limit int) ([]TagCount, error) {
 	return result, rows.Err()
 }
 
-// GetAllTagsForSelection returns suggestion tags with counts for pages that
-// already match all selected tags. Selected tags themselves are excluded from
-// the result set so the caller only gets additive suggestions.
+// GetAllTagsForSelection 找出同时拥有全部已选标签的页面，再统计这些页面的其他标签。
+// 候选还需满足字面前缀且不能属于已选标签，数量仅统计当前匹配页面集合。
+// selected 为空时转入已持锁的普通查询；非空输入不去重，重复标签会影响计数条件。
 func (s *TagsStore) GetAllTagsForSelection(filter string, selected []string, limit int) ([]TagCount, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -286,6 +296,7 @@ func (s *TagsStore) GetAllTagsForSelection(filter string, selected []string, lim
 		return s.getAllTagsLocked(filter, limit)
 	}
 
+	// 参数依次对应已选标签、所需不同标签数、前缀和需要排除的已选标签。
 	filterArg := escapeLikePrefix(filter)
 	selectionPlaceholders := strings.TrimRight(strings.Repeat("?,", len(selected)), ",")
 	args := make([]any, 0, len(selected)*2+2)
@@ -334,7 +345,8 @@ func (s *TagsStore) GetAllTagsForSelection(filter string, selected []string, lim
 	return result, rows.Err()
 }
 
-// GetPageIDsByTags returns page IDs that have ALL of the given tags (AND logic).
+// GetPageIDsByTags 用分组计数实现标签交集，空标签输入返回 nil。
+// 比较不同标签数量与输入长度，因此调用方须避免重复标签；结果未额外排序。
 func (s *TagsStore) GetPageIDsByTags(tags []string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -373,6 +385,7 @@ func (s *TagsStore) GetPageIDsByTags(tags []string) ([]string, error) {
 	return pageIDs, rows.Err()
 }
 
+// getAllTagsLocked 在调用方已持锁时执行普通标签统计，避免再次获取同一互斥锁。
 func (s *TagsStore) getAllTagsLocked(filter string, limit int) ([]TagCount, error) {
 	query := `
 		SELECT tag, COUNT(DISTINCT page_id) AS count
@@ -402,7 +415,8 @@ func (s *TagsStore) getAllTagsLocked(filter string, limit int) ([]TagCount, erro
 	return result, rows.Err()
 }
 
-// GetTagsForPages returns a map of pageID → tags for the given page IDs.
+// GetTagsForPages 批量读取标签并按页面 ID 分组，各页标签按数据库升序结果追加。
+// 空输入返回空映射，没有标签记录的页面不会出现在映射中。
 func (s *TagsStore) GetTagsForPages(pageIDs []string) (map[string][]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -438,8 +452,8 @@ func (s *TagsStore) GetTagsForPages(pageIDs []string) (map[string][]string, erro
 	return result, rows.Err()
 }
 
-// escapeLikePrefix escapes LIKE special characters in a prefix filter so that
-// '%', '_', and '\' are treated as literals and not as SQL wildcards.
+// escapeLikePrefix 配合 ESCAPE '=' 依次转义等号、百分号与下划线。
+// 反斜杠不在此处执行替换，百分号与下划线输入按字面字符参与前缀查询。
 func escapeLikePrefix(s string) string {
 	s = strings.ReplaceAll(s, `=`, `==`)
 	s = strings.ReplaceAll(s, `%`, `=%`)
@@ -447,6 +461,7 @@ func escapeLikePrefix(s string) string {
 	return s
 }
 
+// Close 只关闭本实例拥有的连接，成功后置空，外部执行器由其所有者释放。
 func (s *TagsStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -460,11 +475,12 @@ func (s *TagsStore) Close() error {
 	return nil
 }
 
-// WithExecutor binds an independent store view to the caller-owned transaction.
+// WithExecutor 创建使用外部执行器的独立视图，不复制连接或转移连接所有权。
 func (s *TagsStore) WithExecutor(executor database.Executor) *TagsStore {
 	return &TagsStore{executor: executor}
 }
 
+// queryExecutor 优先采用外部执行器，否则返回本实例连接，不自行检查关闭状态。
 func (s *TagsStore) queryExecutor() database.Executor {
 	if s.executor != nil {
 		return s.executor

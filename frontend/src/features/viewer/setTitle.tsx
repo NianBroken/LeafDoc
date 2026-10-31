@@ -5,7 +5,7 @@ export interface UseSetTitleOptions {
   title: string
 }
 
-// Hook to set the document title based on the page title
+// 将页面标题同步到浏览器文档标题。
 export function useSetTitle({ title }: UseSetTitleOptions) {
   const siteNameFromStore = useBrandingStore((s) => s.siteName)
 

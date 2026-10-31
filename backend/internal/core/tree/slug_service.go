@@ -10,6 +10,7 @@ import (
 	"github.com/gosimple/slug"
 )
 
+// reservedSlugs 列出不能直接作为页面路径段的保留名称，验证时不区分大小写。
 var reservedSlugs = map[string]bool{
 	"e":        true,
 	"edit":     true,
@@ -24,19 +25,29 @@ var reservedSlugs = map[string]bool{
 	"settings": true,
 }
 
+// slugPattern 允许英文字母与数字组成的非空段，段与段之间只能有一个连字符。
+// 因此首尾连字符、连续连字符及其他字符均不能通过匹配。
 var slugPattern = regexp.MustCompile(`^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$`)
 
+// SlugService 集中提供路径段规范处理、保留名称检查和同级冲突避让。
+// 实例没有可变字段，同级唯一性来自每次调用传入的父节点。
 type SlugService struct {
 }
 
+// NewSlugService 返回无状态的路径名称服务，不读取页面树或磁盘。
 func NewSlugService() *SlugService {
 	return &SlugService{}
 }
 
-// GenerateUniqueChildSlug returns a slug that is both valid and unique under the given parent.
-// Use this when creating or renaming a page in the actual tree, where sibling collisions matter.
+// GenerateUniqueChildSlug 规范处理期望名称，再按递增数字后缀避开无效名称和同级冲突。
+// currentID 对应的子节点不构成冲突，供同一页面保留自身路径段。
+// 规范处理后为空时返回空串，与 GenerateValidSlug 的无有效名称结果保持一致。
+// 非空名称的冲突检查要求调用方提供非空父节点。
 func (s *SlugService) GenerateUniqueChildSlug(parent *PageNode, currentID, desired string) string {
 	slug := normalizeSlug(desired)
+	if slug == "" {
+		return ""
+	}
 	original := slug
 	i := 1
 
@@ -48,18 +59,14 @@ func (s *SlugService) GenerateUniqueChildSlug(parent *PageNode, currentID, desir
 	return slug
 }
 
-// IsValidSlug checks if the slug is valid according to our rules
-// Rules:
-// - Must not be empty
-// - Must not be a reserved slug (case-insensitive)
-// - Must contain only letters, numbers and hyphens
-// - Must not start or end with a hyphen
+// IsValidSlug 验证非空、非保留名称以及字母数字和单连字符连接规则。
+// 验证允许英文字母大写，不会规范处理或重写输入；首次失败直接返回对应错误。
 func (s *SlugService) IsValidSlug(slug string) error {
 	if slug == "" {
 		return errors.New("slug must not be empty")
 	}
 
-	// Check for reserved slugs (case-insensitive)
+	// 保留名称按小写键比较，不因输入采用大写形式而绕过。
 	lowerSlug := strings.ToLower(slug)
 	if reservedSlugs[lowerSlug] {
 		return fmt.Errorf("slug '%s' is reserved", slug)
@@ -76,9 +83,8 @@ func (s *SlugService) IsValidSlug(slug string) error {
 	return nil
 }
 
-// GenerateValidSlug returns the first valid slug for the desired value.
-// Unlike GenerateUniqueChildSlug, this only enforces slug rules and reserved words.
-// It does not check for collisions in the tree because no parent context is involved.
+// GenerateValidSlug 将名称规范化，再通过递增数字后缀得到通过验证的路径段。
+// 规范处理后为空直接返回空串，不访问页面树，因此不保证同级唯一。
 func (s *SlugService) GenerateValidSlug(desired string) string {
 	slug := normalizeSlug(desired)
 	if slug == "" {
@@ -95,12 +101,13 @@ func (s *SlugService) GenerateValidSlug(desired string) string {
 	return slug
 }
 
-// normalizeSlug creates a URL-friendly slug (can be improved)
+// normalizeSlug 先将下划线换成连字符，再交给 slug.Make 生成适合地址使用的文字。
+// 字符转写、大小写和其他标点的处理沿用该库实现，不在此重复定义。
 func normalizeSlug(title string) string {
 	return slug.Make(strings.ReplaceAll(title, "_", "-"))
 }
 
-// Checks if the given slug already exists among parent's children
+// hasSlugConflict 逐个检查直接子节点，名称比较不区分大小写，并排除当前页面标识。
 func hasSlugConflict(parent *PageNode, currentID string, slug string) bool {
 	for _, child := range parent.Children {
 		if strings.EqualFold(child.Slug, slug) && child.ID != currentID {
@@ -110,6 +117,9 @@ func hasSlugConflict(parent *PageNode, currentID string, slug string) bool {
 	return false
 }
 
+// NormalizePath 按正斜杠分段并跳过原始空段，逐段规范处理后重新连接。
+// validate 为 true 时还验证每段，保留名称会报错而不自动添加后缀。
+// validate 为 false 时不检查规范处理后为空的段，也不保证最终路由通过业务验证。
 func (s *SlugService) NormalizePath(path string, validate bool) (string, error) {
 	segments := make([]string, 0)
 
@@ -120,8 +130,7 @@ func (s *SlugService) NormalizePath(path string, validate bool) (string, error) 
 		}
 
 		if validate {
-			// normalize first and then validate
-			// the validation will ensure that the segment is a proper slug
+			// 验证针对规范处理后的结果，错误文字仍保留原路径段以定位输入。
 			seg := normalizeSlug(segment)
 			if err := s.IsValidSlug(seg); err != nil {
 				return "", fmt.Errorf("segment '%s' is not a valid slug: %v", segment, err)
@@ -135,8 +144,9 @@ func (s *SlugService) NormalizePath(path string, validate bool) (string, error) 
 	return strings.Join(segments, string("/")), nil
 }
 
-// NormalizePathToValidSlugs converts a slash-separated source path into valid route segments.
-// This is used by imports before pages exist in the tree, so it must not depend on sibling lookups.
+// NormalizePathToValidSlugs 将每个非空路径段转换为有效名称，保留名称采用数字后缀。
+// 任意段转换为空使整个处理失败，所有原始段都为空时返回空路径且不报错。
+// 此方法用于没有父节点上下文的路径映射，不检测页面树中的名称冲突。
 func (s *SlugService) NormalizePathToValidSlugs(value string) (string, error) {
 	segments := make([]string, 0)
 
@@ -155,8 +165,8 @@ func (s *SlugService) NormalizePathToValidSlugs(value string) (string, error) {
 	return strings.Join(segments, "/"), nil
 }
 
-// NormalizeFilenameToValidSlug normalizes the basename of a file into a valid page slug
-// while keeping the original extension intact.
+// NormalizeFilenameToValidSlug 将最后一个扩展名之前的部分转换为有效路径名称。
+// 扩展名按原文字接回，基础名称为空时报错，不检查文件是否存在。
 func (s *SlugService) NormalizeFilenameToValidSlug(filename string) (string, error) {
 	ext := filepath.Ext(filename)
 	base := filename[:len(filename)-len(ext)]
@@ -167,6 +177,8 @@ func (s *SlugService) NormalizeFilenameToValidSlug(filename string) (string, err
 	return safe + ext, nil
 }
 
+// GenerateUniqueFilename 保留扩展名，对基础名称规范处理后避开列表中的同名文件。
+// 冲突比较区分大小写，数字后缀插在扩展名前，不调用页面保留名称验证。
 func (s *SlugService) GenerateUniqueFilename(existing []string, desired string) string {
 	ext := filepath.Ext(desired)
 	base := desired[:len(desired)-len(ext)]
@@ -174,7 +186,7 @@ func (s *SlugService) GenerateUniqueFilename(existing []string, desired string) 
 	name := slugged + ext
 	i := 1
 
-	// Check conflicts in existing list
+	// 先建立精确文件名集合，每次从原始基础名称尝试下一个递增后缀。
 	conflicts := make(map[string]bool)
 	for _, f := range existing {
 		conflicts[f] = true

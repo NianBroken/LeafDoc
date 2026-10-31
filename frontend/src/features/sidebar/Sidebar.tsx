@@ -20,8 +20,7 @@ const sidebarShortcutIds: Partial<
 }
 
 export default function Sidebar() {
-  // Panel item labels are resolved lazily (see PanelItem.label); re-rendering
-  // on language change keeps them in sync with the app-wide default language.
+  // 面板标签延迟读取翻译，语言改变时重新渲染以同步当前全局语言。
   const { i18n } = useTranslation()
   const appMode = useAppMode()
   const sidebarMode = useSidebarStore((state) => state.sidebarMode)
@@ -49,9 +48,7 @@ export default function Sidebar() {
           label: item.label(),
           icon: item.icon,
         })),
-      // item.label() reads from the global i18n instance, so it must be
-      // recomputed on language change even though i18n.language isn't
-      // referenced directly in the callback.
+      // label 从全局国际化实例读取，语言改变时需重新计算映射结果。
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [items, i18n.language],
     )
@@ -69,8 +66,7 @@ export default function Sidebar() {
   const registerHotkey = useHotKeysStore((s) => s.registerHotkey)
   const unregisterHotkey = useHotKeysStore((s) => s.unregisterHotkey)
 
-  // Create stable action functions outside of the map using useMemo
-  // This prevents actions from being recreated on every render
+  // 在列表映射之外创建稳定动作引用，避免每次渲染都重建回调。
   const actions = useMemo(() => {
     const actionMap = new Map<string, () => void>()
     items.forEach((item) => {
@@ -88,7 +84,7 @@ export default function Sidebar() {
     return actionMap
   }, [items, setSidebarMode, setSidebarVisible, requestSearchFocus])
 
-  // Memoize hotkey definitions using the stable actions
+  // 快捷键定义复用稳定动作引用，避免定义对象随渲染变化。
   const hotKeyDefs = useMemo(
     () =>
       items

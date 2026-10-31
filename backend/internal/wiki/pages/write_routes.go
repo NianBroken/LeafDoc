@@ -10,6 +10,8 @@ import (
 	authmw "github.com/NianBroken/LeafDoc/internal/http/middleware/auth"
 )
 
+// handleRemoveFavorite 仅删除当前认证用户与路由页面的收藏关联，不读取页面内容。
+// 用户缺失时沿认证辅助函数的处理结果结束，存储错误交给统一页面错误响应。
 func (r *Routes) handleRemoveFavorite(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("id"))
 	user := authmw.MustGetUser(c)

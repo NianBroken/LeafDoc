@@ -17,6 +17,7 @@ import { TocEntry } from '@/features/preview/extractTocEntries'
 import { tocTitleKey } from '@/features/preview/tocTitleKey'
 import { useTocScrollSpy } from '@/features/preview/useTocScrollSpy'
 
+// 提供标题目录和附件下载的下拉入口，标题点击通过共享滚动工具定位页面锚点。
 type Props = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -27,6 +28,7 @@ type Props = {
 }
 
 function getTocEntryClassName(level: number) {
+  // 按标题级别缩进，超过三级的输入也使用最深层样式。
   if (level <= 1) {
     return 'text-sm font-semibold'
   }
@@ -51,7 +53,7 @@ export function TocDropdownButton({
   downloads = [],
 }: Props) {
   const { t } = useTranslation('viewer')
-  // When the parent provides activeId, skip internal scroll spy (no duplicate listener).
+  // 外部提供活动标题时不重复安装滚动监听，undefined 才表示由组件自行追踪。
   const internalActiveId = useTocScrollSpy(
     externalActiveId !== undefined ? [] : entries,
   )
@@ -79,6 +81,7 @@ export function TocDropdownButton({
               clickable && 'cursor-pointer',
             )}
             onSelect={
+              // 禁用点击时不注册选择回调，目录项仍保留展示和当前项样式。
               clickable
                 ? () => {
                     scrollToHeadlineHash(`#${encodeURIComponent(entry.id)}`, {
@@ -92,6 +95,7 @@ export function TocDropdownButton({
           </DropdownMenuItem>
         ))}
         {downloads.length > 0 && (
+          // 无标题时下载项不显示分隔线与额外标题，有标题时才单独标记附件区域。
           <>
             {entries.length > 0 && (
               <>

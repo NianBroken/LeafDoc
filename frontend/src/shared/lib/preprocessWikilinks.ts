@@ -3,19 +3,18 @@ import { PageNode } from '@/shared/lib/api/pages'
 const WIKILINK_RE = /\[\[(\S[^\]|#\n]*?)(?:\|([^\]\n]+?))?\]\]/g
 
 // Splits content into alternating [text, code, text, code, ...] segments.
-// The capture group keeps the code spans in the result array at odd indices.
+// 捕获组使代码片段位于结果数组的奇数索引，偶数索引才参与维基链接替换。
 const CODE_SPLIT_RE = /(```[\s\S]*?```|`[^`\n]+`)/g
 
 /**
- * Replaces [[Title]] wiki-link syntax with standard Markdown links before the
- * content is passed to the Markdown renderer.
+ * 在内容交给 Markdown 渲染器前，将 [[Title]] 语法替换为标准 Markdown 链接。
  *
  * Code blocks and inline code spans are preserved unchanged because only
  * the even-indexed segments (plain text) are processed by the wiki-link regex.
  * Repeated [[Title]] occurrences within a single call are resolved only once
  * (cached) to avoid O(numLinks × numPages) scans.
  *
- * Resolution rules (mirrors the backend's resolveWikiLinkTargets):
+ * 解析规则与后端 resolveWikiLinkTargets 保持一致：
  *  - [[Title]]                → [Title](/path)                 (single match in tree)
  *  - [[Title|Alias]]          → [Alias](/path)                 (with custom display text)
  *  - multiple matches         → uses wikilink-ambiguous: scheme (opens disambiguation)

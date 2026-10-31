@@ -9,21 +9,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Routes is the RouteRegistrar for the properties domain.
+// Routes 提供属性键候选及按键值查询页面两个读取接口。
 type Routes struct {
 	getPropertyKeys    *GetPropertyKeysUseCase
 	getPagesByProperty *GetPagesByPropertyUseCase
 	authService        *coreauth.AuthService
 }
 
-// RoutesConfig holds the dependencies required to build a Routes instance.
+// RoutesConfig 将查询用例与鉴权服务交给路由，不承担属性索引建立。
 type RoutesConfig struct {
 	GetPropertyKeys    *GetPropertyKeysUseCase
 	GetPagesByProperty *GetPagesByPropertyUseCase
 	AuthService        *coreauth.AuthService
 }
 
-// NewRoutes constructs the properties RouteRegistrar.
+// NewRoutes 保存现有依赖，不执行查询或注册请求处理链。
 func NewRoutes(cfg RoutesConfig) *Routes {
 	return &Routes{
 		getPropertyKeys:    cfg.GetPropertyKeys,
@@ -32,18 +32,16 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 将两个 GET 接口挂到共享公开读取组，权限由当前实例设置决定。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
-	// Registered once, gated per request so these reads can flip between
-	// authenticated-only and public without a restart (see APIReadGroup).
+	// 注册一次后每个请求重新读取公开模式，不固定捕获启动时的布尔值。
 	readGroup := ctx.APIReadGroup(r.authService)
 	readGroup.GET("/properties", r.handleGetPropertyKeys)
 	readGroup.GET("/properties/pages", r.handleGetPagesByProperty)
 }
 
-// ─── Handlers ────────────────────────────────────────────────────────────────
-
-// handleGetPropertyKeys handles GET /api/properties?q=&limit=
+// handleGetPropertyKeys 解析过滤文字和条数，条数不能转为整数时返回 400。
+// 有效整数的范围处理交给用例，成功响应直接输出键计数数组。
 func (r *Routes) handleGetPropertyKeys(c *gin.Context) {
 	filter := c.DefaultQuery("q", "")
 	limitStr := c.DefaultQuery("limit", "50")
@@ -62,7 +60,7 @@ func (r *Routes) handleGetPropertyKeys(c *gin.Context) {
 	c.JSON(http.StatusOK, out.Keys)
 }
 
-// handleGetPagesByProperty handles GET /api/properties/pages?key=status&value=draft
+// handleGetPagesByProperty 原样读取 key 与 value，必填检查及索引查询由用例执行。
 func (r *Routes) handleGetPagesByProperty(c *gin.Context) {
 	key := c.Query("key")
 	value := c.Query("value")

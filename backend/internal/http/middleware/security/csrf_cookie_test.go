@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestCSRFCookie_CookieName_Secure 确认安全模式使用带主机约束前缀的 Cookie 名称。
 func TestCSRFCookie_CookieName_Secure(t *testing.T) {
 	csrf := NewCSRFCookie(false, time.Hour)
 
@@ -20,6 +21,7 @@ func TestCSRFCookie_CookieName_Secure(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_CookieName_Insecure 确认普通模式使用独立名称，不复用安全 Cookie。
 func TestCSRFCookie_CookieName_Insecure(t *testing.T) {
 	csrf := NewCSRFCookie(true, time.Hour)
 
@@ -29,6 +31,8 @@ func TestCSRFCookie_CookieName_Insecure(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Issue_Secure 用带 TLS 状态的请求触发签发，检查完整 Cookie 属性与响应头。
+// 这里使用内存路由，不建立真实 TLS 连接，TLS 状态只供安全策略识别。
 func TestCSRFCookie_Issue_Secure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(false, time.Hour)
@@ -53,7 +57,7 @@ func TestCSRFCookie_Issue_Secure(t *testing.T) {
 		t.Fatalf("Expected status 200, got %d", w.Code)
 	}
 
-	// Check that CSRF cookie was set correctly
+	// 首次请求应只写一个 Cookie，检查可被脚本读取、根路径和一小时有效期。
 	cookies := w.Result().Cookies()
 	if len(cookies) != 1 {
 		t.Fatalf("Expected 1 cookie, got %d", len(cookies))
@@ -82,7 +86,7 @@ func TestCSRFCookie_Issue_Secure(t *testing.T) {
 		t.Errorf("Expected CSRF cookie MaxAge %d, got %d", int(time.Hour.Seconds()), csrfCookie.MaxAge)
 	}
 
-	// Header should also contain the same CSRF token
+	// 响应头与 Cookie 必须携带同一个非空值，便于前端选择读取入口。
 	headerToken := w.Result().Header.Get("X-CSRF-Token")
 	if headerToken == "" {
 		t.Error("Expected X-CSRF-Token header to be set")
@@ -92,6 +96,7 @@ func TestCSRFCookie_Issue_Secure(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Issue_Insecure 验证明确允许普通连接时签发不带 Secure 属性的令牌。
 func TestCSRFCookie_Issue_Insecure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(true, time.Hour)
@@ -132,6 +137,7 @@ func TestCSRFCookie_Issue_Insecure(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Issue_ErrorWhenHTTPSRequired 将安全策略错误映射为 400，并确认普通请求被拒绝。
 func TestCSRFCookie_Issue_ErrorWhenHTTPSRequired(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(false, time.Hour)
@@ -150,7 +156,7 @@ func TestCSRFCookie_Issue_ErrorWhenHTTPSRequired(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	// No TLS / HTTPS indicators, AllowInsecure=false
+	// 请求不设置 TLS 或 HTTPS 转发标记，且策略禁止普通连接。
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
 
@@ -161,6 +167,8 @@ func TestCSRFCookie_Issue_ErrorWhenHTTPSRequired(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Read_Secure 通过安全名称传入固定令牌，确认读取路径返回成功状态。
+// 本用例断言状态码，不解析响应 JSON 来额外核对返回文本。
 func TestCSRFCookie_Read_Secure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(false, time.Hour)
@@ -190,6 +198,7 @@ func TestCSRFCookie_Read_Secure(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Read_Insecure 使用普通模式名称，确认允许普通连接的读取请求成功。
 func TestCSRFCookie_Read_Insecure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(true, time.Hour)
@@ -218,6 +227,7 @@ func TestCSRFCookie_Read_Insecure(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Read_MissingCookie 保持连接安全条件成立，只验证缺少 Cookie 的错误分支。
 func TestCSRFCookie_Read_MissingCookie(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(false, time.Hour)
@@ -243,6 +253,7 @@ func TestCSRFCookie_Read_MissingCookie(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Clear_Secure 确认安全模式的删除响应使用正确名称、空值与负有效期。
 func TestCSRFCookie_Clear_Secure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(false, time.Hour)
@@ -284,6 +295,7 @@ func TestCSRFCookie_Clear_Secure(t *testing.T) {
 	}
 }
 
+// TestCSRFCookie_Clear_Insecure 确认普通模式只删除普通名称对应的令牌 Cookie。
 func TestCSRFCookie_Clear_Insecure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(true, time.Hour)

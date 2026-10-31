@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { TocEntry } from '@/features/preview/extractTocEntries'
 
+// 监听独立滚动容器，在顶部基准线以下选择最近的目录标题作为当前项。
 export function useTocScrollSpy(entries: TocEntry[]): string | null {
   const [activeId, setActiveId] = useState<string | null>(null)
 
@@ -10,11 +11,11 @@ export function useTocScrollSpy(entries: TocEntry[]): string | null {
     if (!scrollContainer) return
 
     const updateActive = () => {
+      // 触发线固定在容器上沿下方 120 像素，活动项按输入目录顺序逐个覆盖。
       const containerRect = scrollContainer.getBoundingClientRect()
       const triggerY = containerRect.top + 120
 
-      // Near bottom: short paragraphs may prevent lower headings from ever
-      // crossing triggerY, so also activate headings visible in the viewport.
+      // 接近滚动底部时，若短内容使末尾标题无法越过触发线，改选当前视口内的标题。
       const atBottom =
         Math.abs(
           scrollContainer.scrollHeight -

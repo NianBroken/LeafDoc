@@ -12,17 +12,17 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
-// MovePageInput is the input for MovePageUseCase.
+// MovePageInput 指定移动节点、目标父节点、操作用户和预期版本。
 type MovePageInput struct {
 	UserID   string
 	ID       string
 	Version  string
 	ParentID string
-	// Position is the target index among the new parent's children; nil appends at the end.
+	// Position 传递给树服务，空值使用 -1，最终顺序沿用树服务的重排规则。
 	Position *int
 }
 
-// MovePageUseCase moves a page to a new parent, updating links and recording revisions.
+// MovePageUseCase 移动页面后为整个子树发送保存事件，派生处理由编排器执行。
 type MovePageUseCase struct {
 	tree         *tree.TreeService
 	orchestrator *pagesave.PageSaveOrchestrator
@@ -30,7 +30,7 @@ type MovePageUseCase struct {
 	metrics      *httpmetrics.HTTPMetrics
 }
 
-// NewMovePageUseCase constructs a MovePageUseCase.
+// NewMovePageUseCase 保存移动所需依赖，不预读页面或修改层级。
 func NewMovePageUseCase(
 	t *tree.TreeService,
 	o *pagesave.PageSaveOrchestrator,
@@ -40,7 +40,8 @@ func NewMovePageUseCase(
 	return &MovePageUseCase{tree: t, orchestrator: o, log: log, metrics: metrics}
 }
 
-// Execute moves the page and fires post-save side effects for the whole subtree.
+// Execute 在编排器工作单元内先取得旧路径和子树标识，再移动并读取受影响页面。
+// 移动后单页读取失败仅记录告警，该页不进入事件；事件处理错误向外传播。
 func (uc *MovePageUseCase) Execute(ctx context.Context, in MovePageInput) (err error) {
 	if !uc.tree.InUnitOfWork() {
 		err := uc.orchestrator.Execute(ctx, uc.tree, func(bound *tree.TreeService, o *pagesave.PageSaveOrchestrator, exec database.Executor) error {
@@ -63,6 +64,7 @@ func (uc *MovePageUseCase) Execute(ctx context.Context, in MovePageInput) (err e
 
 	in.Version = sanitizeClientVersion(in.Version)
 
+	// 子树读取失败时退回目标标识，但目标正文必须能在移动前读取成功。
 	var subtreeIDs []string
 	var beforePage *tree.Page
 
@@ -85,6 +87,7 @@ func (uc *MovePageUseCase) Execute(ctx context.Context, in MovePageInput) (err e
 		beforePage = p
 	}
 
+	// 路径提前保存为字符串，避免后续节点父指针变化影响旧地址。
 	var oldPath string
 	if beforePage != nil {
 		oldPath = beforePage.CalculatePath()
@@ -104,6 +107,7 @@ func (uc *MovePageUseCase) Execute(ctx context.Context, in MovePageInput) (err e
 		OldPath:   oldPath,
 	}
 
+	// 移动后的页面逐个进入事件，旧地址在独立 OldPath 字段中提供。
 	pages, errs := uc.tree.GetPages(subtreeIDs)
 	for i, p := range pages {
 		if errs[i] != nil {

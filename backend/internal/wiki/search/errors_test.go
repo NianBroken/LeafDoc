@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestRespondWithSearchError_ServiceUnavailable 精确检查服务缺失的 503 状态与完整结构化错误体。
 func TestRespondWithSearchError_ServiceUnavailable(t *testing.T) {
 	t.Parallel()
 
@@ -27,6 +28,7 @@ func TestRespondWithSearchError_ServiceUnavailable(t *testing.T) {
 	}
 }
 
+// TestRespondWithSearchError_InternalErrorIsSanitized 注入数据库错误，确认响应只保留固定对外消息。
 func TestRespondWithSearchError_InternalErrorIsSanitized(t *testing.T) {
 	t.Parallel()
 

@@ -1,7 +1,7 @@
 import i18next from '@/shared/lib/i18n'
 const t = (key: string, opts?: Record<string, unknown>) =>
   i18next.t(key, { ...opts, ns: 'importer' })
-// Coordinates task state and actions independently of the settings view.
+// 集中管理导入任务状态和动作，与设置页面的显示组件分离。
 
 import { useDateTimeFormat } from '@/shared/lib/useDateTimeFormat'
 

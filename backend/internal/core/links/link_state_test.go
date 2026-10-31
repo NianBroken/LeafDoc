@@ -1,9 +1,11 @@
+// 本文件验证标题匹配数量与链接状态的映射，不查询页面树。
 package links
 
 import (
 	"testing"
 )
 
+// 零个匹配为失效，一个为已解析，两个和五个均为歧义，覆盖三个状态分支。
 func TestClassifyTitleMatches(t *testing.T) {
 	cases := []struct {
 		matches int

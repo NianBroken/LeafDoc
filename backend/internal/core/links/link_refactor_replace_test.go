@@ -1,3 +1,5 @@
+// 本文件验证链接目标字节区间的替换，以及来源页移动后的相对路径计算。
+// 标签、标题和查询后缀属于原文保留部分，不通过整篇 Markdown 重新渲染。
 package links
 
 import (
@@ -5,6 +7,7 @@ import (
 	"testing"
 )
 
+// 路径命中规则时，只替换基础路径，查询参数和片段应按原顺序原样拼回。
 func TestMarkdownRefactorEngine_Rewrite_KeepsQueryAndFragment(t *testing.T) {
 	content := `[Link](/docs/b?mode=1#intro)`
 
@@ -21,6 +24,7 @@ func TestMarkdownRefactorEngine_Rewrite_KeepsQueryAndFragment(t *testing.T) {
 	}
 }
 
+// 目标内的配对圆括号属于文件名，扫描器必须识别嵌套深度而非提前结束目标。
 func TestMarkdownRefactorEngine_Rewrite_SupportsParenthesesInDestination(t *testing.T) {
 	content := `[Draft](../page_(draft))`
 
@@ -37,6 +41,7 @@ func TestMarkdownRefactorEngine_Rewrite_SupportsParenthesesInDestination(t *test
 	}
 }
 
+// 标签含圆括号且链接带标题时，替换仅覆盖目标地址，不改变标签和标题。
 func TestMarkdownRefactorEngine_Rewrite_OnlyChangesDestinationSegment(t *testing.T) {
 	content := `[Label with (parens)](/docs/b "Title")`
 
@@ -53,6 +58,8 @@ func TestMarkdownRefactorEngine_Rewrite_OnlyChangesDestinationSegment(t *testing
 	}
 }
 
+// 来源跨目录树移动而目标保留原位置时，按页面路径作为目录的规则重算返回路径。
+// 期望中的三个上级段与新来源的三个路径段对应。
 func TestMarkdownRefactorEngine_RewriteRelativeLinksForPathChange_UsesFolderSemanticsForCrossTreeMove(t *testing.T) {
 	content := `[Target](../seite-a)`
 
@@ -76,6 +83,7 @@ func TestMarkdownRefactorEngine_RewriteRelativeLinksForPathChange_UsesFolderSema
 	}
 }
 
+// 附件相对目标使用独立资源地址约定，来源路径变化不触发本入口的目标替换。
 func TestMarkdownRefactorEngine_RewriteRelativeLinksForPathChange_IgnoresRelativeAssetLinks(t *testing.T) {
 	content := `[Asset](assets/abc/manual.pdf)`
 

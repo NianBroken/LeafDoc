@@ -1,3 +1,4 @@
+// 本文件提供树及页面读取，持读锁期间组合节点引用与数据库正文。
 package tree
 
 import (
@@ -6,7 +7,7 @@ import (
 	"sync"
 )
 
-// GetTree returns the tree
+// GetTree 持读锁取得根节点引用后返回，不深复制，也不让调用方继续持有锁。
 func (t *TreeService) GetTree() *PageNode {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -14,24 +15,22 @@ func (t *TreeService) GetTree() *PageNode {
 	return t.tree
 }
 
-// IsLoaded reports whether the tree has been loaded into memory.
+// IsLoaded 只检查内存根是否非 nil，不执行数据库连通性检查。
 func (t *TreeService) IsLoaded() bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.tree != nil
 }
 
-// HasPages reports whether the tree contains at least one non-root node.
+// HasPages 检查根的直接子节点切片是否非空，章节同样算作存在内容节点。
 func (t *TreeService) HasPages() bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.tree != nil && len(t.tree.Children) > 0
 }
 
-// NodeCounts returns how many page and section nodes the tree currently holds,
-// excluding the synthetic root. It reads the in-memory id index under the read
-// lock and allocates nothing, so it is cheap enough to call on every metrics
-// scrape. A node whose kind is unset is counted as a page.
+// NodeCounts 持读锁遍历 ID 索引，section 计为章节，其余类型均计为页面。
+// 索引不收录合成根节点，因此根不计数，此方法不读取正文。
 func (t *TreeService) NodeCounts() (pages, sections int) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -45,10 +44,9 @@ func (t *TreeService) NodeCounts() (pages, sections int) {
 	return pages, sections
 }
 
-// WalkNodes calls fn with the ID of every non-root node (pages and sections)
-// in depth-first order. The read lock is held only while collecting IDs; fn
-// is called without any lock held so it may safely call other TreeService
-// methods. Returns nil immediately when the tree is not yet loaded.
+// WalkNodes 先取得非根 ID 的深度优先快照，再在树锁外逐项调用回调。
+// 回调可以调用其他树方法，首个错误立即停止；未加载树时没有回调并返回成功。
+// 收集后树发生变化时，此轮仍使用原 ID 列表。
 func (t *TreeService) WalkNodes(fn func(id string) error) error {
 	ids := t.collectIDsDFS()
 	for _, id := range ids {
@@ -59,8 +57,8 @@ func (t *TreeService) WalkNodes(fn func(id string) error) error {
 	return nil
 }
 
-// collectIDsDFS returns the IDs of all non-root nodes in depth-first order
-// under the read lock.
+// collectIDsDFS 持读锁按当前 Children 次序收集 ID，跳过 ID 精确为 root 的节点。
+// 树未加载返回 nil，遍历要求子节点有效且层级无环。
 func (t *TreeService) collectIDsDFS() []string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -83,8 +81,9 @@ func (t *TreeService) collectIDsDFS() []string {
 	return ids
 }
 
-// GetPages returns pages for the given IDs under a single read lock,
-// reading pooled MySQL records in parallel. Each entry is nil when the corresponding error is non-nil.
+// GetPages 返回与输入位置对应的页面和错误切片，失败位置的页面保持 nil。
+// 整轮读取始终持树读锁，普通服务逐页启动 goroutine，事务视图串行读取正文。
+// 节点不存在仅影响对应下标，所有有效任务完成后才返回，节点引用不深复制。
 func (t *TreeService) GetPages(ids []string) ([]*Page, []error) {
 	pages := make([]*Page, len(ids))
 	errs := make([]error, len(ids))
@@ -121,7 +120,7 @@ func (t *TreeService) GetPages(ids []string) ([]*Page, []error) {
 		return pages, errs
 	}
 
-	// A transaction owns one wire connection, so its rows are consumed in sequence.
+	// 外部事务使用同一执行器，按顺序消费各页读取结果，不进入并行读取分支。
 	if t.InUnitOfWork() {
 		for _, tk := range tasks {
 			content, raw, err := t.store.ReadPageAndRaw(tk.node)
@@ -134,6 +133,7 @@ func (t *TreeService) GetPages(ids []string) ([]*Page, []error) {
 		return pages, errs
 	}
 
+	// 正文读取并发进行，结果写回由局部锁保护，等待全部 goroutine 退出再释放树读锁。
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(tasks))
@@ -155,7 +155,7 @@ func (t *TreeService) GetPages(ids []string) ([]*Page, []error) {
 	return pages, errs
 }
 
-// GetPage returns a page by its ID
+// GetPage 持读锁按 ID 取节点并读取正文和原始内容，读取错误带上下文向上传递。
 func (t *TreeService) GetPage(id string) (*Page, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -164,7 +164,7 @@ func (t *TreeService) GetPage(id string) (*Page, error) {
 		return nil, ErrTreeNotLoaded
 	}
 
-	// Find the page
+	// 内存索引负责确认节点存在，正文仍从存储读取，不保存在节点结构中。
 	page := t.getNodeByIDLocked(id)
 	if page == nil {
 		return nil, ErrPageNotFound
@@ -182,7 +182,7 @@ func (t *TreeService) GetPage(id string) (*Page, error) {
 	}, nil
 }
 
-// ReadPageRaw returns the raw markdown of a page including frontmatter.
+// ReadPageRaw 持读锁读取含前置字段的原始 Markdown，树未加载和节点不存在分别报错。
 func (t *TreeService) ReadPageRaw(id string) (string, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -204,7 +204,8 @@ func (t *TreeService) ReadPageRaw(id string) (string, error) {
 	return raw, nil
 }
 
-// ResolvePermalinkTarget resolves a stable page ID to the current route path.
+// ResolvePermalinkTarget 将稳定 ID 转成当前 slug 与层级路径，不读取页面正文。
+// 结果路径去掉一个开头斜杠，供永久链接入口定位当前路由。
 func (t *TreeService) ResolvePermalinkTarget(id string) (*PermalinkTarget, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -225,7 +226,8 @@ func (t *TreeService) ResolvePermalinkTarget(id string) (*PermalinkTarget, error
 	}, nil
 }
 
-// FindPageByRoutePath finds a page in the tree by its path.
+// FindPageByRoutePath 将输入按斜杠逐段查找，要求每段非空且 slug 大小写精确匹配。
+// 不裁去首尾斜杠或空白，找到最终节点后读取正文，不只返回结构节点。
 func (t *TreeService) FindPageByRoutePath(routePath string) (*Page, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -234,7 +236,7 @@ func (t *TreeService) FindPageByRoutePath(routePath string) (*Page, error) {
 		return nil, ErrTreeNotLoaded
 	}
 
-	// Split the routePath into parts
+	// 含开头、结尾或连续斜杠的输入会产生空段，并在循环中被拒绝。
 	routePart := strings.Split(routePath, "/")
 	if len(routePart) == 0 {
 		return nil, ErrPageNotFound
@@ -267,8 +269,7 @@ func (t *TreeService) FindPageByRoutePath(routePath string) (*Page, error) {
 	}, nil
 }
 
-// LookupPagePath looks up a path in the tree and returns a PathLookup struct
-// that contains information about the path and its segments and whether they exist.
+// LookupPagePath 持读锁查询各路径段存在状态和创建合法性，不读取或创建正文。
 func (t *TreeService) LookupPagePath(p string) (*PathLookup, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -276,9 +277,8 @@ func (t *TreeService) LookupPagePath(p string) (*PathLookup, error) {
 	return t.lookupPagePathLocked(p)
 }
 
-// lookupPagePathLocked looks up a path in the tree and returns a PathLookup struct
-// that contains information about the path and its segments and whether they exist.
-// Lock must be held by the caller.
+// lookupPagePathLocked 要求调用方已持树锁，裁去路径两端空白和斜杠后逐段查询。
+// 空路径返回不可创建结果，普通路径使用忽略大小写的子 slug 查找。
 func (t *TreeService) lookupPagePathLocked(p string) (*PathLookup, error) {
 	if t.tree == nil {
 		return nil, ErrTreeNotLoaded
@@ -296,10 +296,10 @@ func (t *TreeService) lookupPagePathLocked(p string) (*PathLookup, error) {
 		}, nil
 	}
 
-	// remove double slashes
+	// 执行一次全局双斜杠替换，不循环压缩所有长度的连续斜杠。
 	path = strings.ReplaceAll(path, "//", "/")
 
-	// Split the path into parts
+	// 预分配与路径段等长的结果，后续逐段写入存在信息。
 	pathParts := strings.Split(path, "/")
 	if len(pathParts) == 0 {
 		return &PathLookup{
@@ -319,42 +319,41 @@ func (t *TreeService) lookupPagePathLocked(p string) (*PathLookup, error) {
 
 	parent := t.tree
 
-	// Check each segment in the path
+	// 空段和点路径段直接报错，不把它们解释为当前目录或父目录。
 	for i, part := range pathParts {
 		if part == "" || part == "." || part == ".." {
 			return nil, fmt.Errorf("invalid path segment: %q", part)
 		}
 
-		// Find the segment in the tree
+		// 每轮先写入未命中的段状态，再尝试读取当前父节点下的对应子节点。
 		segment := PathSegment{
 			Slug:   part,
 			Exists: false,
 		}
 
-		// push the segment to the lookup
+		// 当前段的原始文字保留为 Slug，不在结果中替换为规范化的新值。
 		lookup.Segments[i] = segment
 
-		// Check if the segment exists under the current parent.
+		// 父节点为 nil 时子查找返回 nil，因此首个缺失段后不会再解析实际节点。
 		e := t.findChildBySlugInParentLocked(parent, part)
 		if e != nil {
-			// Segment exists
+			// 存在段的可选字段指向实际节点字段，并非独立字符串副本。
 			lookup.Segments[i].Exists = true
 			lookup.Segments[i].ID = &e.ID
 			lookup.Segments[i].Kind = &e.Kind
 			lookup.Segments[i].Title = &e.Title
 
-			// Move to the next parent
+			// 下一个路径片段以当前命中节点作为父级。
 			parent = e
 		}
 
-		// If the segment does not exist, set the pathExists flag to false
+		// 缺失段需要通过 slug 校验，CanCreate 失败后不再恢复为 true。
 		if !lookup.Segments[i].Exists {
 			if lookup.CanCreate && slugService.IsValidSlug(part) != nil {
 				lookup.CanCreate = false
 			}
 
-			// No need to check further segments
-			// Set all remaining segments to non-existing
+			// 预填后续缺失段并检查其创建合法性，外层循环仍会继续逐段处理。
 			for j := i + 1; j < len(pathParts); j++ {
 				if lookup.CanCreate && slugService.IsValidSlug(pathParts[j]) != nil {
 					lookup.CanCreate = false

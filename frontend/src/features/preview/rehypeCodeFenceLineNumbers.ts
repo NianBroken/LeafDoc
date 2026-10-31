@@ -5,6 +5,7 @@ import { visit } from 'unist-util-visit'
 function asClassList(
   className: string | number | boolean | (string | number)[] | null | undefined,
 ): string[] {
+  // 将语法树中的类名字符串或数组统一成字符串列表，其他类型视为空列表。
   if (Array.isArray(className)) {
     return className.map(String)
   }
@@ -14,14 +15,11 @@ function asClassList(
   return []
 }
 
-/**
- * Opt-in code-block line numbers via a trailing `=` on the fence language,
- * e.g. ```go= or ```=. Strips the marker so highlighting still works and sets
- * data-line-numbers for the preview renderer.
- */
+/** 识别围栏语言标记末尾的等号，移除标记保留语言类名，并启用代码行号属性。 */
 export const rehypeCodeFenceLineNumbers: Plugin<[], Root> = () => {
   return (tree) => {
     visit(tree, 'element', (node: Element) => {
+      // 只处理 code 元素；所有语言类名中任一项带末尾等号即启用行号。
       if (node.tagName !== 'code') return
 
       const classes = asClassList(node.properties?.className)

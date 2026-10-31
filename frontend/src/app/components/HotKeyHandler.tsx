@@ -1,5 +1,5 @@
-// The HotKeyHandler is responsible for handling hotkey events globally in the application.
-// It registers event listeners for keydown events and calls the actions defined in the hotkey map.
+// 全局键盘入口按组合键、当前模式、焦点元素和定义条件选择快捷键动作。
+// 同组多个定义从后往前寻找首个合格项，每次事件只运行一个动作。
 
 import {
   getHotkeyComboFromEvent,
@@ -10,11 +10,13 @@ import { useDialogsStore } from '@/shared/state/dialogs'
 import { HotKeyDefinition, useHotKeysStore } from '@/shared/state/hotkeys'
 import { useCallback, useEffect } from 'react'
 
+// HotKeyHandler 不渲染界面，挂载期间在 window 捕获阶段监听 keydown。
 export function HotKeyHandler() {
   const appMode = useAppMode()
   const isDialogOpen = useDialogsStore((state) => state.isAnyDialogOpen())
   const registeredHotkeys = useHotKeysStore((state) => state.registeredHotkeys)
 
+  // 有对话框时覆盖页面模式，使对话框快捷键在当前事件分发中优先使用独立模式。
   let currentMode = appMode
   if (isDialogOpen) {
     currentMode = 'dialog'
@@ -22,22 +24,21 @@ export function HotKeyHandler() {
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      // Skip events already handled by CodeMirror (e.g. search panel closing),
-      // but not in dialog mode: BaseDialog deliberately calls e.preventDefault()
-      // in onEscapeKeyDown to prevent Radix from self-closing the dialog, while
-      // still relying on HotKeyHandler to dispatch the registered cancelHotkey.
+      // 普通模式跳过已经阻止默认行为的事件，对话框模式仍允许处理这类事件。
+      // 这使对话框取消动作能接收其自身关闭处理中已经 preventDefault 的按键。
       if (e.defaultPrevented && currentMode !== 'dialog') {
         return
       }
 
       const target = e.target instanceof HTMLElement ? e.target : null
+      // CodeMirror 搜索区域内的事件全部跳过，包括 Escape。
       if (target?.closest('.cm-search')) {
         return
       }
 
       const comboString = getHotkeyComboFromEvent(e)
 
-      // Open menus own Escape so closing a list never exits its surrounding page.
+      // 菜单或列表内部保留 Escape 的局部关闭行为，不向页面级动作分发。
       if (
         comboString === 'Escape' &&
         target?.closest('[role="listbox"], [role="menu"]')
@@ -45,11 +46,9 @@ export function HotKeyHandler() {
         return
       }
 
-      // Escape bypasses the button/textarea guard below so it always reaches
-      // the registered hotkey (e.g. closing a dialog or the editor).
+      // Escape 不受下方表单元素限制，但仍须满足前面的搜索区与菜单过滤。
       if (comboString !== 'Escape') {
-        // if the focus is on a button or textarea, we don't trigger hotkeys;
-        // this allows normal typing and button interactions
+        // 按当前焦点元素检查按钮及表单控件，只允许共享规则明确放行的组合键。
         const activeElement = document.activeElement
         if (
           activeElement &&
@@ -71,7 +70,7 @@ export function HotKeyHandler() {
         return
       }
 
-      // The newest eligible owner handles the current mode, regardless of render order.
+      // 复制后逆序查找，不改变存储中的注册顺序；禁用或模式不符时继续寻找更早定义。
       const registeredKey = [...registeredKeys]
         .reverse()
         .find(
@@ -81,6 +80,7 @@ export function HotKeyHandler() {
             (entry.shouldHandle?.() ?? true),
         )
 
+      // 确定有动作后才停止传播并阻止默认行为，随后同步调用该动作。
       if (registeredKey) {
         e.stopPropagation()
         e.preventDefault()
@@ -91,8 +91,7 @@ export function HotKeyHandler() {
   )
 
   useEffect(() => {
-    // Capture phase so we can preventDefault before the browser handles the
-    // same combo (e.g. Ctrl+Alt+P opening print / private-window shortcuts).
+    // 捕获阶段尽早处理可取消按键，清理使用同一回调与捕获参数移除监听。
     window.addEventListener('keydown', onKeyDown, true)
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)

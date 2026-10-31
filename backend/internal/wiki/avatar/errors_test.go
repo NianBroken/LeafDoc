@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestRespondWithAvatarError_InvalidType_Returns400 确认不支持的图片类型属于客户端输入错误。
 func TestRespondWithAvatarError_InvalidType_Returns400(t *testing.T) {
 	t.Parallel()
 
@@ -29,6 +30,7 @@ func TestRespondWithAvatarError_InvalidType_Returns400(t *testing.T) {
 	}
 }
 
+// TestRespondWithAvatarError_DecodeFailed_Returns400 确认无法解码的图片返回 400。
 func TestRespondWithAvatarError_DecodeFailed_Returns400(t *testing.T) {
 	t.Parallel()
 
@@ -48,6 +50,7 @@ func TestRespondWithAvatarError_DecodeFailed_Returns400(t *testing.T) {
 	}
 }
 
+// TestRespondWithAvatarError_UploadFailed_Returns500 确认领域写入失败返回服务器错误。
 func TestRespondWithAvatarError_UploadFailed_Returns500(t *testing.T) {
 	t.Parallel()
 
@@ -67,6 +70,7 @@ func TestRespondWithAvatarError_UploadFailed_Returns500(t *testing.T) {
 	}
 }
 
+// TestRespondWithAvatarError_DeleteFailed_Returns500 确认删除存储失败不被当作参数问题。
 func TestRespondWithAvatarError_DeleteFailed_Returns500(t *testing.T) {
 	t.Parallel()
 
@@ -86,6 +90,7 @@ func TestRespondWithAvatarError_DeleteFailed_Returns500(t *testing.T) {
 	}
 }
 
+// TestRespondWithAvatarError_UnknownError_Returns500 精确检查未知错误使用固定响应且不泄露原因文本。
 func TestRespondWithAvatarError_UnknownError_Returns500(t *testing.T) {
 	t.Parallel()
 

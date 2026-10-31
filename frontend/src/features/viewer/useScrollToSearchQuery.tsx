@@ -16,7 +16,7 @@ export function useScrollToSearchQuery({
   const query = (searchParams.get('q') ?? '').trim()
 
   useEffect(() => {
-    // Headline hash navigation wins when both are present.
+    // 同时存在搜索词和标题锚点时优先定位标题锚点。
     if (isLoading || !content || hash || query.length < 3) return
     return scrollToSearchQuery(query)
   }, [content, isLoading, hash, query])

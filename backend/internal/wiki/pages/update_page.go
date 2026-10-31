@@ -13,7 +13,8 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
-// UpdatePageInput is the input for UpdatePageUseCase.
+// UpdatePageInput 提供页面身份、预期版本、目标标题路径段和可选正文元信息。
+// Kind 保留在输入结构中，当前 Execute 不将其传入类型转换流程。
 type UpdatePageInput struct {
 	UserID              string
 	ID                  string
@@ -27,12 +28,12 @@ type UpdatePageInput struct {
 	PreserveFrontmatter bool
 }
 
-// UpdatePageOutput is the output of UpdatePageUseCase.
+// UpdatePageOutput 返回更新并完成保存事件处理后的页面正文与元信息。
 type UpdatePageOutput struct {
 	Page *tree.Page
 }
 
-// UpdatePageUseCase updates an existing page's content and/or structure.
+// UpdatePageUseCase 在工作单元内保存页面，再按实际变化构造派生处理事件。
 type UpdatePageUseCase struct {
 	tree         *tree.TreeService
 	slug         *tree.SlugService
@@ -41,7 +42,7 @@ type UpdatePageUseCase struct {
 	metrics      *httpmetrics.HTTPMetrics
 }
 
-// NewUpdatePageUseCase constructs an UpdatePageUseCase.
+// NewUpdatePageUseCase 保存页面保存依赖，构造时不读取旧页面或校验版本。
 func NewUpdatePageUseCase(
 	t *tree.TreeService,
 	s *tree.SlugService,
@@ -52,7 +53,9 @@ func NewUpdatePageUseCase(
 	return &UpdatePageUseCase{tree: t, slug: s, orchestrator: o, log: log, metrics: metrics}
 }
 
-// Execute validates, updates the node, and fires post-save side effects.
+// Execute 先验证非空标题和有效路径段，再读取旧页面并保存输入字段。
+// 外层通过编排器绑定工作单元，页面保存或事件处理失败向工作单元传播。
+// 正文变化以纯正文比较，只有附加元信息变化不会令 ContentChanged 为 true。
 func (uc *UpdatePageUseCase) Execute(ctx context.Context, in UpdatePageInput) (out *UpdatePageOutput, err error) {
 	if !uc.tree.InUnitOfWork() {
 		var result *UpdatePageOutput
@@ -92,10 +95,11 @@ func (uc *UpdatePageUseCase) Execute(ctx context.Context, in UpdatePageInput) (o
 
 	slugChanged := in.Slug != before.Slug
 	oldPath := before.CalculatePath()
-	// Snapshot mutable fields before UpdateNode mutates the live tree node.
+	// 旧页面持有树节点指针，提前保存标题与正文值，避免更新后失去比较依据。
 	oldTitle := before.Title
 	oldContent := before.Content
 
+	// 路径段变化影响后代路由，先收集子树标识供保存后构造受影响列表。
 	var subtreeIDs []string
 	if slugChanged {
 		subtreeIDs = collectSubtreeIDs(before.PageNode)
@@ -123,6 +127,7 @@ func (uc *UpdatePageUseCase) Execute(ctx context.Context, in UpdatePageInput) (o
 		return nil, err
 	}
 
+	// 使用重新读取的结果判断正文和标题，路径变化已在写入前按输入比较。
 	contentChanged := oldContent != after.Content
 	titleChanged := oldTitle != after.Title
 
@@ -137,6 +142,7 @@ func (uc *UpdatePageUseCase) Execute(ctx context.Context, in UpdatePageInput) (o
 		TitleChanged:   titleChanged,
 	}
 
+	// 子树读取失败只记录告警，其余成功页面继续进入事件处理。
 	if slugChanged {
 		pages, errs := uc.tree.GetPages(subtreeIDs)
 		for i, p := range pages {

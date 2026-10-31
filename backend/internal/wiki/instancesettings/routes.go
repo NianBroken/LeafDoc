@@ -1,5 +1,4 @@
-// Package instancesettings exposes administrator-managed runtime preferences,
-// anonymous access and table-of-contents defaults through authenticated routes.
+// Package instancesettings 通过管理员接口管理运行期偏好、匿名读取及目录显示设置。
 package instancesettings
 
 import (
@@ -16,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Routes is the RouteRegistrar for runtime instance settings.
+// Routes 持有公开访问与目录服务，以及鉴权和日志入口，不复制设置本身。
 type Routes struct {
 	publicAccess *publicaccess.Service
 	tocDisplay   *tocdisplay.Service
@@ -24,7 +23,7 @@ type Routes struct {
 	log          *slog.Logger
 }
 
-// NewRoutes constructs the instance-settings RouteRegistrar.
+// NewRoutes 保存服务依赖，日志为空时使用默认日志器，不在构造时读写设置。
 func NewRoutes(publicAccess *publicaccess.Service, tocDisplay *tocdisplay.Service, authService *coreauth.AuthService, log *slog.Logger) *Routes {
 	if log == nil {
 		log = slog.Default()
@@ -32,11 +31,14 @@ func NewRoutes(publicAccess *publicaccess.Service, tocDisplay *tocdisplay.Servic
 	return &Routes{publicAccess: publicAccess, tocDisplay: tocDisplay, authService: authService, log: log}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 在登录鉴权组下为各接口要求管理员角色。
+// 偏好接口只在偏好服务非空时注册，偏好写入与公开模式写入额外拒绝 API 密钥身份。
+// 目录设置写入没有该额外限制，仍受鉴权组的 CSRF 和管理员规则约束。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	adminGroup := ctx.APIAuthGroup(r.authService).Group("/admin/settings")
 	if ctx.Opts.Preferences != nil {
 		adminGroup.GET("/preferences", authmw.RequireAdmin(), func(c *gin.Context) { c.JSON(200, ctx.Opts.Preferences.Get()) })
+		// JSON 对象作为局部设置交给服务校验并保存，本地化校验错误返回 400。
 		adminGroup.PUT("/preferences", authmw.RequireAdmin(), authmw.RequireCookieSession(), func(c *gin.Context) {
 			var patch map[string]any
 			if err := c.ShouldBindJSON(&patch); err != nil {
@@ -56,10 +58,8 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 			c.JSON(200, value)
 		})
 	}
-	// Flipping instance-wide anonymous access is a browser-session-only
-	// action, like API-key management — an API key must not be able to do it
-	// (CSRF no longer blocks key-authenticated writes, so RequireCookieSession
-	// is what enforces this).
+	// 公开读取影响整个实例，RequireCookieSession 通过密钥标记拒绝 API 密钥调用。
+	// 该守卫不自行读取 Cookie，其他已注入用户身份仍遵循上游鉴权规则。
 	adminGroup.PUT("/public-access",
 		authmw.RequireAdmin(),
 		authmw.RequireCookieSession(),
@@ -71,8 +71,8 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	)
 }
 
-// ─── Handlers ───────────────────────────────────────────────────────────────
-
+// handleSetPublicAccess 使用布尔指针区分缺少字段与明确关闭，缺失或非法 JSON 返回 400。
+// 服务写入成功后重新读取实际值，并将操作者标识写入日志。
 func (r *Routes) handleSetPublicAccess(c *gin.Context) {
 	var req struct {
 		Enabled *bool `json:"enabled"`
@@ -83,8 +83,7 @@ func (r *Routes) handleSetPublicAccess(c *gin.Context) {
 	}
 
 	if err := r.publicAccess.SetEnabled(*req.Enabled); err != nil {
-		// Env-managed instances land here with publicaccess.ErrCodeEnvManaged
-		// → 409, so the frontend knows to render its status-only view.
+		// 环境变量管理的实例由服务返回冲突代码，经领域错误映射返回 409。
 		respondWithError(c, err)
 		return
 	}
@@ -96,6 +95,8 @@ func (r *Routes) handleSetPublicAccess(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"enabled": r.publicAccess.Enabled()})
 }
 
+// handleSetTocDisplay 优先采用非空 mode；仅未提供模式时将 alwaysShow 转为 always 或 auto。
+// 两种表示都未提供则拒绝，模式合法性由目录服务校验，响应返回服务实际保存的两种表示。
 func (r *Routes) handleSetTocDisplay(c *gin.Context) {
 	var req struct {
 		AlwaysShow *bool  `json:"alwaysShow"`
@@ -125,6 +126,7 @@ func (r *Routes) handleSetTocDisplay(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"alwaysShow": r.tocDisplay.AlwaysShow(), "mode": r.tocDisplay.Mode()})
 }
 
+// actorID 从已有鉴权上下文取用户标识，无法取得用户时返回空文本用于日志字段。
 func actorID(c *gin.Context) string {
 	if u := authmw.TryGetUser(c); u != nil {
 		return u.ID

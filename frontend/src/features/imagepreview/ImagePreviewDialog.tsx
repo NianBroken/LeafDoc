@@ -11,6 +11,8 @@ import { HotKeyDefinition, useHotKeysStore } from '@/shared/state/hotkeys'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+// 对话框注册的关闭快捷键与 Escape 行为共同保证预览可以退出。
+
 type Props = {
   src: string
   alt?: string
@@ -62,7 +64,6 @@ export function ImagePreviewDialog({ src, alt }: Props) {
         className="p-0"
         style={{ width: dialogWidth, maxWidth: '95vw' }}
         onEscapeKeyDown={(e: KeyboardEvent) => {
-          // The hotkey handler will take care of this
           e.preventDefault()
         }}
       >

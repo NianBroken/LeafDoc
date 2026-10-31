@@ -1,3 +1,4 @@
+// 本文件装配页面树服务，并从数据库加载和替换内存层级及查询索引。
 package tree
 
 import (
@@ -10,8 +11,8 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/ignore"
 )
 
-// TreeService is our main component for handling tree operations
-// We use this service to create pages, delete pages, update pages, etc.
+// TreeService 保存内存层级及 ID、标题和子路径索引，具体正文读写交给 NodeStore。
+// 读写方法使用服务锁协调树状态，返回的节点指针并不是与树隔离的副本。
 type TreeService struct {
 	storageDir   string
 	tree         *PageNode
@@ -31,6 +32,7 @@ const (
 	errRollbackMovedNodeFailed = "rollback moved node: %w"
 )
 
+// NewTreeService 创建未加载树的服务和空索引，不在构造时读取数据库。
 func NewTreeService(storageDir string) *TreeService {
 	store := NewNodeStore(storageDir)
 
@@ -45,12 +47,13 @@ func NewTreeService(storageDir string) *TreeService {
 	}
 }
 
-// SetIgnoreCache sets the ignore cache for multi-level ignore resolution.
+// SetIgnoreCache 把忽略规则缓存交给底层存储，本方法不取得树锁。
 func (t *TreeService) SetIgnoreCache(ignoreCache *ignore.Cache) {
 	t.store.SetIgnoreCache(ignoreCache)
 }
 
-// LoadTree reconstructs the in-memory hierarchy exclusively from MySQL.
+// LoadTree 持写锁从 MySQL 重建层级，成功后替换根节点并重建全部索引。
+// 数据库失败或返回空树时保留原内存树。
 func (t *TreeService) LoadTree() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -66,6 +69,7 @@ func (t *TreeService) LoadTree() error {
 	return nil
 }
 
+// withLockedTree 在写锁内执行回调，回调不能再次取得同一服务的锁。
 func (t *TreeService) withLockedTree(fn func() error) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -73,6 +77,7 @@ func (t *TreeService) withLockedTree(fn func() error) error {
 	return fn()
 }
 
+// withRLockedTree 在读锁内执行回调，返回回调错误，不额外检查树是否已加载。
 func (t *TreeService) withRLockedTree(fn func() error) error {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -80,7 +85,7 @@ func (t *TreeService) withRLockedTree(fn func() error) error {
 	return fn()
 }
 
-// TreeHash returns the current hash of the tree
+// TreeHash 持读锁计算当前树哈希，调用方须保证树已加载，否则 nil 根不支持 Hash。
 func (t *TreeService) TreeHash() string {
 	var hash string
 	_ = t.withRLockedTree(func() error {
@@ -90,14 +95,14 @@ func (t *TreeService) TreeHash() string {
 	return hash
 }
 
-// ReloadFromDatabase reloads the hierarchy from MySQL.
-// The database read runs without holding the write lock so readers can
-// continue serving the current tree concurrently. The lock is acquired
-// only for the fast in-memory swap and index rebuild.
+// ReloadFromDatabase 使用后台上下文加载层级，实际交换逻辑由带上下文入口执行。
 func (t *TreeService) ReloadFromDatabase() error {
 	return t.ReloadFromDatabaseContext(context.Background())
 }
 
+// ReloadFromDatabaseContext 在树锁外读取数据库，读取期间旧树仍能被其他请求使用。
+// 读取前后检查上下文，成功后持写锁替换整棵树并重建索引，不合并期间的内存变更。
+// 存储读取失败会记录错误并向上传递，空结果作为内部错误返回。
 func (t *TreeService) ReloadFromDatabaseContext(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err

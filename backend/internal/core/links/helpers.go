@@ -1,3 +1,5 @@
+// 本文件负责 Markdown 链接提取、双链标题解析、路由归一化及接口结果转换。
+// 普通链接使用 Markdown 语法树，双链先用正则定位再排除不可处理区间。
 package links
 
 import (
@@ -11,48 +13,44 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-// wikiLinkRe matches [[Target]] and [[Target|Alias]] syntax.
-// Capture group 1 is the target (title or path hint).
-// \S as first character rejects bash-style [[ -n ... ]] conditionals (which always
-// start with a space after [[) without affecting real wiki-link titles.
+// wikiLinkRe 匹配双中括号目标和可选别名，第一捕获组为标题或路径提示。
+// 目标首字符必须非空白，因此开头带空格的 shell 条件表达式不按双链处理。
+// 目标不包含井号或换行，别名不含结束方括号或换行。
 var wikiLinkRe = regexp.MustCompile(`\[\[(\S[^\]|#\n]*?)(?:\|[^\]\n]+?)?\]\]`)
 
-// wikilinkSentinelPrefix is the to_path prefix used for broken wiki-link
-// records in the link store. It must never collide with real wiki route paths
-// (whose segments match ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$).
+// wikilinkSentinelPrefix 在存储目标路径中标识按标题解析的双链，区别于普通路由。
+// 标题唯一、缺失或歧义时都可使用此前缀，不只用于失效链接。
 const wikilinkSentinelPrefix = "wikilink:"
 
+// wikilinkSentinel 原样拼接目标文字，不执行裁空白或编码。
 func wikilinkSentinel(target string) string {
 	return wikilinkSentinelPrefix + target
 }
 
-// IsWikilinkSentinel reports whether a to_path value is a wiki-link sentinel
-// (i.e. stored as "wikilink:Title" rather than a real route path).
+// IsWikilinkSentinel 按区分大小写的前缀检查标题标记，不校验前缀后文字。
 func IsWikilinkSentinel(toPath string) bool {
 	return strings.HasPrefix(toPath, wikilinkSentinelPrefix)
 }
 
-// WikilinkTitleFromSentinel extracts the title from a sentinel path.
+// WikilinkTitleFromSentinel 去掉一次标题标记前缀，没有此前缀时原样返回输入。
 func WikilinkTitleFromSentinel(toPath string) string {
 	return strings.TrimPrefix(toPath, wikilinkSentinelPrefix)
 }
 
-// LinkState is the resolution state of a stored link. It is computed on write
-// (source save and title reconcile), never on read.
+// LinkState 表示链接索引中保存的目标解析状态，供查询和结果转换使用。
 type LinkState int
 
 const (
-	// LinkResolved: the target exists and is unique.
+	// LinkResolved 表示解析得到唯一目标。
 	LinkResolved LinkState = 0
-	// LinkBroken: the target does not exist.
+	// LinkBroken 表示解析未找到目标。
 	LinkBroken LinkState = 1
-	// LinkAmbiguous: a [[Title]] matches several pages. Not broken — it shows
-	// up as a backlink on every matching page.
+	// LinkAmbiguous 表示标题匹配不止一个页面，不能选出唯一目标，也不等同于失效。
 	LinkAmbiguous LinkState = 2
 )
 
-// classifyTitleMatches is the single rule mapping the number of pages that
-// match a wiki-link title to a link state.
+// classifyTitleMatches 把匹配数零与一分别映射为失效和已解析，其余值映射为歧义。
+// 正常调用传入切片长度，不会传入负数。
 func classifyTitleMatches(matches int) LinkState {
 	switch matches {
 	case 0:
@@ -64,14 +62,18 @@ func classifyTitleMatches(matches int) LinkState {
 	}
 }
 
+// TargetLink 把解析到的页面 ID、存储目标路径和解析状态交给索引写入流程。
 type TargetLink struct {
 	TargetPageID   string
 	TargetPagePath string
 	State          LinkState
 }
 
+// markdownParser 为普通 Markdown 链接提取复用默认 Goldmark 解析配置。
 var markdownParser = goldmark.New()
 
+// isAssetLinkDestination 裁空白并移除单个尖括号包裹后，识别两种 assets 路径前缀。
+// 判断区分大小写，不把任意外部地址中的 assets 片段当作站内资源。
 func isAssetLinkDestination(dest string) bool {
 	dest = strings.TrimSpace(dest)
 	dest = strings.TrimPrefix(dest, "<")
@@ -80,7 +82,9 @@ func isAssetLinkDestination(dest string) bool {
 	return strings.HasPrefix(dest, "/assets/") || strings.HasPrefix(dest, "assets/")
 }
 
-// extractLinksFromMarkdown extracts all links from the given markdown content.
+// extractLinksFromMarkdown 遍历普通链接节点，不把图片节点作为页面出链。
+// 跳过 HTTP、HTTPS、mailto 和纯锚点，去除剩余目标的片段与查询串，再排除资源路径。
+// 其他协议并未统一排除，重复链接保留，遍历失败时返回空列表。
 func extractLinksFromMarkdown(content string) []string {
 	links := []string{}
 	reader := text.NewReader([]byte(content))
@@ -88,17 +92,17 @@ func extractLinksFromMarkdown(content string) []string {
 
 	err := ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if link, ok := n.(*ast.Link); ok && entering {
-			// ignore external links
+			// 只过滤这里明确列出的前缀，比较使用目标的小写副本。
 			dest := string(link.Destination)
 			lower := strings.ToLower(dest)
 			if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(lower, "mailto:") || strings.HasPrefix(lower, "#") {
 				return ast.WalkContinue, nil
 			}
-			// strip hash fragments
+			// 先移除锚点，链接正文中目标的原始大小写保持原样。
 			if idx := strings.Index(dest, "#"); idx != -1 {
 				dest = dest[:idx]
 			}
-			// strip query parameters
+			// 再移除查询参数，索引只关心页面路径。
 			if idx := strings.Index(dest, "?"); idx != -1 {
 				dest = dest[:idx]
 			}
@@ -117,9 +121,9 @@ func extractLinksFromMarkdown(content string) []string {
 	return links
 }
 
-// extractWikiLinksFromMarkdown returns all target strings from [[Target]] and
-// [[Target|Alias]] syntax found in content. The returned strings are the raw
-// target values (may be a title or a "Folder/Title" path hint).
+// extractWikiLinksFromMarkdown 从双链匹配中提取裁去边缘空白的目标，别名不作为目标。
+// 排除区间按匹配起始偏移判断，完全相同的目标只保留首次出现项。
+// 没有正则匹配时返回 nil，有匹配但全部被过滤时返回空切片。
 func extractWikiLinksFromMarkdown(content string) []string {
 	matches := wikiLinkRe.FindAllStringSubmatchIndex(content, -1)
 	if len(matches) == 0 {
@@ -145,19 +149,9 @@ func extractWikiLinksFromMarkdown(content string) []string {
 	return targets
 }
 
-// resolveWikiLinkTargets resolves [[Title]] and [[Folder/Title]] targets.
-//
-// Every target — including one containing "/" — is tried as a title lookup
-// first. A single title match always wins, even for a target like "TCP/IP"
-// or "C/C++ Guide" that also happens to look like a route path; this is
-// deliberate so a wikilink always prefers the page whose actual title
-// matches, rather than silently resolving to an unrelated page that just
-// happens to share a slug path. Only when there is NO title match at all is
-// a slash-containing target retried as a direct route-path lookup
-// ([[Folder/Title]] → /folder/title), which supports nested-path link hints
-// that are not real page titles. An ambiguous title match (N>1) is never
-// retried as a route path; it is stored as LinkAmbiguous (see
-// classifyTitleMatches), never silently resolved via a different mechanism.
+// resolveWikiLinkTargets 要求页面树已加载，对每个目标先做标题查找。
+// 唯一标题优先，即使标题包含斜杠也不转作路由；多标题匹配保留歧义。
+// 仅在标题无匹配且目标含斜杠时回退路由查找，路由失败保存为普通失效路径。
 func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []TargetLink {
 	if !treeService.IsLoaded() || len(targets) == 0 {
 		return nil
@@ -167,8 +161,7 @@ func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []T
 	for _, target := range targets {
 		pages := treeService.FindPagesByTitle(target)
 
-		// A slash-containing target with NO title match is retried as a direct
-		// route-path hint ([[Folder/Title]] → /folder/title).
+		// 目标保留原大小写，仅去掉一个开头斜杠，实际路由查找规则由树服务执行。
 		if strings.Contains(target, "/") && len(pages) == 0 {
 			routePath := strings.TrimPrefix(target, "/")
 			page, err := treeService.FindPageByRoutePath(routePath)
@@ -180,9 +173,7 @@ func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []T
 				})
 				continue
 			}
-			// Store as a normal broken route path so
-			// HealLinksForExactPath can heal it when the page is later
-			// created at that path.
+			// 未命中的路径用开头斜杠保存，使按精确路径处理的索引流程能够识别它。
 			result = append(result, TargetLink{
 				State:          LinkBroken,
 				TargetPagePath: "/" + routePath,
@@ -202,8 +193,8 @@ func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []T
 	return result
 }
 
-// collectTargetsFromContent extracts and resolves all link targets from a page's
-// content — both standard Markdown links and [[Title]] wiki-link syntax.
+// collectTargetsFromContent 分别解析普通链接与双链，再按此顺序合并结果。
+// 两种语法之间不在此处统一去重。
 func collectTargetsFromContent(treeService *tree.TreeService, pagePath string, content string) []TargetLink {
 	mdLinks := extractLinksFromMarkdown(content)
 	mdTargets := resolveTargetLinks(treeService, pagePath, mdLinks)
@@ -214,16 +205,14 @@ func collectTargetsFromContent(treeService *tree.TreeService, pagePath string, c
 	return append(mdTargets, wikiResolved...)
 }
 
-// normalizeWikiPath normalizes a wiki path:
-// - removes query/hash (if any)
-// - ensures leading "/"
-// - removes trailing "/" (except root "/")
+// normalizeWikiPath 对非空输入移除片段与查询串、确保开头斜杠、折叠连续斜杠。
+// 根路径保留单个斜杠，其他路径移除尾部斜杠；不裁空白或解析点路径段。
 func normalizeWikiPath(p string) string {
 	if p == "" {
 		return ""
 	}
 
-	// strip hash/query defensively (caller already does, but keep consistent)
+	// 片段和查询串均不参与页面路径索引。
 	if i := strings.Index(p, "#"); i != -1 {
 		p = p[:i]
 	}
@@ -235,12 +224,12 @@ func normalizeWikiPath(p string) string {
 		p = "/" + p
 	}
 
-	// collapse multiple slashes
+	// 循环替换直到不存在连续双斜杠，不把路径当作含协议的完整 URL。
 	for strings.Contains(p, "//") {
 		p = strings.ReplaceAll(p, "//", "/")
 	}
 
-	// strip trailing slash except root
+	// 只对非根路径移除尾部斜杠。
 	if len(p) > 1 {
 		p = strings.TrimRight(p, "/")
 	}
@@ -248,11 +237,12 @@ func normalizeWikiPath(p string) string {
 	return p
 }
 
-// resolveURLPath resolves href against currentPath using "page is folder" semantics.
+// resolveURLPath 把当前页面路径作为目录基准解析相对链接，只返回目标 URL 的路径。
+// example.com 仅用于 URL 解析基准，不产生网络请求，解析错误直接返回。
 func resolveURLPath(currentPath, href string) (string, error) {
 	currentPath = normalizeWikiPath(currentPath)
 
-	// treat currentPath as folder by forcing trailing slash
+	// 基准结尾补斜杠，使 child 指向当前页面路径下的子路径。
 	folderBase := currentPath
 	if !strings.HasSuffix(folderBase, "/") {
 		folderBase += "/"
@@ -270,10 +260,13 @@ func resolveURLPath(currentPath, href string) (string, error) {
 
 	resolved := base.ResolveReference(ref)
 
-	// normalize result path (strip trailing slash etc.)
+	// 只使用解码后的路径，不把目标主机、协议和查询参数写入结果。
 	return normalizeWikiPath(resolved.Path), nil
 }
 
+// resolveTargetLinks 先排除资源，再解析普通链接路径并查询页面树。
+// 树未加载返回 nil，路径解析失败、空路径和根路径均跳过，不产生失效记录。
+// 查找失败统一保存为失效链接，成功保存页面 ID 与归一化路径。
 func resolveTargetLinks(tree *tree.TreeService, currentPath string, links []string) []TargetLink {
 	if !tree.IsLoaded() {
 		return nil
@@ -286,29 +279,29 @@ func resolveTargetLinks(tree *tree.TreeService, currentPath string, links []stri
 			continue
 		}
 
-		// resolve link against current path
+		// 相对目标按当前页作为目录解析，错误项不阻止其他链接处理。
 		resolvedPath, err := resolveURLPath(currentPath, link)
 		if err != nil || resolvedPath == "" {
 			continue
 		}
 
-		// normalize for lookup (by stripping leading "/")
+		// 树查找使用不带开头斜杠的路径，空值表示根路径并被跳过。
 		normalizedForLookup := strings.TrimPrefix(resolvedPath, "/")
 		if normalizedForLookup == "" {
 			continue
 		}
 
-		// find page by route path
+		// 当前树中存在对应页面才记为已解析。
 		page, err := tree.FindPageByRoutePath(normalizedForLookup)
 		if err == nil && page != nil {
-			// found page
+			// 保存页面稳定 ID，避免后续结果只依赖显示路径。
 			targetLinks = append(targetLinks, TargetLink{
 				TargetPageID:   page.ID,
 				TargetPagePath: resolvedPath,
 				State:          LinkResolved,
 			})
 		} else {
-			// not found, broken link
+			// 保留未解析路径供失效链接展示，目标 ID 保持为空。
 			targetLinks = append(targetLinks, TargetLink{
 				TargetPageID:   "",
 				TargetPagePath: resolvedPath,
@@ -320,6 +313,7 @@ func resolveTargetLinks(tree *tree.TreeService, currentPath string, links []stri
 	return targetLinks
 }
 
+// toBacklinkResult 逐项转换并统计条目数，不过滤转换后为空结构的条目。
 func toBacklinkResult(tree *tree.TreeService, backlinks []Backlink) *BacklinkResult {
 	var items []BacklinkResultItem
 	for _, backlink := range backlinks {
@@ -332,6 +326,8 @@ func toBacklinkResult(tree *tree.TreeService, backlinks []Backlink) *BacklinkRes
 	}
 }
 
+// toBacklinkResultItem 从当前树读取来源路径，树未加载或来源查找失败返回零值结构。
+// 来源标题沿用索引记录，不在此处用当前页面标题覆盖。
 func toBacklinkResultItem(tree *tree.TreeService, backlink Backlink) BacklinkResultItem {
 	if !tree.IsLoaded() {
 		return BacklinkResultItem{}
@@ -351,6 +347,7 @@ func toBacklinkResultItem(tree *tree.TreeService, backlink Backlink) BacklinkRes
 	}
 }
 
+// toOutgoingLinkResult 按输入次序转换出链，Count 为实际追加条目数。
 func toOutgoingLinkResult(tree *tree.TreeService, outgoings []Outgoing) *OutgoingResult {
 	var items []OutgoingResultItem
 	for _, outgoing := range outgoings {
@@ -363,6 +360,8 @@ func toOutgoingLinkResult(tree *tree.TreeService, outgoings []Outgoing) *Outgoin
 	}
 }
 
+// toOutgoingResultItem 把标题标记还原为显示目标，并由已保存状态设置失效标志。
+// 有目标 ID 且当前树能找到页面时填充当前标题，查找失败不重算链接状态。
 func toOutgoingResultItem(tree *tree.TreeService, outgoing Outgoing) OutgoingResultItem {
 	displayPath := outgoing.ToPath
 	if IsWikilinkSentinel(outgoing.ToPath) {

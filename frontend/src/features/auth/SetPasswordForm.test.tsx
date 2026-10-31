@@ -1,3 +1,4 @@
+// 检查重置密码与接受邀请共用表单的校验、接口选择和成功页面，认证请求全部使用替身。
 import '@/shared/lib/i18n'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -19,8 +20,8 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))
 
-// The backend rejects a too-short password with this body shape, which is
-// NOT the localized-error envelope — see asApiValidationError.
+// 字段校验错误包含字段名和消息数组，表单通过字段错误处理器显示对应消息。
+// 此对象作为接口拒绝值使用，测试检查字段消息显示，并排除直接展示错误分类字符串。
 const validationErrorBody = {
   error: 'validation_error',
   fields: [
@@ -32,6 +33,7 @@ const validationErrorBody = {
 }
 
 function renderResetForm(path = '/reset-password?token=abc.def') {
+  // 默认地址带有待提交令牌，登录哨兵页面用于验证缺少令牌时的跳转。
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
@@ -46,6 +48,7 @@ function renderResetForm(path = '/reset-password?token=abc.def') {
 }
 
 function renderInviteForm(path = '/accept-invite?token=abc.def') {
+  // 邀请模式的成功目标为首页，首页哨兵文本用于确认实际完成导航。
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
@@ -60,6 +63,7 @@ function renderInviteForm(path = '/accept-invite?token=abc.def') {
 }
 
 describe('SetPasswordForm reset mode', () => {
+  // 重置与邀请请求分别清空，防止共享表单在错误模式调用接口而被遗漏。
   beforeEach(() => {
     confirmPasswordResetMock.mockReset()
     acceptInviteMock.mockReset()
@@ -72,6 +76,7 @@ describe('SetPasswordForm reset mode', () => {
   })
 
   it('rejects mismatched passwords without calling the API', async () => {
+    // 两个值均满足长度门槛，单独触发确认密码不一致的本地校验分支。
     const user = userEvent.setup()
     renderResetForm()
 
@@ -84,6 +89,7 @@ describe('SetPasswordForm reset mode', () => {
   })
 
   it('rejects a too-short password inline without calling the API', async () => {
+    // 两次输入相同短密码，验证长度错误显示在表单内且不会发出请求。
     const user = userEvent.setup()
     renderResetForm()
 
@@ -110,7 +116,7 @@ describe('SetPasswordForm reset mode', () => {
     await user.click(screen.getByTestId('set-password-submit'))
 
     await waitFor(() => expect(confirmPasswordResetMock).toHaveBeenCalledOnce())
-    // handleFieldErrors renders the backend's per-field message verbatim.
+    // 字段错误处理器原样显示接口返回的字段消息，错误分类值不作为面向用户的提示。
     expect(
       await screen.findByText(validationErrorBody.fields[0].message),
     ).toBeInTheDocument()
@@ -119,6 +125,7 @@ describe('SetPasswordForm reset mode', () => {
   })
 
   it('shows a success message and does NOT navigate home on success', async () => {
+    // 接口成功后断言令牌与密码参数以及确认文案，此用例没有配置首页路由。
     confirmPasswordResetMock.mockResolvedValue({
       user: {
         id: 'u1',
@@ -148,6 +155,7 @@ describe('SetPasswordForm reset mode', () => {
 })
 
 describe('SetPasswordForm invite mode', () => {
+  // 同一输入界面在邀请模式调用 acceptInvite，成功结果包含会话数据。
   beforeEach(() => {
     confirmPasswordResetMock.mockReset()
     acceptInviteMock.mockReset()
@@ -155,6 +163,7 @@ describe('SetPasswordForm invite mode', () => {
   })
 
   it('surfaces a readable message (not "validation_error") when the API rejects the password', async () => {
+    // 邀请接口也使用相同字段错误结构，验证共享错误处理覆盖该入口。
     acceptInviteMock.mockRejectedValue(validationErrorBody)
     const user = userEvent.setup()
     renderInviteForm()
@@ -174,6 +183,7 @@ describe('SetPasswordForm invite mode', () => {
   })
 
   it('calls acceptInvite and navigates home on success', async () => {
+    // 先返回用户与令牌到期时间，再通过首页文本检查邀请成功后的页面切换。
     acceptInviteMock.mockResolvedValue({
       accessTokenExpiresAt: 123,
       message: 'ok',

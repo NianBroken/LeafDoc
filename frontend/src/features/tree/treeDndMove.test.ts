@@ -1,3 +1,4 @@
+// 通过接口替身验证跨父节点移动的普通路径、确认流程、取消结果和根节点转换。
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyPageRefactor,
@@ -27,6 +28,7 @@ vi.mock('@/features/page/pageRefactorDialogState', () => ({
 }))
 
 const dragged = { id: 'page-1', version: 'v1' }
+// 预览数据包含一个受影响页面，另一个副本模拟没有引用需要重写的结果。
 const preview: PageRefactorPreview = {
   kind: 'move',
   pageId: 'page-1',
@@ -52,10 +54,12 @@ const noAffectedPreview: PageRefactorPreview = {
 
 describe('performTreeCrossParentMove', () => {
   beforeEach(() => {
+    // 清空接口调用记录，配置开关由每个用例明确设置。
     vi.clearAllMocks()
   })
 
   it('calls plain movePage when link refactor is disabled', async () => {
+    // 关闭开关时直接提交目标父节点与索引，并确认不请求预览。
     useConfigStore.setState({ enableLinkRefactor: false })
     vi.mocked(movePage).mockResolvedValue(null)
 
@@ -70,6 +74,7 @@ describe('performTreeCrossParentMove', () => {
   })
 
   it('applies with rewriteLinks:false when nothing is affected (no dialog shown)', async () => {
+    // 无受影响链接时确认流程返回 false，执行请求仍携带该值与目标位置。
     useConfigStore.setState({ enableLinkRefactor: true })
     vi.mocked(previewPageRefactor).mockResolvedValue(noAffectedPreview)
     vi.mocked(confirmPageRefactor).mockResolvedValue(false)
@@ -99,6 +104,7 @@ describe('performTreeCrossParentMove', () => {
   })
 
   it('applies with rewriteLinks:true when the user confirms the rewrite', async () => {
+    // 用户确认后执行接口明确接收 true，结果保留预览以供调用者更新界面。
     useConfigStore.setState({ enableLinkRefactor: true })
     vi.mocked(previewPageRefactor).mockResolvedValue(preview)
     vi.mocked(confirmPageRefactor).mockResolvedValue(true)
@@ -117,6 +123,7 @@ describe('performTreeCrossParentMove', () => {
   })
 
   it('aborts without calling apply or movePage when the user cancels', async () => {
+    // 空确认结果代表取消，预览之后不调用任一移动提交接口。
     useConfigStore.setState({ enableLinkRefactor: true })
     vi.mocked(previewPageRefactor).mockResolvedValue(preview)
     vi.mocked(confirmPageRefactor).mockResolvedValue(null)
@@ -132,6 +139,7 @@ describe('performTreeCrossParentMove', () => {
   })
 
   it('normalizes the root sentinel to null for the refactor endpoints', async () => {
+    // 根节点占位符只在预览与执行参数中转换为 null。
     useConfigStore.setState({ enableLinkRefactor: true })
     vi.mocked(previewPageRefactor).mockResolvedValue(preview)
     vi.mocked(confirmPageRefactor).mockResolvedValue(false)

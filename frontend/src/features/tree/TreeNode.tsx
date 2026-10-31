@@ -1,3 +1,4 @@
+// 渲染可折叠树行、导航链接和按权限显示的节点菜单，并注册拖放所需的行引用。
 import { TreeViewActionButton } from '@/features/tree/TreeViewActionButton'
 import { NODE_KIND_SECTION, PageNode } from '@/shared/lib/api/pages'
 import {
@@ -22,9 +23,7 @@ import TreeNodeActionsMenu from '@/features/tree/TreeNodeActionsMenu'
 
 type Props = {
   node: PageNode
-  // True when an ancestor section is collapsed. Such rows are hidden, so
-  // they must not register as drag/drop targets: dnd-kit measures every
-  // registered droppable when a drag starts.
+  // 上级分区闭合时子行仍保留在结构中，但不注册拖放目标以避免测量不可见行。
   inClosedBranch?: boolean
 }
 
@@ -46,10 +45,7 @@ export const TreeNode = React.memo(function TreeNode({
   )
   const isLoggedIn = useSessionStore((s) => s.user !== null)
   const isActive = isStoreActive
-  // Keeps this row visually distinct while the delete confirmation dialog
-  // it opened is still on screen -- the "..." menu that triggered it closes
-  // immediately, which otherwise left the target row indistinguishable
-  // from any other once the dialog appeared.
+  // 删除确认对话框打开后菜单关闭，此状态继续标记对应行，直到对话框状态改变。
   const isDeleteTarget = useDialogsStore(
     (s) =>
       s.dialogType === DIALOG_DELETE_PAGE_CONFIRMATION &&
@@ -57,6 +53,7 @@ export const TreeNode = React.memo(function TreeNode({
   )
 
   const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    // 仅活动分区的普通左键点击用于折叠或展开，不拦截修饰键点击和其他节点导航。
     if (
       node.kind !== NODE_KIND_SECTION ||
       !isActive ||
@@ -79,6 +76,7 @@ export const TreeNode = React.memo(function TreeNode({
   )
   const dndData = useMemo(() => ({ node }), [node])
   const dndDisabled = !dndEnabled || inClosedBranch
+  // 拖放整体关闭或该行位于隐藏分支时，同时禁用拖动源与放置目标。
   const {
     setNodeRef: setDragRef,
     listeners,
@@ -94,12 +92,13 @@ export const TreeNode = React.memo(function TreeNode({
     disabled: dndDisabled,
   })
   const setRowRef = (el: HTMLElement | null) => {
+    // 同一个 DOM 行同时作为可拖动项和可放置项注册。
     setDragRef(el)
     setDropRef(el)
   }
 
   const indent = 4
-  const markerOffset = 8 // Distance from left for the vertical line
+  const markerOffset = 8 // 左侧竖线距行边缘的像素位置。
 
   const linkText = (
     <div className={clsx('flex', 'tree-node__tooltip-parent')}>
@@ -151,7 +150,7 @@ export const TreeNode = React.memo(function TreeNode({
           <div className="tree-node__drop-line tree-node__drop-line--bottom" />
         )}
         {dropZone === 'inside' && node.kind !== NODE_KIND_SECTION && (
-          // Nesting into a page converts it into a section on drop
+          // 目标为普通页面时显示嵌套提示，完成放置后服务端将页面转换为分区。
           <FolderPlus size={14} className="tree-node__nest-hint" />
         )}
         <div
@@ -177,7 +176,7 @@ export const TreeNode = React.memo(function TreeNode({
             />
           )}
           {
-            // add empty space to align with nodes that have children
+            // 普通页面没有展开图标，保留占位宽度与分区标题对齐。
             node.kind !== NODE_KIND_SECTION && (
               <div className="tree-node__toggle-spacer" />
             )

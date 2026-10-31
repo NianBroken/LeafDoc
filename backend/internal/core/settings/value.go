@@ -1,68 +1,58 @@
+// 本文件用同一接口区分数据库托管值和启动时固定值，减少业务层反复判断配置来源。
 package settings
 
 import "errors"
 
-// ErrEnvManaged is returned by Value.Put when the value is pinned by an
-// environment variable or CLI flag and therefore cannot be changed at
-// runtime. A domain layer that needs a localized / HTTP-mapped error tests
-// for this with errors.Is and substitutes its own (internal/core/publicaccess
-// maps it to a *LocalizedError with code public_access_env_managed).
+// ErrEnvManaged 表示固定值拒绝运行时写入，调用方可通过 errors.Is 识别。
+// 业务层据此转换成适合自身接口的提示，本包不直接选择 HTTP 状态码。
 var ErrEnvManaged = errors.New("settings: value is managed by environment configuration")
 
-// Value is one settings-managed value of type T. It is either persisted to a
-// JSON file in the data directory (Managed, wrapping a *Store[T]) or pinned
-// by an env var / flag with no backing file at all (Fixed). Carrying a
-// single Value lets a feature drop the (value, envManaged, store) triple and
-// the mode branch every accessor otherwise repeats — see the env- vs
-// settings-managed split in internal/core/publicaccess and internal/backup.
+// Value 为配置提供读取、写入、重载和来源标识。
+// Managed 通过 Store 保存到 MySQL，Fixed 只保存构造时传入的值，二者均不以 JSON 文件存储。
 type Value[T any] interface {
 	Reloadable
 
-	// Get returns the current value.
+	// Get 返回当前缓存值或固定值，是否重新读取存储由具体实现决定。
 	Get() T
 
-	// Put persists v and updates the cache. A Fixed value rejects every
-	// write with ErrEnvManaged and does not modify persisted settings.
+	// Put 请求保存输入，Fixed 始终返回 ErrEnvManaged 且不改变任何存储。
 	Put(v T) error
 
-	// EnvManaged reports whether this value is env/flag-pinned (and thus
-	// read-only in the settings UI).
+	// EnvManaged 表示是否按环境或启动参数托管的只读来源向业务层呈现。
 	EnvManaged() bool
 }
 
-// Managed is a Value backed by a JSON file: Get, Put and Reload pass straight
-// through to the embedded *Store[T]. Construct it as
-// settings.Managed[T]{Store: st}.
+// Managed 嵌入数据库 Store，直接复用其 Get、Put 与 Reload。
+// 使用前需提供已构造的非 nil Store，零值本身不具备可用存储。
 type Managed[T any] struct {
 	*Store[T]
 }
 
-// EnvManaged is always false for a file-backed value.
+// EnvManaged 对数据库托管值始终返回 false。
 func (Managed[T]) EnvManaged() bool { return false }
 
-// Fixed is a Value pinned to a boot-time constant. It has no file: Put always
-// fails with ErrEnvManaged and Reload is a no-op, so a Fixed value can sit in
-// internal/core/restore's []Reloadable harmlessly (a restore cannot and must not
-// change an env-pinned value).
+// Fixed 保存构造时的值，不创建持久化记录，不接受 Put，也不在 Reload 时访问数据库。
+// 值按 T 保存，包含引用类型时仍需调用方保证其内部内容不被外部修改。
 type Fixed[T any] struct {
 	v T
 }
 
-// NewFixed returns a Fixed value holding v.
+// NewFixed 按值保存 v，不解析环境变量，也不对引用字段执行深拷贝。
 func NewFixed[T any](v T) Fixed[T] { return Fixed[T]{v: v} }
 
-// Get returns the pinned value.
+// Get 返回保存的固定值副本。
 func (f Fixed[T]) Get() T { return f.v }
 
-// Put always fails: an env-pinned value cannot be changed at runtime.
+// Put 不检查输入是否与当前值相同，所有写入请求都返回固定值只读错误。
 func (Fixed[T]) Put(T) error { return ErrEnvManaged }
 
-// Reload is a no-op: there is no file to re-read.
+// Reload 直接成功返回，不改变值，也不发送变化通知。
 func (Fixed[T]) Reload() error { return nil }
 
-// EnvManaged is always true for a Fixed value.
+// EnvManaged 对固定值始终返回 true，与值实际由何种调用方式提供无关。
 func (Fixed[T]) EnvManaged() bool { return true }
 
+// 编译期接口检查使用整数示例，保证两种实现具备 Value 要求的方法集合。
 var (
 	_ Value[int] = Managed[int]{}
 	_ Value[int] = Fixed[int]{}

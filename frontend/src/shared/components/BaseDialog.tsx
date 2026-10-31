@@ -1,4 +1,4 @@
-// BaseDialog
+// 基础对话框通过全局类型决定打开状态，统一标题、说明、按钮和对话框快捷键。
 
 import {
   Dialog,
@@ -14,10 +14,8 @@ import { Loader2 } from 'lucide-react'
 import { ReactNode, useEffect } from 'react'
 import { Button } from '@/shared/components/ui/button'
 
-// A generic dialog component that can be used as a base for other dialogs.
-// It provides a consistent structure and styling for dialogs in the application.
-// It also registers hotkeys for dialog actions like confirm and cancel.
-
+// 关闭回调返回值仅在取消按钮点击路径中决定是否关闭，其他关闭路径调用后直接关闭。
+// 确认回调返回 true 才关闭；调用方负责 loading、disabled 和异常处理。
 export type BaseDialogProps = {
   dialogTitle: string
   dialogDescription: string
@@ -32,6 +30,7 @@ export type BaseDialogProps = {
   contentClassName?: string
 }
 
+// 取消按钮的禁用只影响该按钮，不同时禁用 Escape 或遮罩触发的关闭路径。
 export type BaseDialogCancelButton = {
   label?: string
   variant?:
@@ -40,6 +39,7 @@ export type BaseDialogCancelButton = {
   autoFocus?: boolean
 }
 
+// 确认按钮通过 actionType 区分动作，loading 同时显示图标并禁用点击。
 export type BaseDialogConfirmButton = {
   label: string
   variant?:
@@ -48,15 +48,13 @@ export type BaseDialogConfirmButton = {
   disabled?: boolean
   autoFocus?: boolean
   /**
-   * The type of action this button represents. This value is passed to the `onConfirm` handler
-   * to distinguish between different action buttons. Common values include:
-   * - 'confirm': for the main confirmation action
-   * - 'cancel': for a cancellation action
-   * - 'custom': for any custom action
+   * 点击按钮时原样传给 onConfirm 的动作名，不限制为固定枚举。
+   * 键盘确认路径固定传 confirm，不自动选用某个按钮的 actionType。
    */
   actionType: string
 }
 
+// BaseDialog 的 open 来自全局存储，关闭后组件保留多久由外层 DialogManager 决定。
 export default function BaseDialog({
   dialogTitle,
   dialogDescription,
@@ -76,7 +74,7 @@ export default function BaseDialog({
   const unregisterHotkey = useHotKeysStore((s) => s.unregisterHotkey)
 
   useEffect(() => {
-    // Only register hotkeys when the dialog is open
+    // 仅在当前类型打开时登记两个定义，依赖变化或关闭时按对象引用注销。
     if (!open) {
       return
     }
@@ -84,13 +82,14 @@ export default function BaseDialog({
     const confirmHotkey: HotKeyDefinition = createHotkeyDefinition(
       'dialog.confirm',
       async () => {
+        // 默认动作设为取消时直接调用关闭回调并清空对话框，不判断返回值。
         if (defaultAction === 'cancel') {
           onClose()
           closeDialog()
           return
         }
 
-        // Check if any confirm buttons are enabled before executing
+        // 至少一个确认按钮既未禁用也未加载，键盘才允许执行固定 confirm 动作。
         if (!buttons || buttons.length === 0) {
           return
         }
@@ -107,6 +106,7 @@ export default function BaseDialog({
         }
       },
     )
+    // 取消快捷键不读取 cancelButton.disabled，也不使用 onClose 的返回值。
     const cancelHotkey: HotKeyDefinition = createHotkeyDefinition(
       'dialog.close',
       () => {
@@ -136,6 +136,7 @@ export default function BaseDialog({
   return (
     <Dialog
       open={open}
+      // 原语请求关闭时调用回调后直接清空全局类型。
       onOpenChange={(isOpen) => {
         if (!isOpen) {
           onClose()
@@ -146,7 +147,7 @@ export default function BaseDialog({
       <DialogContent
         className={contentClassName}
         onEscapeKeyDown={(e: KeyboardEvent) => {
-          // The dialog isn't responsible to handle key events!
+          // 阻止原语自行处理 Escape，取消动作由全局快捷键处理器分发。
           e.preventDefault()
         }}
       >
@@ -160,6 +161,7 @@ export default function BaseDialog({
             <Button
               autoFocus={cancelButton.autoFocus}
               onClick={() => {
+                // 点击取消按钮是唯一使用 onClose 布尔结果决定是否关闭的路径。
                 const result = onClose()
                 if (result) {
                   closeDialog()
@@ -186,6 +188,7 @@ export default function BaseDialog({
             <Button
               key={button.actionType}
               onClick={async () => {
+                // 使用当前按钮动作名等待确认，false 保留对话框，true 清空全局类型。
                 const result = await onConfirm(button.actionType)
                 if (result) {
                   closeDialog()

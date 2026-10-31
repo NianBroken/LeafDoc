@@ -1,6 +1,8 @@
 const blockOpenPattern =
+  // ::: 类型开启块，最多缩进三个空格，后续非空文本作为折叠块标题。
   /^(?<indent> {0,3}):::\s*(?<type>[A-Za-z][\w-]*)(?:\s+(?<title>\S.*))?\s*$/
 const blockClosePattern = /^(?<indent> {0,3}):::\s*$/
+// 代码围栏支持反引号和波浪号，并记录缩进、标记字符及连续长度。
 const fencedCodePattern = /^(?<indent> {0,3})(?<marker>`{3,}|~{3,})(?<rest>.*)$/
 
 const shoutoutTypeMap: Record<string, string> = {
@@ -19,6 +21,7 @@ const shoutoutTypeMap: Record<string, string> = {
 }
 
 function normalizeBlockType(rawType: string) {
+  // 将大小写和下划线规范化，再把同义提示类型映射到少量标准类型。
   const normalizedType = rawType.toLowerCase().replace(/_/g, '-')
   return shoutoutTypeMap[normalizedType] ?? normalizedType
 }
@@ -51,6 +54,7 @@ function getFenceInfo(line: string): FenceState | null {
 }
 
 function getNextFenceState(line: string, currentFence: FenceState | null) {
+  // 当前未处于代码围栏时记录开围栏，处于围栏时仅接受同字符且长度足够的结束标记。
   const nextFence = getFenceInfo(line)
 
   if (!currentFence) {
@@ -69,6 +73,7 @@ function getNextFenceState(line: string, currentFence: FenceState | null) {
 }
 
 export function normalizeMarkdownBlocks(content: string) {
+  // 只转换代码围栏之外结构完整的 ::: 块；畸形或未闭合块原样输出。
   const normalizedContent = content.replace(/\r\n/g, '\n')
   const lines = normalizedContent.split('\n')
   const output: string[] = []
@@ -79,6 +84,7 @@ export function normalizeMarkdownBlocks(content: string) {
     const openMatch = line.match(blockOpenPattern)
 
     if (!openMatch?.groups || outerFence) {
+      // 普通行和围栏内行不解释为提示块，同时逐行更新围栏状态。
       output.push(line)
       outerFence = getNextFenceState(line, outerFence)
       continue
@@ -95,6 +101,7 @@ export function normalizeMarkdownBlocks(content: string) {
     let isMalformed = false
 
     for (; closingIndex < lines.length; closingIndex += 1) {
+      // 内层围栏中的 ::: 仅作为代码，嵌套块标记则使外层候选块判为畸形。
       const candidateLine = lines[closingIndex]
       originalBlockLines.push(candidateLine)
 
@@ -121,6 +128,7 @@ export function normalizeMarkdownBlocks(content: string) {
     }
 
     if (closingIndex >= lines.length || isMalformed) {
+      // 闭合标记缺失或出现嵌套开启标记时保留整个候选区域原文。
       output.push(...originalBlockLines)
       index = closingIndex < lines.length ? closingIndex : lines.length - 1
       continue
@@ -131,6 +139,7 @@ export function normalizeMarkdownBlocks(content: string) {
     }
 
     if (blockType === 'collapsible' || blockType === 'collapsed') {
+      // 可折叠块转换为 details，其他类型转换为带标准提示标记的引用块。
       appendCollapsibleBlock(output, indent, blockType, blockLines, title)
     } else {
       appendShoutoutBlock(output, indent, blockType, blockLines)
@@ -154,6 +163,7 @@ function appendCollapsibleBlock(
   blockLines: string[],
   title: string | undefined,
 ) {
+  // collapsible 默认展开，collapsed 默认收起；标题作为 summary 文本写入。
   const openAttr = blockType === 'collapsible' ? ' open' : ''
 
   output.push(`${indent}<details class="markdown-collapsible"${openAttr}>`)
@@ -174,6 +184,7 @@ function appendShoutoutBlock(
   blockType: string,
   blockLines: string[],
 ) {
+  // 标准提示标记作为引用块首行，内容行逐行添加引用前缀。
   output.push(prefixQuoteLine(indent, `[!${blockType.toUpperCase()}]`))
   output.push(prefixQuoteLine(indent, ''))
 

@@ -1,3 +1,5 @@
+// 通过内存路由检查登录入口与受保护页面之间的跳转，认证接口使用替身返回确定结果。
+// 页面探针直接展示路由状态，断言覆盖原路径保存、外部登录地址和成功登录后的目标页面。
 import '@/shared/lib/i18n'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -15,6 +17,7 @@ vi.mock('@/shared/lib/api/auth', () => ({
 }))
 
 function LocationProbe() {
+  // 只读取对象状态中的 redirectTo，缺少字段时显示空串，便于断言守卫传入的导航信息。
   const location = useLocation()
   const redirectTo =
     typeof location.state === 'object' &&
@@ -33,6 +36,7 @@ function LocationProbe() {
 
 describe('Auth redirect flow', () => {
   beforeEach(() => {
+    // 清空接口调用与会话，关闭远程用户认证，使各用例从未登录的本地认证入口开始。
     loginMock.mockReset()
     useConfigStore.setState({
       httpRemoteUserEnabled: false,
@@ -45,6 +49,7 @@ describe('Auth redirect flow', () => {
   })
 
   it('preserves the requested path when redirecting to login', async () => {
+    // 将路径、查询参数和页内锚点分别传给初始路由，检查守卫拼接后全部存入登录页状态。
     render(
       <MemoryRouter
         initialEntries={[
@@ -78,6 +83,7 @@ describe('Auth redirect flow', () => {
   })
 
   it('redirects externally instead of to /login when loginUrl is configured, preserving the requested path', async () => {
+    // 用可写 href 观察整页跳转地址，避免测试环境实际离开当前文档。
     const originalLocation = window.location
     Object.defineProperty(window, 'location', {
       configurable: true,
@@ -115,6 +121,7 @@ describe('Auth redirect flow', () => {
       })
       expect(screen.queryByTestId('pathname')).not.toBeInTheDocument()
     } finally {
+      // 即使断言失败也还原浏览器位置对象，避免影响后续路由测试。
       Object.defineProperty(window, 'location', {
         configurable: true,
         value: originalLocation,
@@ -123,6 +130,7 @@ describe('Auth redirect flow', () => {
   })
 
   it('returns to the requested page after successful login', async () => {
+    // 接口返回用户与令牌到期时间，表单据此建立会话，并使用路由状态中的目标导航。
     loginMock.mockResolvedValue({
       accessTokenExpiresAt: 1234567890,
       message: 'ok',
@@ -163,6 +171,7 @@ describe('Auth redirect flow', () => {
     await user.click(screen.getByTestId('login-submit'))
 
     await screen.findByText('Requested page')
+    // 页面文本证明已离开登录页，接口参数另行验证提交的用户名和密码。
     expect(loginMock).toHaveBeenCalledWith('admin', 'admin')
   })
 })

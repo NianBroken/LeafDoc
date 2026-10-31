@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Routes is the RouteRegistrar for the branding domain.
+// Routes 为公开品牌读取、图标文件响应及管理员品牌写入提供处理器。
 type Routes struct {
 	getBranding     *GetBrandingUseCase
 	updateBranding  *UpdateBrandingUseCase
@@ -30,7 +30,7 @@ type Routes struct {
 	log             *slog.Logger
 }
 
-// RoutesConfig holds the dependencies required to build a Routes instance.
+// RoutesConfig 让各用例与文件响应共享同一品牌服务和鉴权配置。
 type RoutesConfig struct {
 	GetBranding     *GetBrandingUseCase
 	UpdateBranding  *UpdateBrandingUseCase
@@ -43,7 +43,7 @@ type RoutesConfig struct {
 	Log             *slog.Logger
 }
 
-// NewRoutes constructs the branding RouteRegistrar.
+// NewRoutes 保存现有依赖，不执行文件或品牌配置读写。
 func NewRoutes(cfg RoutesConfig) *Routes {
 	return &Routes{
 		getBranding:     cfg.GetBranding,
@@ -58,19 +58,20 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 将品牌配置及图片读取直接挂在基础组，写接口另要求登录与管理员角色。
+// 读取路由不额外检查公开模式，但仍继承基础组先前已有的中间件。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	base := ctx.Base
 
-	// Public branding API (always accessible).
+	// 品牌读取不另加登录守卫，供登录页面与首屏显示使用。
 	nonAuth := base.Group("/api")
 	nonAuth.GET("/branding", r.handleGetBranding)
 
-	// Branding static file server (logos, favicons) — path traversal protected.
+	// 按名称读取与当前 favicon 入口共享路径检查，后者另有内置图片回退。
 	base.GET("/branding/:filename", r.handleServeBrandingAsset)
 	base.GET("/favicon.ico", r.handleServeCurrentFavicon)
 
-	// Auth-gated branding mutations (admin only).
+	// 写操作经通用鉴权及 CSRF 处理，再要求有效管理员角色。
 	authGroup := ctx.APIAuthGroup(r.authService)
 	authGroup.PUT("/branding", authmw.RequireAdmin(), r.handleUpdateBranding)
 	authGroup.POST("/branding/logo", authmw.RequireAdmin(), r.handleUploadLogo)
@@ -79,8 +80,7 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	authGroup.DELETE("/branding/favicon", authmw.RequireAdmin(), r.handleDeleteFavicon)
 }
 
-// ─── Handlers ───────────────────────────────────────────────────────────────
-
+// handleGetBranding 返回服务提供的品牌配置和约束，错误按品牌领域规则编码。
 func (r *Routes) handleGetBranding(c *gin.Context) {
 	out, err := r.getBranding.Execute(c.Request.Context())
 	if err != nil {
@@ -90,6 +90,7 @@ func (r *Routes) handleGetBranding(c *gin.Context) {
 	c.JSON(http.StatusOK, out.Config)
 }
 
+// handleUpdateBranding 解析 siteName 后交给用例验证与保存，不在路由中使用必填绑定规则。
 func (r *Routes) handleUpdateBranding(c *gin.Context) {
 	var req struct {
 		SiteName string `json:"siteName"`
@@ -106,6 +107,8 @@ func (r *Routes) handleUpdateBranding(c *gin.Context) {
 	c.JSON(http.StatusOK, out.Config)
 }
 
+// handleUploadLogo 先读取当前品牌约束，以标识文件大小限制解析上传，再调用保存用例。
+// 超限返回 413，其他文件解析错误归为缺文件；文件关闭失败单独记录日志。
 func (r *Routes) handleUploadLogo(c *gin.Context) {
 	constraints, err := r.brandingService.GetBranding()
 	if err != nil {
@@ -135,6 +138,7 @@ func (r *Routes) handleUploadLogo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"path": out.Path, "branding": out.Config})
 }
 
+// handleDeleteLogo 调用删除用例后返回当前品牌配置，不在该路由删除内置默认资源。
 func (r *Routes) handleDeleteLogo(c *gin.Context) {
 	out, err := r.deleteLogo.Execute(c.Request.Context())
 	if err != nil {
@@ -144,6 +148,8 @@ func (r *Routes) handleDeleteLogo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"branding": out.Config})
 }
 
+// handleUploadFavicon 使用图标专属大小限制，成功返回存储服务给出的路径及最新配置。
+// 上传文件由处理器延迟关闭，错误分别经过上传或品牌领域映射。
 func (r *Routes) handleUploadFavicon(c *gin.Context) {
 	constraints, err := r.brandingService.GetBranding()
 	if err != nil {
@@ -173,6 +179,7 @@ func (r *Routes) handleUploadFavicon(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"path": out.Path, "branding": out.Config})
 }
 
+// handleDeleteFavicon 删除用户图标并返回配置，后续当前图标读取可使用默认图片回退。
 func (r *Routes) handleDeleteFavicon(c *gin.Context) {
 	out, err := r.deleteFavicon.Execute(c.Request.Context())
 	if err != nil {
@@ -182,6 +189,8 @@ func (r *Routes) handleDeleteFavicon(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"branding": out.Config})
 }
 
+// handleServeBrandingAsset 读取约束并验证请求文件名，成功后禁止缓存并发送磁盘文件。
+// 路径校验状态原样返回，不将所有文件问题统一当作不存在。
 func (r *Routes) handleServeBrandingAsset(c *gin.Context) {
 	cfg, err := r.brandingService.GetBranding()
 	if err != nil {
@@ -200,6 +209,8 @@ func (r *Routes) handleServeBrandingAsset(c *gin.Context) {
 	c.File(cleanPath)
 }
 
+// handleServeCurrentFavicon 优先读取配置中的图标，路径禁止或文件不存在时回退内置 ICO。
+// 品牌读取或文件系统内部错误返回 500，不在这些分支用默认图掩盖错误。
 func (r *Routes) handleServeCurrentFavicon(c *gin.Context) {
 	cfg, err := r.brandingService.GetBranding()
 	if err != nil {
@@ -230,12 +241,15 @@ func (r *Routes) handleServeCurrentFavicon(c *gin.Context) {
 	c.Data(http.StatusOK, "image/x-icon", data)
 }
 
+// resolveBrandingAssetPath 按安全名称、标识及图标扩展名并集、目录相对关系和文件状态逐步检查。
+// 采用路径清理与 Stat，不解析符号链接目标，也不验证文件内容或确认目标一定为普通文件。
 func (r *Routes) resolveBrandingAssetPath(filename string, cfg *corebanding.BrandingConfigResponse) (string, int) {
-	// Prevent path traversal or poisoned config values.
+	// 同一入口同时检查请求名称和当前配置中的文件名。
 	if corebanding.ContainsUnsafePath(filename) {
 		return "", http.StatusForbidden
 	}
 
+	// 两类允许扩展名合并后查询，读取时不要求文件属于配置当前选中的那个名称。
 	allowedExts := make(map[string]bool)
 	for _, ext := range cfg.BrandingConstraints.LogoExts {
 		allowedExts[ext] = true
@@ -269,6 +283,7 @@ func (r *Routes) resolveBrandingAssetPath(filename string, cfg *corebanding.Bran
 	return cleanPath, http.StatusOK
 }
 
+// disableClientCache 禁止同名品牌资源更新后仍被浏览器或代理复用旧响应。
 func disableClientCache(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Pragma", "no-cache")

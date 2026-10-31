@@ -1,3 +1,5 @@
+// 本文件提供管理员快照配置、列表、手动排队、下载与删除接口。
+// 归档生成由快照管理器和调度器执行，HTTP 层负责权限、输入与响应。
 package wikisnapshot
 
 import (
@@ -16,7 +18,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Routes is the RouteRegistrar for the full-backup (snapshot) admin endpoints.
+// Routes 保存归档管理器、串行调度器与可持久化设置。依赖为空时，
+// 状态接口报告未启用，需要对应依赖的操作返回服务不可用。
 type Routes struct {
 	manager        *snapshotSvc.Manager
 	scheduler      *snapshotSvc.Scheduler
@@ -25,7 +28,8 @@ type Routes struct {
 	settings       *snapshotSvc.SettingsStore
 }
 
-// NewRoutes constructs the snapshot RouteRegistrar.
+// NewRoutes 只使用可选设置参数的第一项。没有设置存储时仍可查询与操作归档，
+// 但不能通过设置接口写入配置，保留数量取构造参数。
 func NewRoutes(manager *snapshotSvc.Manager, scheduler *snapshotSvc.Scheduler, authService *coreauth.AuthService, retentionCount int, stores ...*snapshotSvc.SettingsStore) *Routes {
 	var store *snapshotSvc.SettingsStore
 	if len(stores) > 0 {
@@ -40,7 +44,7 @@ func NewRoutes(manager *snapshotSvc.Manager, scheduler *snapshotSvc.Scheduler, a
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 将接口置于已认证的管理员分组，下载入口另外拒绝 API 密钥身份。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 
 	authGroup := ctx.APIAuthGroup(r.authService)
@@ -56,8 +60,8 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	adminGroup.DELETE("/snapshot/:id", r.handleDelete)
 }
 
-// handleStatus returns whether the feature is enabled, the configured
-// retention count, and the current run status.
+// handleStatus 用管理器是否存在表示功能可用性，而非周期调度的 Enabled 设置。
+// 可用时返回设置、保留数量与执行状态，未启用也以 200 返回 enabled=false。
 func (r *Routes) handleStatus(c *gin.Context) {
 	if r.manager == nil {
 		c.JSON(http.StatusOK, gin.H{"enabled": false})
@@ -71,6 +75,8 @@ func (r *Routes) handleStatus(c *gin.Context) {
 	})
 }
 
+// currentSettings 优先读取设置存储的副本，没有存储时使用管理器配置，
+// 并以路由构造参数覆盖保留数量。调用此方法前需确认管理器存在。
 func (r *Routes) currentSettings() snapshotSvc.Settings {
 	if r.settings != nil {
 		return r.settings.Get()
@@ -80,6 +86,8 @@ func (r *Routes) currentSettings() snapshotSvc.Settings {
 	return value
 }
 
+// handleUpdateSettings 只接受一个完整 JSON 值，拒绝未知字段、尾随内容与无效设置。
+// 持久化成功后才更新管理器并通知调度器重算时间，不在保存失败时改变运行设置。
 func (r *Routes) handleUpdateSettings(c *gin.Context) {
 	if r.manager == nil || r.settings == nil {
 		r.respondNotEnabled(c)
@@ -92,6 +100,7 @@ func (r *Routes) handleUpdateSettings(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid snapshot settings"})
 		return
 	}
+	// 第二次解码必须直接到达结尾，避免接受两个相连对象或非法尾部。
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid snapshot settings"})
 		return
@@ -108,6 +117,7 @@ func (r *Routes) handleUpdateSettings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save snapshot settings"})
 		return
 	}
+	// 通知只是登记重算事件，不取消当前正在生成的归档。
 	r.manager.UpdateSettings(value)
 	if r.scheduler != nil {
 		r.scheduler.UpdateSettings()
@@ -115,13 +125,13 @@ func (r *Routes) handleUpdateSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"settings": value})
 }
 
-// respondNotEnabled writes the standard 503 response for handlers that need
-// a non-nil manager/scheduler, which is only nil if snapshots are disabled.
+// respondNotEnabled 在操作所需依赖缺失时返回统一的 503 错误。
 func (r *Routes) respondNotEnabled(c *gin.Context) {
 	respondWithSnapshotStatusError(c, http.StatusServiceUnavailable, ErrCodeSnapshotNotEnabled, "Snapshot backup is not enabled", "snapshot backup not enabled")
 }
 
-// handleList returns all finished snapshots, newest first.
+// handleList 返回管理器读取的元数据列表，按记录的创建时间降序排列。
+// 列表读取不验证对应 ZIP 是否存在，任一元数据读取或解析失败都返回错误。
 func (r *Routes) handleList(c *gin.Context) {
 	if r.manager == nil {
 		r.respondNotEnabled(c)
@@ -135,7 +145,8 @@ func (r *Routes) handleList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"snapshots": entries})
 }
 
-// handleTrigger triggers an immediate snapshot and returns 202 Accepted.
+// handleTrigger 尝试向容量为一的手动事件通道排入任务，成功即返回 202。
+// 已有待处理事件时返回 409；正在归档不等于通道已满，执行中仍能排队一次。
 func (r *Routes) handleTrigger(c *gin.Context) {
 	if r.scheduler == nil {
 		r.respondNotEnabled(c)
@@ -148,7 +159,8 @@ func (r *Routes) handleTrigger(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"triggered": true})
 }
 
-// handleDownload streams the ZIP file for a given snapshot id as an attachment.
+// handleDownload 校验快照标识并打开 ZIP，通过 ServeContent 发送附件。
+// 文件句柄在处理结束时关闭，响应禁止缓存并使用磁盘文件的修改时间。
 func (r *Routes) handleDownload(c *gin.Context) {
 	if r.manager == nil {
 		r.respondNotEnabled(c)
@@ -174,6 +186,7 @@ func (r *Routes) handleDownload(c *gin.Context) {
 		return
 	}
 
+	// 只将路径末段作为下载名称，由标准库编码附件头，编码失败时保留附件类型。
 	filename := filepath.Base(zipPath)
 	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
 	if disposition == "" {
@@ -186,7 +199,8 @@ func (r *Routes) handleDownload(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, filename, stat.ModTime(), f)
 }
 
-// handleDelete removes a snapshot's ZIP and sidecar metadata.
+// handleDelete 委托管理器删除 ZIP 和元数据。成功后返回 ok，
+// 两项删除不构成事务，失败响应不代表此前删除的文件已被恢复。
 func (r *Routes) handleDelete(c *gin.Context) {
 	if r.manager == nil {
 		r.respondNotEnabled(c)

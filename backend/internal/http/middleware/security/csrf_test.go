@@ -12,6 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestCSRFMiddleware_AllowsSafeMethodsWithoutToken 以 GET 代表免令牌路径，确认请求到达处理函数。
+// 用例只发出 GET，不将其断言范围扩大到 HEAD 和 OPTIONS。
 func TestCSRFMiddleware_AllowsSafeMethodsWithoutToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -33,6 +35,7 @@ func TestCSRFMiddleware_AllowsSafeMethodsWithoutToken(t *testing.T) {
 	}
 }
 
+// TestCSRFMiddleware_BlocksPostWithoutCookie 确认安全连接上的 POST 缺少 Cookie 时返回缺失提示。
 func TestCSRFMiddleware_BlocksPostWithoutCookie(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -45,7 +48,7 @@ func TestCSRFMiddleware_BlocksPostWithoutCookie(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("POST", "/protected", nil)
-	req.TLS = &tls.ConnectionState{} // ensure requireSecure in Read treats the request as "secure"
+	req.TLS = &tls.ConnectionState{} // 设置安全连接标记，使拒绝原因限定为缺少 Cookie。
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -61,6 +64,7 @@ func TestCSRFMiddleware_BlocksPostWithoutCookie(t *testing.T) {
 	}
 }
 
+// TestCSRFMiddleware_BlocksPostWithCookieButNoHeader 确认 Cookie 本身不足以通过双重提交检查。
 func TestCSRFMiddleware_BlocksPostWithCookieButNoHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -74,7 +78,7 @@ func TestCSRFMiddleware_BlocksPostWithCookieButNoHeader(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/protected", nil)
 	req.TLS = &tls.ConnectionState{}
-	// Cookie vorhanden, aber kein Header/Form-Token
+	// 只附带 Cookie，不提供请求头或表单令牌，预期返回无效令牌提示。
 	req.AddCookie(&http.Cookie{
 		Name:  "__Host-leafdoc_csrf",
 		Value: "test-token",
@@ -94,6 +98,7 @@ func TestCSRFMiddleware_BlocksPostWithCookieButNoHeader(t *testing.T) {
 	}
 }
 
+// TestCSRFMiddleware_BlocksPostWithMismatchingTokens 提供两个不同值，验证比较失败的响应。
 func TestCSRFMiddleware_BlocksPostWithMismatchingTokens(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -128,6 +133,7 @@ func TestCSRFMiddleware_BlocksPostWithMismatchingTokens(t *testing.T) {
 	}
 }
 
+// TestCSRFMiddleware_AllowsPostWithMatchingTokens 使用相同 Cookie 与请求头，确认 POST 被放行。
 func TestCSRFMiddleware_AllowsPostWithMatchingTokens(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -157,6 +163,8 @@ func TestCSRFMiddleware_AllowsPostWithMatchingTokens(t *testing.T) {
 	}
 }
 
+// TestCSRFMiddleware_SkipsPostWhenAPIKeyResolved 由上游模拟已解析密钥标记，验证免令牌路径。
+// 此处不测试密钥数据库解析，只检查 CSRF 对上下文标记的响应。
 func TestCSRFMiddleware_SkipsPostWhenAPIKeyResolved(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -182,6 +190,7 @@ func TestCSRFMiddleware_SkipsPostWhenAPIKeyResolved(t *testing.T) {
 	}
 }
 
+// TestCSRFMiddleware_DoesNotSkipForBearerHeaderAlone 确认仅构造 Bearer 头不能获得密钥豁免。
 func TestCSRFMiddleware_DoesNotSkipForBearerHeaderAlone(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -204,6 +213,7 @@ func TestCSRFMiddleware_DoesNotSkipForBearerHeaderAlone(t *testing.T) {
 	}
 }
 
+// TestCSRFMiddleware_DoesNotSkipWhenAPIKeyFlagIsFalse 确认标记必须等于 true 而非只要求键存在。
 func TestCSRFMiddleware_DoesNotSkipWhenAPIKeyFlagIsFalse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

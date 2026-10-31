@@ -1,3 +1,5 @@
+// 本文件捕获页面状态并记录正文、结构与资源变更，按页面锁串行化同实例的写入。
+// 正文和额外前置字段用于正文保存去重，资源变更使用独立的完整扫描路径。
 package revision
 
 import (
@@ -17,19 +19,15 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
-// CapturePageState returns a full detached snapshot including current assets.
-// This is the "expensive" path and is mainly used for asset changes and delete.
+// CapturePageState 读取页面和原始前置字段，并逐个扫描当前资源生成完整内存状态。
+// 捕获本身不写历史描述或资源块，也不在入口取得页面写锁。
 func (s *Service) CapturePageState(pageID string) (*RevisionState, error) {
 	return s.capturePageState(pageID, true)
 }
 
-// RecordContentUpdate records a content revision.
-// Performance choice for V1:
-//   - only content is re-hashed every time
-//   - the latest asset manifest is reused if it already exists
-//   - if this is the first revision for the page, assets are captured once
-//
-// Assumption: asset changes go through Upload/Rename/Delete hooks and call RecordAssetChange.
+// RecordContentUpdate 先读取页面，再按正文和额外前置字段决定跳过、合并或保存历史。
+// 资源清单优先复用缓存或上一条历史，无法复用时才扫描并保存资源。
+// 返回布尔值表示历史已写入，合并覆盖原历史时也为 true，并不只表示创建不同 ID。
 func (s *Service) RecordContentUpdate(pageID, authorID, summary string) (*Revision, bool, error) {
 	page, err := s.pages.GetPage(pageID)
 	if err != nil {
@@ -38,12 +36,16 @@ func (s *Service) RecordContentUpdate(pageID, authorID, summary string) (*Revisi
 	return s.recordContentUpdateForPage(page, authorID, summary)
 }
 
+// RecordContentUpdates 返回与输入逐项对应的错误切片，不因单页失败停止其他页。
+// 外部执行器按输入顺序串行使用，普通连接下按页面 ID 分组，不同页面并行处理。
+// 每组保留输入次序，活动组数量受 GOMAXPROCS 限制，全部组完成后才返回。
 func (s *Service) RecordContentUpdates(pages []*tree.Page, authorID, summary string) []error {
 	errs := make([]error, len(pages))
 	if len(pages) == 0 {
 		return errs
 	}
 
+	// 单个外部事务不进入多组并行路径，避免在同一执行器上并发编排这些写操作。
 	if s.store.executor != nil {
 		for i, page := range pages {
 			if page == nil {
@@ -60,6 +62,7 @@ func (s *Service) RecordContentUpdates(pages []*tree.Page, authorID, summary str
 		page  *tree.Page
 	}
 
+	// 同页重复输入归到同组，错误仍写回各自在原切片中的下标。
 	grouped := make(map[string][]batchItem)
 	nilItems := make([]int, 0)
 	for i, page := range pages {
@@ -74,6 +77,7 @@ func (s *Service) RecordContentUpdates(pages []*tree.Page, authorID, summary str
 		errs[i] = fmt.Errorf("page is required")
 	}
 
+	// 每组创建一个 goroutine，信号量只限制同时工作的组，不限制 goroutine 总数。
 	parallelism := runtime.GOMAXPROCS(0)
 	if parallelism < 1 {
 		parallelism = 1
@@ -100,9 +104,9 @@ func (s *Service) RecordContentUpdates(pages []*tree.Page, authorID, summary str
 	return errs
 }
 
-// RecordAssetChange records a full snapshot when live assets changed.
-// This method hashes the current assets and only writes a new revision when
-// content or the asset manifest actually changed.
+// RecordAssetChange 持页面锁完整扫描资源，比较上一条历史的正文与资源清单哈希。
+// 两项相同时直接返回旧历史，不单独以额外前置字段或页面结构变化触发记录。
+// 需要保存时依次写正文、资源块、清单和历史描述，成功后更新缓存并执行数量裁剪。
 func (s *Service) RecordAssetChange(pageID, authorID, summary string) (*Revision, bool, error) {
 	mu := s.pageWriteLock(pageID)
 	mu.Lock()
@@ -157,6 +161,8 @@ func (s *Service) RecordAssetChange(pageID, authorID, summary string) (*Revision
 	return rev, true, nil
 }
 
+// RecordStructureChange 捕获页面结构与正文，复用或建立资源清单后写结构历史。
+// 本方法不对照上一条历史跳过相同结构，每次成功都返回已写入状态。
 func (s *Service) RecordStructureChange(pageID, authorID, summary string) (*Revision, bool, error) {
 	mu := s.pageWriteLock(pageID)
 	mu.Lock()
@@ -197,9 +203,10 @@ func (s *Service) RecordStructureChange(pageID, authorID, summary string) (*Revi
 	return rev, true, nil
 }
 
+// resolveAssetManifestHash 按内存缓存、上一条历史、完整资源扫描的顺序获得清单哈希。
+// 缓存存在性检查执行数据库读取而非文件 Stat，缓存路径不解析清单 JSON。
 func (s *Service) resolveAssetManifestHash(pageID string, prev *Revision) (string, error) {
-	// Check in-memory cache first — avoids a full asset scan on every content save.
-	// Use a stat to verify the file still exists without parsing its JSON content.
+	// 缓存记录可读即可复用，读失败清除缓存并继续后续恢复路径。
 	if v, ok := s.assetManifestCache.Load(pageID); ok {
 		entry := v.(assetManifestEntry)
 		if s.store.AssetManifestExists(entry.hash) {
@@ -208,6 +215,7 @@ func (s *Service) resolveAssetManifestHash(pageID string, prev *Revision) (strin
 		s.assetManifestCache.Delete(pageID)
 	}
 
+	// 上一条清单须能够完整解码；失败在此分支不直接返回，而是转入现场扫描。
 	if prev != nil && prev.AssetManifestHash != "" {
 		if _, err := s.store.LoadAssetManifest(prev.AssetManifestHash); err == nil {
 			s.assetManifestCache.Store(pageID, assetManifestEntry{hash: prev.AssetManifestHash})
@@ -215,6 +223,7 @@ func (s *Service) resolveAssetManifestHash(pageID string, prev *Revision) (strin
 		}
 	}
 
+	// 无可复用清单时读取现场资源、保存块和清单，并核对两次清单编码的哈希。
 	fullState, err := s.capturePageState(pageID, true)
 	if err != nil {
 		return "", err
@@ -233,6 +242,8 @@ func (s *Service) resolveAssetManifestHash(pageID string, prev *Revision) (strin
 	return savedManifestHash, nil
 }
 
+// capturePageState 先构造页面状态并读取额外前置字段，按 withAssets 决定是否扫描资源。
+// 不扫描时资源列表及清单哈希保持零值，任一步读取或编码失败不返回部分状态。
 func (s *Service) capturePageState(pageID string, withAssets bool) (*RevisionState, error) {
 	page, err := s.pages.GetPage(pageID)
 	if err != nil {
@@ -263,6 +274,9 @@ func (s *Service) capturePageState(pageID string, withAssets bool) (*RevisionSta
 	return state, nil
 }
 
+// revisionStateFromPage 从非空页面复制结构、正文和元信息，并计算正文哈希。
+// 根目录父节点表示为空父 ID，时间统一为 UTC，作者 ID 裁去边缘空白。
+// 额外前置字段和资源不在此步骤读取。
 func (s *Service) revisionStateFromPage(page *tree.Page) *RevisionState {
 	parentID := ""
 	if page.Parent != nil && page.Parent.ID != "root" {
@@ -286,11 +300,14 @@ func (s *Service) revisionStateFromPage(page *tree.Page) *RevisionState {
 	}
 }
 
+// pageWriteLock 为每个精确页面 ID 复用一个互斥锁，锁映射不在使用后删除。
 func (s *Service) pageWriteLock(pageID string) *sync.Mutex {
 	v, _ := s.pageLocks.LoadOrStore(pageID, &sync.Mutex{})
 	return v.(*sync.Mutex)
 }
 
+// shouldCoalesce 只合并同一作者的正文更新，前条时间距现在须位于闭区间零到窗口。
+// 窗口非正数、没有前条、前条来自未来或其他操作类别时均不合并。
 func (s *Service) shouldCoalesce(prev *Revision, authorID string) bool {
 	if s.coalesceWindow <= 0 || prev == nil {
 		return false
@@ -302,6 +319,8 @@ func (s *Service) shouldCoalesce(prev *Revision, authorID string) bool {
 		elapsed <= s.coalesceWindow
 }
 
+// recordContentUpdateForPage 要求非空页面，持锁读取前条历史并捕获额外前置字段。
+// 正文与额外字段哈希都相同则跳过，不单独因标题、路径或资源差异创建正文历史。
 func (s *Service) recordContentUpdateForPage(page *tree.Page, authorID, summary string) (*Revision, bool, error) {
 	mu := s.pageWriteLock(page.ID)
 	mu.Lock()
@@ -321,6 +340,7 @@ func (s *Service) recordContentUpdateForPage(page *tree.Page, authorID, summary 
 		return prev, false, nil
 	}
 
+	// 合并沿用历史 ID 和 CreatedAt，仅覆盖下列内容与描述字段，窗口不随合并延长。
 	if s.shouldCoalesce(prev, authorID) {
 		s.log.Debug("coalescing revision", "pageID", page.ID, "revisionID", prev.ID, "authorID", authorID)
 		oldHash := prev.ContentHash
@@ -348,6 +368,7 @@ func (s *Service) recordContentUpdateForPage(page *tree.Page, authorID, summary 
 		if err := s.store.UpdateRevision(prev); err != nil {
 			return nil, false, err
 		}
+		// 描述成功更新后，旧正文无引用才删除；清理失败只记录警告，不撤销历史更新。
 		if oldHash != contentHash {
 			if err := s.store.DeleteContentBlobIfUnreferenced(page.ID, oldHash); err != nil {
 				s.log.Warn("failed to gc orphaned content blob", "pageID", page.ID, "hash", oldHash, "error", err)
@@ -381,6 +402,8 @@ func (s *Service) recordContentUpdateForPage(page *tree.Page, authorID, summary 
 	return rev, true, nil
 }
 
+// newRevision 生成独立历史 ID 和当前 UTC 创建时间，并从捕获状态复制描述字段。
+// 额外字段映射直接引用状态中的映射，不在此处深复制或持久化。
 func (s *Service) newRevision(t RevisionType, state *RevisionState, authorID, summary, assetManifestHash string) (*Revision, error) {
 	revisionID, err := shared.GenerateUniqueID()
 	if err != nil {
@@ -410,6 +433,8 @@ func (s *Service) newRevision(t RevisionType, state *RevisionState, authorID, su
 	}, nil
 }
 
+// enrichStateWithExtraFrontmatter 重新读取原始页面前置字段并写入状态。
+// 无额外字段时显式清空状态字段；解析失败返回错误，不使用旧值代替。
 func (s *Service) enrichStateWithExtraFrontmatter(pageID string, state *RevisionState) error {
 	if state == nil {
 		return fmt.Errorf("revision state is required")
@@ -439,6 +464,8 @@ func (s *Service) enrichStateWithExtraFrontmatter(pageID string, state *Revision
 	return nil
 }
 
+// hashExtraFrontmatter 对非空额外字段的 JSON 编码计算哈希，空映射返回空哈希。
+// 不支持 JSON 编码的值会返回带上下文错误，不生成替代编码。
 func hashExtraFrontmatter(extra map[string]interface{}) (string, error) {
 	if len(extra) == 0 {
 		return "", nil

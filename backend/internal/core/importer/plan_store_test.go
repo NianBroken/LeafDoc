@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// TestPlanStoreSet 验证内存状态可被读取，返回外层副本而非原对象指针。
 func TestPlanStoreSet(t *testing.T) {
 	s := NewPlanStore()
 	plan := &StoredPlan{ExecutionStatus: ExecutionStatusPlanned}
@@ -25,6 +26,7 @@ func TestPlanStoreSet(t *testing.T) {
 	}
 }
 
+// TestPlanStoreGet 确认空状态库不能返回有效计划；此断言只检查错误非空。
 func TestPlanStoreGet(t *testing.T) {
 	s := NewPlanStore()
 
@@ -34,6 +36,7 @@ func TestPlanStoreGet(t *testing.T) {
 	}
 }
 
+// TestPlanStoreSetAndGet 验证计划标识随状态保存，同时维持外层对象隔离。
 func TestPlanStoreSetAndGet(t *testing.T) {
 	s := NewPlanStore()
 	plan := &StoredPlan{
@@ -56,6 +59,7 @@ func TestPlanStoreSetAndGet(t *testing.T) {
 	}
 }
 
+// TestPlanStoreClear 在写入后清理状态，再读取必须失败，测试不使用数据库持久化。
 func TestPlanStoreClear(t *testing.T) {
 	s := NewPlanStore()
 	plan := &StoredPlan{}
@@ -73,6 +77,8 @@ func TestPlanStoreClear(t *testing.T) {
 	}
 }
 
+// TestPlanStoreTryStartExecution_WithNilPlanPayload 区分存在状态对象与存在有效计划。
+// 内部 Plan 为空时启动返回状态不可用错误，不将其当作正常待执行计划。
 func TestPlanStoreTryStartExecution_WithNilPlanPayload(t *testing.T) {
 	store := NewPlanStore()
 	if err := store.Set(&StoredPlan{
@@ -88,6 +94,8 @@ func TestPlanStoreTryStartExecution_WithNilPlanPayload(t *testing.T) {
 	}
 }
 
+// TestPlanStoreUpdateExecutionProgress_UpdatesEmbeddedFields 验证进度写入嵌入字段。
+// 断言覆盖处理数、总数、源路径和开始时间，不依赖 JSON 序列化或数据库。
 func TestPlanStoreUpdateExecutionProgress_UpdatesEmbeddedFields(t *testing.T) {
 	store := NewPlanStore()
 	if err := store.Set(&StoredPlan{

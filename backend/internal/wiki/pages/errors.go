@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Error codes for the pages domain.
+// 页面接口使用的稳定错误码，状态映射和客户端本地化按这些值识别失败原因。
 const (
 	ErrCodePageNotFound          = "page_not_found"
 	ErrCodePageParentNotFound    = "page_parent_not_found"
@@ -34,6 +34,7 @@ const (
 	ErrCodePageInvalidTargetKind = "page_invalid_target_kind"
 )
 
+// newPageRootOperationError 构造禁止根节点操作的结构化错误，操作名称作为模板参数。
 func newPageRootOperationError(operation string) *sharederrors.LocalizedError {
 	return sharederrors.NewLocalizedError(
 		ErrCodePageRootOperation,
@@ -43,13 +44,14 @@ func newPageRootOperationError(operation string) *sharederrors.LocalizedError {
 	)
 }
 
+// respondWithPageStatusError 将状态、代码和翻译模板统一交给 HTTP 错误响应入口。
 func respondWithPageStatusError(c *gin.Context, status int, code, message, template string, args ...string) {
 	httpinternal.RespondError(c, status, code, message, template, args...)
 }
 
-// respondWithPageError is the central error handler for all page endpoints.
-// It checks for LocalizedError first (rich, template-ready), then falls back to
-// sentinel error mapping so that lower-level service errors produce correct HTTP statuses.
+// respondWithPageError 先处理带本地化字段的错误，再处理字段校验错误。
+// 其余错误按 errors.Is 匹配树服务分类，未知错误使用内部错误码和原错误文字。
+// 版本冲突返回 409，缺失版本和无效操作返回 400，不在此重试请求。
 func respondWithPageError(c *gin.Context, err error) {
 	if loc, ok := sharederrors.AsLocalizedError(err); ok {
 		respondWithPageStatusError(c, pageErrorStatus(loc.Code), loc.Code, loc.Message, loc.Template, loc.Args...)
@@ -90,6 +92,8 @@ func respondWithPageError(c *gin.Context, err error) {
 	}
 }
 
+// pageErrorStatus 将结构化错误码映射为 HTTP 状态，收藏存储不可用单独使用 503。
+// 未列出的代码统一返回 500，不从错误消息推断状态。
 func pageErrorStatus(code string) int {
 	switch code {
 	case ErrCodePageNotFound, ErrCodePageParentNotFound:

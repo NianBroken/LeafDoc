@@ -1,9 +1,11 @@
+// 本文件验证语法树筛选与原文定位的结合，避免把代码样本当作可重写链接。
 package links
 
 import (
 	"testing"
 )
 
+// 相同链接位于行内代码、围栏代码和普通正文，必须只替换普通正文的一个目标。
 func TestMarkdownRefactorEngine_Rewrite_SkipsInlineCodeAndCodeBlocks(t *testing.T) {
 	content := "`[code](/docs/b)`\n\n```md\n[block](/docs/b)\n```\n\n[real](/docs/b)"
 
@@ -20,6 +22,8 @@ func TestMarkdownRefactorEngine_Rewrite_SkipsInlineCodeAndCodeBlocks(t *testing.
 	}
 }
 
+// 引用式链接能形成语法树候选，但没有受支持的行内目标位置，
+// 因此不产生替换并报告警告，而不是直接修改引用定义。
 func TestMarkdownRefactorEngine_Rewrite_WarnsForReferenceLinks(t *testing.T) {
 	content := "[Ref][docs]\n\n[docs]: /docs/b"
 

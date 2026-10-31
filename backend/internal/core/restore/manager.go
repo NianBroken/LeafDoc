@@ -1,3 +1,5 @@
+// 本文件编排后台恢复、上传暂存和独立进度凭据。归档先解压验证，
+// 再在维护锁和业务写入屏障内替换数据库与资源，重载成功后才重新开放写入。
 package restore
 
 import (
@@ -19,9 +21,7 @@ import (
 	sharederrors "github.com/NianBroken/LeafDoc/internal/core/shared/errors"
 )
 
-// ErrRestoreAlreadyRunning is returned by TriggerRestore when a restore is
-// already in progress. Fixed package-level LocalizedError, matching
-// wikiresync.ErrResyncAlreadyRunning / snapshot.ErrAlreadyRunning.
+// ErrRestoreAlreadyRunning 在当前任务仍运行时拒绝另一项恢复，使用固定本地化错误。
 var ErrRestoreAlreadyRunning = sharederrors.NewLocalizedError(
 	"restore_already_running",
 	"A restore is already in progress",
@@ -29,11 +29,8 @@ var ErrRestoreAlreadyRunning = sharederrors.NewLocalizedError(
 	nil,
 )
 
-// ErrRestoreNeedsIntervention is returned by TriggerRestore when a previous
-// restore left the instance in a NeedsIntervention state. Starting a new
-// restore on top of a half-swapped filesystem and orphaned .pre-restore-*
-// copies would compound the inconsistency instead of resolving it — the only
-// supported way out is self-restart (see Manager.SelfRestart / ADR-0009).
+// ErrRestoreNeedsIntervention 在任务被标记为需要介入时阻止下一项恢复。
+// 管理器保留该状态供管理入口展示并选择重启，不在此自动清除残留资源。
 var ErrRestoreNeedsIntervention = sharederrors.NewLocalizedError(
 	"restore_needs_intervention",
 	"This instance needs attention before a new restore can be started — restart the server first",
@@ -41,11 +38,7 @@ var ErrRestoreNeedsIntervention = sharederrors.NewLocalizedError(
 	nil,
 )
 
-// ErrWritesDisabled is returned by the write-gate HTTP middleware
-// (internal/http/middleware/maintenance) when a mutating request arrives
-// while a restore is swapping files. Defined here, not hand-rolled in the
-// middleware, so that response follows the same *sharederrors.LocalizedError
-// convention as every other error this feature returns.
+// ErrWritesDisabled 供维护中间件拒绝写入请求，领域与 HTTP 层共用同一错误定义。
 var ErrWritesDisabled = sharederrors.NewLocalizedError(
 	"restore_writes_disabled",
 	"A restore is in progress; writes are temporarily disabled",
@@ -53,20 +46,18 @@ var ErrWritesDisabled = sharederrors.NewLocalizedError(
 	nil,
 )
 
-// gateDrainTimeout bounds how long the restore sequence waits, once the
-// write gate is engaged, for requests already in flight (started just before
-// Engage()) to finish before files are swapped out from under them. A
-// timeout here is logged and the restore proceeds anyway rather than failing
-// the whole operation over a slow request.
+// gateDrainTimeout 限制关闭准入后等待在途写入结束的时间。
+// 超时会结束恢复并重新开放准入，不进入资源交换。
 const gateDrainTimeout = 10 * time.Second
 
-// progressTokenTTL bounds the capability to a single restore observation window.
+// progressTokenTTL 限定进度凭据从任务开始起的一小时有效窗口，不随查询延长。
 const progressTokenTTL = time.Hour
 
-// DefaultMaxUploadSizeBytes is used by TriggerRestoreFromUpload's HTTP
-// handler (POST /restore/upload) when Config.MaxUploadSizeBytes is unset.
-const DefaultMaxUploadSizeBytes int64 = 500 * 1024 * 1024 // 500 MiB
+// 未配置正上传限额时，HTTP 上传处理入口读取此默认值。
+const DefaultMaxUploadSizeBytes int64 = 500 * 1024 * 1024 // 五百 MiB，以字节表示。
 
+// Manager 的进度锁把启动任务与替换进度凭据串行化，Job 单独保护状态。
+// 配置在构造时保存，后台恢复通过等待组纳入进程关闭等待。
 type Manager struct {
 	progressMu        sync.Mutex
 	progressTokenHash [sha256.Size]byte
@@ -74,27 +65,24 @@ type Manager struct {
 	progressExpiresAt time.Time
 	cfg               Config
 	job               *Job
-	// wg tracks the in-flight runLocked goroutine (if any), so callers that
-	// need the process to shut down cleanly (main.go) can wait for a restore
-	// to finish before closing the services it depends on (AuthService,
-	// BrandingService) out from under it.
+	// 跟踪按标识和上传启动的后台任务，让关闭流程先等待恢复结束再释放依赖服务。
 	wg sync.WaitGroup
 }
 
+// NewManager 保存配置并创建空闲状态，不验证资源目录或启动协程。
 func NewManager(cfg Config) *Manager {
 	return &Manager{cfg: cfg, job: NewJob()}
 }
 
-// TriggerRestore starts a restore job asynchronously for the given snapshot
-// id. Returns ErrRestoreAlreadyRunning if a restore is already in progress,
-// or ErrRestoreNeedsIntervention if a previous restore left the instance in
-// a state where a new one must not be started (see ErrRestoreNeedsIntervention).
+// TriggerRestore 按快照标识启动后台恢复，丢弃带凭据入口返回的进度令牌。
+// 快照查找与归档错误发生在后台，通过任务状态展示，不作为此入口的同步错误。
 func (m *Manager) TriggerRestore(id string) error {
 	_, err := m.TriggerRestoreWithStatusToken(id)
 	return err
 }
 
-// TriggerRestoreWithStatusToken grants read-only access to this job's progress.
+// TriggerRestoreWithStatusToken 在进度锁内开始任务并生成凭据，然后启动后台工作。
+// 返回凭据只用于读取当前任务进度，不提供管理员业务操作权限。
 func (m *Manager) TriggerRestoreWithStatusToken(id string) (string, error) {
 	m.progressMu.Lock()
 	defer m.progressMu.Unlock()
@@ -106,7 +94,9 @@ func (m *Manager) TriggerRestoreWithStatusToken(id string) (string, error) {
 	return token, nil
 }
 
-// startProgressJob runs under progressMu so token rotation and job start are atomic.
+// startProgressJob 要求调用方持有 progressMu，先拒绝介入和运行状态，
+// 再生成三十二个随机字节并开始任务。只有成功开始才替换凭据摘要与到期时间。
+// 完整凭据以十六进制返回，管理器只保存其 SHA-256，不写入任务 JSON。
 func (m *Manager) startProgressJob() (string, error) {
 	if m.job.Status().NeedsIntervention {
 		return "", ErrRestoreNeedsIntervention
@@ -128,8 +118,9 @@ func (m *Manager) startProgressJob() (string, error) {
 	return token, nil
 }
 
-// ProgressStatus accepts only the current job's credential. Fixed-size hash
-// comparison is constant time; neither credential nor hash enters job JSON.
+// ProgressStatus 计算传入文本的摘要，与当前固定长度摘要作常量时间比较。
+// 只有凭据存在、相等且严格未到期才返回状态；任务完成不自动撤销凭据，
+// 下一任务开始或管理器重建后旧凭据不再有效。
 func (m *Manager) ProgressStatus(token string) (JobStatus, bool) {
 	candidate := sha256.Sum256([]byte(token))
 	m.progressMu.Lock()
@@ -141,24 +132,16 @@ func (m *Manager) ProgressStatus(token string) (JobStatus, bool) {
 	return m.job.Status(), true
 }
 
-// TriggerRestoreFromUpload starts a restore job asynchronously from an
-// uploaded ZIP, read in full from r. Returns the same errors as
-// TriggerRestore (ErrRestoreAlreadyRunning / ErrRestoreNeedsIntervention),
-// plus any error encountered while staging the upload to disk.
-//
-// Unlike TriggerRestore(id), staging happens synchronously before this
-// method returns: r is expected to be backed by the inbound HTTP request's
-// multipart body, which is only valid for the lifetime of that request — it
-// must be fully drained into a durable temp file before control returns to
-// the HTTP handler, since the actual restore then runs in a background
-// goroutine after the handler (and its response) has already completed.
+// TriggerRestoreFromUpload 同步把上传流读到临时文件，再启动后台恢复并丢弃进度凭据。
+// 上传流应在请求返回前读完，后台任务只依赖暂存路径，不继续读取请求体。
 func (m *Manager) TriggerRestoreFromUpload(r io.Reader) error {
 	_, err := m.TriggerRestoreFromUploadWithStatusToken(r)
 	return err
 }
 
-// TriggerRestoreFromUploadWithStatusToken stages the request before granting
-// a credential, and retains that credential after sessions are invalidated.
+// TriggerRestoreFromUploadWithStatusToken 先开始任务并生成凭据，再在同一进度锁内
+// 同步暂存上传。暂存失败结束任务并返回空令牌；成功后把临时路径交给后台处理。
+// 进度凭据独立于账号会话，恢复清空刷新会话后仍可查询当前任务。
 func (m *Manager) TriggerRestoreFromUploadWithStatusToken(r io.Reader) (string, error) {
 	m.progressMu.Lock()
 	defer m.progressMu.Unlock()
@@ -177,11 +160,9 @@ func (m *Manager) TriggerRestoreFromUploadWithStatusToken(r io.Reader) (string, 
 	return token, nil
 }
 
-// stageUpload drains r into a fresh temp file inside dataDir (the same
-// filesystem extractAndValidate's staging directory uses, and for the same
-// reason — so nothing downstream needs a cross-filesystem copy). The
-// returned cleanup func removes the temp file; callers must invoke it
-// exactly once, whether or not the restore that follows succeeds.
+// stageUpload 在数据目录创建临时 ZIP 并读完上传流，关闭文件后返回路径。
+// 此方法不限制读取字节数，不调用 Sync；上传限额由 HTTP 层使用管理器提供的值执行。
+// 清理函数使用 Once，多次调用只尝试删除一次，删除错误不返回。
 func (m *Manager) stageUpload(r io.Reader) (zipPath string, cleanup func(), err error) {
 	f, err := os.CreateTemp(m.cfg.DataDir, ".leafdoc-restore-upload-*.zip")
 	if err != nil {
@@ -202,15 +183,8 @@ func (m *Manager) stageUpload(r io.Reader) (zipPath string, cleanup func(), err 
 	return f.Name(), cleanup, nil
 }
 
-// errStageUploadFailed wraps any failure to drain an uploaded backup ZIP to a
-// durable temp file (disk full, permission error, ...) as a LocalizedError,
-// per this repo's convention that domain errors reaching an HTTP handler must
-// be *sharederrors.LocalizedError, not a bare fmt.Errorf/errors.New. Unlike
-// this file's other fmt.Errorf calls (which only ever feed the async
-// job-status string), stageUpload's errors are returned synchronously to
-// TriggerRestoreFromUpload's HTTP handler, which only renders a specific
-// message for LocalizedError — anything else falls back to a generic
-// "Restore request failed".
+// errStageUploadFailed 将同步暂存错误封装为本地化错误，同时保留底层原因。
+// 调用方需传入非空错误，消息参数使用该错误的文本。
 func errStageUploadFailed(cause error) error {
 	return sharederrors.NewLocalizedError(
 		"restore_upload_staging_failed",
@@ -221,14 +195,12 @@ func errStageUploadFailed(cause error) error {
 	)
 }
 
-// Status returns the current restore job state (thread-safe).
+// Status 返回当前任务状态副本，不验证进度凭据；访问控制由调用入口负责。
 func (m *Manager) Status() JobStatus {
 	return m.job.Status()
 }
 
-// MaxUploadSizeBytes returns the configured limit for POST /restore/upload,
-// falling back to DefaultMaxUploadSizeBytes when Config.MaxUploadSizeBytes is
-// unset (<= 0).
+// MaxUploadSizeBytes 返回正配置限额，零或负数使用默认上传限额。
 func (m *Manager) MaxUploadSizeBytes() int64 {
 	if m.cfg.MaxUploadSizeBytes > 0 {
 		return m.cfg.MaxUploadSizeBytes
@@ -236,26 +208,20 @@ func (m *Manager) MaxUploadSizeBytes() int64 {
 	return DefaultMaxUploadSizeBytes
 }
 
-// Wait blocks until any in-flight restore triggered via TriggerRestore has
-// fully finished. Intended to be called during process shutdown, before
-// closing services (AuthService, BrandingService) a running restore depends
-// on — see cmd/leafdoc/main.go.
+// Wait 等待已经登记的后台恢复退出，不取消正在执行的工作。
+// 调用方在关闭流程中先停止接收新任务，再等待并关闭依赖资源。
 func (m *Manager) Wait() {
 	m.wg.Wait()
 }
 
-// SelfRestart re-execs the current process. Callers (the HTTP handler) are
-// expected to only allow this once Status().NeedsIntervention is true.
+// SelfRestart 委托平台实现重启，此方法不自行检查介入标记或请求权限。
 func (m *Manager) SelfRestart() error {
 	return SelfRestart()
 }
 
-// runLocked resolves the given snapshot id to a zip path and runs the
-// restore sequence against it (see runFromZipPath). The snapshot itself was
-// produced by this server's own snapshot machinery, not attacker-controlled
-// input, so extraction runs unrestricted rather than under
-// DefaultZipExtractionLimits — a legitimately large wiki must still be able
-// to restore its own backup.
+// runLocked 从备份管理器取得已有快照路径，使用不限制大小的解压配置。
+// 路径查询失败保存在验证阶段状态中；所有后台执行交给 panic 保护入口。
+// 此处的本地来源选择不是对文件内容可信性的证明，内容仍须经过归档校验。
 func (m *Manager) runLocked(id string) {
 	m.runGuarded(func() {
 		zipPath, err := m.cfg.SnapshotManager.SnapshotZipPath(id)
@@ -268,11 +234,8 @@ func (m *Manager) runLocked(id string) {
 	})
 }
 
-// runGuarded recovers from any panic raised by fn, treating it as
-// NeedsIntervention: a panic mid-sequence means we don't know which phases
-// actually completed, so failing safe (gate stays engaged, admin must
-// self-restart) is the only sound response. Shared by both the by-id
-// (runLocked) and by-upload (TriggerRestoreFromUpload) entrypoints.
+// runGuarded 捕获 fn 的可恢复 panic，记录错误并把任务标为需要介入。
+// 它不自行 Engage 或 Disengage，写入屏障保留 panic 发生时的状态。
 func (m *Manager) runGuarded(fn func()) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -283,7 +246,9 @@ func (m *Manager) runGuarded(fn func()) {
 	fn()
 }
 
-// runFromZipPath validates the archive before the shared maintenance barrier.
+// runFromZipPath 先在维护锁之外解压校验，随后释放上传临时文件。
+// 校验成功才取得维护锁并关闭新写入准入；在途写入超时则退出而不交换数据。
+// 数据恢复或运行态重载失败按错误类型决定是否保留关闭状态，成功才重新开放。
 func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLimits, releaseUpload func()) {
 	m.job.SetPhase(PhaseValidating)
 	staging, _, err := extractAndValidateWithLimits(zipPath, m.cfg.DataDir, limits)
@@ -299,6 +264,7 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 			m.job.recordCleanupError(err)
 		}
 	}()
+	// 暂存目录在函数退出时删除，删除错误合并入任务状态，不在此返回同步错误。
 	database.MaintenanceMu.Lock()
 	defer database.MaintenanceMu.Unlock()
 	m.cfg.WriteGate.Engage()
@@ -318,6 +284,7 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 		m.job.Finish(err)
 		return
 	}
+	// 数据已提交后重载设置和用户解析状态，失败不会在此回滚已提交数据库。
 	if err := m.reloadAll(); err != nil {
 		m.job.FinishNeedsIntervention(err)
 		return
@@ -328,6 +295,7 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 			return
 		}
 	}
+	// 明确的运行态重载回调优先，只有没有它时才触发重同步回调。
 	if m.cfg.ReloadRuntime != nil {
 		if err := m.cfg.ReloadRuntime(); err != nil {
 			m.job.FinishNeedsIntervention(err)
@@ -340,10 +308,8 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 	m.job.Finish(nil)
 }
 
-// reloadAll re-reads every configured settings.Reloadable (nil-safe, one per
-// entry) from the restored files, accumulating every failure rather than
-// stopping at the first — mirroring reopenAllStores' error-accumulation
-// style below.
+// reloadAll 按配置顺序重载每个非空入口，即使某项失败也继续后续项，
+// 结束后合并所有错误。重复配置项会被重复调用，不在这里去重或回滚已重载设置。
 func (m *Manager) reloadAll() error {
 	var errs []error
 	for _, r := range m.cfg.Reloadables {

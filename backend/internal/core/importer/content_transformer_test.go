@@ -6,7 +6,10 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/tree"
 )
 
+// TestContentTransformer_TransformContent_TableDriven 用同一份页面计划验证不同正文语法。
+// 测试同时覆盖页面路径、别名、片段、附件、外部地址以及代码区域的保留结果。
 func TestContentTransformer_TransformContent_TableDriven(t *testing.T) {
+	// 附件只需要可读取的字节，测试替身不解码真实 PDF 或图片格式。
 	tmp := t.TempDir()
 	writeTmp(t, tmp, "Note.md", "# Note")
 	writeTmp(t, tmp, "Three laws of motion.md", "# Three laws")
@@ -16,6 +19,7 @@ func TestContentTransformer_TransformContent_TableDriven(t *testing.T) {
 	writeTmp(t, tmp, "img.png", "png-bytes")
 	writeTmp(t, tmp, "obsidian_repo.png", "png-bytes")
 
+	// 计划中只登记页面文件，附件由正文引用时从工作区查找并交给上传替身。
 	transformer := newContentTransformer(&PlanResult{
 		Items: []PlanItem{
 			{SourcePath: "Note.md", TargetPath: "note", Kind: tree.NodeKindPage},
@@ -27,6 +31,7 @@ func TestContentTransformer_TransformContent_TableDriven(t *testing.T) {
 	page := &tree.Page{PageNode: &tree.PageNode{ID: "p1", Kind: tree.NodeKindPage}}
 	wiki := &fakeExecWiki{}
 
+	// 每个案例明确给出完整期望正文，既检查被转换部分，也检查原样保留的标记。
 	tests := []struct {
 		name       string
 		sourcePath string
@@ -179,6 +184,7 @@ func TestContentTransformer_TransformContent_TableDriven(t *testing.T) {
 		},
 	}
 
+	// 各案例共用转换器，因此同页同附件引用也会经过已有上传缓存。
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := transformer.TransformContent("editor", tt.sourcePath, page, tt.content, wiki)

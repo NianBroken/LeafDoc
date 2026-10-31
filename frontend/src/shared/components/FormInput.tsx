@@ -1,5 +1,7 @@
+// 为受控文本输入统一提供可选标题、错误样式和错误文字，不在内部保存输入值。
 import { Input } from '@/shared/components/ui/input'
 
+// allowedHotkeys 透传为 data-allow-hotkeys，实际键盘放行由全局快捷键规则读取。
 type FormInputProps = {
   label?: string
   name?: string
@@ -15,6 +17,8 @@ type FormInputProps = {
   allowedHotkeys?: string
 }
 
+// FormInput 把事件中的字符串值传给调用方，不执行裁空白、格式转换或提交校验。
+// label 仅渲染文字标签，本组件未生成 id 与 htmlFor 的显式关联。
 export function FormInput({
   label,
   name,

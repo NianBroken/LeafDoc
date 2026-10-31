@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TestRespondWithBrandingError_ValidationErrors 检查字段错误保持字段数组结构而非普通领域错误结构。
 func TestRespondWithBrandingError_ValidationErrors(t *testing.T) {
 	t.Parallel()
 
@@ -31,6 +32,7 @@ func TestRespondWithBrandingError_ValidationErrors(t *testing.T) {
 	}
 }
 
+// TestRespondWithBrandingError_LocalizedError 精确核对 400 状态与扩展名翻译参数的保留。
 func TestRespondWithBrandingError_LocalizedError(t *testing.T) {
 	t.Parallel()
 
@@ -58,6 +60,7 @@ func TestRespondWithBrandingError_LocalizedError(t *testing.T) {
 	}
 }
 
+// TestRespondWithBrandingError_InternalErrorIsSanitized 确认磁盘权限错误不直接暴露到客户端。
 func TestRespondWithBrandingError_InternalErrorIsSanitized(t *testing.T) {
 	t.Parallel()
 

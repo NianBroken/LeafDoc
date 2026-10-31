@@ -1,3 +1,4 @@
+// 搜索侧栏将查询词与标签同步到地址栏，延迟请求分页结果，并支持标签筛选与键盘打开。
 import i18next from '@/shared/lib/i18n'
 import { Trans } from 'react-i18next'
 import {
@@ -43,9 +44,7 @@ type SearchProps = {
 const t = (key: string, opts?: Record<string, unknown>) =>
   i18next.t(key, { ...opts, ns: 'search' })
 
-// Sidebar panel switching must keep working while the search field is
-// focused, otherwise the shortcuts are only reachable from elsewhere on
-// the page (see HotKeyHandler's input/button focus guard).
+// 输入框聚焦时仅放行目录与搜索面板切换快捷键，组合键从统一目录读取。
 const SEARCH_INPUT_ALLOWED_HOTKEYS = [
   getShortcutDefinition('sidebar.explorer.open').keyCombo,
   getShortcutDefinition('sidebar.search.open').keyCombo,
@@ -59,6 +58,7 @@ export default function Search({ active = false }: SearchProps) {
   const [inputQuery, setInputQuery] = useState(urlQuery)
   const activeTags = searchParams.getAll('tags')
   const activeTagsKey = activeTags.join('\n')
+  // 标签列表转换为字符串参与延迟状态，查询词使用独立的较长延迟。
   const debouncedActiveTagsKey = useDebounce(activeTagsKey, 180)
 
   const [loading, setLoading] = useState(
@@ -86,6 +86,7 @@ export default function Search({ active = false }: SearchProps) {
     [debouncedActiveTagsKey],
   )
   const hasSearchQuery = debouncedQuery.length >= 3
+  // 请求门槛按未去空白的查询长度判断，界面空闲状态则按去空白文本与当前标签判断。
   const trimmedQuery = inputQuery.trim()
   const activeQueryLabel = hasSearchQuery ? debouncedQuery : trimmedQuery
   const isIdleMode = trimmedQuery === '' && activeTags.length === 0
@@ -95,6 +96,7 @@ export default function Search({ active = false }: SearchProps) {
   const clampedActiveIndex =
     results.length === 0 ? 0 : Math.min(activeIndex, results.length - 1)
   const visibleTags = isIdleMode ? availableTags : facetTags
+  // 空闲时显示标签接口结果，有筛选时显示搜索响应中的标签分面。
   const availableTagsLabel =
     activeTags.length === 0
       ? t('tags.available', { count: visibleTags.length })
@@ -116,11 +118,13 @@ export default function Search({ active = false }: SearchProps) {
   }, [activeQueryLabel, activeTags])
 
   const invalidatePendingRequests = () => {
+    // 递增序号使旧请求的完成回调失效，此动作不取消实际网络连接。
     latestRequestIdRef.current += 1
   }
 
   const toggleActiveTag = useCallback(
     (tag: string) => {
+      // 更新重复 tags 参数并保留其他参数；选择变化后回到首页和第一个结果。
       invalidatePendingRequests()
       setLoading(true)
       setSearchParams(
@@ -148,6 +152,7 @@ export default function Search({ active = false }: SearchProps) {
   )
 
   const clearActiveTags = useCallback(() => {
+    // 只移除标签参数，保留查询词；短查询下同时清空结果和加载状态。
     invalidatePendingRequests()
     setSearchParams(
       (prev) => {
@@ -171,8 +176,7 @@ export default function Search({ active = false }: SearchProps) {
     if (active) {
       searchInputRef.current?.focus()
     }
-    // searchFocusRequestId is bumped when the search shortcut is pressed
-    // again while already active, to refocus the input on demand.
+    // 面板已打开时再次按搜索快捷键会改变聚焦请求序号，从而重新聚焦输入框。
   }, [active, searchFocusRequestId])
 
   useEffect(() => {
@@ -181,6 +185,7 @@ export default function Search({ active = false }: SearchProps) {
     }
 
     deferStateUpdate(() => {
+      // 活动面板响应地址栏查询变化，延后更新本地输入并避免相同值重复写入。
       setInputQuery((currentQuery) =>
         currentQuery === urlQuery ? currentQuery : urlQuery,
       )
@@ -195,6 +200,7 @@ export default function Search({ active = false }: SearchProps) {
     let cancelled = false
 
     fetchTags('', 200)
+      // 获取最多 200 个可用标签；清理标记只阻止写入结果，不取消已发出的请求。
       .then((tags) => {
         if (cancelled) return
         setAvailableTags(tags)
@@ -228,6 +234,7 @@ export default function Search({ active = false }: SearchProps) {
     }
 
     const requestId = latestRequestIdRef.current + 1
+    // 请求仅受延迟筛选和分页依赖控制，不以面板 active 状态作为发起条件。
     latestRequestIdRef.current = requestId
 
     searchPages(
@@ -237,12 +244,14 @@ export default function Search({ active = false }: SearchProps) {
       debouncedActiveTags,
     )
       .then((data) => {
+        // 只接受最新序号的结果，缺少命中列表或分面时分别使用空数组。
         if (latestRequestIdRef.current !== requestId) return
         setResults(data.items || [])
         setTotalCount(data.count)
         setFacetTags(data.tag_facets || [])
       })
       .catch((err) => {
+        // 最新请求失败时记录错误并清空结果，过期请求失败不会覆盖当前列表。
         if (latestRequestIdRef.current !== requestId) return
         console.error('Search failed', err)
         setResults([])
@@ -262,6 +271,7 @@ export default function Search({ active = false }: SearchProps) {
   ])
 
   const clearSearch = () => {
+    // 清除查询词但保留标签，仍有标签时等待纯标签搜索，否则直接恢复空列表。
     invalidatePendingRequests()
     setInputQuery('')
     startTransition(() => {
@@ -288,6 +298,7 @@ export default function Search({ active = false }: SearchProps) {
   }
 
   const openActiveResult = () => {
+    // 按当前结果数量限制的索引取命中项，保留地址栏查询参数进行站内导航。
     const activeResult = results[clampedActiveIndex]
     if (!activeResult) return
 
@@ -309,6 +320,7 @@ export default function Search({ active = false }: SearchProps) {
           data-testid="search-input"
           data-allow-hotkeys={SEARCH_INPUT_ALLOWED_HOTKEYS}
           onChange={(e) => {
+            // 输入立即更新，地址参数用替换方式写入历史，实际搜索等待延迟值变化。
             const nextQuery = e.target.value
             invalidatePendingRequests()
             setInputQuery(nextQuery)
@@ -339,6 +351,7 @@ export default function Search({ active = false }: SearchProps) {
             }
           }}
           onKeyDown={(e) => {
+            // 上下箭头在现有结果范围内移动，回车打开当前项；没有结果时保留默认行为。
             if (e.key === 'ArrowDown') {
               if (!hasResults) return
 
@@ -443,6 +456,7 @@ export default function Search({ active = false }: SearchProps) {
       )}
 
       <div className="search__body">
+        {/* 筛选摘要使用即时输入状态，加载和无结果提示依次按请求状态与命中数量决定。 */}
         {hasImmediateFilters && (
           <div className="browse-results__toolbar">
             <ListViewStatus className="search__result-summary">
@@ -515,6 +529,7 @@ export default function Search({ active = false }: SearchProps) {
                   page={page}
                   limit={limit}
                   onPageChange={(newPage) => {
+                    // 翻页立即使旧请求失效，并把键盘选中位置重置到当前页首项。
                     invalidatePendingRequests()
                     setLoading(true)
                     setPage(newPage)

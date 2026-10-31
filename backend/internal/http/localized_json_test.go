@@ -1,4 +1,4 @@
-// Response translation preserves validation protocol and the actual rejection reason.
+// 本文件验证响应翻译保留字段校验协议和未知诊断的原始原因，不运行 HTTP 服务。
 package http
 
 import (
@@ -7,6 +7,7 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/localization"
 )
 
+// 指定中文语言后，校验标识不变，已知字段消息与直接模板查询返回中文。
 func TestValidationTranslationPreservesFields(t *testing.T) {
 	localization.SetLanguageProvider(func() string { return "zh" })
 	response := map[string]any{"error": "validation_error", "fields": []any{map[string]any{"field": "siteName", "message": "Site name must not be empty"}}}
@@ -23,6 +24,7 @@ func TestValidationTranslationPreservesFields(t *testing.T) {
 	}
 }
 
+// 未收录的非空诊断保持原文，不按状态码强行替换成另一种失败原因。
 func TestUnknownDiagnosticIsNotInvented(t *testing.T) {
 	localization.SetLanguageProvider(func() string { return "zh" })
 	response := map[string]any{"error": "Storage is temporarily unavailable"}

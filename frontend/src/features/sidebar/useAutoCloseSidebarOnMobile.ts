@@ -22,7 +22,7 @@ export function useAutoCloseSidebarOnMobile() {
     const nextPath = location.pathname
     prevPathRef.current = nextPath
 
-    // close sidebar on mobile when path changes
+    // 移动布局下路由路径变化时关闭侧栏。
     if (prevPath !== nextPath && sidebarVisible) {
       setSidebarVisible(false)
     }

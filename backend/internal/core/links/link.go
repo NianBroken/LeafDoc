@@ -1,5 +1,7 @@
+// Package links 提取页面内部链接并维护目标解析状态，提供入链、出链和失效链接结果。
 package links
 
+// LinkStatusResult 按方向和失效状态分组返回链接，Counts 对应各分组的统计信息。
 type LinkStatusResult struct {
 	Backlinks       []BacklinkResultItem `json:"backlinks"`
 	BrokenIncoming  []BacklinkResultItem `json:"broken_incoming"`
@@ -8,6 +10,7 @@ type LinkStatusResult struct {
 	Counts          LinkStatusCounts     `json:"counts"`
 }
 
+// LinkStatusCounts 只保存各类数量，不包含具体链接记录。
 type LinkStatusCounts struct {
 	Backlinks       int `json:"backlinks"`
 	BrokenIncoming  int `json:"broken_incoming"`

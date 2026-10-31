@@ -1,3 +1,5 @@
+// 本文件验证命令解析、配置校验、独立监听、服务关停以及构建版本传递。
+// 参数测试替换根动作避免启动实例，生命周期测试使用专用测试端口和通道控制时序。
 package main
 
 import (
@@ -25,8 +27,8 @@ import (
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
-// runRootCommand parses args through the real command tree and hands the
-// resolved config to inspect, instead of running the server.
+// runRootCommand 保留真实命令树与参数解析，将根动作替换为配置检查回调。
+// 标准输出与错误输出丢弃，解析失败直接使测试失败，不创建 Wiki 或监听业务端口。
 func runRootCommand(t *testing.T, args []string, inspect func(cfg *serverConfig)) {
 	t.Helper()
 
@@ -44,6 +46,8 @@ func runRootCommand(t *testing.T, args []string, inspect func(cfg *serverConfig)
 	}
 }
 
+// TestRootCommandHelp_DocumentsFlagsAndEnvVars 实际运行帮助入口，
+// 检查关键参数、对应环境变量和维护子命令均出现在生成内容中。
 func TestRootCommandHelp_DocumentsFlagsAndEnvVars(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -83,6 +87,8 @@ func TestRootCommandHelp_DocumentsFlagsAndEnvVars(t *testing.T) {
 	}
 }
 
+// TestRootCommand_AcceptsSingleDashLongFlags 用单短横线长参数解析认证与指标字段，
+// 同时核对字符串目标值和两个布尔开关，不执行真正的服务动作。
 func TestRootCommand_AcceptsSingleDashLongFlags(t *testing.T) {
 	runRootCommand(t, []string{
 		"-jwt-secret=test-secret",
@@ -119,6 +125,8 @@ func TestRootCommand_AcceptsSingleDashLongFlags(t *testing.T) {
 	})
 }
 
+// TestValidateHTTPRemoteUserConfig 覆盖代理关闭、单项与多项来源、
+// 空值及纯分隔符输入，验证启用认证必须具备非空来源项。
 func TestValidateHTTPRemoteUserConfig(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -145,6 +153,8 @@ func TestValidateHTTPRemoteUserConfig(t *testing.T) {
 	}
 }
 
+// TestValidateHTTPRemoteUserAutoCreateConfig 覆盖自动建号与代理开关组合，
+// 确认可用的只读和编辑角色通过，管理员与未知角色被拒绝。
 func TestValidateHTTPRemoteUserAutoCreateConfig(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -170,6 +180,8 @@ func TestValidateHTTPRemoteUserAutoCreateConfig(t *testing.T) {
 	}
 }
 
+// TestValidateRedirectURL 检查空地址、不同大小写的 HTTP 协议前缀，
+// 并拒绝相对路径、脚本协议和数据协议。
 func TestValidateRedirectURL(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -195,10 +207,8 @@ func TestValidateRedirectURL(t *testing.T) {
 	}
 }
 
-// TestValidateRedirectURL_UserManagementURL confirms --user-management-url is
-// validated the same way as --login-url/--logout-url (http(s) only, no relative
-// paths or dangerous schemes) — it's rendered as a plain <a href>, but an
-// unsafe scheme there is still attacker-controlled markup.
+// TestValidateRedirectURL_UserManagementURL 对外部用户管理地址执行同一前缀检查，
+// 另外确认失败文字包含参数名，便于定位是哪一个外部入口配置无效。
 func TestValidateRedirectURL_UserManagementURL(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -223,6 +233,8 @@ func TestValidateRedirectURL_UserManagementURL(t *testing.T) {
 	}
 }
 
+// TestResolveLogoutURL 验证显式登出地址优先、兼容字段回退和两者为空三种结果，
+// 同时检查是否需要记录兼容字段告警的返回标记。
 func TestResolveLogoutURL(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -260,6 +272,7 @@ func TestResolveLogoutURL(t *testing.T) {
 	}
 }
 
+// TestRootCommand_TrimsStringFlagValue 确认字符串参数两端空格在校验与使用前被去除。
 func TestRootCommand_TrimsStringFlagValue(t *testing.T) {
 	runRootCommand(t, []string{"--login-url= https://idp.example.com/login "}, func(cfg *serverConfig) {
 		if got, want := cfg.proxy.loginURL, "https://idp.example.com/login"; got != want {
@@ -268,6 +281,8 @@ func TestRootCommand_TrimsStringFlagValue(t *testing.T) {
 	})
 }
 
+// TestRootCommand_ResolutionPrecedence 分别验证环境覆盖默认、参数覆盖环境，
+// 以及环境字符串裁剪，避免将来源优先级与值归一化混成同一个断言。
 func TestRootCommand_ResolutionPrecedence(t *testing.T) {
 	t.Run("environment variable overrides the default", func(t *testing.T) {
 		t.Setenv("LEAFDOC_HOST", "0.0.0.0")
@@ -297,9 +312,8 @@ func TestRootCommand_ResolutionPrecedence(t *testing.T) {
 	})
 }
 
-// An environment variable that is declared without a value must not override a
-// default: compose and .env files do that routinely, and taking an empty
-// LEAFDOC_HOST literally would bind the server to every interface.
+// TestRootCommand_EmptyEnvVarIsUnset 要求空或纯空白环境值不覆盖默认配置，
+// 因此回环主机、固定后端端口与默认快照启用状态保持有效。
 func TestRootCommand_EmptyEnvVarIsUnset(t *testing.T) {
 	t.Setenv("LEAFDOC_HOST", "")
 	t.Setenv("LEAFDOC_PORT", "   ")
@@ -318,6 +332,8 @@ func TestRootCommand_EmptyEnvVarIsUnset(t *testing.T) {
 	})
 }
 
+// TestRootCommand_BoolEnvVarSpellings 逐项验证文字、数字和大小写布尔环境值，
+// 检查归一化结果实际写入匿名阅读字段。
 func TestRootCommand_BoolEnvVarSpellings(t *testing.T) {
 	for _, tc := range []struct {
 		env  string
@@ -345,6 +361,8 @@ func TestRootCommand_BoolEnvVarSpellings(t *testing.T) {
 	}
 }
 
+// TestRootCommand_UsageErrorIsReportedOnce 传入拼错的主机参数，核对一次错误输出、
+// 相近参数建议和已报告标记，使 main 不会再重复报告同一解析失败。
 func TestRootCommand_UsageErrorIsReportedOnce(t *testing.T) {
 	var out bytes.Buffer
 
@@ -364,14 +382,14 @@ func TestRootCommand_UsageErrorIsReportedOnce(t *testing.T) {
 	}
 }
 
+// TestRootCommand_UnknownCommandIsRejected 验证未知位置参数携带失败退出码与原名称。
 func TestRootCommand_UnknownCommandIsRejected(t *testing.T) {
 	var out bytes.Buffer
 
 	cmd := newRootCommand()
 	cmd.Writer = &out
 	cmd.ErrWriter = &out
-	// The default handler for a cli.ExitCoder calls os.Exit, which would take
-	// the test binary down with it.
+	// 替换退出处理器以检查错误对象，避免 cli 默认处理直接终止测试进程。
 	cmd.ExitErrHandler = func(context.Context, *cli.Command, error) {}
 
 	err := cmd.Run(context.Background(), []string{"leafdoc", "reset-admin-passwort"})
@@ -390,6 +408,8 @@ func TestRootCommand_UnknownCommandIsRejected(t *testing.T) {
 	}
 }
 
+// TestParseLogFormat_Precedence 经真实参数解析后再规范化格式，
+// 验证 text 默认、环境 json、大小写处理和命令行优先级。
 func TestParseLogFormat_Precedence(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -434,6 +454,8 @@ func TestParseLogFormat_Precedence(t *testing.T) {
 	}
 }
 
+// TestSetupLogger_SelectsHandlerByFormat 向内存缓冲写入真实日志，
+// 通过 JSON 合法性与文本消息字段检查处理器选择。
 func TestSetupLogger_SelectsHandlerByFormat(t *testing.T) {
 	t.Run("text format writes non-JSON output", func(t *testing.T) {
 		var buf bytes.Buffer
@@ -459,6 +481,7 @@ func TestSetupLogger_SelectsHandlerByFormat(t *testing.T) {
 	})
 }
 
+// TestRunRestoreSnapshotCommand_MissingArg_ReturnsUsageError 验证缺少路径时返回专用错误。
 func TestRunRestoreSnapshotCommand_MissingArg_ReturnsUsageError(t *testing.T) {
 	err := runRestoreSnapshotCommand(t.TempDir(), "")
 	if !errors.Is(err, errRestoreSnapshotUsage) {
@@ -466,6 +489,8 @@ func TestRunRestoreSnapshotCommand_MissingArg_ReturnsUsageError(t *testing.T) {
 	}
 }
 
+// TestRunRestoreSnapshotCommand_InvalidZipPath_PropagatesError 使用不存在的归档，
+// 确认实际恢复错误不被混淆为缺少命令参数的用法错误。
 func TestRunRestoreSnapshotCommand_InvalidZipPath_PropagatesError(t *testing.T) {
 	dataDir := t.TempDir()
 	zipPath := filepath.Join(dataDir, "does-not-exist.zip")
@@ -479,6 +504,8 @@ func TestRunRestoreSnapshotCommand_InvalidZipPath_PropagatesError(t *testing.T) 
 	}
 }
 
+// TestValidateListenConfig 覆盖套接字与主机端口显式设置的组合，
+// 仅空套接字配置通过，任一非空套接字路径均被拒绝。
 func TestValidateListenConfig(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -530,6 +557,8 @@ func TestValidateListenConfig(t *testing.T) {
 	}
 }
 
+// TestRootCommand_AcceptsDoubleDashLongFlags 验证双短横线参数绑定到相同配置字段，
+// 保持认证与指标参数的常规调用形式可用。
 func TestRootCommand_AcceptsDoubleDashLongFlags(t *testing.T) {
 	runRootCommand(t, []string{
 		"--jwt-secret=test-secret",
@@ -566,6 +595,8 @@ func TestRootCommand_AcceptsDoubleDashLongFlags(t *testing.T) {
 	})
 }
 
+// TestStartMetricsServer_ServesOnlyMetricsEndpoint 建立真实指标监听，
+// 读取指标文字并检查业务健康路径为 404，处理结束时关闭响应体与监听。
 func TestStartMetricsServer_ServesOnlyMetricsEndpoint(t *testing.T) {
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	stopServer, addr, err := startMetricsServer(metrics, "127.0.0.1", serviceports.Port("metricsTest"))
@@ -607,6 +638,8 @@ func TestStartMetricsServer_ServesOnlyMetricsEndpoint(t *testing.T) {
 	}
 }
 
+// TestRemoveStaleUnixSocket_RemovesExistingSocket 在支持平台创建真实套接字，
+// 确认清理函数删除路径，Windows 与路径过长环境跳过这一平台测试。
 func TestRemoveStaleUnixSocket_RemovesExistingSocket(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("unix sockets are not supported on windows")
@@ -633,6 +666,8 @@ func TestRemoveStaleUnixSocket_RemovesExistingSocket(t *testing.T) {
 	}
 }
 
+// TestRemoveStaleUnixSocket_RejectsNonSocketPath 在目标位置放普通文件，
+// 验证清理函数拒绝将其作为套接字删除并给出明确错误。
 func TestRemoveStaleUnixSocket_RejectsNonSocketPath(t *testing.T) {
 	dir := t.TempDir()
 	socketPath := filepath.Join(dir, "leafdoc.sock")
@@ -649,6 +684,8 @@ func TestRemoveStaleUnixSocket_RejectsNonSocketPath(t *testing.T) {
 	}
 }
 
+// TestListenOnUnixSocket_CreatesSocketWithExpectedPermissions 核对实际文件类型与 0660 权限，
+// 通过 defer 释放监听并清理临时路径。
 func TestListenOnUnixSocket_CreatesSocketWithExpectedPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("unix sockets are not supported on windows")
@@ -679,6 +716,7 @@ func TestListenOnUnixSocket_CreatesSocketWithExpectedPermissions(t *testing.T) {
 	}
 }
 
+// TestListenOnUnixSocket_WindowsReturnsHelpfulError 仅在 Windows 验证明确的平台拒绝文字。
 func TestListenOnUnixSocket_WindowsReturnsHelpfulError(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("windows-specific behavior")
@@ -692,11 +730,17 @@ func TestListenOnUnixSocket_WindowsReturnsHelpfulError(t *testing.T) {
 	}
 }
 
+// testSignal 实现 os.Signal，测试只向内存通道发送，不向操作系统进程发真实信号。
 type testSignal string
 
+// String 返回场景名称，供生命周期日志读取。
 func (s testSignal) String() string { return string(s) }
-func (testSignal) Signal()          {}
 
+// Signal 是满足 os.Signal 接口的空标记方法。
+func (testSignal) Signal() {}
+
+// TestServeWithLifecycle_GracefulShutdownWaitsForInFlightRequest 用通道停住已进入的请求，
+// 确认关停不会提前返回，放行后响应完整送达并干净退出。
 func TestServeWithLifecycle_GracefulShutdownWaitsForInFlightRequest(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
@@ -740,6 +784,7 @@ func TestServeWithLifecycle_GracefulShutdownWaitsForInFlightRequest(t *testing.T
 		t.Fatal("request did not reach handler")
 	}
 
+	// 请求已进入处理器后才发送关停，避免把连接尚未建立误认为正在处理。
 	shutdownSignals <- testSignal("shutdown")
 
 	select {
@@ -785,6 +830,8 @@ func TestServeWithLifecycle_GracefulShutdownWaitsForInFlightRequest(t *testing.T
 	}
 }
 
+// TestServeWithLifecycle_ReloadSignalTriggersCallbackWithoutStoppingServer 等待重载回调通知，
+// 再发真实请求证明监听继续可用，最终显式发送关停并等待退出。
 func TestServeWithLifecycle_ReloadSignalTriggersCallbackWithoutStoppingServer(t *testing.T) {
 	var reloadCalls atomic.Int32
 
@@ -846,6 +893,8 @@ func TestServeWithLifecycle_ReloadSignalTriggersCallbackWithoutStoppingServer(t 
 	}
 }
 
+// TestServeWithLifecycle_ShutdownTimeoutStillRunsCleanup 临时缩短关停期限，
+// 让处理器等到连接被强制关闭，核对期限错误、清理回调和请求上下文取消。
 func TestServeWithLifecycle_ShutdownTimeoutStillRunsCleanup(t *testing.T) {
 	previousTimeout := gracefulShutdownTimeout
 	gracefulShutdownTimeout = 50 * time.Millisecond
@@ -919,6 +968,9 @@ func TestServeWithLifecycle_ShutdownTimeoutStillRunsCleanup(t *testing.T) {
 	}
 }
 
+// TestServeWithLifecycle_ShutdownDoesNotWaitForInFlightReload 让重载回调启动独立后台工作后返回，
+// 验证服务关停不等待该后台工作，再显式放行并等待测试工作结束。
+// 此场景不表示关停能越过一个尚未返回的同步重载回调。
 func TestServeWithLifecycle_ShutdownDoesNotWaitForInFlightReload(t *testing.T) {
 	reloadStarted := make(chan struct{})
 	releaseReload := make(chan struct{})
@@ -976,8 +1028,8 @@ func TestServeWithLifecycle_ShutdownDoesNotWaitForInFlightReload(t *testing.T) {
 	}
 }
 
-// goBuildLdflagsLine extracts the `go build ... -ldflags="..."` line from a
-// Dockerfile so tests can assert on exactly what gets baked into the binary.
+// goBuildLdflagsLine 返回 Dockerfile 中首个包含 -ldflags= 的行，
+// 未找到时使测试失败，不解析或执行 Dockerfile 指令。
 func goBuildLdflagsLine(t *testing.T, dockerfilePath string) string {
 	t.Helper()
 
@@ -996,11 +1048,8 @@ func goBuildLdflagsLine(t *testing.T, dockerfilePath string) string {
 	return ""
 }
 
-// TestDockerfile_GoBuildLdflags_InjectsAppVersion pins the bug where
-// Dockerfile declared ARG APP_VERSION and threaded it into the frontend
-// build, but never into the Go binary's -ldflags — so every release image
-// silently shipped main.Version's "dev" default (e.g. into the
-// leafdoc_build_info metric).
+// TestDockerfile_GoBuildLdflags_InjectsAppVersion 检查应用镜像的 Go 构建行
+// 显式把 APP_VERSION 注入 main.Version，使后端版本与构建输入对应。
 func TestDockerfile_GoBuildLdflags_InjectsAppVersion(t *testing.T) {
 	line := goBuildLdflagsLine(t, filepath.Join("..", "..", "..", "other", "Dockerfile"))
 
@@ -1009,9 +1058,7 @@ func TestDockerfile_GoBuildLdflags_InjectsAppVersion(t *testing.T) {
 	}
 }
 
-// TestDockerfileBuilder_GoBuildLdflags_InjectsAppVersion is the same
-// regression check for Dockerfile.builder, used by `make release` to
-// produce the binaries attached to GitHub Releases.
+// TestDockerfileBuilder_GoBuildLdflags_InjectsAppVersion 对二进制构建镜像执行相同版本注入检查。
 func TestDockerfileBuilder_GoBuildLdflags_InjectsAppVersion(t *testing.T) {
 	line := goBuildLdflagsLine(t, filepath.Join("..", "..", "..", "other", "Dockerfile.builder"))
 
@@ -1020,12 +1067,8 @@ func TestDockerfileBuilder_GoBuildLdflags_InjectsAppVersion(t *testing.T) {
 	}
 }
 
-// dockerBuildStageDeclaresArg checks that the multi-stage Docker build
-// stage containing marker (e.g. the `go build` line) is preceded by its own
-// `ARG argName` declaration *within that stage*. Docker scopes ARG per
-// build stage: an ARG declared in an earlier stage does not carry into a
-// later one, even though `${argName}` still substitutes silently as an
-// empty string there instead of failing the build.
+// dockerBuildStageDeclaresArg 找到首个标记行，向前定位所属 FROM 阶段，
+// 只在该阶段起点到标记之间检查独立 ARG 声明，避免把其他阶段的声明当作有效来源。
 func dockerBuildStageDeclaresArg(t *testing.T, dockerfilePath, marker, argName string) bool {
 	t.Helper()
 
@@ -1063,34 +1106,24 @@ func dockerBuildStageDeclaresArg(t *testing.T, dockerfilePath, marker, argName s
 	return false
 }
 
-// TestDockerfile_GoBuildStage_DeclaresAppVersionArg pins the bug where
-// Dockerfile's backend-build stage used ${APP_VERSION} in its go build
-// -ldflags without re-declaring `ARG APP_VERSION` in that stage (it was
-// only declared in the earlier frontend-build stage). Docker scopes ARG per
-// stage, so the ldflags line silently baked in an empty version string
-// instead of failing the build — every v0.12.x release image/binary shipped
-// main.Version="" (visible in the leafdoc_build_info metric and in the
-// snapshot/restore version-mismatch check, which silently no-ops when
-// WikiVersion is empty).
+// TestDockerfile_GoBuildStage_DeclaresAppVersionArg 要求应用后端构建阶段
+// 自身声明 APP_VERSION，使版本注入的来源处于同一 Docker 构建阶段。
 func TestDockerfile_GoBuildStage_DeclaresAppVersionArg(t *testing.T) {
 	if !dockerBuildStageDeclaresArg(t, filepath.Join("..", "..", "..", "other", "Dockerfile"), "go build", "APP_VERSION") {
 		t.Fatal("Dockerfile's go build stage uses ${APP_VERSION} without declaring ARG APP_VERSION in that stage")
 	}
 }
 
-// TestDockerfileBuilder_GoBuildStage_DeclaresAppVersionArg is the same
-// regression check for Dockerfile.builder's builder stage.
+// TestDockerfileBuilder_GoBuildStage_DeclaresAppVersionArg 检查二进制构建阶段的版本参数作用域。
 func TestDockerfileBuilder_GoBuildStage_DeclaresAppVersionArg(t *testing.T) {
 	if !dockerBuildStageDeclaresArg(t, filepath.Join("..", "..", "..", "other", "Dockerfile.builder"), "go build", "APP_VERSION") {
 		t.Fatal("Dockerfile.builder's builder stage uses ${APP_VERSION} without declaring ARG APP_VERSION in that stage")
 	}
 }
 
-// TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue exercises
-// the deterministic branch of scripts/resolve-version.sh (the shared
-// algorithm used by both `make build`/`make run` and vite.config.ts). The
-// git-describe fallback branch is intentionally not tested here since its
-// output depends on the local repo's tag state and CI checkout depth.
+// TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue 实际运行版本脚本，
+// 确认显式 APP_VERSION 原样输出。Windows 使用 Node 入口，其他平台使用 Bash 入口，
+// 此测试不核对仓库标签回退分支。
 func TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue(t *testing.T) {
 	scriptPath := filepath.Join("..", "..", "..", "other", "scripts", "resolve-version.sh")
 	cmdName, cmdArgs := "bash", []string{scriptPath}
@@ -1110,7 +1143,8 @@ func TestResolveVersionScript_AppVersionEnvOverride_ReturnsEnvValue(t *testing.T
 	}
 }
 
-// TestContainerBuildUsesLinuxAndSharedVersion verifies the supported compilation boundary.
+// TestContainerBuildUsesLinuxAndSharedVersion 检查容器入口包含共享版本脚本、
+// 版本参数与 Linux 构建标记，测试仅核对源码文字，不运行镜像构建。
 func TestContainerBuildUsesLinuxAndSharedVersion(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "other", "scripts", "container.mjs"))
 	if err != nil {
@@ -1123,10 +1157,8 @@ func TestContainerBuildUsesLinuxAndSharedVersion(t *testing.T) {
 	}
 }
 
-// TestViteConfig_ResolvesVersionViaSharedScript pins that the frontend
-// build resolves its version through the same scripts/resolve-version.mjs
-// used by the Go build, rather than a second, independently-drifting
-// git-describe implementation in JS.
+// TestViteConfig_ResolvesVersionViaSharedScript 检查前端构建配置引用共享版本脚本，
+// 使前后端版本来源集中到同一入口。
 func TestViteConfig_ResolvesVersionViaSharedScript(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join("..", "..", "..", "frontend", "vite.config.ts"))
 	if err != nil {

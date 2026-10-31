@@ -1,3 +1,5 @@
+// 本文件执行命令动作、组装 Wiki 与备份恢复服务，并管理业务和指标监听的生命周期。
+// 参数声明位于 flags 文件，平台信号登记位于平台文件，领域处理由内部服务承担。
 package main
 
 import (
@@ -45,12 +47,12 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// Version is the LeafDoc build version. It defaults to "dev" for
-// raw `go build`/`go run` (bypassing make); `make build`, `make run`, and the
-// release/Docker builds all inject the real version resolved by
-// scripts/resolve-version.sh via -ldflags "-X main.Version=v0.12.0".
+// Version 保存构建版本，未通过链接参数注入时使用 dev。
+// 构建脚本可用 -X main.Version 指定版本，指标与快照元数据读取同一值。
 var Version = "dev"
 
+// setupLogger 根据环境中的精确小写级别配置默认日志器，未识别值使用 info。
+// json 选择 JSON 输出，其余格式使用文本，所有记录均附带调用位置。
 func setupLogger(w io.Writer, format string) {
 	level := slog.LevelInfo
 	switch os.Getenv("LEAFDOC_LOG_LEVEL") {
@@ -77,6 +79,7 @@ func setupLogger(w io.Writer, format string) {
 	slog.SetDefault(slog.New(handler))
 }
 
+// fail 记录错误并直接以状态一退出进程，此路径不执行调用栈中的 defer。
 func fail(msg string, args ...any) {
 	slog.Default().Error(msg, args...)
 	os.Exit(1)
@@ -84,7 +87,8 @@ func fail(msg string, args ...any) {
 
 var errRestoreSnapshotUsage = errors.New("restore-snapshot requires a path to a snapshot zip: leafdoc [--data-dir <DIR>] restore-snapshot <path-to-zip>")
 
-// runRestoreSnapshotCommand implements the `restore-snapshot` command.
+// runRestoreSnapshotCommand 要求提供 ZIP 路径并执行离线恢复，不启动服务。
+// 恢复失败保留底层错误链，成功时提示后续启动操作。
 func runRestoreSnapshotCommand(dataDir, snapshotPath string) error {
 	if snapshotPath == "" {
 		return errRestoreSnapshotUsage
@@ -96,21 +100,19 @@ func runRestoreSnapshotCommand(dataDir, snapshotPath string) error {
 	return nil
 }
 
+// gracefulShutdownTimeout 限制业务与指标服务等待活动 HTTP 请求结束的时间。
 var gracefulShutdownTimeout = 10 * time.Second
 
-// errLogged reports a failure that has already been logged through the
-// configured logger; errReported one that was written to stderr before the
-// logger existed. main exits on either without reporting it a second time.
+// errLogged 和 errReported 标识已通过日志器或命令错误输出报告的失败，
+// main 仍以失败状态结束，但不会再打印含这些标记的错误。
 var (
 	errLogged   = errors.New("logged error")
 	errReported = errors.New("reported error")
 )
 
+// main 执行命令并在命令返回后关闭共享数据库连接池，合并两处错误。
 func main() {
-	// Errors that surface here come from flag parsing and validation, which
-	// happen before there is a configured logger - they are CLI diagnostics, so
-	// they go to stderr as plain text. Anything that fails once the logger is up
-	// logs itself and returns errLogged.
+	// 尚未报告的错误写入标准错误，已有报告标记避免重复输出同一失败。
 	runErr := newRootCommand().Run(context.Background(), os.Args)
 	err := errors.Join(runErr, database.ClosePools())
 	if err != nil {
@@ -121,6 +123,8 @@ func main() {
 	}
 }
 
+// runResetAdminPasswordCommand 将目录、账号资料和进程环境中的显式密码交给维护服务。
+// 只有环境密码为空时才打印生成密码，显式密码不写入成功输出。
 func runResetAdminPasswordCommand(cfg *serverConfig) error {
 	user, err := maintenance.ResetAdminPassword(cfg.server.dataDir, cfg.auth.adminUsername, cfg.auth.adminEmail, os.Getenv("LEAFDOC_ADMIN_PASSWORD"))
 	if err != nil {
@@ -134,8 +138,8 @@ func runResetAdminPasswordCommand(cfg *serverConfig) error {
 	return nil
 }
 
-// runServerCommand is the root action: with no subcommand given, leafdoc runs
-// the wiki server.
+// runServerCommand 在根命令没有子命令时组装并运行服务。
+// 先释放固定监听、校验配置，再加载设置、创建 Wiki、备份恢复与 HTTP 路由。
 func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) error {
 	if err := serviceports.ReleaseAt(cfg.server.host, "backend"); err != nil {
 		return err
@@ -145,6 +149,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 			return err
 		}
 	}
+	// 大小参数已通过命令校验，这里取得数值供上传入口设置请求限额。
 	basePath := normalizeBasePath(cfg.server.basePath)
 	maxAssetUploadSize := mustParseByteSize(cfg.frontend.maxAssetUploadSize, "max asset upload size")
 	restoreUploadMaxSize := mustParseByteSize(cfg.backup.restoreUploadMaxSize, "restore upload max size")
@@ -177,9 +182,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		fail("Invalid SMTP configuration", "error", err)
 	}
 	if smtpEnabled {
-		// A misconfigured public URL produces broken links in emails that
-		// have already gone out — irreversible — so log the resolved value
-		// once at boot rather than only on first use.
+		// 启动时记录实际邮件地址配置，便于在发送邮件前核对链接来源。
 		slog.Default().Info("SMTP email enabled", "host", cfg.email.smtpHost, "port", cfg.email.smtpPort, "security", cfg.email.smtpSecurity, "publicUrl", cfg.email.publicURL)
 	}
 
@@ -202,7 +205,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		slog.Default().Warn("allow-insecure enabled. Auth cookies may be transmitted over plain HTTP (INSECURE).")
 	}
 
-	// Check if data directory exists
+	// 只在目录不存在时递归创建，其他 Stat 错误由后续实际存取暴露。
 	if _, err := os.Stat(cfg.server.dataDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(cfg.server.dataDir, 0755); err != nil {
 			fail("Failed to create data directory", "error", err)
@@ -216,6 +219,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		return err
 	}
 
+	// 语言提供器每次读取当前偏好，让后续错误翻译使用运行时设置。
 	localization.SetLanguageProvider(func() string { return globalPreferences.Get().Language })
 	tocDisplayService, err := tocdisplay.New(cfg.server.dataDir)
 	if err != nil {
@@ -231,6 +235,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		metrics = httpmetrics.NewHTTPMetrics(Version)
 	}
 
+	// 将认证、修订、用户配额、邮件和指标依赖交给 Wiki 统一组装。
 	w, err := wiki.NewWiki(&wiki.WikiOptions{
 		StorageDir:             cfg.server.dataDir,
 		AdminUsername:          cfg.auth.adminUsername,
@@ -265,7 +270,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 
 	w.SetInstanceSettingsRoutes(wikiinstancesettings.NewRoutes(publicAccessService, tocDisplayService, w.AuthService(), slog.Default()))
 
-	// Log .leafdocignore status
+	// 读取 root 下的忽略规则并报告条数，读取失败只告警，不在这里终止启动。
 	rootDir := filepath.Join(cfg.server.dataDir, "root")
 	if ignoreFile, err := ignore.LoadFromDir(rootDir); err != nil {
 		slog.Default().Warn("invalid .leafdocignore", "error", err)
@@ -279,7 +284,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		}
 	}()
 
-	// Initialize full backup snapshots if enabled
+	// 总开关启用时同时创建备份和在线恢复，二者共享写入屏障。
 	var writeGate *restore.WriteGate
 	if cfg.backup.snapshot {
 		snapshotsDir := cfg.backup.snapshotDir
@@ -300,6 +305,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 			WikiVersion:    Version,
 			Interval:       cfg.backup.snapshotInterval,
 			RetentionCount: cfg.backup.snapshotRetention,
+			// 归档前阻止新写入并等待已进入的写请求结束，超时立即解除屏障。
 			Quiesce: func() (func(), error) {
 				writeGate.Engage()
 				if !writeGate.WaitForDrain(10 * time.Second) {
@@ -311,6 +317,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		})
 		snapshotManager.UpdateSettings(snapshotSettings.Get())
 		snapshotScheduler := snapshot.NewScheduler(snapshotManager)
+		// 设置存储应用回调同步管理器配置，并通知调度器重新计算等待时间。
 		snapshotSettings.SetApply(func(value snapshot.Settings) {
 			snapshotManager.UpdateSettings(value)
 			snapshotScheduler.UpdateSettings()
@@ -329,13 +336,13 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 			ReloadRuntime:      w.ReloadAfterRestore,
 			MaxUploadSizeBytes: restoreUploadMaxSize,
 		})
-		// Registered after (so it runs before, defers are LIFO) the w.Close()
-		// deferred above: an in-flight restore must finish before AuthService's
-		// user/session stores get closed out from under it during shutdown.
+		// defer 按后登记先执行的顺序运行，先等恢复任务结束，再停止调度器，
+		// 随后关闭 Wiki，避免恢复仍使用账号和会话存储时资源已经关闭。
 		defer restoreManager.Wait()
 		w.SetRestoreRoutes(wikirestore.NewRoutes(restoreManager, w.AuthService()))
 	}
 
+	// 将领域注册器与运行选项交给公共路由，实例设置服务供请求期间动态读取。
 	router := httpinternal.NewRouter(w.Registrars(), w.FrontendConfig(), httpinternal.RouterOptions{
 		PublicAccess:            publicAccessService,
 		Preferences:             globalPreferences,
@@ -374,6 +381,7 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 		WriteGate:         writeGate,
 	})
 
+	// 缓冲通道接收平台重载与关停信号，函数退出时撤销信号登记。
 	reloadSignals := make(chan os.Signal, 1)
 	notifyReloadSignals(reloadSignals)
 	defer signal.Stop(reloadSignals)
@@ -390,7 +398,8 @@ func runServerCommand(_ context.Context, cmd *cli.Command, cfg *serverConfig) er
 	return nil
 }
 
-// buildPublicAccessService loads the persisted anonymous-read setting and explicit startup preference.
+// buildPublicAccessService 加载匿名阅读设置，仅在配置文件不存在且参数显式设置时
+// 写入启动值，已有持久化设置不被普通启动参数覆盖。
 func buildPublicAccessService(cmd *cli.Command, cfg *serverConfig) *publicaccess.Service {
 
 	svc, err := publicaccess.NewSettingsManaged(cfg.server.dataDir)
@@ -405,6 +414,8 @@ func buildPublicAccessService(cmd *cli.Command, cfg *serverConfig) *publicaccess
 	return svc
 }
 
+// runServer 先按需启动指标监听，再建立业务监听并进入生命周期等待。
+// 公共命令校验拒绝 Unix 套接字，内部函数仍保留独立的套接字处理分支。
 func runServer(
 	router *gin.Engine,
 	host, port, unixSocket, dataDir string,
@@ -459,6 +470,8 @@ func runServer(
 	return serveWithLifecycle(server, listener, cleanup, reload, reloadSignals, shutdownSignals)
 }
 
+// startMetricsServer 只在独立监听上暴露 /metrics，返回停止函数和实际监听地址。
+// 异步 Serve 异常记录日志，不通过返回值通知已运行的业务服务。
 func startMetricsServer(metrics *httpmetrics.HTTPMetrics, host, port string) (func(), string, error) {
 	listenAddr := host + ":" + port
 	listener, err := net.Listen("tcp", listenAddr)
@@ -483,6 +496,7 @@ func startMetricsServer(metrics *httpmetrics.HTTPMetrics, host, port string) (fu
 		slog.Default().Error("metrics server stopped unexpectedly", "error", err)
 	}()
 
+	// 关闭时先限时等待活动请求，失败再强制关闭连接并记录实际错误。
 	return func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
@@ -496,6 +510,8 @@ func startMetricsServer(metrics *httpmetrics.HTTPMetrics, host, port string) (fu
 	}, listener.Addr().String(), nil
 }
 
+// listenOnUnixSocket 在非 Windows 平台清理同名套接字后建立监听并设置 0660 权限。
+// 权限设置失败会关闭监听并删除路径，不保留未完成初始化的资源。
 func listenOnUnixSocket(socketPath string) (net.Listener, error) {
 	if runtime.GOOS == "windows" {
 		return nil, fmt.Errorf("unix sockets are not supported on windows")
@@ -517,6 +533,8 @@ func listenOnUnixSocket(socketPath string) (net.Listener, error) {
 	return listener, nil
 }
 
+// removeStaleUnixSocket 只删除 Lstat 判断为套接字的现有路径，
+// 普通文件和符号链接不被覆盖，不存在的路径直接通过。
 func removeStaleUnixSocket(socketPath string) error {
 	info, err := os.Lstat(socketPath)
 	if err == nil {
@@ -531,6 +549,7 @@ func removeStaleUnixSocket(socketPath string) error {
 	return err
 }
 
+// parseLogFormat 去除两端空白并忽略大小写，只接受 text 与 json。
 func parseLogFormat(s string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "text":
@@ -541,6 +560,7 @@ func parseLogFormat(s string) (string, bool) {
 	return "", false
 }
 
+// parseBool 识别明确的开关文字，第二个返回值区分有效 false 与无法识别的输入。
 func parseBool(s string) (bool, bool) {
 	s = strings.TrimSpace(strings.ToLower(s))
 	switch s {
@@ -553,6 +573,8 @@ func parseBool(s string) (bool, bool) {
 	return false, false
 }
 
+// parseByteSize 使用 humanize 解析带单位的无符号字节数，拒绝零和超出 int64 的值。
+// 返回的正数可直接供请求体大小限制使用，错误包含原始输入便于定位配置。
 func parseByteSize(raw string) (int64, error) {
 	size, err := humanize.ParseBytes(strings.TrimSpace(raw))
 	if err != nil {
@@ -567,7 +589,7 @@ func parseByteSize(raw string) (int64, error) {
 	return int64(size), nil
 }
 
-// mustParseByteSize is for values a flag validator has already accepted.
+// mustParseByteSize 解析已经通过参数校验的大小，异常时记录设置名并直接退出。
 func mustParseByteSize(raw, label string) int64 {
 	size, err := parseByteSize(raw)
 	if err != nil {
@@ -576,6 +598,8 @@ func mustParseByteSize(raw, label string) int64 {
 	return size
 }
 
+// validateHTTPRemoteUserConfig 在代理认证启用时要求至少一个非空可信来源项。
+// 这里不判断 IP 或网段合法性，地址解析由认证中间件提供的解析器完成。
 func validateHTTPRemoteUserConfig(enabled bool, trustedProxyIPsRaw string) error {
 	if !enabled {
 		return nil
@@ -593,10 +617,8 @@ func validateHTTPRemoteUserConfig(enabled bool, trustedProxyIPsRaw string) error
 	return nil
 }
 
-// validateHTTPRemoteUserAutoCreateConfig guards the auto-create opt-in: it requires
-// reverse-proxy auth to already be enabled, and forbids "admin" as the default role so
-// a forged or misrouted proxy header can never mint an admin account by itself. An
-// operator who wants remote-provisioned admins can promote a user manually afterward.
+// validateHTTPRemoteUserAutoCreateConfig 要求自动建号同时启用代理认证，
+// 默认角色必须属于已定义角色且不能是管理员，防止代理头直接创建管理员账号。
 func validateHTTPRemoteUserAutoCreateConfig(autoCreateEnabled, remoteUserEnabled bool, defaultRole string) error {
 	if !autoCreateEnabled {
 		return nil
@@ -613,11 +635,8 @@ func validateHTTPRemoteUserAutoCreateConfig(autoCreateEnabled, remoteUserEnabled
 	return nil
 }
 
-// validateSMTPConfig fails fast at startup, mirroring
-// validateHTTPRemoteUserConfig, rather than silently disabling the feature or
-// leaving it half-configured until the first send attempt fails: a bad
-// --public-url in particular would only surface once already embedded in an
-// email that's gone out.
+// validateSMTPConfig 在主机非空时要求发件地址、绝对公开地址和已知安全模式。
+// 这里只检查公开地址协议与主机，不连接 SMTP，也不验证发件地址的邮箱格式。
 func validateSMTPConfig(host, from, publicURL, security string) error {
 	if host == "" {
 		return nil
@@ -640,10 +659,8 @@ func validateSMTPConfig(host, from, publicURL, security string) error {
 	return nil
 }
 
-// resolveLogoutURL resolves --logout-url/LEAFDOC_LOGOUT_URL, falling back to
-// the deprecated --http-remote-user-logout-url/LEAFDOC_HTTP_REMOTE_USER_LOGOUT_URL
-// when the new option isn't set. usedDeprecated tells the caller whether to log
-// a deprecation warning.
+// resolveLogoutURL 优先使用 logout-url，空值时采用兼容代理登出字段。
+// 第二个返回值只在实际采用兼容字段时为真，供调用方记录弃用告警。
 func resolveLogoutURL(logoutURL, deprecated string) (resolved string, usedDeprecated bool) {
 	if logoutURL != "" {
 		return logoutURL, false
@@ -654,6 +671,8 @@ func resolveLogoutURL(logoutURL, deprecated string) (resolved string, usedDeprec
 	return deprecated, true
 }
 
+// validateRedirectURL 允许空值，非空时只检查忽略大小写的 HTTP 或 HTTPS 前缀。
+// 它不解析主机或验证地址完整性，错误文字带上对应参数名称。
 func validateRedirectURL(flagName, url string) error {
 	if url == "" {
 		return nil
@@ -665,6 +684,8 @@ func validateRedirectURL(flagName, url string) error {
 	return nil
 }
 
+// validateListenConfig 允许空套接字字段，所有非空值都返回同一固定 TCP 策略错误。
+// hostSet 与 portSet 不改变拒绝结果。
 func validateListenConfig(unixSocket string, hostSet, portSet bool) error {
 	if unixSocket == "" {
 		return nil
@@ -675,8 +696,8 @@ func validateListenConfig(unixSocket string, hostSet, portSet bool) error {
 	return fmt.Errorf("unix sockets are disabled; use the fixed backend TCP port")
 }
 
-// serveWithLifecycle runs the HTTP server while handling live reload signals and
-// graceful shutdown signals. reload is non-blocking (fires a goroutine internally).
+// serveWithLifecycle 同时等待 HTTP 服务结果与关停信号，独立协程串行消费重载信号。
+// reload 在该协程中直接调用，生产环境回调负责异步调度；关停会等回调消费协程退出。
 func serveWithLifecycle(
 	server *http.Server,
 	listener net.Listener,
@@ -684,6 +705,7 @@ func serveWithLifecycle(
 	reload func(),
 	reloadSignals, shutdownSignals <-chan os.Signal,
 ) error {
+	// 缓冲允许 Serve 在主循环尚未接收时报告结果，正常 Shutdown 转换为 nil。
 	serveErrCh := make(chan error, 1)
 	go func() {
 		err := server.Serve(listener)
@@ -716,6 +738,7 @@ func serveWithLifecycle(
 		}
 	}()
 
+	// 关停分支和 defer 共用一次性函数，避免重复关闭通道或重复等待。
 	stopReloader := sync.OnceFunc(func() {
 		close(stopReloads)
 	})
@@ -732,11 +755,13 @@ func serveWithLifecycle(
 			return err
 		case sig, ok := <-shutdownSignals:
 			if !ok {
+				// 将已关闭通道置空，避免 select 持续选中而形成空转。
 				shutdownSignals = nil
 				continue
 			}
 
 			slog.Default().Info("shutdown signal received: shutting down server", "signal", sig.String())
+			// 阻止后续重载，先等待请求正常结束，超时则强制关闭活动连接。
 			shuttingDown.Store(true)
 			stopReloader()
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
@@ -763,8 +788,8 @@ func serveWithLifecycle(
 	}
 }
 
-// normalizeBasePath normalizes the base path to the form "/mypath" (no trailing slash).
-// Accepts "mypath", "/mypath", "/mypath/", etc. Returns "" for root.
+// normalizeBasePath 去除两端空白与两端斜线，非空结果只加一个前导斜线。
+// 根路径返回空值，不折叠内部连续斜线，也不检查路径段是否合法。
 func normalizeBasePath(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.Trim(s, "/")

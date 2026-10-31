@@ -1,13 +1,18 @@
+// 本文件查找正文中的首个查询命中，插入 mark 并滚动，不建立全文搜索索引。
+// 标记类名、正文选择器与滚动容器标识在本文件集中维护。
 const HIGHLIGHT_CLASS = 'search-query-highlight'
 const CONTENT_SELECTOR = '.page-viewer__content'
 const SCROLL_CONTAINER_ID = 'scroll-container'
 
+// 调用方可指定滚动方式、是否等待布局和正文根选择器，默认查找页面查看正文。
 export type ScrollToSearchQueryOptions = {
   behavior?: ScrollBehavior
   waitForStableLayout?: boolean
   rootSelector?: string
 }
 
+// 清除指定根下本功能的 mark，把子节点搬回原父节点并合并相邻文本节点。
+// 不移除其他 mark 类型，也不删除命中文字本身。
 export function clearSearchQueryHighlights(root: ParentNode = document): void {
   root.querySelectorAll(`mark.${HIGHLIGHT_CLASS}`).forEach((mark) => {
     const parent = mark.parentNode
@@ -20,6 +25,8 @@ export function clearSearchQueryHighlights(root: ParentNode = document): void {
   })
 }
 
+// 按 DOM 文本节点顺序作小写匹配，跳过脚本、样式、noscript 和纯空白文本。
+// 不跨越多个文本节点拼接查找，不检查 CSS 可见性，返回索引为小写文本的字符偏移。
 function findFirstTextMatch(
   root: HTMLElement,
   query: string,
@@ -52,6 +59,8 @@ function findFirstTextMatch(
   return null
 }
 
+// 按给定偏移将原节点拆为前文、命中标记和后文，以 textContent 写入避免解释为 HTML。
+// 节点已脱离父级时只返回未挂载的标记，不再次查找或恢复原位置。
 function wrapMatch(node: Text, index: number, length: number): HTMLElement {
   const fullText = node.textContent ?? ''
   const before = fullText.slice(0, index)
@@ -74,6 +83,8 @@ function wrapMatch(node: Text, index: number, length: number): HTMLElement {
   return mark
 }
 
+// 按固定间隔观察 scrollHeight，连续稳定或达到最大累计采样时长后执行一次回调。
+// 不返回计时器句柄，取消语义由调用方回调中的状态检查实现。
 function waitUntilHeightStabilizes(
   element: HTMLElement,
   callback: () => void,
@@ -109,8 +120,9 @@ function waitUntilHeightStabilizes(
 }
 
 /**
- * Finds the first case-insensitive occurrence of `query` in the page content,
- * wraps it in a highlight mark, and scrolls it into view.
+ * 查询去掉两端空白后至少三字符才处理，容器不存在时直接返回空操作清理函数。
+ * 执行时先清理旧标记，再匹配首个文本节点命中并居中滚动，不修改浏览器地址。
+ * 返回的清理函数阻止延迟回调实际工作并移除标记，不清除已经调度的高度采样。
  */
 export function scrollToSearchQuery(
   query: string,

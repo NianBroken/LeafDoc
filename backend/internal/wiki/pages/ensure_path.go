@@ -13,7 +13,7 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
-// EnsurePathInput is the input for EnsurePathUseCase.
+// EnsurePathInput 指定目标路由和最终页面标题，缺失中间层级由树服务建立。
 type EnsurePathInput struct {
 	UserID      string
 	TargetPath  string
@@ -21,12 +21,12 @@ type EnsurePathInput struct {
 	Kind        *tree.NodeKind
 }
 
-// EnsurePathOutput is the output of EnsurePathUseCase.
+// EnsurePathOutput 返回路径最终对应的页面，包括已存在路径的原页面。
 type EnsurePathOutput struct {
 	Page *tree.Page
 }
 
-// EnsurePathUseCase ensures a full path exists, creating intermediate nodes as needed.
+// EnsurePathUseCase 验证路径并确保层级存在，为实际创建的节点发送保存事件。
 type EnsurePathUseCase struct {
 	tree         *tree.TreeService
 	slug         *tree.SlugService
@@ -34,7 +34,7 @@ type EnsurePathUseCase struct {
 	log          *slog.Logger
 }
 
-// NewEnsurePathUseCase constructs an EnsurePathUseCase.
+// NewEnsurePathUseCase 保存路径验证、页面树与保存编排依赖，不执行结构变化。
 func NewEnsurePathUseCase(
 	t *tree.TreeService,
 	s *tree.SlugService,
@@ -44,7 +44,8 @@ func NewEnsurePathUseCase(
 	return &EnsurePathUseCase{tree: t, slug: s, orchestrator: o, log: log}
 }
 
-// Execute ensures the path exists and returns the final node.
+// Execute 在编排器工作单元中处理路径建立，路径和标题去掉两端空白后不能为空。
+// 完整路径已存在时返回原页面，不覆盖标题或类型，也不发送创建事件。
 func (uc *EnsurePathUseCase) Execute(ctx context.Context, in EnsurePathInput) (*EnsurePathOutput, error) {
 	if !uc.tree.InUnitOfWork() {
 		var result *EnsurePathOutput
@@ -88,6 +89,7 @@ func (uc *EnsurePathUseCase) Execute(ctx context.Context, in EnsurePathInput) (*
 		return &EnsurePathOutput{Page: page}, nil
 	}
 
+	// 只验证缺失段的名称，已有路径段保持查询结果。
 	for _, segment := range lookup.Segments {
 		if !segment.Exists {
 			if err := uc.slug.IsValidSlug(segment.Slug); err != nil {
@@ -104,6 +106,7 @@ func (uc *EnsurePathUseCase) Execute(ctx context.Context, in EnsurePathInput) (*
 		return nil, err
 	}
 
+	// 最终页面也会出现在创建列表中，按标识去重后再批量读取。
 	ids := make([]string, 0, len(result.Created)+1)
 	seen := make(map[string]struct{}, len(result.Created)+1)
 	appendUnique := func(id string) {
@@ -119,6 +122,7 @@ func (uc *EnsurePathUseCase) Execute(ctx context.Context, in EnsurePathInput) (*
 		appendUnique(n.ID)
 	}
 
+	// 最终页面读取失败中止处理，其他新建节点读取失败仅记录告警。
 	pages, errs := uc.tree.GetPages(ids)
 	pageByID := make(map[string]*tree.Page, len(ids))
 	for i, p := range pages {
@@ -137,6 +141,8 @@ func (uc *EnsurePathUseCase) Execute(ctx context.Context, in EnsurePathInput) (*
 		return nil, tree.ErrPageNotFound
 	}
 
+	// 将各创建节点加入待读列表，最终页面标识已经登记，因此不会重复追加。
+	// 按创建顺序发送事件，没有成功读取的节点不进入派生处理。
 	for _, n := range result.Created {
 		p := pageByID[n.ID]
 		if p == nil {

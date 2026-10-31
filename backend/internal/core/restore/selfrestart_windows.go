@@ -1,5 +1,6 @@
 //go:build windows
 
+// 本文件提供 Windows 的进程重启入口，使用创建子进程后退出的方式。
 package restore
 
 import (
@@ -7,12 +8,9 @@ import (
 	"os/exec"
 )
 
-// SelfRestart spawns a fresh copy of the current process with the same
-// arguments and environment, then exits the current one. Windows has no
-// exec(3) equivalent that replaces the running process image in place, so
-// this uses spawn-then-exit instead — mirrors the
-// signals_unix.go/signals_windows.go OS split already used in cmd/leafdoc
-// for other process-lifecycle code.
+// SelfRestart 使用当前可执行文件和去掉程序名后的参数启动子进程，
+// 继承环境与标准输入输出。Start 失败保留当前进程并返回错误，成功则立即退出。
+// 此入口不等待子进程完成启动或健康检查，也不在退出前等待服务清理。
 func SelfRestart() error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -28,5 +26,5 @@ func SelfRestart() error {
 	}
 
 	os.Exit(0)
-	return nil // unreachable
+	return nil // os.Exit 成功结束进程后不会执行到此行。
 }

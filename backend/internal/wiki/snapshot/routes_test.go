@@ -1,3 +1,4 @@
+// 本文件直接挂载快照处理器，验证缺失依赖时的响应，不覆盖管理员认证链。
 package wikisnapshot
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// init 使测试路由使用 Gin 测试模式，避免输出调试路由注册信息。
 func init() {
 	gin.SetMode(gin.TestMode)
 }
 
+// newTestRouter 挂载六种真实处理方法，测试用空 Routes 构造未启用状态。
 func newTestRouter(routes *Routes) *gin.Engine {
 	r := gin.New()
 	r.GET("/snapshot/status", routes.handleStatus)
@@ -24,6 +27,7 @@ func newTestRouter(routes *Routes) *gin.Engine {
 	return r
 }
 
+// TestHandleStatus_Disabled 验证没有管理器时 JSON 明确报告 enabled=false。
 func TestHandleStatus_Disabled(t *testing.T) {
 	router := newTestRouter(&Routes{})
 
@@ -40,6 +44,7 @@ func TestHandleStatus_Disabled(t *testing.T) {
 	}
 }
 
+// TestHandleList_NotEnabledWhenManagerNil 验证列表入口不访问空管理器而返回 503。
 func TestHandleList_NotEnabledWhenManagerNil(t *testing.T) {
 	router := newTestRouter(&Routes{})
 
@@ -52,6 +57,7 @@ func TestHandleList_NotEnabledWhenManagerNil(t *testing.T) {
 	}
 }
 
+// TestHandleDownload_NotEnabledWhenManagerNil 验证下载在解析归档路径前检查依赖。
 func TestHandleDownload_NotEnabledWhenManagerNil(t *testing.T) {
 	router := newTestRouter(&Routes{})
 
@@ -64,6 +70,7 @@ func TestHandleDownload_NotEnabledWhenManagerNil(t *testing.T) {
 	}
 }
 
+// TestHandleDelete_NotEnabledWhenManagerNil 验证删除缺少管理器时返回服务不可用。
 func TestHandleDelete_NotEnabledWhenManagerNil(t *testing.T) {
 	router := newTestRouter(&Routes{})
 
@@ -76,6 +83,7 @@ func TestHandleDelete_NotEnabledWhenManagerNil(t *testing.T) {
 	}
 }
 
+// TestHandleTrigger_NotEnabledWhenSchedulerNil 验证手动排队需要调度器而非仅注册路由。
 func TestHandleTrigger_NotEnabledWhenSchedulerNil(t *testing.T) {
 	router := newTestRouter(&Routes{})
 

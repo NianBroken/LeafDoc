@@ -41,10 +41,7 @@ import {
 
 const EXPAND_ON_HOVER_DELAY_MS = 600
 
-// Dragging the last child out of a section leaves it empty. That may well
-// be intentional (mid-reorganization), so it is never converted back
-// automatically — instead a toast offers the conversion as a one-click
-// action, mirroring how nesting created the section in the first place.
+// 拖出最后一个子项后保留空分区，提示由用户决定是否转换回普通页面。
 function offerConvertBackToPage(parentId: string) {
   const { byId } = useTreeStore.getState()
   const parent = byId[parentId]
@@ -86,8 +83,7 @@ function offerConvertBackToPage(parentId: string) {
   )
 }
 
-// Keeps the overlay chip attached to the cursor (12px right of it,
-// vertically centered) instead of at the dragged row's original offset.
+// 将拖动预览定位到指针右侧 12 像素并在垂直方向居中，不沿用原行内偏移。
 const followCursor: Modifier = ({
   activatorEvent,
   draggingNodeRect,
@@ -126,15 +122,8 @@ function getPointerY(
   return null
 }
 
-// The click that follows a drop must never reach the row links: in Firefox
-// it targets the dragged link itself and bypasses React's synthetic
-// handlers entirely, so the anchor's default action would do a full-page
-// navigation. A native window-level capture listener runs before any
-// framework code and independent of React event timing, which is why the
-// suppression lives here and not in an onClickCapture prop. Armed for the
-// whole drag so it's in place no matter when the browser fires the click;
-// one drag produces at most one click, so it disarms itself after the
-// first one and a stray armed listener can never swallow more.
+// 拖放后的点击可能落到被拖动的链接并触发整页导航，因此在窗口捕获阶段阻止一次点击。
+// 监听器在拖动期间预先安装，首次捕获后自我移除，避免抑制同一拖动后的其他用户操作。
 function suppressClickCapture(e: MouseEvent) {
   e.preventDefault()
   e.stopPropagation()
@@ -166,8 +155,7 @@ export function TreeDndProvider({
       window.clearTimeout(disarmClickTimerRef.current)
       disarmClickTimerRef.current = null
     }
-    // Re-adding the same listener/capture pair is a no-op, so this is safe
-    // even if a previous drag's listener is still armed.
+    // 重复注册同一监听器及捕获选项不会增加重复处理函数。
     window.addEventListener('click', suppressClickCapture, true)
   }, [])
 
@@ -188,8 +176,7 @@ export function TreeDndProvider({
   }, [enabled, saving])
 
   const sensors = useSensors(
-    // Distance threshold keeps plain clicks navigating; on touch a long
-    // press starts the drag so the tree still scrolls normally.
+    // 鼠标移动达到阈值才开始拖动，触摸长按启动拖动并保留普通滚动手势。
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 250, tolerance: 8 },
@@ -204,6 +191,7 @@ export function TreeDndProvider({
   }
 
   const resetDragState = () => {
+    // 清除预览、当前拖动与落点，并释放子树缓存和延迟展开计时器。
     setActiveNode(null)
     useTreeDndStore.setState({ activeId: null, dropTarget: null })
     subtreeIdsRef.current = new Set()
@@ -217,6 +205,7 @@ export function TreeDndProvider({
   }
 
   const handleDragStart = (event: DragStartEvent) => {
+    // 缺少节点数据时不进入拖动状态，成功开始后缓存整棵被拖子树 ID。
     const node = event.active.data.current?.node as PageNode | undefined
     if (!node) return
     armClickSuppression()
@@ -226,6 +215,7 @@ export function TreeDndProvider({
   }
 
   const handleDragMove = (event: DragMoveEvent) => {
+    // 没有有效目标、目标属于自身子树或指针区域不可判定时清空落点并取消展开计时。
     const target = event.over?.data.current?.node as PageNode | undefined
 
     if (!event.over || !target || subtreeIdsRef.current.has(target.id)) {
@@ -252,6 +242,7 @@ export function TreeDndProvider({
       !isNodeOpen(target.id)
     ) {
       if (expandTimerRef.current?.nodeId !== target.id) {
+        // 指针在闭合分区嵌入区域停留满延迟后展开目标；换目标前先取消旧计时器。
         clearExpandTimer()
         const timer = window.setTimeout(() => {
           openNode(target.id)
@@ -265,6 +256,7 @@ export function TreeDndProvider({
   }
 
   const performDrop = async (dragged: PageNode, resolution: DropResolution) => {
+    // 同父移动只排序；跨父移动先本地展示结果，再提交接口并根据结果刷新索引。
     const { byId, moveNodeLocally, reloadTree, openNode } =
       useTreeStore.getState()
     const currentParentId = dragged.parentId ?? ROOT_ID
@@ -282,6 +274,7 @@ export function TreeDndProvider({
         await sortPages(resolution.parentId, orderedIds)
         await reloadTree({ silent: true })
       } catch (err) {
+        // 排序失败时重新读取服务端树，撤销临时本地顺序。
         console.warn(err)
         toast.error(t('treeActions.reorderErrorFallback'))
         await reloadTree({ silent: true })
@@ -298,6 +291,7 @@ export function TreeDndProvider({
     setSaving(true)
     try {
       const result = await performTreeCrossParentMove(dragged, resolution)
+      // 用户取消预览时刷新服务端树，确保临时的本地跨父移动不遗留。
       if (result.status === 'aborted') {
         await reloadTree({ silent: true })
         return
@@ -325,6 +319,7 @@ export function TreeDndProvider({
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
+    // 无有效拖动项、落点或目标节点时结束处理，不提交移动请求。
     scheduleClickSuppressionDisarm()
 
     const dragged = event.active.data.current?.node as PageNode | undefined
@@ -364,9 +359,7 @@ export function TreeDndProvider({
     >
       {children}
       {/* Portaled to <body>: the sidebar panel animates via a CSS
-          transform, which would otherwise become the containing block
-          for the fixed-positioned overlay and offset it from the
-          cursor. */}
+          transform，若预览留在侧栏内，该变换会成为 fixed 定位参照并造成指针偏移。 */}
       {createPortal(
         <DragOverlay dropAnimation={null} modifiers={[followCursor]}>
           {activeNode ? (

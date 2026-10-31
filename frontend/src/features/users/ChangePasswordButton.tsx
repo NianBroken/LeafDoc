@@ -18,8 +18,7 @@ export function ChangePasswordButton({
   const { t } = useTranslation('users')
   const openDialog = useDialogsStore((s) => s.openDialog)
 
-  // Own password is changed in the account settings, which asks for the
-  // current one; this admin action is for other users only.
+  // 本人密码通过账号设置修改，该流程要求提供当前密码，此管理员动作只用于其他账号。
   const { user: currentUser } = useSessionStore()
   if (currentUser?.id === user.id) return null
 

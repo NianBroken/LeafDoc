@@ -1,3 +1,4 @@
+// 本文件声明业务监听、数据目录、URL 前缀和日志参数，供启动流程统一读取。
 package main
 
 import (
@@ -5,7 +6,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// serverOptions holds the options for listener, data directory and logging.
+// serverOptions 保存业务服务参数。unixSocket 保留输入字段供明确拒绝，
+// 对外命令行只接受共享规则分配的 TCP 端口。
 type serverOptions struct {
 	host              string
 	port              string
@@ -17,9 +19,8 @@ type serverOptions struct {
 	disableRequestLog bool
 }
 
-// Flags declares them. Adding an option here is the whole change: the flag,
-// its default, its environment variable and its help text are one literal,
-// and --help is generated from it.
+// Flags 声明默认回环监听和相对数据目录。字符串去除两端空白，
+// 固定端口与日志格式连同默认值一起接受校验，避免错误配置进入服务启动。
 func (o *serverOptions) Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -32,7 +33,8 @@ func (o *serverOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.StringFlag{
-			Name:             "port",
+			Name: "port",
+			// 默认端口与校验器使用同一共享分配，不接受临时端口零。
 			Destination:      &o.port,
 			Category:         catServer,
 			Usage:            "port to run the server on",
@@ -43,7 +45,8 @@ func (o *serverOptions) Flags() []cli.Flag {
 			Config:           trimmed,
 		},
 		&cli.StringFlag{
-			Name:        "unix-socket",
+			Name: "unix-socket",
+			// 非空值在参数校验阶段被拒绝，不启用内部保留的套接字监听分支。
 			Destination: &o.unixSocket,
 			Category:    catServer,
 			Usage:       "unsupported: the backend requires its fixed TCP listener",
@@ -69,14 +72,16 @@ func (o *serverOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.BoolFlag{
-			Name:        "allow-insecure",
+			Name: "allow-insecure",
+			// 此值传给认证 Cookie 配置，允许不带 Secure 属性的 Cookie。
 			Destination: &o.allowInsecure,
 			Category:    catServer,
 			Usage:       "allow insecure HTTP; auth cookies may then travel in plain text",
 			Sources:     envBoolVars("LEAFDOC_ALLOW_INSECURE"),
 		},
 		&cli.StringFlag{
-			Name:             "log-format",
+			Name: "log-format",
+			// 允许 text 和 json，大小写与两端空白由解析函数统一处理。
 			Destination:      &o.logFormat,
 			Category:         catLogging,
 			Usage:            "log output format: text or json",

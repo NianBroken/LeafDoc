@@ -1,3 +1,4 @@
+// 本文件检查参数和环境变量的命名对应关系，以及布尔开关前缀与例外清单。
 package main
 
 import (
@@ -8,9 +9,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// legacyBoolFlagNames are boolean flags that predate the enable-/disable-/
-// allow- scheme in docs/development/conventions.md#naming. Renaming them would
-// break existing deployments, so they stay; this list may only shrink.
+// legacyBoolFlagNames 列出允许不使用统一前缀的四个现有布尔参数。
+// 测试同时要求清单项确实存在且为布尔类型，避免无效例外残留。
 var legacyBoolFlagNames = []string{
 	"hide-link-metadata-section",
 	"public-access",
@@ -18,11 +18,11 @@ var legacyBoolFlagNames = []string{
 	"snapshot",
 }
 
+// boolFlagPrefixes 定义常规布尔开关的方向前缀，不适用于其他参数类型。
 var boolFlagPrefixes = []string{"enable-", "disable-", "allow-"}
 
-// TestServerFlags_EnvVarIsLeafdocPlusFlagName checks the naming scheme for
-// every server flag: exactly one environment variable, LEAFDOC_ + the flag in
-// upper snake case.
+// TestServerFlags_EnvVarIsLeafdocPlusFlagName 要求每个参数恰好公开一个环境变量，
+// 名称等于 LEAFDOC_ 加参数名的大写下划线形式，并检查帮助生成接口可读取该名称。
 func TestServerFlags_EnvVarIsLeafdocPlusFlagName(t *testing.T) {
 	for _, flag := range (&serverConfig{}).flags() {
 		name := flag.Names()[0]
@@ -39,8 +39,8 @@ func TestServerFlags_EnvVarIsLeafdocPlusFlagName(t *testing.T) {
 	}
 }
 
-// TestServerFlags_BoolFlagsUseOptInOrOptOutPrefix checks that boolean flags
-// say which way they switch: enable-, disable- or allow-.
+// TestServerFlags_BoolFlagsUseOptInOrOptOutPrefix 只检查布尔参数，
+// 既拒绝没有方向前缀且不在例外清单的名称，也拒绝已合规却仍在清单的名称。
 func TestServerFlags_BoolFlagsUseOptInOrOptOutPrefix(t *testing.T) {
 	for _, flag := range (&serverConfig{}).flags() {
 		if _, isBool := flag.(*cli.BoolFlag); !isBool {
@@ -62,8 +62,8 @@ func TestServerFlags_BoolFlagsUseOptInOrOptOutPrefix(t *testing.T) {
 	}
 }
 
-// TestLegacyBoolFlagNames_NameExistingBoolFlags keeps the allowlist from outliving the
-// flags it excuses, and from excusing anything but a bool flag.
+// TestLegacyBoolFlagNames_NameExistingBoolFlags 建立全部参数的类型映射，
+// 逐项验证例外清单没有列入不存在的参数或非布尔参数。
 func TestLegacyBoolFlagNames_NameExistingBoolFlags(t *testing.T) {
 	isBool := map[string]bool{}
 	for _, flag := range (&serverConfig{}).flags() {

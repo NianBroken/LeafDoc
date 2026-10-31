@@ -1,5 +1,6 @@
-# Runs a Linux application container with a detached HTTPS gateway on Windows.
-# Credentials come from the environment; runtime state stays in the ignored data directory.
+# 本脚本在 Windows 启动后台 Linux 应用容器和独立 Caddy 网关，
+# 验证后端健康接口及 HTTPS 配置接口后保存进程记录，返回可访问地址。
+# 运行数据和进程状态放在数据目录，私有值从进程环境或 .env 读取。
 [CmdletBinding()]
 param(
     [switch]$Build,
@@ -11,6 +12,7 @@ param(
     [int]$Port = 0
 )
 
+# 等待次数、轮询间隔、单请求超时和停止进程等待时间集中声明。
 $ErrorActionPreference = 'Stop'
 $readinessAttempts = 120
 $readinessIntervalMilliseconds = 500
@@ -18,7 +20,9 @@ $requestTimeoutSeconds = 5
 $processExitTimeoutMilliseconds = 10000
 . (Join-Path $PSScriptRoot 'project-root.ps1')
 $root = Get-LeafDocProjectRoot
-# Private UTF-8 values fill unset process variables without evaluating shell code.
+# 私有配置按 UTF-8 逐行读取，跳过空行和井号开头行，只接受变量赋值格式。
+# 配对引号只移除外层字符，不执行转义展开、变量替换或 shell 代码。
+# 仅填充尚未定义的进程变量，已有环境值优先。
 $environmentFile = Join-Path $PSScriptRoot '../.env'
 if (Test-Path -LiteralPath $environmentFile -PathType Leaf) {
     foreach ($line in [IO.File]::ReadAllLines($environmentFile, [Text.Encoding]::UTF8)) {
@@ -38,10 +42,12 @@ if (Test-Path -LiteralPath $environmentFile -PathType Leaf) {
         }
     }
 }
+# 参数默认值在 .env 读取前绑定，未显式传入的参数在此重新取得环境值。
 if (-not $PSBoundParameters.ContainsKey('DataDirectory')) { $DataDirectory = $env:LEAFDOC_DATA_DIR }
 if (-not $PSBoundParameters.ContainsKey('CertificatePath')) { $CertificatePath = $env:LEAFDOC_TLS_CERT }
 if (-not $PSBoundParameters.ContainsKey('KeyPath')) { $KeyPath = $env:LEAFDOC_TLS_KEY }
 if (-not $PSBoundParameters.ContainsKey('BasePath')) { $BasePath = $env:LEAFDOC_BASE_PATH }
+# 监听端口以共享表为准，Port 只允许零值或共享前端端口，不用于任意自选端口。
 $ports = Get-Content -LiteralPath (Join-Path $root 'backend/internal/core/serviceports/ports.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($Port -ne 0 -and $Port -ne $ports.frontend) {
     throw 'The frontend port must match the shared fixed service allocation.'
@@ -49,7 +55,7 @@ if ($Port -ne 0 -and $Port -ne $ports.frontend) {
 $Port = [int]$ports.frontend
 $backendPort = [int]$ports.backend
 $adminPort = [int]$ports.gatewayAdmin
-# Machine-wide certificate files are discovered without requiring registry writes.
+# 未显式提供证书时使用系统公共数据目录下的证书和私钥，不在此生成或安装信任。
 $systemTlsDirectory = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'LeafDoc/tls'
 if (-not $CertificatePath) { $CertificatePath = Join-Path $systemTlsDirectory 'server.crt' }
 if (-not $KeyPath) { $KeyPath = Join-Path $systemTlsDirectory 'server.key' }
@@ -59,11 +65,14 @@ $runtime = Join-Path $DataDirectory '.runtime'
 $statePath = Join-Path $runtime 'processes.json'
 $image = 'leafdoc:local'
 $containerId = $null
+# 基础路径去除边缘空白和斜杠，再保留一个开头斜杠，根路径表示为空。
+# 查询符号、片段和任意空白被拒绝，其余路径字符不在这里进一步编码。
 $BasePath = '/' + ([string]$BasePath).Trim().Trim('/')
 if ($BasePath -eq '/') { $BasePath = '' }
 if ($BasePath -match '[?#\s]') { throw 'The base path must be a URL path without query, fragment or whitespace.' }
 
-# Match both the executable and creation time before stopping a saved process.
+# 停止保存的容器前核对项目标签，停止进程前同时核对执行路径和启动时间，
+# 避免进程 ID 被复用后终止其他程序。容器删除不删除绑定的数据目录。
 function Stop-SavedProcesses($state) {
     if ($state.containerId) {
         $existing = & docker ps -a --filter "id=$($state.containerId)" --format '{{.ID}}'
@@ -77,7 +86,7 @@ function Stop-SavedProcesses($state) {
     }
     foreach ($entry in $state.processes) {
         $process = Get-Process -Id $entry.id -ErrorAction SilentlyContinue
-        # JSON readers can return timestamps as either strings or DateTime values.
+        # 保存时间统一转成 UTC 后比较，兼容 JSON 读取器返回字符串或 DateTime。
         if ($process -and $process.Path -eq $entry.path -and
             [Math]::Abs(($process.StartTime.ToUniversalTime() - ([DateTime]$entry.started).ToUniversalTime()).TotalSeconds) -lt 1) {
             Stop-Process -Id $process.Id -Force
@@ -88,6 +97,7 @@ function Stop-SavedProcesses($state) {
     }
 }
 
+# Stop 分支只处理保存的实例，检查进程退出后才移除状态文件，不继续启动流程。
 if ($Stop) {
     if (Test-Path -LiteralPath $statePath) {
         Stop-SavedProcesses (Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json)
@@ -102,7 +112,8 @@ if ($Stop) {
     }
     return
 }
-# Resolve executables from the current process and refreshed machine environment.
+# 可执行文件优先按当前命令解析，再检查进程与系统 Path 的合并目录。
+# 路径内的环境变量在检查前展开，没有找到时抛错，不自动下载程序。
 function Resolve-Executable([string]$Name) {
     $command = Get-Command $Name -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
@@ -114,6 +125,7 @@ function Resolve-Executable([string]$Name) {
     }
     throw "Required executable was not found: $Name"
 }
+# Docker、Caddy 与证书都在停止旧实例之前检查，证书路径转成实际绝对路径。
 $docker = Resolve-Executable 'docker.exe'
 $caddy = Resolve-Executable 'caddy.exe'
 foreach ($file in @($CertificatePath, $KeyPath)) {
@@ -125,7 +137,8 @@ $CertificatePath = (Resolve-Path -LiteralPath $CertificatePath).Path
 $KeyPath = (Resolve-Path -LiteralPath $KeyPath).Path
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 
-# Build and validate the Linux image before stopping the running instance.
+# 先确认 Docker 为 Linux 模式，需要时完成镜像构建，再处理现有实例。
+# 已有镜像且未要求 Build 时直接复用，不在这里判断镜像是否对应当前源码。
 $dockerSystem = & $docker info --format '{{.OSType}}'
 if ($LASTEXITCODE -ne 0 -or $dockerSystem -ne 'linux') { throw 'Docker must be running Linux containers.' }
 $availableImage = & $docker image ls --quiet $image
@@ -139,16 +152,19 @@ if (Test-Path -LiteralPath $statePath) {
     Stop-SavedProcesses (Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json)
     Remove-Item -LiteralPath $statePath
 }
+# 旧状态处理完后释放共享监听，指标启用时也释放指标端口。
 $requiredServices = @('frontend', 'backend', 'gatewayAdmin')
 if ($env:LEAFDOC_ENABLE_METRICS -in @('true', '1')) { $requiredServices += 'metrics' }
 & (Join-Path $PSScriptRoot 'release-service-ports.ps1') -Services ($requiredServices -join ',')
 
+# JWT 密钥只在文件缺失时生成，后续启动复用，避免每次启动改变签名密钥。
 $secretPath = Join-Path $runtime 'jwt.key'
 if (-not (Test-Path -LiteralPath $secretPath)) {
     [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(64)) |
         Set-Content -LiteralPath $secretPath -Encoding UTF8 -NoNewline
 }
-# The gateway's administration listener follows the shared service allocation.
+# 网关配置绑定本机环回地址，使用给定证书并代理后端，管理端口来自共享表。
+# 下方 here-string 属于运行配置内容，由 Caddy 格式化后使用。
 $gatewayConfig = Join-Path $runtime 'Caddyfile'
 @"
 {
@@ -166,12 +182,16 @@ if ($LASTEXITCODE -ne 0) { throw 'Gateway configuration formatting failed.' }
 
 $savedSecret = $env:LEAFDOC_JWT_SECRET
 $processes = @()
+# 就绪探测复用 HTTP 客户端并禁用代理，单次请求受集中设置的超时限制。
+# 未关闭证书验证，HTTPS 探测需要本机信任所用证书。
 $handler = [Net.Http.HttpClientHandler]::new()
 $handler.UseProxy = $false
 $client = [Net.Http.HttpClient]::new($handler)
 $client.Timeout = [TimeSpan]::FromSeconds($requestTimeoutSeconds)
 
-# Probe the backend before exposing it through the gateway, then verify HTTPS.
+# 每轮确认容器与已启动服务仍存活，再发送探测请求。任意成功状态码即视为就绪，
+# 不在这里解析响应 JSON 或检查管理员登录。连接或请求超时继续下一轮，
+# 其他异常直接向外传播。
 function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
     for ($attempt = 0; $attempt -lt $readinessAttempts; $attempt++) {
         if ($containerId) {
@@ -187,9 +207,9 @@ function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
                 if ($response.IsSuccessStatusCode) { return }
             } finally { $response.Dispose() }
         } catch [Net.Http.HttpRequestException] {
-            # Connection refusal is expected until the listener is ready.
+            # 尚未监听或其他 HTTP 连接失败时继续重试。
         } catch [Threading.Tasks.TaskCanceledException] {
-            # Individual requests are bounded by the client timeout.
+            # 单次请求达到客户端超时后继续下一轮，整体轮数仍有限。
         }
         Start-Sleep -Milliseconds $readinessIntervalMilliseconds
     }
@@ -198,7 +218,8 @@ function Wait-ServiceReady([string]$Url, [Diagnostics.Process[]]$Services) {
 
 try {
     $env:LEAFDOC_JWT_SECRET = Get-Content -LiteralPath $secretPath -Raw -Encoding UTF8
-    # Application environment is passed by variable name, never as command-line secret values.
+    # 应用私有环境按变量名交给 Docker 读取，不把密码值展开到启动命令参数。
+    # 容器名称由数据目录摘要生成，相同目录对应同一名称，实例带项目归属标签。
     $identity = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($DataDirectory))).Substring(0, 12).ToLowerInvariant()
     $arguments = @('run', '-d', '--name', "leafdoc-$identity", '--restart', 'unless-stopped', '--label', "leafdoc.source=$root",
         '--mount', "type=bind,source=$DataDirectory,target=/app/data", '-p', "127.0.0.1:${backendPort}:${backendPort}",
@@ -206,26 +227,30 @@ try {
     foreach ($variable in Get-ChildItem Env: | Where-Object Name -like 'LEAFDOC_*') {
         if ($variable.Name -notin @('LEAFDOC_DATA_DIR', 'LEAFDOC_MYSQL_HOST')) { $arguments += @('--env', $variable.Name) }
     }
+    # 宿主环回数据库地址转换成容器可访问的宿主入口，其余主机值沿用环境配置。
     $databaseHost = $env:LEAFDOC_MYSQL_HOST
     if ($databaseHost -in @('localhost', '127.0.0.1', '::1')) { $databaseHost = 'host.docker.internal' }
     $arguments += @('--env', "LEAFDOC_MYSQL_HOST=$databaseHost", '--env', 'LEAFDOC_DATA_DIR=/app/data')
     if ($env:LEAFDOC_ENABLE_METRICS -in @('true', '1')) { $arguments += @('-p', "127.0.0.1:$($ports.metrics):$($ports.metrics)") }
     $arguments += @($image, '--host', '0.0.0.0', '--port', "$backendPort", '--data-dir', '/app/data', '--enable-revision', '--snapshot', '--metrics-port', "$($ports.metrics)")
     if ($BasePath) { $arguments += @('--base-path', $BasePath) }
+    # -d 让容器脱离当前终端，unless-stopped 使 Docker 按策略维持后台运行。
     $containerId = (& $docker @arguments).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $containerId) { throw 'Backend container did not start.' }
     Wait-ServiceReady "http://127.0.0.1:$backendPort$BasePath/api/health" @()
+    # 后端健康通过才启动隐藏网关进程，标准输出与错误输出分别保存到运行目录。
     $gateway = Start-Process -FilePath $caddy -ArgumentList @('run', '--config', "`"$gatewayConfig`"") -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtime 'gateway.stdout.log') -RedirectStandardError (Join-Path $runtime 'gateway.stderr.log') -PassThru
     $processes += $gateway
     $url = "https://localhost:$Port$BasePath"
     Wait-ServiceReady "$url/api/config" $processes
+    # HTTPS 配置接口通过后才写入可供停止入口核对的进程与容器记录。
     $state = @{ url = $url; dataDirectory = $DataDirectory; containerId = $containerId; image = $image; processes = @(
         foreach ($process in $processes) {
             @{ id = $process.Id; path = $process.Path; started = $process.StartTime.ToUniversalTime().ToString('o') }
         }
     ) }
     $state | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $statePath -Encoding UTF8
-    # Only the obsolete project-owned Windows binary is retired after HTTPS readiness.
+    # 就绪后把运行目录中指定名称的 Windows 二进制送入回收站，其他文件不参与处理。
     $obsoleteBinary = Join-Path $runtime 'leafdoc.exe'
     if (Test-Path -LiteralPath $obsoleteBinary -PathType Leaf) {
         Add-Type -AssemblyName Microsoft.VisualBasic.Core
@@ -233,6 +258,7 @@ try {
     }
     Write-Output $url
 } catch {
+    # try 范围内启动失败时删除已取得 ID 的容器并结束已登记网关，再把原异常抛出。
     if ($containerId) {
         & $docker rm -f $containerId | Out-Null
         if ($LASTEXITCODE -ne 0) { Write-Error 'Failed to clean up the unsuccessful backend container.' }
@@ -242,6 +268,7 @@ try {
     }
     throw
 } finally {
+    # 恢复原 JWT 环境值并释放本脚本的对象句柄，Dispose 不终止已经就绪的后台进程。
     $env:LEAFDOC_JWT_SECRET = $savedSecret
     foreach ($process in $processes) { $process.Dispose() }
     $client.Dispose()

@@ -6,15 +6,16 @@ import (
 	"strings"
 )
 
-// TrustedProxies holds a set of trusted IP addresses and CIDR ranges.
-// Only requests originating from these addresses will have Remote-User headers honoured.
+// TrustedProxies 分别保存单个 IP 与 CIDR 网段，供代理身份鉴权检查实际连接来源。
+// 集合不包含主机名解析规则，也不读取客户端自行提交的转发请求头。
 type TrustedProxies struct {
 	nets []*net.IPNet
 	ips  []net.IP
 }
 
-// ParseTrustedProxies parses a comma-separated list of IP addresses and CIDR ranges.
-// An empty string returns an empty (trust-nobody) list without error.
+// ParseTrustedProxies 按逗号分隔配置，去除每项两端空白并忽略空项。
+// 含斜杠的项按 CIDR 解析，其余按单个 IP 解析，任一无效项使整体返回错误。
+// 空配置得到不信任任何地址的空集合，而非信任全部来源。
 func ParseTrustedProxies(raw string) (*TrustedProxies, error) {
 	tp := &TrustedProxies{}
 	for _, entry := range strings.Split(raw, ",") {
@@ -39,7 +40,8 @@ func ParseTrustedProxies(raw string) (*TrustedProxies, error) {
 	return tp, nil
 }
 
-// IsTrusted reports whether remoteAddr (host:port or bare host) is in the trusted set.
+// IsTrusted 接受带端口地址或裸 IP，先尝试分离端口，再比较单个地址与网段。
+// 无法解析为 IP 的文本直接返回 false，不通过 DNS 查询将主机名转成地址。
 func (tp *TrustedProxies) IsTrusted(remoteAddr string) bool {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
@@ -49,6 +51,7 @@ func (tp *TrustedProxies) IsTrusted(remoteAddr string) bool {
 	if ip == nil {
 		return false
 	}
+	// 精确地址和网段任一命中即可通过，两个集合均未命中则拒绝。
 	for _, trusted := range tp.ips {
 		if trusted.Equal(ip) {
 			return true

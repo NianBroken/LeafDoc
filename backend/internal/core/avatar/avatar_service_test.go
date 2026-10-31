@@ -1,3 +1,4 @@
+// 本文件用内存生成图像和测试临时目录核验头像格式、尺寸、裁剪、删除与路径限制。
 package avatar
 
 import (
@@ -17,18 +18,19 @@ import (
 	"golang.org/x/image/webp"
 )
 
-// fakeMultipartFile adapts a bytes.Reader to multipart.File (io.Reader +
-// io.ReaderAt + io.Seeker + io.Closer), which is all UploadAvatar needs.
+// fakeMultipartFile 在字节读取器上提供空关闭方法，使内存数据满足 multipart.File。
 type fakeMultipartFile struct {
 	*bytes.Reader
 }
 
 func (f fakeMultipartFile) Close() error { return nil }
 
+// newMultipartFile 为每次上传创建独立读取位置，不复制底层字节切片。
 func newMultipartFile(data []byte) multipart.File {
 	return fakeMultipartFile{bytes.NewReader(data)}
 }
 
+// newTestAvatarService 使用自动清理的临时目录创建服务，同时返回目录供文件断言。
 func newTestAvatarService(t *testing.T) (*AvatarService, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -39,17 +41,15 @@ func newTestAvatarService(t *testing.T) (*AvatarService, string) {
 	return svc, dir
 }
 
-// quadrantImage builds a rectWidth x rectHeight RGBA image split into four
-// solid-colored quadrants, used to verify that cropToSquare anchors at the
-// image's center rather than a corner: only a center-anchored crop keeps all
-// four colors visible near the crop's own corners in predictable positions.
+// quadrantImage 按水平和垂直中点把图像分成四色区域，便于观察裁剪后保留的内容。
+// 返回指定宽高的 RGBA 图像，颜色分布由像素坐标明确决定。
 func quadrantImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	colors := [4]color.RGBA{
-		{255, 0, 0, 255},   // top-left: red
-		{0, 255, 0, 255},   // top-right: green
-		{0, 0, 255, 255},   // bottom-left: blue
-		{255, 255, 0, 255}, // bottom-right: yellow
+		{255, 0, 0, 255},   // 左上为红色。
+		{0, 255, 0, 255},   // 右上为绿色。
+		{0, 0, 255, 255},   // 左下为蓝色。
+		{255, 255, 0, 255}, // 右下为黄色。
 	}
 	midX, midY := width/2, height/2
 	for y := 0; y < height; y++ {
@@ -71,6 +71,7 @@ func quadrantImage(width, height int) *image.RGBA {
 	return img
 }
 
+// encodePNG 编码测试图像，编码失败直接终止当前测试。
 func encodePNG(t *testing.T, img image.Image) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -80,6 +81,7 @@ func encodePNG(t *testing.T, img image.Image) []byte {
 	return buf.Bytes()
 }
 
+// encodeJPEG 使用库默认质量生成 JPEG 测试载荷。
 func encodeJPEG(t *testing.T, img image.Image) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -89,6 +91,7 @@ func encodeJPEG(t *testing.T, img image.Image) []byte {
 	return buf.Bytes()
 }
 
+// encodeGIF 将图像编码为单张 GIF，测试只核验该静态载荷的上传结果。
 func encodeGIF(t *testing.T, img image.Image) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -98,9 +101,7 @@ func encodeGIF(t *testing.T, img image.Image) []byte {
 	return buf.Bytes()
 }
 
-// solidSquarePNG builds a small solid-color square PNG for the simple
-// format-acceptance tests (quadrantImage is reserved for the crop-centering
-// test, which needs a non-square source).
+// solidSquarePNG 生成指定边长的纯色正方形，供不需要复杂图案的上传测试复用。
 func solidSquarePNG(t *testing.T, size int) []byte {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
@@ -112,7 +113,7 @@ func solidSquarePNG(t *testing.T, size int) []byte {
 	return encodePNG(t, img)
 }
 
-// Uploads recreate an empty storage directory removed by housekeeping.
+// 删除构造时建立的空头像目录后上传，确认上传路径会重新建立目录并生成文件。
 func TestAvatarService_UploadAvatar_RecreatesMissingDirectory(t *testing.T) {
 	svc, dir := newTestAvatarService(t)
 	if err := os.Remove(filepath.Join(dir, "avatars")); err != nil {
@@ -126,6 +127,7 @@ func TestAvatarService_UploadAvatar_RecreatesMissingDirectory(t *testing.T) {
 	}
 }
 
+// JPEG、PNG 和 GIF 输入都输出固定尺寸的 PNG，不保留输入文件格式。
 func TestAvatarService_UploadAvatar_ValidFormats_ProducesTargetSizePNG(t *testing.T) {
 	square := image.NewRGBA(image.Rect(0, 0, 300, 300))
 	for y := 0; y < 300; y++ {
@@ -170,10 +172,8 @@ func TestAvatarService_UploadAvatar_ValidFormats_ProducesTargetSizePNG(t *testin
 }
 
 func TestAvatarService_UploadAvatar_WebpFormat_ProducesTargetSizePNG(t *testing.T) {
-	// golang.org/x/image/webp is decode-only (no encoder), so this fixture
-	// was generated externally (Pillow, lossless WEBP) as a 100x100 solid
-	// color image and pinned here as raw bytes; verified to round-trip
-	// through golang.org/x/image/webp.Decode below before use.
+	// 固定字节作为 WebP 输入，先确认解码成功，再检查上传后的 PNG 格式和目标尺寸。
+	// 测试不在运行时调用外部图像生成器。
 	data := []byte{
 		0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
 		0x56, 0x50, 0x38, 0x4c, 0x17, 0x00, 0x00, 0x00, 0x2f, 0x63, 0xc0, 0x18,
@@ -205,6 +205,7 @@ func TestAvatarService_UploadAvatar_WebpFormat_ProducesTargetSizePNG(t *testing.
 	}
 }
 
+// 即使字节是有效 PNG，不允许的扩展名仍使上传返回错误，此处不检查具体错误码。
 func TestAvatarService_UploadAvatar_RejectedExtension_ReturnsInvalidTypeError(t *testing.T) {
 	svc, _ := newTestAvatarService(t)
 	data := solidSquarePNG(t, 100)
@@ -215,6 +216,7 @@ func TestAvatarService_UploadAvatar_RejectedExtension_ReturnsInvalidTypeError(t 
 	}
 }
 
+// 合法扩展名不能替代图像解码，非图像字节必须返回错误。
 func TestAvatarService_UploadAvatar_CorruptBytes_ReturnsDecodeFailedError(t *testing.T) {
 	svc, _ := newTestAvatarService(t)
 	garbage := []byte("this is not an image, just plain garbage bytes")
@@ -228,10 +230,8 @@ func TestAvatarService_UploadAvatar_CorruptBytes_ReturnsDecodeFailedError(t *tes
 func TestAvatarService_UploadAvatar_OversizedUpload_Rejected(t *testing.T) {
 	svc, _ := newTestAvatarService(t)
 
-	// Build a PNG payload whose encoded byte size exceeds MaxUploadSize.
-	// Pseudo-random per-pixel noise defeats PNG's filters/deflate, so a
-	// moderate resolution is enough to comfortably clear the 5 MiB limit
-	// without needing an enormous image.
+	// 使用固定种子的像素噪声生成较难压缩的 PNG，并先断言编码字节确实超过上传上限。
+	// 检查的是编码后文件大小，不以像素数量替代字节大小判断。
 	size := 1600
 	rng := rand.New(rand.NewSource(1))
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
@@ -254,10 +254,8 @@ func TestAvatarService_UploadAvatar_OversizedUpload_Rejected(t *testing.T) {
 func TestAvatarService_UploadAvatar_NonSquareInput_CropsCenteredNotCorner(t *testing.T) {
 	svc, dir := newTestAvatarService(t)
 
-	// A wide rectangle: the center-square crop should span x in [100, 300)
-	// (i.e. the middle 200px of a 400px-wide, 200px-tall image), keeping all
-	// four color quadrants visible in the output — a corner-anchored crop
-	// would instead show only two of the four colors.
+	// 四百乘二百的宽图居中裁成正方形，横向范围为一百到三百之间的二百像素。
+	// 四个颜色区域仍应在裁剪与缩放后保留，贴边裁剪不会呈现相同分布。
 	src := quadrantImage(400, 200)
 	data := encodePNG(t, src)
 
@@ -280,11 +278,8 @@ func TestAvatarService_UploadAvatar_NonSquareInput_CropsCenteredNotCorner(t *tes
 		t.Fatalf("expected %dx%d output, got %dx%d", TargetSize, TargetSize, out.Bounds().Dx(), out.Bounds().Dy())
 	}
 
-	// Sample near each corner of the resized output (inset slightly to avoid
-	// resampling blur exactly at the crop boundary) and confirm all four
-	// original quadrant colors are represented — proof the crop was centered
-	// (source x in [100,300), y in [0,200)) rather than anchored at a
-	// corner (which would only ever show 2 of the 4 colors).
+	// 在输出四角向内取样，避开边界缩放混色，以通道阈值归类并统计不同颜色标签。
+	// 当前断言检查标签集合至少四项，不逐角强制对应某个指定颜色。
 	inset := TargetSize / 8
 	corners := map[string][2]int{
 		"top-left":     {inset, inset},
@@ -322,7 +317,7 @@ func TestAvatarService_UploadAvatar_NonSquareInput_CropsCenteredNotCorner(t *tes
 func TestAvatarService_DeleteAvatar_IdempotentAndNoOpWhenNothingUploaded(t *testing.T) {
 	svc, dir := newTestAvatarService(t)
 
-	// Deleting when nothing was ever uploaded must not error.
+	// 尚未上传的用户没有头像文件，删除应直接成功。
 	if err := svc.DeleteAvatar("no-such-user"); err != nil {
 		t.Fatalf("DeleteAvatar() on nonexistent user error: %v", err)
 	}
@@ -343,12 +338,13 @@ func TestAvatarService_DeleteAvatar_IdempotentAndNoOpWhenNothingUploaded(t *test
 		t.Errorf("expected avatar file removed, got err=%v", err)
 	}
 
-	// Deleting again is a no-op, not an error.
+	// 文件删除后再次调用仍成功，验证重复删除的结果一致。
 	if err := svc.DeleteAvatar("user-1"); err != nil {
 		t.Fatalf("DeleteAvatar() second call error: %v", err)
 	}
 }
 
+// 上传前报告不存在，上传后返回可被 Stat 的真实文件路径。
 func TestAvatarService_AvatarPath_ReportsExistence(t *testing.T) {
 	svc, _ := newTestAvatarService(t)
 
@@ -370,6 +366,7 @@ func TestAvatarService_AvatarPath_ReportsExistence(t *testing.T) {
 	}
 }
 
+// 含父目录、两种分隔符或绝对路径前缀的用户 ID 均被拒绝。
 func TestAvatarService_UploadAvatar_UnsafeUserID_Rejected(t *testing.T) {
 	svc, _ := newTestAvatarService(t)
 	data := solidSquarePNG(t, 100)
@@ -381,4 +378,4 @@ func TestAvatarService_UploadAvatar_UnsafeUserID_Rejected(t *testing.T) {
 	}
 }
 
-var _ io.ReaderAt = fakeMultipartFile{} // sanity: satisfies multipart.File
+var _ io.ReaderAt = fakeMultipartFile{} // 编译时确认测试适配器实现随机偏移读取接口。

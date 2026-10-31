@@ -1,3 +1,4 @@
+// 本文件声明独立指标监听参数，端口使用共享分配规则并在解析阶段校验。
 package main
 
 import (
@@ -5,16 +6,15 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// metricsOptions holds the options for the Prometheus metrics listener.
+// metricsOptions 保存指标启用标记与监听地址，不复用主业务 HTTP 服务。
 type metricsOptions struct {
 	enableMetrics bool
 	metricsHost   string
 	metricsPort   string
 }
 
-// Flags declares them. Adding an option here is the whole change: the flag,
-// its default, its environment variable and its help text are one literal,
-// and --help is generated from it.
+// Flags 将开关、主机和固定指标端口绑定到目标字段。
+// 默认监听回环地址；端口默认值和显式输入都经过同一个共享校验器。
 func (o *metricsOptions) Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.BoolFlag{
@@ -34,7 +34,8 @@ func (o *metricsOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.StringFlag{
-			Name:             "metrics-port",
+			Name: "metrics-port",
+			// 端口从 serviceports 读取，拒绝与统一分配不同的覆盖值。
 			Destination:      &o.metricsPort,
 			Category:         catMetrics,
 			Usage:            "port for the Prometheus metrics listener",

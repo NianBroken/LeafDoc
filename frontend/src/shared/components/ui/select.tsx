@@ -17,7 +17,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      // The label can shrink while the indicator keeps a visible separation.
+      // 标签允许收缩，指示图标始终保留独立间距并保持可见。
       'border-input ring-offset-background focus:ring-ring data-placeholder:text-muted-foreground flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs focus:ring-1 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 [&>span]:min-w-0',
       className,
     )}

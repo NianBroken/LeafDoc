@@ -14,16 +14,20 @@ import (
 	coreavatar "github.com/NianBroken/LeafDoc/internal/core/avatar"
 )
 
+// fakeMultipartFile 为内存读取器提供空关闭方法，满足上传用例需要的 multipart.File 接口。
 type fakeMultipartFile struct {
 	*bytes.Reader
 }
 
+// Close 无实际文件句柄需要释放，始终成功。
 func (f fakeMultipartFile) Close() error { return nil }
 
+// newMultipartFile 将图片字节包装为支持读取、定位与关闭的测试上传文件。
 func newMultipartFile(data []byte) multipart.File {
 	return fakeMultipartFile{bytes.NewReader(data)}
 }
 
+// solidSquarePNG 绘制 64 像素正方形并编码为真实 PNG，使测试经过图片解码与保存路径。
 func solidSquarePNG(t *testing.T) []byte {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, 64, 64))
@@ -39,13 +43,14 @@ func solidSquarePNG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// avatarFixture holds both avatar use cases over one AvatarService rooted in a temp dir.
+// avatarFixture 让上传和删除用例共享临时目录下的同一个头像服务。
 type avatarFixture struct {
 	upload *UploadAvatarUseCase
 	del    *DeleteAvatarUseCase
 	dir    string
 }
 
+// newAvatarFixture 使用自动清理目录构造真实服务，初始化失败立即终止当前测试。
 func newAvatarFixture(t *testing.T) *avatarFixture {
 	t.Helper()
 	dir := t.TempDir()
@@ -56,7 +61,7 @@ func newAvatarFixture(t *testing.T) *avatarFixture {
 	return &avatarFixture{upload: NewUploadAvatarUseCase(svc), del: NewDeleteAvatarUseCase(svc), dir: dir}
 }
 
-// uploadPNG uploads a valid PNG named filename as the avatar of userID.
+// uploadPNG 每次生成有效 PNG，并使用传入文件名触发扩展名校验。
 func (f *avatarFixture) uploadPNG(t *testing.T, userID, filename string) error {
 	t.Helper()
 	return f.upload.Execute(context.Background(), UploadAvatarInput{
@@ -66,11 +71,12 @@ func (f *avatarFixture) uploadPNG(t *testing.T, userID, filename string) error {
 	})
 }
 
-// avatarPath is where AvatarService stores the PNG avatar of userID.
+// avatarPath 按实际服务约定定位用户 PNG 文件，用于检查写入与删除结果。
 func (f *avatarFixture) avatarPath(userID string) string {
 	return filepath.Join(f.dir, "avatars", userID+".png")
 }
 
+// TestUploadAvatarUseCase_Execute_ValidImage_WritesAvatarFile 确认有效图片实际形成用户头像文件。
 func TestUploadAvatarUseCase_Execute_ValidImage_WritesAvatarFile(t *testing.T) {
 	f := newAvatarFixture(t)
 
@@ -83,6 +89,8 @@ func TestUploadAvatarUseCase_Execute_ValidImage_WritesAvatarFile(t *testing.T) {
 	}
 }
 
+// TestUploadAvatarUseCase_Execute_InvalidExtension_ReturnsError 使用有效 PNG 配不允许的名称扩展名。
+// 由此验证名称限制不会仅因内容能够解码而被绕过。
 func TestUploadAvatarUseCase_Execute_InvalidExtension_ReturnsError(t *testing.T) {
 	f := newAvatarFixture(t)
 
@@ -91,6 +99,7 @@ func TestUploadAvatarUseCase_Execute_InvalidExtension_ReturnsError(t *testing.T)
 	}
 }
 
+// TestDeleteAvatarUseCase_Execute_RemovesUploadedAvatar 先核对文件存在，再要求删除后为不存在错误。
 func TestDeleteAvatarUseCase_Execute_RemovesUploadedAvatar(t *testing.T) {
 	f := newAvatarFixture(t)
 
@@ -110,6 +119,7 @@ func TestDeleteAvatarUseCase_Execute_RemovesUploadedAvatar(t *testing.T) {
 	}
 }
 
+// TestDeleteAvatarUseCase_Execute_NothingUploaded_NoOp 确认未上传头像时删除仍成功。
 func TestDeleteAvatarUseCase_Execute_NothingUploaded_NoOp(t *testing.T) {
 	f := newAvatarFixture(t)
 

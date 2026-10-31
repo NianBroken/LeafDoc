@@ -1,3 +1,5 @@
+// 本文件提供已有快照恢复、上传恢复、进度查询与介入重启的 HTTP 入口。
+// 恢复执行交给管理器，接口层区分管理员身份和仅能查看当前任务的专用凭据。
 package wikirestore
 
 import (
@@ -12,22 +14,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// uploadParseMaxMemory bounds how much of an uploaded restore ZIP
-// ParseMultipartForm is allowed to buffer in memory before mime/multipart
-// spills the rest to its own temp file on disk. Deliberately independent of
-// the (much larger) MaxUploadSizeBytes limit: reusing that limit here would
-// let ParseMultipartForm hold an entire near-max-size upload in RAM, which on
-// a resource-constrained deployment (e.g. a Raspberry Pi, an explicit
-// LeafDoc deployment target) risks OOM.
-const uploadParseMaxMemory = 32 << 20 // 32 MiB, matching net/http's own default
+// uploadParseMaxMemory 控制分段表单解析时文件内容的内存缓冲量，超过后写入临时文件。
+// 它与整个请求体的上传限额分开设置，避免将接近上传限额的归档全部留在内存。
+const uploadParseMaxMemory = 32 << 20 // 文件部分使用 32 MiB 缓冲，与 net/http 默认值相同。
 
-// Routes is the RouteRegistrar for the live restore admin endpoints.
+// Routes 保存恢复管理器与身份服务，管理器为空时各处理入口返回 503。
 type Routes struct {
 	manager     *restore.Manager
 	authService *coreauth.AuthService
 }
 
-// NewRoutes constructs the restore RouteRegistrar.
+// NewRoutes 绑定依赖，不启动恢复或替换运行数据。
 func NewRoutes(manager *restore.Manager, authService *coreauth.AuthService) *Routes {
 	return &Routes{
 		manager:     manager,
@@ -35,10 +32,10 @@ func NewRoutes(manager *restore.Manager, authService *coreauth.AuthService) *Rou
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar.
+// RegisterRoutes 为管理操作安装认证和管理员限制，进度查询单独校验任务凭据。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 
-	// Progress uses its own job-scoped credential and never grants admin access.
+	// 进度入口不要求账号会话，只允许专用凭据读取当前任务，不授予管理操作权限。
 	ctx.Base.GET("/api/restore/progress", r.handleProgress)
 
 	authGroup := ctx.APIAuthGroup(r.authService)
@@ -46,8 +43,8 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	adminGroup := authGroup.Group("/admin")
 	adminGroup.Use(authmw.RequireAdmin())
 
-	// A restore replaces MySQL account and API key records, so it is browser-session
-	// only: an API key must not be able to swap in its own credentials.
+	// 恢复会替换数据库中的账号和 API 密钥记录，写操作另行拒绝 API 密钥身份，
+	// 避免凭密钥将其他备份中的账号凭据装入系统。
 	sessionOnly := authmw.RequireCookieSession()
 
 	adminGroup.POST("/restore/upload", sessionOnly, r.handleTriggerUpload)
@@ -56,14 +53,13 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	adminGroup.POST("/restore/self-restart", sessionOnly, r.handleSelfRestart)
 }
 
-// respondNotEnabled writes the standard 503 response for handlers that need
-// a non-nil manager, which is only nil if snapshots (and therefore restore)
-// are disabled.
+// respondNotEnabled 为缺失恢复管理器的操作输出统一的服务不可用错误。
 func (r *Routes) respondNotEnabled(c *gin.Context) {
 	respondWithRestoreStatusError(c, http.StatusServiceUnavailable, ErrCodeRestoreNotEnabled, "Restore is not enabled", "restore not enabled")
 }
 
-// handleTrigger starts a restore from snapshot :id and returns 202 Accepted.
+// handleTrigger 将路径中的快照标识交给管理器启动任务，返回 202 与专用进度凭据。
+// 归档读取和内容验证在后台执行，接受请求不表示恢复已经成功。
 func (r *Routes) handleTrigger(c *gin.Context) {
 	if r.manager == nil {
 		r.respondNotEnabled(c)
@@ -79,16 +75,16 @@ func (r *Routes) handleTrigger(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"ok": true, "statusToken": statusToken})
 }
 
-// handleTriggerUpload starts a restore from an uploaded backup ZIP and
-// returns 202 Accepted. Progress and any validation failure (e.g. a
-// malformed or non-LeafDoc ZIP) surface asynchronously via handleStatus,
-// exactly as they do for handleTrigger.
+// handleTriggerUpload 接收 file 表单项，同步解析上传并将文件暂存到数据目录。
+// 暂存成功后由管理器后台校验归档与执行恢复，返回 202 和任务进度凭据。
+// 表单解析、打开文件与暂存失败直接响应错误，归档内容失败通过任务状态报告。
 func (r *Routes) handleTriggerUpload(c *gin.Context) {
 	if r.manager == nil {
 		r.respondNotEnabled(c)
 		return
 	}
 
+	// 限额覆盖整个请求体，包括表单边界和字段，并非仅限制 ZIP 文件字节。
 	maxSize := r.manager.MaxUploadSizeBytes()
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxSize)
 	if err := c.Request.ParseMultipartForm(uploadParseMaxMemory); err != nil {
@@ -100,6 +96,7 @@ func (r *Routes) handleTriggerUpload(c *gin.Context) {
 		respondWithRestoreStatusError(c, http.StatusBadRequest, ErrCodeRestoreUploadInvalid, "Failed to parse the uploaded file", "failed to parse the uploaded file")
 		return
 	}
+	// 解析成功后登记清理表单临时文件，后续任一返回分支都会执行。
 	defer func() {
 		if c.Request.MultipartForm != nil {
 			_ = c.Request.MultipartForm.RemoveAll()
@@ -116,6 +113,7 @@ func (r *Routes) handleTriggerUpload(c *gin.Context) {
 		respondWithRestoreStatusError(c, http.StatusBadRequest, ErrCodeRestoreFileOpenFailed, "Failed to open uploaded file", "failed to open uploaded file")
 		return
 	}
+	// 管理器在返回前读完上传流，因此处理器返回时关闭句柄不影响后台恢复。
 	defer func() { _ = file.Close() }()
 
 	statusToken, err := r.manager.TriggerRestoreFromUploadWithStatusToken(file)
@@ -127,7 +125,7 @@ func (r *Routes) handleTriggerUpload(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"ok": true, "statusToken": statusToken})
 }
 
-// handleStatus returns the current restore job state for client polling.
+// handleStatus 为管理员返回当前恢复快照，执行失败通过状态字段表示。
 func (r *Routes) handleStatus(c *gin.Context) {
 	if r.manager == nil {
 		r.respondNotEnabled(c)
@@ -136,12 +134,8 @@ func (r *Routes) handleStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, r.manager.Status())
 }
 
-// handleSelfRestart re-execs the server process. Only permitted once the
-// restore job has reported NeedsIntervention — this is the documented
-// recovery path out of a stuck restore, not a general-purpose restart button.
-// The HTTP response may never actually reach the client (the process image
-// is replaced/exits before the handler can finish writing) — that's expected,
-// the frontend treats a dropped connection here as success.
+// handleSelfRestart 只在任务标记需要介入时调用平台重启实现，其余状态响应 409。
+// 成功重启会替换或退出当前进程，不走后续响应分支；调用返回时记录失败原因并响应 500。
 func (r *Routes) handleSelfRestart(c *gin.Context) {
 	if r.manager == nil {
 		r.respondNotEnabled(c)
@@ -153,15 +147,14 @@ func (r *Routes) handleSelfRestart(c *gin.Context) {
 			"self-restart is only available after a restore reports it needs intervention")
 		return
 	}
-	// A successful restart replaces or exits the process. Returning here means
-	// the restart failed, so retain the cause in the server log.
+	// 平台实现成功时不返回，返回的错误留在服务日志中供排查。
 	err := r.manager.SelfRestart()
 	slog.Default().Error("restore: self-restart failed", "error", err)
 	respondWithRestoreStatusError(c, http.StatusInternalServerError, ErrCodeRestoreInternalError, "Failed to restart server", "failed to restart server")
 }
 
-// handleProgress exposes only the current restore job to its bearer credential.
-// Credentials travel in headers and responses carry no-store to prevent caching.
+// handleProgress 从 X-Restore-Token 请求头取得凭据，校验后仅返回当前任务状态。
+// 无效或过期凭据响应 401，所有响应禁止缓存，凭据不放入 URL。
 func (r *Routes) handleProgress(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if r.manager == nil {

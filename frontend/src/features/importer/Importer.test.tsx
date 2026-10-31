@@ -11,7 +11,7 @@ afterEach(() => {
   useImportStore.setState(initialState, true)
 })
 
-// An execution error without a result must leave a visible recovery path.
+// 执行失败且没有结果数据时，页面仍显示可用于恢复操作的入口。
 describe('importer execution failure', () => {
   it('shows the plan, failure reason and new-import action without result items', () => {
     useImportStore.setState({

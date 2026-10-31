@@ -10,6 +10,7 @@ import (
 	httpmetrics "github.com/NianBroken/LeafDoc/internal/http/metrics"
 )
 
+// TestNewTagsSideEffect_DefaultsLogger 验证空日志参数使用系统默认日志对象。
 func TestNewTagsSideEffect_DefaultsLogger(t *testing.T) {
 	effect := NewTagsSideEffect(nil, nil, nil)
 	if effect.log == nil {
@@ -20,6 +21,7 @@ func TestNewTagsSideEffect_DefaultsLogger(t *testing.T) {
 	}
 }
 
+// TestNewPropertiesSideEffect_DefaultsLogger 独立检查属性处理器的日志回退行为。
 func TestNewPropertiesSideEffect_DefaultsLogger(t *testing.T) {
 	effect := NewPropertiesSideEffect(nil, nil, nil)
 	if effect.log == nil {
@@ -30,6 +32,9 @@ func TestNewPropertiesSideEffect_DefaultsLogger(t *testing.T) {
 	}
 }
 
+// TestPageSaveOrchestrator_RecordsSideEffectDurationAndFailures
+// 通过普通 Apply 替身检查耗时和失败计数可从实际指标接口读取。
+// 失败计数由替身主动递增，此处不模拟事务处理器返回错误。
 func TestPageSaveOrchestrator_RecordsSideEffectDurationAndFailures(t *testing.T) {
 	metrics := httpmetrics.NewHTTPMetrics("test")
 	orchestrator := NewPageSaveOrchestrator(metrics, metricTestEffect{metrics: metrics})
@@ -48,6 +53,7 @@ func TestPageSaveOrchestrator_RecordsSideEffectDurationAndFailures(t *testing.T)
 	}
 }
 
+// metricsBody 通过内存 HTTP 请求调用实际指标处理器，响应成功后返回正文。
 func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
 	t.Helper()
 
@@ -60,14 +66,17 @@ func metricsBody(t *testing.T, metrics *httpmetrics.HTTPMetrics) string {
 	return rec.Body.String()
 }
 
+// metricTestEffect 使用 search 名称验证指标，不操作真实搜索索引。
 type metricTestEffect struct {
 	metrics *httpmetrics.HTTPMetrics
 }
 
+// Name 为指标提供固定处理器维度。
 func (e metricTestEffect) Name() string {
 	return "search"
 }
 
+// Apply 每次递增一次失败计数，返回后编排器继续记录完成耗时。
 func (e metricTestEffect) Apply(event PageSaveEvent) {
 	e.metrics.IncPageSaveSideEffectFailure(string(event.Operation), e.Name())
 }

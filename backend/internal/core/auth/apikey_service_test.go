@@ -1,9 +1,13 @@
+// 本文件验证 API 密钥的摘要、随机生成、文本拆分和角色限制。
+// 测试只调用纯函数，不连接数据库，也不替代完整请求的身份认证测试。
 package auth
 
 import (
 	"testing"
 )
 
+// 相同输入须得到相同摘要，所列不同输入及占位密钥的摘要须互不相同。
+// 这里验证具体样本，不把有限样本作为所有输入绝不碰撞的证明。
 func TestHashSecret_DeterministicAndDistinct(t *testing.T) {
 	h1 := hashSecret("secret-a")
 	h2 := hashSecret("secret-a")
@@ -19,6 +23,8 @@ func TestHashSecret_DeterministicAndDistinct(t *testing.T) {
 	}
 }
 
+// 连续生成两组前缀和密钥，检查无错误、非空且两次值不同。
+// 测试未通过统计样本评价随机分布，也不验证数据库前缀冲突重试。
 func TestGenerateKeyToken_ProducesNonEmptyDistinctValues(t *testing.T) {
 	prefix1, secret1, err := generateKeyToken()
 	if err != nil {
@@ -36,6 +42,7 @@ func TestGenerateKeyToken_ProducesNonEmptyDistinctValues(t *testing.T) {
 	}
 }
 
+// 按生产令牌格式拼接随机值，再拆分还原，确认开头和分隔位置相互配合。
 func TestParseKeyToken_RoundTrip(t *testing.T) {
 	prefix, secret, err := generateKeyToken()
 	if err != nil {
@@ -52,6 +59,7 @@ func TestParseKeyToken_RoundTrip(t *testing.T) {
 	}
 }
 
+// 列举缺少开头、分隔符或任意非空组成部分的输入，要求解析统一拒绝。
 func TestParseKeyToken_RejectsMalformed(t *testing.T) {
 	cases := []string{
 		"",
@@ -61,6 +69,7 @@ func TestParseKeyToken_RejectsMalformed(t *testing.T) {
 		"lw_prefixonly_",
 		"lw__secretonly",
 	}
+	// 每个样本独立调用解析器，不依赖上一个样本留下的状态。
 	for _, tc := range cases {
 		if _, _, ok := parseKeyToken(tc); ok {
 			t.Fatalf("expected %q to be rejected as malformed", tc)
@@ -68,6 +77,7 @@ func TestParseKeyToken_RejectsMalformed(t *testing.T) {
 	}
 }
 
+// 穷举三个已知角色的九种组合，确认结果始终选择两者权限较低的角色。
 func TestIntersectRole_NeverWidensPermission(t *testing.T) {
 	tests := []struct {
 		userRole, keyRole, want string
@@ -90,6 +100,7 @@ func TestIntersectRole_NeverWidensPermission(t *testing.T) {
 	}
 }
 
+// 分别把账号角色和密钥角色设为未知值，确认两条路径均使用只读角色。
 func TestIntersectRole_UnknownRoleFailsSafeToViewer(t *testing.T) {
 	if got := intersectRole("bogus", RoleAdmin); got != RoleViewer {
 		t.Errorf("intersectRole(bogus, admin) = %q, want %q (fail safe)", got, RoleViewer)
@@ -99,7 +110,8 @@ func TestIntersectRole_UnknownRoleFailsSafeToViewer(t *testing.T) {
 	}
 }
 
-// generateKeyToken provides a matched random prefix and secret.
+// generateKeyToken 为测试依次生成前缀和密钥，任一步失败都返回空组成部分和错误。
+// 它不执行存储写入，测试自行按生产格式拼接完整令牌。
 func generateKeyToken() (prefix string, secret string, err error) {
 	prefix, err = generatePrefix()
 	if err != nil {

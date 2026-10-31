@@ -35,12 +35,7 @@ interface SnapshotState {
 }
 
 export const useSnapshotStore = create<SnapshotState>((set, get) => {
-  // The trigger POST only starts the job (202 Accepted); the snapshot itself
-  // finishes asynchronously on the server. Poll status until it's done
-  // before reloading the list — otherwise a slow snapshot (large wiki, busy
-  // disk) can outlast the single immediate status check right after the
-  // POST, leaving the list stuck showing stale data with nothing left to
-  // ever refresh it.
+  // 创建请求只启动服务端任务，快照随后异步生成；轮询到状态不再运行后再刷新列表。
   async function pollUntilNotRunning(): Promise<void> {
     let consecutiveErrors = 0
     while (get().isRunning) {

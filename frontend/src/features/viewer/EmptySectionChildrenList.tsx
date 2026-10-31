@@ -31,7 +31,7 @@ export default function EmptySectionChildrenList({
     return null
   }
 
-  // Authored section content is displayed by the normal Markdown viewer.
+  // 分区自身编写的内容仍由常规 Markdown 查看器渲染。
   if (page.content && page.content.trim().length > 0) {
     return null
   }

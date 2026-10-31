@@ -1,3 +1,4 @@
+// 本文件验证撤销确认框调用真实状态动作，网络由模拟 API 承担。
 import { expectDiagnostics } from '@/shared/testutil/expectedDiagnostics'
 import '@/shared/lib/i18n'
 import { DIALOG_DELETE_API_KEY_CONFIRMATION } from '@/shared/lib/registries/instances'
@@ -21,6 +22,7 @@ vi.mock('@/shared/lib/api/apikeys', () => ({
 import * as apiKeyAPI from '@/shared/lib/api/apikeys'
 
 describe('DeleteApiKeyDialog', () => {
+  // 每个场景激活确认框并清空密钥列表，保留存储动作本身用于验证调用链。
   beforeEach(() => {
     useDialogsStore.setState({
       dialogType: DIALOG_DELETE_API_KEY_CONFIRMATION,
@@ -31,6 +33,7 @@ describe('DeleteApiKeyDialog', () => {
   })
 
   it('revokes the key and closes on confirm', async () => {
+    // 撤销和重载均成功，断言请求目标标识；此断言不单独检查关闭状态。
     const user = userEvent.setup()
     ;(apiKeyAPI.deleteApiKey as ReturnType<typeof vi.fn>).mockResolvedValue(
       undefined,
@@ -49,6 +52,7 @@ describe('DeleteApiKeyDialog', () => {
   })
 
   it('keeps the dialog open and surfaces an error when revocation fails', async () => {
+    // 失败路径预期记录一次错误，不能继续调用列表读取。
     const user = userEvent.setup()
     expectDiagnostics('error', [
       ['Error revoking API key:', new Error('network error')],
@@ -62,7 +66,7 @@ describe('DeleteApiKeyDialog', () => {
     await user.click(screen.getByTestId('delete-api-key-dialog-button-confirm'))
 
     await waitFor(() => expect(apiKeyAPI.deleteApiKey).toHaveBeenCalled())
-    // Dialog stays mounted/open — no crash, no unexpected list refresh call.
+    // 此处核对失败后没有执行列表刷新，关闭决定由处理器返回 false 控制。
     expect(apiKeyAPI.getApiKeys).not.toHaveBeenCalled()
   })
 })

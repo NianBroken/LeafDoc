@@ -1,3 +1,4 @@
+// 本文件声明身份认证、令牌期限与管理员初始化参数，解析结果由启动入口传给 Wiki。
 package main
 
 import (
@@ -8,7 +9,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// authOptions holds the options for authentication, tokens and the initial admin.
+// authOptions 保存签名密钥、匿名访问初始值、令牌期限与管理员初始化资料。
+// 现有管理员由存储服务读取，普通启动不会使用这些参数重设其密码。
 type authOptions struct {
 	jwtSecret           string
 	publicAccess        bool
@@ -20,11 +22,11 @@ type authOptions struct {
 	editorLimit         int
 }
 
-// Flags declares them. Adding an option here is the whole change: the flag,
-// its default, its environment variable and its help text are one literal,
-// and --help is generated from it.
+// Flags 把选项名称、默认值、环境来源与目标字段放在同一个声明中。
+// 帮助由 cli 库生成，字符串通过 trimmed 去除两端空白。
 func (o *authOptions) Flags() []cli.Flag {
 	return []cli.Flag{
+		// 签名密钥没有默认值，服务启动检查非空后传给身份服务。
 		&cli.StringFlag{
 			Name:        "jwt-secret",
 			Destination: &o.jwtSecret,
@@ -34,7 +36,8 @@ func (o *authOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.BoolFlag{
-			Name:        "public-access",
+			Name: "public-access",
+			// 此值作为首次设置来源，已有持久化设置由启动入口保留。
 			Destination: &o.publicAccess,
 			Value:       defaults.PublicAccess,
 			Category:    catAuth,
@@ -42,7 +45,8 @@ func (o *authOptions) Flags() []cli.Flag {
 			Sources:     envBoolVars("LEAFDOC_PUBLIC_ACCESS"),
 		},
 		&cli.DurationFlag{
-			Name:        "access-token-timeout",
+			Name: "access-token-timeout",
+			// 访问令牌默认十五分钟，期限与刷新会话独立配置。
 			Destination: &o.accessTokenTimeout,
 			Category:    catAuth,
 			Usage:       "access token timeout duration (e.g. 24h, 15m)",
@@ -51,7 +55,8 @@ func (o *authOptions) Flags() []cli.Flag {
 			DefaultText: "15m",
 		},
 		&cli.DurationFlag{
-			Name:        "refresh-token-timeout",
+			Name: "refresh-token-timeout",
+			// 七天默认值传给身份服务管理刷新令牌的有效期限。
 			Destination: &o.refreshTokenTimeout,
 			Category:    catAuth,
 			Usage:       "refresh token timeout duration (e.g. 168h)",
@@ -60,7 +65,8 @@ func (o *authOptions) Flags() []cli.Flag {
 			DefaultText: "168h",
 		},
 		&cli.StringFlag{
-			Name:        "admin-username",
+			Name: "admin-username",
+			// 管理员默认资料集中读取 defaults，维护子命令也复用这些字段。
 			Destination: &o.adminUsername,
 			Value:       defaults.AdminUsername,
 			Category:    catAdmin,
@@ -87,7 +93,8 @@ func (o *authOptions) Flags() []cli.Flag {
 			Config:      trimmed,
 		},
 		&cli.IntFlag{
-			Name:        "editor-limit",
+			Name: "editor-limit",
+			// 用户服务用此值限制管理员与编辑者总数，零表示不设上限。
 			Destination: &o.editorLimit,
 			Category:    catAuth,
 			Usage:       "maximum admin+editor users allowed; 0 = unlimited",

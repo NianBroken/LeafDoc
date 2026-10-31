@@ -1,7 +1,7 @@
 import type { ImportPlan, ImportResult } from '@/shared/lib/api/import'
 
-// Pure view-state derivation for the importer page. Labels are returned as
-// i18n keys in the "importer" namespace so they can be tested without i18n.
+// 由导入状态派生页面展示状态，标签以 importer 命名空间的翻译键返回。
+// 函数不调用国际化实例，测试可以直接比较稳定的键值。
 
 export type ResultFilter = 'all' | 'created' | 'skipped' | 'failed'
 export type ImportStep = 1 | 2 | 3 | 4

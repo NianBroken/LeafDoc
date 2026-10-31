@@ -8,11 +8,9 @@ type MarkdownPdfEmbedProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   resolveAssetUrl?: (src: string) => string
 }
 
-// A `#page=N` fragment on the source (e.g. `manual.pdf#page=3`) is a standard
-// PDF "open parameter" that Chrome/Firefox/Edge's built-in viewer honors to
-// open on that page — kept intact below through URL/searchParams handling
-// since the fragment is never part of `search`.
+// source 中的 #page=N 片段保留在最终地址中，浏览器内置 PDF 查看器可据此打开指定页。
 function isSameOrigin(src: string): boolean {
+  // 相对地址按当前页面来源解析，解析失败时不将资源视为同源。
   try {
     return new URL(src, location.origin).origin === location.origin
   } catch {
@@ -20,8 +18,7 @@ function isSameOrigin(src: string): boolean {
   }
 }
 
-// fileNameOf returns the decoded last path segment of src (without query or
-// fragment), e.g. "Benutzer Handbuch.pdf" for "/assets/Benutzer%20Handbuch.pdf#page=2".
+// 取出查询和片段之前的末段路径并尝试百分号解码，解码失败时保留原字符。
 function fileNameOf(src: string): string {
   const path = src.split(/[?#]/)[0]
   const name = path.slice(path.lastIndexOf('/') + 1)
@@ -38,6 +35,7 @@ export function MarkdownPdfEmbed({
   width,
   resolveAssetUrl,
 }: MarkdownPdfEmbedProps) {
+  // 使用与普通图片相同的资源解析和版本参数处理，移动端不渲染内嵌框架。
   const resolvedSrc = useMemo(
     () => resolveAssetUrl?.(src) ?? src,
     [resolveAssetUrl, src],
@@ -49,10 +47,7 @@ export function MarkdownPdfEmbed({
   const isMobile = useIsMobile()
   const openLabel = i18next.t('imagePreview.openInNewTab', { ns: 'viewer' })
 
-  // In-page PDF iframes aren't usable on mobile (no pinch-zoom in most
-  // mobile browsers, fixed embed height), so skip the embed there and only
-  // offer the "open" action. A PDF from another origin is never framed
-  // either: the page would embed whatever that site serves.
+  // 移动设备或跨来源 PDF 仅显示新标签页入口，桌面同源资源使用延迟加载的 iframe。
   if (isMobile || !isSameOrigin(versionedSrc)) {
     const fileName = fileNameOf(resolvedSrc)
     const title = alt || fileName

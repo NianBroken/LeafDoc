@@ -1,11 +1,14 @@
+// 本文件将页面树展开为搜索项，再按标题、路径和面包屑匹配程度保留有限结果。
 import { PageNode } from '@/shared/lib/api/pages'
 
+// 预先保存小写且去掉两端空白的文本，避免每轮查询重复处理同一页面。
 type NormalizedFlatPageSearchItem = {
   normalizedTitle: string
   normalizedPath: string
   normalizedBreadcrumb: string
 }
 
+// 搜索项同时保存显示原文和匹配文本，不包含页面正文全文。
 export type FlatPageSearchItem = {
   id: string
   title: string
@@ -15,24 +18,30 @@ export type FlatPageSearchItem = {
   searchText: string
 } & NormalizedFlatPageSearchItem
 
+// 路径前缀分数可由调用方指定，实际使用时只设置上限，不设置下限。
 type SearchScoringOptions = {
   pathStartsWithScore?: number
 }
 
+// 内部排序条目将计算分数与原项绑定，不把分数写回输入对象。
 type ScoredSearchItem = {
   item: FlatPageSearchItem
   score: number
 }
 
+// 匹配只忽略大小写和两端空白，不移除重音，也不折叠文本内部空白。
 function normalize(value: string) {
   return value.toLowerCase().trim()
 }
 
+// 分数高者排前，同分按原始标题的 localeCompare 排列，语言排序遵循运行环境。
 function compareScoredItems(a: ScoredSearchItem, b: ScoredSearchItem) {
   if (b.score !== a.score) return b.score - a.score
   return a.item.title.localeCompare(b.item.title)
 }
 
+// 将候选插入已排序数组，只保留 limit 项。列表已满且候选不优于末项时直接丢弃。
+// 现有同序项先保留，调用方应提供正整数上限。
 function pushTopResult(
   results: ScoredSearchItem[],
   entry: ScoredSearchItem,
@@ -60,6 +69,8 @@ function pushTopResult(
   }
 }
 
+// 从根节点的子项开始深度优先展开，不把根本身加入结果。
+// path 为空的节点不生成搜索项，但其标题仍进入下级面包屑，子项也继续遍历。
 export function buildFlatPageSearchItems(
   root: PageNode | null,
 ): FlatPageSearchItem[] {
@@ -67,6 +78,7 @@ export function buildFlatPageSearchItems(
 
   const items: FlatPageSearchItem[] = []
 
+  // 每次复制祖先标题列表，避免兄弟节点共享可变路径状态。
   const walk = (node: PageNode, parents: string[]) => {
     const breadcrumbParts = [...parents, node.title]
 
@@ -103,6 +115,8 @@ export function buildFlatPageSearchItems(
   return items
 }
 
+// 按分支顺序返回首个命中分数，不叠加多个匹配得分。
+// 标题优先于路径，之后检查面包屑和多词分散匹配，无命中返回负数。
 function scoreItem(
   item: FlatPageSearchItem,
   query: string,
@@ -141,6 +155,8 @@ function scoreItem(
   return -1
 }
 
+// 空查询保留输入顺序取前 limit 项，非空查询逐项评分并维护有限排序结果。
+// limit 不大于零时返回空数组，函数不修改原列表或搜索项。
 export function searchFlatPageSearchItems(
   items: FlatPageSearchItem[],
   query: string,

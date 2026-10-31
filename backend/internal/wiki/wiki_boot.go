@@ -19,10 +19,10 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/wiki/pagesave"
 )
 
-// ─── Subsystem initializers ───────────────────────────────────────────────────
-
+// initAuth 先建立用户存储及管理员，再建立会话与可选密钥服务。
+// 作者解析器保存动态用户服务入口，供恢复后的查询继续使用当前存储。
 func (w *Wiki) initAuth(options *WikiOptions) error {
-	// Database connection and schema initialization complete before admin creation.
+	// 用户存储构造完成后才创建默认管理员，存储错误在写管理员之前返回。
 	store, err := auth.NewUserStore(w.storageDir)
 	if err != nil {
 		return fmt.Errorf("failed to init user store: %w", err)
@@ -43,7 +43,7 @@ func (w *Wiki) initAuth(options *WikiOptions) error {
 	sessions := auth.NewSessionManager(sessionStore, options.JWTSecret, options.AccessTokenTimeout, options.RefreshTokenTimeout)
 	w.auth = auth.NewAuthService(w.user, sessions)
 
-	// API key authentication is available only when the feature is enabled.
+	// 开关关闭时不打开密钥存储，字段保持为空，供路由跳过对应鉴权中间件。
 	if options.EnableAPIKeyManagement {
 		apiKeyStore, err := auth.NewAPIKeyStore(w.storageDir)
 		if err != nil {
@@ -54,7 +54,8 @@ func (w *Wiki) initAuth(options *WikiOptions) error {
 	return nil
 }
 
-// initEmail constructs password reset and invitation services when SMTP is configured.
+// initEmail 仅在邮件配置启用时构造令牌存储、邮件发送器与重置及邀请服务。
+// 存储保存到实例后由 Close 负责清理，邮件服务使用配置中的公开访问地址生成链接。
 func (w *Wiki) initEmail(options *WikiOptions) error {
 	if !options.SMTP.Enabled() {
 		return nil
@@ -71,8 +72,9 @@ func (w *Wiki) initEmail(options *WikiOptions) error {
 	return nil
 }
 
+// initCoreServices 将树与资源服务接入同一个忽略规则缓存，加载树后再构造资源入口。
 func (w *Wiki) initCoreServices(options *WikiOptions) error {
-	// Create a shared ignore cache for multi-level .leafdocignore resolution.
+	// 缓存以 root 内容目录为边界，供多层 .leafdocignore 规则查询复用。
 	rootDir := filepath.Join(w.storageDir, "root")
 	w.ignoreCache = ignore.NewCache(rootDir)
 
@@ -88,6 +90,8 @@ func (w *Wiki) initCoreServices(options *WikiOptions) error {
 	return nil
 }
 
+// initLinkService 建立链接存储并同步索引当前页面，索引失败只记录警告。
+// 存储构造失败则阻断启动，已构造的链接服务交给 Wiki.Close 管理。
 func (w *Wiki) initLinkService() error {
 	linksStore, err := links.NewLinksStore(w.storageDir)
 	if err != nil {
@@ -100,6 +104,7 @@ func (w *Wiki) initLinkService() error {
 	return nil
 }
 
+// initTagsService 将标签存储接入服务，此步骤不读取页面，索引由共享引导流程建立。
 func (w *Wiki) initTagsService() error {
 	tagsStore, err := tags.NewTagsStore(w.storageDir)
 	if err != nil {
@@ -109,6 +114,7 @@ func (w *Wiki) initTagsService() error {
 	return nil
 }
 
+// initPropertiesService 打开属性存储并保存服务，失败时带上初始化上下文返回。
 func (w *Wiki) initPropertiesService() error {
 	propsStore, err := properties.NewPropertiesStore(w.storageDir)
 	if err != nil {
@@ -118,6 +124,7 @@ func (w *Wiki) initPropertiesService() error {
 	return nil
 }
 
+// initFavoritesService 构造用户收藏存储，供页面收藏与账号删除流程共同使用。
 func (w *Wiki) initFavoritesService() error {
 	store, err := favorites.NewFavoritesStore(w.storageDir, w.log)
 	if err != nil {
@@ -127,8 +134,9 @@ func (w *Wiki) initFavoritesService() error {
 	return nil
 }
 
-// bootstrapTagsAndProperties clears and rebuilds tag and property indexes in a single
-// parallel GetPages pass — avoids two sequential ReadPageRaw loops at startup.
+// bootstrapTagsAndProperties 顺序清空标签和属性索引，再统一取得页面并逐页写入两种索引。
+// 清理或枚举失败直接结束，单页读取或单项索引失败记录警告后继续其他处理。
+// 该方法不返回错误，也不接收取消上下文，因此调用方不能据此判断每项索引均已成功。
 func (w *Wiki) bootstrapTagsAndProperties() {
 	if err := w.tags.ClearIndex(); err != nil {
 		w.log.Warn("failed to clear tags index before bootstrap", "error", err)
@@ -146,6 +154,7 @@ func (w *Wiki) bootstrapTagsAndProperties() {
 		w.log.Warn("failed to walk pages for tags/properties bootstrap", "error", err)
 		return
 	}
+	// GetPages 的页面结果与错误按输入标识对齐，一次读取供两种索引使用。
 	pages, errs := w.tree.GetPages(ids)
 	for i, page := range pages {
 		if errs[i] != nil {
@@ -161,6 +170,8 @@ func (w *Wiki) bootstrapTagsAndProperties() {
 	}
 }
 
+// initSearch 同步打开搜索存储，后台完成全量索引并更新共享状态。
+// 后台任务登记到关闭等待组，索引过程使用实例关闭上下文，失败记录状态而不回退启动结果。
 func (w *Wiki) initSearch() error {
 	var err error
 	w.searchIndex, err = search.NewMySQLIndex(w.storageDir)
@@ -170,6 +181,7 @@ func (w *Wiki) initSearch() error {
 	w.status = search.NewIndexingStatus()
 	searchEffect := pagesave.NewSearchIndexSideEffect(w.searchIndex, w.tree, w.log, w.metrics)
 	w.log.Info("search indexing started")
+	// 启动协程之前登记，确保 Close 能等待该任务退出后关闭搜索存储。
 	w.reloadWG.Add(1)
 	go func() {
 		defer w.reloadWG.Done()
@@ -186,6 +198,7 @@ func (w *Wiki) initSearch() error {
 	return nil
 }
 
+// initBranding 读取品牌配置并保存服务，构造错误阻断启动。
 func (w *Wiki) initBranding() error {
 	var err error
 	w.branding, err = branding.NewBrandingService(w.storageDir)
@@ -195,6 +208,7 @@ func (w *Wiki) initBranding() error {
 	return nil
 }
 
+// initAvatarService 为当前存储目录建立用户头像服务，失败时返回带上下文的错误。
 func (w *Wiki) initAvatarService() error {
 	var err error
 	w.avatar, err = avatar.NewAvatarService(w.storageDir)
@@ -204,6 +218,9 @@ func (w *Wiki) initAvatarService() error {
 	return nil
 }
 
+// ensureBaselineRevisions 收集可读取的当前页面，以系统作者和 baseline 原因批量记录历史。
+// 枚举失败结束处理，页面读取失败跳过该页，批量记录的每项错误分别写入日志。
+// 历史服务决定实际是否需要写入，此方法不强制为已有页面重复创建版本。
 func (w *Wiki) ensureBaselineRevisions() {
 	var ids []string
 	if err := w.tree.WalkNodes(func(id string) error {
@@ -216,6 +233,7 @@ func (w *Wiki) ensureBaselineRevisions() {
 	if len(ids) == 0 {
 		return
 	}
+	// 过滤读取错误与空页面，保持 valid 与后续批量返回错误的下标一一对应。
 	pages, pageErrs := w.tree.GetPages(ids)
 	var valid []*tree.Page
 	for i, p := range pages {

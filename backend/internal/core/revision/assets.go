@@ -1,3 +1,4 @@
+// 本文件扫描页面资源、计算内容引用并保存资源块，为历史描述提供可重用清单。
 package revision
 
 import (
@@ -16,11 +17,13 @@ import (
 	"strings"
 )
 
-// assetManifestEntry is the in-memory cache entry for a page's latest asset manifest hash.
+// assetManifestEntry 仅缓存页面当前使用的清单哈希，不缓存清单内容或文件状态。
 type assetManifestEntry struct {
 	hash string
 }
 
+// persistLiveAssets 按引用列表逐个复制现场资源，并核对复制所得摘要与大小。
+// 扫描后文件发生变化时返回不一致错误，先前已保存的资源块不会回滚。
 func (s *Service) persistLiveAssets(pageID string, refs []AssetRef) error {
 	if len(refs) == 0 {
 		return nil
@@ -42,6 +45,9 @@ func (s *Service) persistLiveAssets(pageID string, refs []AssetRef) error {
 	return nil
 }
 
+// scanLiveAssets 读取页面资源目录的直接子项，跳过子目录，不递归扫描。
+// 目录不存在返回空列表，其他读取错误向上传递；每个非目录项须能打开并完整读取。
+// 返回引用按名称、同名时按哈希排序，扩展名用于推断 MIME 类型。
 func (s *Service) scanLiveAssets(pageID string) ([]AssetRef, error) {
 	dir := s.liveAssetDir(pageID)
 	if info, err := os.Stat(dir); err == nil && !info.IsDir() {
@@ -81,13 +87,14 @@ func (s *Service) scanLiveAssets(pageID string) ([]AssetRef, error) {
 	return refs, nil
 }
 
-// Assumption for V1:
-// live assets are stored under <storageDir>/assets/<pageID>/...
-// If your AssetService uses a different on-disk layout, only change this method.
+// liveAssetDir 将页面 ID 拼接到数据目录的 assets 子目录，不创建或校验目录。
 func (s *Service) liveAssetDir(pageID string) string {
 	return filepath.Join(s.storageDir, "assets", pageID)
 }
 
+// buildAssetRef 流式读取资源计算 SHA-256 和字节数，名称由调用方提供。
+// MIME 类型只按小写扩展名判断，未命中时使用二进制通用类型，不探测文件内容。
+// 文件延迟关闭，关闭结果不改变引用构造结果。
 func buildAssetRef(absPath, name string) (AssetRef, error) {
 	file, err := os.Open(absPath)
 	if err != nil {
@@ -114,6 +121,8 @@ func buildAssetRef(absPath, name string) (AssetRef, error) {
 	}, nil
 }
 
+// computeAssetManifestHash 复制排序列表并编码成 assetManifest，与存储清单使用相同结构。
+// 摘要覆盖完整 JSON 字节，不修改调用方切片。
 func computeAssetManifestHash(items []AssetRef) (string, error) {
 	canonical := cloneAndSortAssetRefs(items)
 

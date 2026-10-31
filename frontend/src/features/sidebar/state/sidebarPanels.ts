@@ -1,6 +1,4 @@
-// Maintains the sidebar panel expansion state.
-// Tracks which sidebar accordion sections (Pinned Pages, Pages, ...) are
-// expanded. The state is persisted across sessions using localStorage.
+// 记录侧栏各折叠区块是否展开，并将区块状态写入本地存储。
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'

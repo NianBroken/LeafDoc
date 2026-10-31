@@ -89,11 +89,8 @@ function getInitialHistoryListWidth() {
 }
 
 // --- Revision list types and helpers ---
-// Helpers that need translation or the user's date-format preference are
-// defined inside PageHistoryContent (or the relevant detail sub-component)
-// via useTranslation() / useDateTimeFormat(), so they stay reactive to a
-// language or format change while the view is mounted. Only preference-free
-// pure helpers live at module scope.
+// 需要翻译或用户日期格式的处理定义在组件内，随当前渲染读取上下文值。
+// 不依赖组件上下文的纯处理函数放在模块级别。
 
 type RevisionGroup = {
   label: string
@@ -255,8 +252,7 @@ export function PageHistoryContent({
     return changes
   }, [comparison, t])
 
-  // Preview is first and the default active tab so users immediately see the
-  // rendered content of the selected revision without an extra click.
+  // 预览标签排在首位并作为默认选项，选择修订记录后直接显示渲染内容。
   const tabs: { id: HistoryTab; label: string }[] = [
     { id: 'preview', label: t('tabs.preview') },
     { id: 'changes', label: t('tabs.changes') },

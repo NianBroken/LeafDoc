@@ -6,7 +6,7 @@ export interface UseSetPageTitleOptions {
   page: Page | null
 }
 
-// Hook to set the document title based on the page title
+// 将文档标题与当前查看页面标题同步。
 export function useSetPageTitle({ page }: UseSetPageTitleOptions) {
   const siteName = useBrandingStore((s) => s.siteName)
 

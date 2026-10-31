@@ -105,7 +105,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   useLayoutEffect(() => {
-    // Update sidebar visibility on mobile change
+    // 屏幕尺寸切换为移动布局时同步侧栏可见状态。
     if (isMobile && !isPrintCycleRef.current) setSidebarVisible(false)
   }, [isMobile, setSidebarVisible])
 

@@ -1,3 +1,5 @@
+// 此组件展示单个页面附件，提供重命名、删除和向编辑器插入引用的操作。
+// 浏览器预览地址带部署前缀，写入 Markdown 的引用保留列表返回的原始路径。
 import { Button } from '@/shared/components/ui/button'
 import { deleteAsset, renameAsset } from '@/shared/lib/api/assets'
 import { mapApiError } from '@/shared/lib/api/errors'
@@ -16,11 +18,14 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { AssetPreviewTooltip } from '@/features/assets/AssetPreviewTooltip'
 
+// 类型识别复用公共扩展名清单，不读取文件内容或响应 MIME 类型。
 const imageExtensions = IMAGE_EXTENSIONS
 const audioExtensions = AUDIO_EXTENSIONS
 const videoExtensions = VIDEO_EXTENSIONS
 const pdfExtensions = PDF_EXTENSIONS
 
+// 编辑中的文件名由父组件共享，保证列表使用同一个编辑目标。
+// 内容插入、文件名替换和资源版本变化通过回调传回编辑器。
 type Props = {
   pageId: string
   filename: string
@@ -32,6 +37,7 @@ type Props = {
   onFilenameChange?: (before: string, after: string) => void
 }
 
+// AssetItem 仅编辑文件末段的基础名称，扩展名从原始路径取得并转为小写。
 export function AssetItem({
   pageId,
   filename,
@@ -44,6 +50,7 @@ export function AssetItem({
 }: Props) {
   const { t } = useTranslation('assets')
   const markdownAssetUrl = filename
+  // 接受三种资源前缀形式，统一成站内绝对路径后应用部署 basePath。
   const assetPath = filename.startsWith('/assets/')
     ? filename
     : filename.startsWith('assets/')
@@ -65,6 +72,7 @@ export function AssetItem({
   const [newName, setNewName] = useState(baseName.replace(/\.[^/.]+$/, ''))
 
   const handleRename = useCallback(async () => {
+    // 名称拼回原扩展名，相同名称只退出编辑，不发送写请求。
     try {
       const newFilename = `${newName}.${ext}`
       if (newFilename === baseName) {
@@ -73,6 +81,7 @@ export function AssetItem({
       }
 
       await renameAsset(pageId, baseName, newFilename)
+      // 请求成功后按顺序通知正文替换、版本变化与列表重载，不在这里直接修改正文。
       toast.success(t('item.renameSuccess'))
       onFilenameChange?.(baseName, newFilename)
       onAssetVersionChange?.()
@@ -93,6 +102,7 @@ export function AssetItem({
   ])
 
   const handleDelete = async () => {
+    // 删除成功才刷新列表与版本；失败映射提示并保留原列表供继续操作。
     try {
       await deleteAsset(pageId, baseName)
       toast.success(t('item.deleteSuccess'))
@@ -105,21 +115,26 @@ export function AssetItem({
   }
 
   const handleInsertMarkdown = () => {
+    // 编辑文件名期间禁止双击插入，避免重命名交互同时改变正文。
     if (isEditing) return
     onInsert(buildInsertMarkdown('default'))
   }
 
   const handleInsertLink = () => {
+    // 显式链接模式对图片和 PDF 也生成普通链接，不使用嵌入语法。
     if (isEditing) return
     onInsert(buildInsertMarkdown('link'))
   }
 
   const handleInsertPlayer = () => {
+    // 播放器只对公共清单识别的音频或视频开放。
     if (isEditing || !isPlayableMedia) return
     onInsert(buildInsertMarkdown('player'))
   }
 
   const buildInsertMarkdown = (mode: 'default' | 'link' | 'player') => {
+    // 音视频模式生成 HTML 控件；默认图片与 PDF 使用图片式嵌入，其他类型用链接。
+    // 所有片段末尾带换行，此处不转义文件名中的 Markdown 或 HTML 特殊字符。
     if (mode === 'player' && isPlayableMedia) {
       if (isAudio) {
         return `<audio controls src="${markdownAssetUrl}"></audio>\n`
@@ -136,7 +151,7 @@ export function AssetItem({
       : `[${baseName}](${markdownAssetUrl})\n`
   }
 
-  // hotkeys for rename
+  // 只有当前附件处于重命名状态才登记确认与取消快捷键，依赖变化时注销旧定义。
   useEffect(() => {
     if (!isEditing) return
 
@@ -192,6 +207,7 @@ export function AssetItem({
         )}
 
         {isEditing ? (
+          // 输入只保存基础名称，取消时从原文件名恢复该输入值。
           <input
             autoFocus
             value={newName}
@@ -204,6 +220,7 @@ export function AssetItem({
       </div>
 
       <div className="asset-item__actions">
+        {/* 编辑状态只显示保存和取消，普通状态按类型显示插入、重命名和删除操作。 */}
         {isEditing ? (
           <>
             <Button

@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Routes is the RouteRegistrar for API key management.
+// Routes 为管理员提供密钥创建、列表和撤销接口，不承担 Bearer 请求的密钥解析。
 type Routes struct {
 	createAPIKey *CreateAPIKeyUseCase
 	listAPIKeys  *ListAPIKeysUseCase
@@ -19,7 +19,7 @@ type Routes struct {
 	authService  *coreauth.AuthService
 }
 
-// RoutesConfig holds the dependencies required to build a Routes instance.
+// RoutesConfig 保存管理用例和普通登录鉴权服务。
 type RoutesConfig struct {
 	CreateAPIKey *CreateAPIKeyUseCase
 	ListAPIKeys  *ListAPIKeysUseCase
@@ -27,7 +27,7 @@ type RoutesConfig struct {
 	AuthService  *coreauth.AuthService
 }
 
-// NewRoutes constructs the api-keys RouteRegistrar.
+// NewRoutes 保存管理路由依赖，不依据功能开关在构造时删除用例。
 func NewRoutes(cfg RoutesConfig) *Routes {
 	return &Routes{
 		createAPIKey: cfg.CreateAPIKey,
@@ -37,11 +37,9 @@ func NewRoutes(cfg RoutesConfig) *Routes {
 	}
 }
 
-// RegisterRoutes implements RouteRegistrar. All three routes are admin-only
-// and require the normal cookie-authenticated session — RequireCookieSession
-// enforces that API keys manage themselves through the UI, not through
-// another API key (an admin-scoped key must not be able to enumerate or
-// manage every key in the system).
+// RegisterRoutes 为三个接口共同要求登录、拒绝已解析 API 密钥标记并检查管理员角色。
+// RequireCookieSession 只检查密钥标记，不自行读取 Cookie，因此上游代理身份仍按鉴权规则处理。
+// 此处总会挂载三个路由，未配置密钥服务时由用例返回功能关闭错误。
 func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	authGroup := ctx.APIAuthGroup(r.authService)
 
@@ -50,8 +48,8 @@ func (r *Routes) RegisterRoutes(ctx httpinternal.RouterContext) {
 	authGroup.DELETE("/api-keys/:id", authmw.RequireCookieSession(), authmw.RequireAdmin(), r.handleRevokeAPIKey)
 }
 
-// ─── Handlers ───────────────────────────────────────────────────────────────
-
+// handleCreateAPIKey 要求名称与所属用户，按 RFC3339 解析非空到期时间，再交给用例验证。
+// 创建者来自当前管理员，不接受请求体指定；成功响应含一次创建返回的明文 secret。
 func (r *Routes) handleCreateAPIKey(c *gin.Context) {
 	admin := authmw.MustGetUser(c)
 	if admin == nil {
@@ -70,6 +68,7 @@ func (r *Routes) handleCreateAPIKey(c *gin.Context) {
 	}
 
 	var expiresAt *time.Time
+	// 空白判断不改变解析输入，非空值仍用原字符串解析，两端多余空白不会被去掉。
 	if strings.TrimSpace(req.ExpiresAt) != "" {
 		parsed, err := time.Parse(time.RFC3339, req.ExpiresAt)
 		if err != nil {
@@ -93,6 +92,7 @@ func (r *Routes) handleCreateAPIKey(c *gin.Context) {
 	})
 }
 
+// handleListAPIKeys 将每条领域记录转换为公开字段，输出数组而非直接编码含哈希的结构体。
 func (r *Routes) handleListAPIKeys(c *gin.Context) {
 	out, err := r.listAPIKeys.Execute(c.Request.Context())
 	if err != nil {
@@ -106,6 +106,7 @@ func (r *Routes) handleListAPIKeys(c *gin.Context) {
 	c.JSON(http.StatusOK, keys)
 }
 
+// handleRevokeAPIKey 按 URL 记录标识撤销，成功返回无响应体的 204。
 func (r *Routes) handleRevokeAPIKey(c *gin.Context) {
 	id := c.Param("id")
 	if err := r.revokeAPIKey.Execute(c.Request.Context(), RevokeAPIKeyInput{ID: id}); err != nil {
@@ -115,9 +116,9 @@ func (r *Routes) handleRevokeAPIKey(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// apiKeyResponse maps a domain APIKey to its public JSON shape. KeyHash is
-// deliberately never included — the store's raw struct must never reach a
-// response body directly.
+// apiKeyResponse 明确选择可公开字段，不包含密钥哈希或明文令牌。
+// 时间统一转为 UTC RFC3339 文本，可选时间指针为空时省略相应字段。
+// 调用方必须传入非空记录。
 func apiKeyResponse(key *coreauth.APIKey) gin.H {
 	resp := gin.H{
 		"id":        key.ID,

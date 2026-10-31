@@ -1,3 +1,4 @@
+// 检查收藏 ID 在树索引中的解析、标题排序和缺失节点过滤，使用内存路由渲染链接。
 import type { PageNode } from '@/shared/lib/api/pages'
 import { useFavoritesStore } from '@/features/favorites/state/favorites'
 import { useTreeStore } from '@/features/tree/state/tree'
@@ -20,6 +21,7 @@ vi.mock('@/shared/components/TooltipWrapper', () => ({
 }))
 
 function makeNode(id: string, title: string): PageNode {
+  // 创建无子节点的页面数据，路径直接使用 ID，测试只关注收藏列表的排列与显示。
   return {
     id,
     title,
@@ -33,6 +35,7 @@ function makeNode(id: string, title: string): PageNode {
 
 describe('FavoritesSection', () => {
   beforeEach(() => {
+    // 同时清空收藏集合与树索引，使空状态和缺失引用用例彼此独立。
     useFavoritesStore.setState({ favoritePageIds: new Set(), loaded: false })
     useTreeStore.setState({ byId: {} })
   })
@@ -47,6 +50,7 @@ describe('FavoritesSection', () => {
   })
 
   it('renders favorited pages resolved from the tree store, sorted by title', () => {
+    // 收藏顺序刻意与标题顺序相反，以元素排列断言组件确实执行标题排序。
     useTreeStore.setState({
       byId: {
         'page-1': makeNode('page-1', 'Zebra'),
@@ -70,6 +74,7 @@ describe('FavoritesSection', () => {
   })
 
   it('silently skips a favorited page id that no longer resolves in the tree', () => {
+    // 保留一个有效引用和一个失效引用，最终只应显示能够从树中取得的节点。
     useTreeStore.setState({
       byId: { 'page-1': makeNode('page-1', 'Still here') },
     })

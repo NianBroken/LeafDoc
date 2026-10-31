@@ -1,3 +1,5 @@
+// 本文件在临时备份目录验证列表、删除、保留数量和标识约束。
+// 样本使用旁置 JSON 和占位 ZIP，不执行数据库导出或证明压缩包内容有效。
 package snapshot
 
 import (
@@ -11,6 +13,7 @@ import (
 	"time"
 )
 
+// 仅创建两份元数据，确认列表按记录时间从新到旧排列，不要求 ZIP 同时存在。
 func TestManager_List(t *testing.T) {
 	backupsDir := t.TempDir()
 	m := NewManager(Config{BackupsDir: backupsDir})
@@ -33,6 +36,7 @@ func TestManager_List(t *testing.T) {
 	}
 }
 
+// 备份目录尚未创建时，列表返回空结果而不是文件系统错误。
 func TestManager_List_EmptyWhenBackupsDirMissing(t *testing.T) {
 	m := NewManager(Config{BackupsDir: filepath.Join(t.TempDir(), "does-not-exist")})
 
@@ -45,6 +49,8 @@ func TestManager_List_EmptyWhenBackupsDirMissing(t *testing.T) {
 	}
 }
 
+// writeSidecarFixture 创建目录并按生产字段格式写入单份 JSON，不生成归档。
+// Helper 使失败位置归到调用用例，任一步失败立即结束当前测试。
 func writeSidecarFixture(t *testing.T, backupsDir string, entry SnapshotEntry) {
 	t.Helper()
 	if err := os.MkdirAll(backupsDir, 0o755); err != nil {
@@ -60,6 +66,7 @@ func writeSidecarFixture(t *testing.T, backupsDir string, entry SnapshotEntry) {
 	}
 }
 
+// 合法标识的 ZIP 和 JSON 都缺失时，删除返回未找到的本地化错误代码。
 func TestManager_Delete_NotFound(t *testing.T) {
 	backupsDir := t.TempDir()
 	m := NewManager(Config{BackupsDir: backupsDir})
@@ -68,6 +75,7 @@ func TestManager_Delete_NotFound(t *testing.T) {
 	assertLocalizedErrorCode(t, err, "snapshot_not_found")
 }
 
+// 两类文件存在时均应被删除；ZIP 内容只是占位字节，删除入口不解析归档。
 func TestManager_Delete_RemovesFiles(t *testing.T) {
 	backupsDir := t.TempDir()
 	m := NewManager(Config{BackupsDir: backupsDir})
@@ -91,6 +99,7 @@ func TestManager_Delete_RemovesFiles(t *testing.T) {
 	}
 }
 
+// 三份按日递增的元数据只保留最新两份，验证清理使用元数据时间而非文件写入时间。
 func TestManager_PruneOldSnapshots_KeepsNewestOnly(t *testing.T) {
 	backupsDir := t.TempDir()
 	m := NewManager(Config{BackupsDir: backupsDir, RetentionCount: 2})
@@ -123,6 +132,7 @@ func TestManager_PruneOldSnapshots_KeepsNewestOnly(t *testing.T) {
 	}
 }
 
+// 保留数为零时跳过清理，两份元数据均保留。此用例没有单独传入负保留数。
 func TestManager_PruneOldSnapshots_UnlimitedWhenRetentionNotPositive(t *testing.T) {
 	backupsDir := t.TempDir()
 	m := NewManager(Config{BackupsDir: backupsDir, RetentionCount: 0})
@@ -143,6 +153,7 @@ func TestManager_PruneOldSnapshots_UnlimitedWhenRetentionNotPositive(t *testing.
 	}
 }
 
+// 路径穿越、缺少固定开头和含连续双点的标识都在文件操作前被拒绝。
 func TestManager_Delete_InvalidID(t *testing.T) {
 	backupsDir := t.TempDir()
 	m := NewManager(Config{BackupsDir: backupsDir})
@@ -152,6 +163,7 @@ func TestManager_Delete_InvalidID(t *testing.T) {
 	}
 }
 
+// assertLocalizedErrorCode 同时确认错误类型和代码，不依赖界面语言或详细错误文本。
 func assertLocalizedErrorCode(t *testing.T, err error, wantCode string) {
 	t.Helper()
 	localized, ok := sharederrors.AsLocalizedError(err)

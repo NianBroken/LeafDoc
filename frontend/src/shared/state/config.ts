@@ -1,3 +1,4 @@
+// 保存实例运行配置，协调请求重试、并发响应顺序、偏好应用和认证运行模式读取。
 import instanceDefaults from '@/shared/lib/instanceDefaults.json'
 import { configureAuthRuntime } from '@/shared/lib/api/runtime'
 import { useUserSettingsStore } from '@/shared/state/userSettings'
@@ -40,31 +41,19 @@ type ConfigStore = {
   error: string | null
   loading: boolean
   hasLoaded: boolean
-  // True only after a *successful* /api/config fetch — distinct from
-  // hasLoaded, which also becomes true after a failed attempt (so the UI can
-  // stop showing the boot spinner). Consumers that would otherwise treat a
-  // failed session-token refresh as confirmed-unauthorized (and force a
-  // logout) must gate that reaction on this, not on hasLoaded — while the
-  // auth mode is unconfirmed, a refresh failure could just as easily mean
-  // "this is actually a header-auth deployment with no refresh cookie" as
-  // "the session really expired," and guessing wrong destroys a valid
-  // header-auth session (see lib/api/auth.ts's fetchWithAuth).
+  // configLoadSucceeded 仅在配置请求成功时为 true，最终失败时设为 false。
+  // hasLoaded 则在成功或最终失败后都为 true，用于结束启动加载界面。
+  // 认证请求使用成功标志确认模式，避免在配置尚未确认时把刷新失败直接当作退出依据。
   configLoadSucceeded: boolean
   loadConfig: () => Promise<void>
-  // Runtime toggle of public mode (admin only, settings-managed instances).
-  // Updates the store in place on success — no reload needed for this tab;
-  // other open tabs / anonymous visitors pick it up on their next
-  // /api/config load.
+  // 写入公开访问设置，成功后只同步本存储的 publicAccess，权限校验交给服务端。
   setPublicAccess: (enabled: boolean) => Promise<void>
-  // Runtime toggle of "always show TOC" (admin only). Updates the store in
-  // place on success, same as setPublicAccess.
+  // 写入始终显示目录设置，成功后只更新 alwaysShowToc，不在此方法更新 tocMode。
   setAlwaysShowToc: (alwaysShow: boolean) => Promise<void>
 }
 
-// A single failed attempt would otherwise leave configLoadSucceeded false —
-// and the auth mode unconfirmed — for the tab's whole life (loadConfig only
-// ever runs once, from App.tsx's mount effect). Bounded retry shrinks that
-// window to a few seconds for the common transient-blip case.
+// 每次 loadConfig 最多请求三次，两次重试等待分别为五百毫秒和一秒。
+// 请求序号属于模块实例，每次调用使更早调用的后续结果失效，不主动中止网络请求。
 const CONFIG_LOAD_MAX_ATTEMPTS = 3
 const CONFIG_LOAD_RETRY_DELAYS_MS = [500, 1000]
 let configRequestSequence = 0
@@ -97,12 +86,14 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   configLoadSucceeded: false,
 
   loadConfig: async () => {
+    // 已完成首次加载时后续刷新不显示初始加载状态，但仍清除旧错误提示。
     const sequence = ++configRequestSequence
     set({ loading: !get().hasLoaded, error: null })
 
     for (let attempt = 1; attempt <= CONFIG_LOAD_MAX_ATTEMPTS; attempt++) {
       try {
         const config = await getConfig()
+        // 只接受最近一次调用。同一实例内低于当前版本的响应也被丢弃。
         if (sequence !== configRequestSequence) return
         if (
           config.settingsInstance === get().settingsInstance &&
@@ -110,6 +101,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
           config.settingsVersion < get().settingsVersion
         )
           return
+        // 上传大小只检查是否有限数值，不在这里强制为正；扩展名列表仅检查非空数组。
         const maxAssetUploadSizeBytes = Number.isFinite(
           config.maxAssetUploadSizeBytes,
         )
@@ -126,6 +118,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
             ? config.avatarAllowedExts
             : DEFAULT_AVATAR_ALLOWED_EXTS
 
+        // 先保存配置和成功状态，再应用偏好及语言；缺失可选字段采用各项回退值。
         set({
           settingsInstance: config.settingsInstance ?? get().settingsInstance,
           settingsVersion: config.settingsVersion ?? get().settingsVersion,
@@ -154,6 +147,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
           loading: false,
         })
 
+        // 偏好 apply 本身也触发语言切换，这里的已知语言检查针对后续配置语言选择。
         if (config.preferences)
           useUserSettingsStore.getState().apply(config.preferences)
         const configuredLanguage =
@@ -172,6 +166,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
         }
         return
       } catch (error) {
+        // 旧调用失败不再写错误状态，当前调用仅在耗尽重试后结束加载并展示错误。
         if (sequence !== configRequestSequence) return
         if (attempt === CONFIG_LOAD_MAX_ATTEMPTS) {
           console.warn(
@@ -198,6 +193,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
     }
   },
 
+  // 状态以服务器返回值为准，请求失败直接拒绝，不预先翻转本地开关。
   setPublicAccess: async (enabled: boolean) => {
     const res = await setPublicAccessApi(enabled)
     set({ publicAccess: res.enabled })
@@ -209,5 +205,5 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   },
 }))
 
-// Requests read the current mode without a reverse dependency on this store.
+// 向请求模块注册惰性读取器，每次取得当前配置，避免请求模块直接导入状态存储。
 configureAuthRuntime(() => useConfigStore.getState())

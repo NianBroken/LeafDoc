@@ -1,3 +1,4 @@
+// 根据实例配置创建浏览器路由，访问控制由各路由包装器及服务端共同执行。
 import { createBrowserRouter, Navigate, RouteObject } from 'react-router'
 import {
   AcceptInvitePage,
@@ -17,6 +18,8 @@ import SettingsLayout from '@/features/settings/SettingsLayout'
 import SettingsSectionGuard from '@/features/settings/SettingsSectionGuard'
 import AuthWrapper from '@/app/router/RouterAuthWrapper'
 
+// createLeafDocRouter 固定认证页面和内容路由，并按设置注册表生成设置子路由。
+// basename 为空时不提供部署前缀，调用方负责在配置变化后释放旧路由实例。
 export const createLeafDocRouter = (
   enableRevision: boolean,
   loginUrl: string,
@@ -29,7 +32,8 @@ export const createLeafDocRouter = (
         path: '/login',
         element: loginUrl ? <ExternalRedirect to={loginUrl} /> : <LoginForm />,
       },
-      // Password recovery requires SMTP and the built-in login form.
+      // 邮件找回、重置和接受邀请只在启用 SMTP 且未配置外部登录地址时显示。
+      // 条件不满足时替换当前历史记录跳到登录页，不留下无效表单入口。
       {
         path: '/forgot-password',
         element:
@@ -66,9 +70,7 @@ export const createLeafDocRouter = (
         ),
       },
       {
-        // Compat redirect — user management now lives at /settings/users;
-        // SettingsSectionGuard there preserves the external userManagementUrl
-        // special case and the admin-role gate.
+        // /users 入口统一跳到用户设置，设置分区守卫负责该页面的实际访问判断。
         path: '/users',
         element: <Navigate to="/settings/users" replace />,
       },
@@ -81,6 +83,7 @@ export const createLeafDocRouter = (
         ),
         children: [
           { index: true, element: <SettingsIndexRedirect /> },
+          // 分区元数据提供路径，应用装配结果提供组件，守卫逐个控制访问。
           ...settingsSections.map((section) => ({
             path: section.path,
             element: (
@@ -100,6 +103,7 @@ export const createLeafDocRouter = (
         ),
       },
       {
+        // 历史功能关闭时直接回到首页，开启时允许公开查看模式进入包装器。
         path: '/history/*',
         element: !enableRevision ? (
           <Navigate to="/" replace />
@@ -118,6 +122,7 @@ export const createLeafDocRouter = (
         ),
       },
       {
+        // 剩余路径交给页面查看器解析，页面是否存在由内容加载流程判定。
         path: '*',
         element: (
           <AuthWrapper allowPublic>

@@ -1,4 +1,4 @@
-// Coordinates task state and actions independently of the settings view.
+// 集中管理快照操作状态，与设置页面的显示组件分离。
 
 import { ApiLocalizedError, mapApiError } from '@/shared/lib/api/errors'
 
@@ -200,8 +200,7 @@ export function useSnapshotSettings() {
   const handleSelfRestart = async () => {
     setIsSelfRestarting(true)
     await selfRestart()
-    // The connection drops as the process replaces itself; give it a moment
-    // to come back up before reloading into the fresh instance.
+    // 服务进程替换自身时连接会中断，等待后重新载入页面以连接新进程。
     window.setTimeout(() => window.location.reload(), 5000)
   }
 

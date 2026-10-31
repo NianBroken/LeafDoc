@@ -1,3 +1,5 @@
+// 本文件组装根命令与维护子命令，并集中定义参数来源、输入校验和用法错误输出。
+// 各参数组负责声明字段，服务启动与维护动作在 main.go 中执行。
 package main
 
 import (
@@ -11,6 +13,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// 分类文字供 cli 帮助生成使用，属于用户可见输出而非注释。
 const (
 	catServer    = "Server"
 	catLogging   = "Logging"
@@ -45,9 +48,8 @@ swapping files. For disaster recovery or migrating a snapshot to a fresh
 instance, use the "restore-snapshot" command instead: run it before starting the
 server against that data directory.`
 
-// serverConfig is every resolved option, grouped the way --help groups them.
-// Each group owns its declarations in its own file, so adding an option means
-// touching one struct and one literal next to each other.
+// serverConfig 按监听、认证、代理、界面、指标、备份和邮件分组保存解析结果。
+// 每组通过自己的 Flags 方法将声明绑定到字段，动作共享同一个配置对象。
 type serverConfig struct {
 	server   serverOptions
 	auth     authOptions
@@ -58,8 +60,7 @@ type serverConfig struct {
 	email    emailOptions
 }
 
-// flags collects the groups. A group missing from this list would silently
-// have no flags, which TestRootCommandHelp_DocumentsFlagsAndEnvVars catches.
+// flags 按固定分组顺序拼接参数清单，此处未纳入的参数组不会被根命令解析。
 func (c *serverConfig) flags() []cli.Flag {
 	return slices.Concat(
 		c.server.Flags(),
@@ -72,12 +73,13 @@ func (c *serverConfig) flags() []cli.Flag {
 	)
 }
 
-// newRootCommand builds the leafdoc command tree. Running it without a
-// subcommand starts the server.
+// newRootCommand 为一次调用分配独立配置对象，避免命令解析状态在实例间共用。
 func newRootCommand() *cli.Command {
 	return newRootCommandWithConfig(&serverConfig{})
 }
 
+// newRootCommandWithConfig 将参数目标绑定到传入配置，注册服务端口与维护子命令。
+// 未指定子命令时执行服务动作，多余位置参数按未知命令拒绝。
 func newRootCommandWithConfig(cfg *serverConfig) *cli.Command {
 	return &cli.Command{
 		Name:        "LeafDoc",
@@ -86,12 +88,9 @@ func newRootCommandWithConfig(cfg *serverConfig) *cli.Command {
 		Description: rootDescription,
 		Version:     Version,
 		Suggest:     true,
-		// Adds a "completion" command emitting bash, zsh, fish and PowerShell
-		// scripts, generated from the same declarations as --help.
+		// 根据同一组参数声明生成 completion 子命令，输出各终端的补全脚本。
 		EnableShellCompletion: true,
-		// urfave/cli would print the error itself and dump the whole help; it
-		// reports the same failure main would, so handle it here once and hand
-		// back errReported to keep main quiet.
+		// 用法错误在这里输出一次并返回已报告标记，main 据此避免重复打印。
 		OnUsageError: reportUsageError,
 		Flags:        cfg.flags(),
 		Commands: []*cli.Command{
@@ -109,8 +108,7 @@ func newRootCommandWithConfig(cfg *serverConfig) *cli.Command {
 			newRestoreSnapshotCommand(cfg),
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			// The log-format validator has already rejected anything parseLogFormat
-			// cannot handle, including the default; this only normalizes the case.
+			// 默认值和输入值已通过日志格式校验，此处取得规范化值并安装日志器。
 			format, _ := parseLogFormat(cfg.server.logFormat)
 			setupLogger(os.Stdout, format)
 			return ctx, nil
@@ -124,6 +122,8 @@ func newRootCommandWithConfig(cfg *serverConfig) *cli.Command {
 	}
 }
 
+// newResetAdminPasswordCommand 复用根配置中的数据目录与管理员资料。
+// 显式密码由维护动作直接读取进程环境，不从帮助文字或输出中取得。
 func newResetAdminPasswordCommand(cfg *serverConfig) *cli.Command {
 	return &cli.Command{
 		Name:        "reset-admin-password",
@@ -135,6 +135,8 @@ func newResetAdminPasswordCommand(cfg *serverConfig) *cli.Command {
 	}
 }
 
+// newRestoreSnapshotCommand 将第一个位置参数作为离线备份路径交给恢复动作。
+// 缺少路径由动作返回专用用法错误，此处不启动 HTTP 服务。
 func newRestoreSnapshotCommand(cfg *serverConfig) *cli.Command {
 	return &cli.Command{
 		Name:      "restore-snapshot",
@@ -146,9 +148,8 @@ func newRestoreSnapshotCommand(cfg *serverConfig) *cli.Command {
 	}
 }
 
-// reportUsageError prints a flag parsing failure, with urfave/cli's "did you
-// mean" hint when it can name the offending flag, and points at --help instead
-// of dumping every option.
+// reportUsageError 向根命令的错误输出写入解析失败、可用的相近参数提示和帮助入口。
+// 返回已报告标记，让进程仍以失败结束而不由 main 再打印同一错误。
 func reportUsageError(_ context.Context, cmd *cli.Command, err error, _ bool) error {
 	out := cmd.Root().ErrWriter
 	_, _ = fmt.Fprintf(out, "Incorrect usage: %s\n", err)
@@ -161,9 +162,8 @@ func reportUsageError(_ context.Context, cmd *cli.Command, err error, _ bool) er
 	return errReported
 }
 
-// unknownFlagName digs the rejected flag out of a parse error so a suggestion
-// can be offered. The error text belongs to the flag package, so a miss just
-// means no hint.
+// unknownFlagName 从错误文字的固定片段后提取参数名并去掉前导短横线。
+// 找不到片段时返回空值，调用方不生成拼写建议。
 func unknownFlagName(err error) string {
 	_, name, found := strings.Cut(err.Error(), "not defined: ")
 	if !found {
@@ -172,11 +172,8 @@ func unknownFlagName(err error) string {
 	return strings.TrimLeft(name, "-")
 }
 
-// Flag validators run for values from the command line and from the
-// environment alike, and - with ValidateDefaults set - for the declared default
-// too. A flag Action would not: urfave/cli only runs those for flags that were
-// actually set, so a default would go unchecked.
-
+// validateLogFormatValue 使用实际日志格式解析函数校验输入。
+// 声明中启用 ValidateDefaults 的参数会对默认值执行同一检查。
 func validateLogFormatValue(v string) error {
 	if _, ok := parseLogFormat(v); !ok {
 		return fmt.Errorf("expected text or json, got %q", v)
@@ -184,6 +181,7 @@ func validateLogFormatValue(v string) error {
 	return nil
 }
 
+// rejectUnixSocket 允许空字段，拒绝任何非空套接字路径以落实固定 TCP 监听策略。
 func rejectUnixSocket(value string) error {
 	if value == "" {
 		return nil
@@ -191,26 +189,24 @@ func rejectUnixSocket(value string) error {
 	return fmt.Errorf("unix sockets are disabled; use the fixed backend TCP port")
 }
 
+// validateByteSizeValue 复用启动时的字节解析规则，只返回错误而不保存转换结果。
 func validateByteSizeValue(v string) error {
 	_, err := parseByteSize(v)
 	return err
 }
 
+// redirectURLValidator 捕获参数名称，使共用的地址检查能够报告对应选项。
 func redirectURLValidator(flagName string) func(string) error {
 	return func(v string) error {
 		return validateRedirectURL(flagName, v)
 	}
 }
 
-// trimmed makes a string flag drop surrounding whitespace, for both command
-// line and environment variable values.
+// trimmed 让字符串参数去除两端空白，命令行与环境来源使用同一配置。
 var trimmed = cli.StringConfig{TrimSpace: true}
 
-// envVars is cli.EnvVars with LeafDoc's long-standing environment variable
-// semantics: a variable that is set but empty (or only whitespace) counts as
-// unset, and values are whitespace trimmed. Deployments rely on this, since
-// compose and .env files routinely declare variables without a value - taking
-// an empty LEAFDOC_HOST literally would bind the server to every interface.
+// envVars 按给定顺序构造环境来源链。空值和纯空白视为未设置，非空值裁剪空白。
+// 例如空的主机环境值不会覆盖回环默认主机，从而避免被解释为所有网卡监听。
 func envVars(keys ...string) cli.ValueSourceChain {
 	sources := make([]cli.ValueSource, 0, len(keys))
 	for _, key := range keys {
@@ -219,11 +215,8 @@ func envVars(keys ...string) cli.ValueSourceChain {
 	return cli.NewValueSourceChain(sources...)
 }
 
-// envBoolVars is envVars for bool flags. It additionally accepts the spellings
-// LeafDoc has always allowed in environment variables (yes/no, on/off, y/n),
-// which strconv.ParseBool - and therefore the command line - does not. An
-// unparseable value is handed to the flag as-is so that urfave/cli reports it
-// and startup fails fast.
+// envBoolVars 为环境布尔值增加 yes/no、on/off、y/n 的归一化支持。
+// 无法识别的非空文字原样交给 cli 校验，不默认为 false，也不扩展命令行语法。
 func envBoolVars(keys ...string) cli.ValueSourceChain {
 	sources := make([]cli.ValueSource, 0, len(keys))
 	for _, key := range keys {
@@ -232,6 +225,7 @@ func envBoolVars(keys ...string) cli.ValueSourceChain {
 	return cli.NewValueSourceChain(sources...)
 }
 
+// normalizeBoolValue 将已识别值转换为标准 true 或 false，其他文字原样返回。
 func normalizeBoolValue(raw string) string {
 	if b, ok := parseBool(raw); ok {
 		if b {
@@ -242,14 +236,14 @@ func normalizeBoolValue(raw string) string {
 	return raw
 }
 
-// envVarSource is a cli.ValueSource over one environment variable. It also
-// implements cli.EnvValueSource so that generated help still shows the
-// variable name next to its flag.
+// envVarSource 适配一个环境变量，可选地归一化非空值。
+// 它同时提供环境来源元信息，使帮助生成器显示参数对应的变量名。
 type envVarSource struct {
 	key       string
 	normalize func(string) string
 }
 
+// Lookup 每次读取当前进程环境，布尔返回值区分有效非空来源与未设置来源。
 func (e *envVarSource) Lookup() (string, bool) {
 	val := strings.TrimSpace(os.Getenv(e.key))
 	if val == "" {
@@ -261,10 +255,14 @@ func (e *envVarSource) Lookup() (string, bool) {
 	return val, true
 }
 
+// IsFromEnv 将此来源标识为环境变量，而非配置文件或其他来源。
 func (e *envVarSource) IsFromEnv() bool { return true }
 
+// Key 返回原始变量名，供 cli 生成环境说明。
 func (e *envVarSource) Key() string { return e.key }
 
+// String 描述来源名称，不输出环境变量的实际值。
 func (e *envVarSource) String() string { return fmt.Sprintf("environment variable %q", e.key) }
 
+// GoString 提供调试表示，只包含变量名，不包含读取到的凭据或配置值。
 func (e *envVarSource) GoString() string { return fmt.Sprintf("&envVarSource{Key:%q}", e.key) }

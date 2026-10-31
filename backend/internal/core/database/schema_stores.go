@@ -1,3 +1,4 @@
+// 本文件集中定义关系表和内容记录表，应用初始化与 SQL 导出共用这些语句。
 package database
 
 import (
@@ -5,8 +6,9 @@ import (
 	"fmt"
 )
 
-// relationSchema owns the tables shared by authentication and derived indexes.
-// Binary IDs and paths retain exact identity; human labels use Unicode comparison.
+// relationSchema 按执行次序保存认证、收藏、链接、标签、属性和搜索表的定义。
+// 显式标记 utf8mb4_bin 的标识字段按该规则比较，其他字符串沿用各表默认比较规则。
+// CREATE TABLE IF NOT EXISTS 只保证表存在，不负责把已存在表变更为这里的列结构。
 var relationSchema = []string{
 	`CREATE TABLE IF NOT EXISTS auth_state (
         id TINYINT PRIMARY KEY,
@@ -106,7 +108,8 @@ var relationSchema = []string{
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 }
 
-// EnsureStoreSchema creates relational stores without creating local database files.
+// EnsureStoreSchema 逐条执行关系结构语句，首条失败立即返回带上下文的错误。
+// 这些语句未包在单一事务中，失败前已经成功执行的建表结果会保留在 MySQL 中。
 func EnsureStoreSchema(db *sql.DB) error {
 	for _, statement := range relationSchema {
 		if _, err := db.Exec(statement); err != nil {
@@ -116,10 +119,11 @@ func EnsureStoreSchema(db *sql.DB) error {
 	return nil
 }
 
-// contentSchema and relationSchema are the authoritative executable table definitions.
+// contentSchema 定义通用字节载荷表，与 relationSchema 共同作为可执行结构的权威定义。
 const contentSchema = `CREATE TABLE IF NOT EXISTS content_records (namespace VARCHAR(64) NOT NULL, record_key VARCHAR(255) NOT NULL, payload LONGBLOB NOT NULL, PRIMARY KEY(namespace,record_key)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin`
 
-// SchemaStatements returns a detached list used by the SQL exporter and parity tests.
+// SchemaStatements 返回包含内容表及全部关系语句的新切片，供导出和一致性测试使用。
+// 修改返回切片的元素不会改写 relationSchema 中的元素。
 func SchemaStatements() []string {
 	return append([]string{contentSchema}, relationSchema...)
 }

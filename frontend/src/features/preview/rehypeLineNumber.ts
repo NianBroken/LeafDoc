@@ -3,6 +3,7 @@ import { Plugin } from 'unified'
 import { visit } from 'unist-util-visit'
 
 export function slugifyHeadline(text: string) {
+  // 统一 Unicode 分解、大小写与变音符后，仅保留字母、数字、空格和连字符作为锚点。
   return text
     .normalize('NFKD')
     .replace(/[ßẞ]/g, 'ss')
@@ -15,6 +16,7 @@ export function slugifyHeadline(text: string) {
 }
 
 function getNodeText(node: Element): string {
+  // 深度拼接标题内所有文本节点，不包含元素属性或标签文字。
   let text = ''
 
   visit(node, (child) => {
@@ -32,6 +34,7 @@ export const rehypeLineNumber: Plugin = () => {
     const slugCounts: Record<string, number> = {}
 
     visit(tree, 'element', (node: Element) => {
+      // 为有位置信息的节点补充起始行号，不覆盖既有 data-line 属性。
       const line = node.position?.start?.line
       node.properties = node.properties || {}
 
@@ -40,6 +43,7 @@ export const rehypeLineNumber: Plugin = () => {
       }
 
       if (!/^h[1-6]$/.test(node.tagName) || 'id' in node.properties) {
+        // 标题已有 ID 时保留原值，且不把该节点加入自动标题 ID 的重名计数。
         return
       }
 
