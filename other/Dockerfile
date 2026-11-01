@@ -3,7 +3,7 @@
 FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS frontend-build
 WORKDIR /app/frontend
 COPY ./frontend/package*.json ./
-RUN --mount=type=cache,id=leafdoc-linux-npm,target=/root/.npm npm ci --ignore-scripts --prefer-offline
+RUN --mount=type=cache,id=leafdoc-linux-npm,target=/root/.npm npm ci --ignore-scripts --prefer-offline --maxsockets=5 --fetch-retries=5
 COPY ./frontend/ ./
 COPY ./other/scripts/ /app/other/scripts/
 COPY ./other/project.json /app/other/project.json
