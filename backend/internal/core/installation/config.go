@@ -2,8 +2,10 @@
 package installation
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,8 +85,8 @@ func Load(dir string) (*Config, error) {
 
 // MySQL 将结构化配置转换为驱动配置，TLS 始终校验证书和服务器名称。
 func (c *Config) MySQL() (*mysql.Config, error) {
-	if c.Host == "" || c.User == "" || c.Database == "" || c.Port < 1 || c.Port > 65535 {
-		return nil, errors.New("数据库地址、端口、账号和数据库名不能为空或无效")
+	if c.Host == "" || c.User == "" || c.Port < 1 || c.Port > 65535 {
+		return nil, errors.New("数据库地址、端口和账号不能为空或无效")
 	}
 	m := mysql.NewConfig()
 	m.Net = "tcp"
@@ -109,10 +111,12 @@ func (c *Config) MySQL() (*mysql.Config, error) {
 			return nil, errors.New("数据库 CA 证书无效")
 		}
 		t := &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, ServerName: c.Host}
-		if err = mysql.RegisterTLSConfig("leafdoc-installation", t); err != nil {
+		// DSN 保留按主机和 CA 内容区分的 TLS 配置，避免连接池与其他会话混用证书。
+		digest := sha256.Sum256([]byte(c.Host + "\x00" + c.CA))
+		m.TLSConfig = "leafdoc-" + hex.EncodeToString(digest[:])
+		if err = mysql.RegisterTLSConfig(m.TLSConfig, t); err != nil {
 			return nil, err
 		}
-		m.TLSConfig = "leafdoc-installation"
 	}
 	return m, nil
 }

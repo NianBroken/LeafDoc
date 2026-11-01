@@ -1,0 +1,398 @@
+/* 独立安装界面使用系统字体、统一色彩及自适应双栏布局。 */
+:root {
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "Microsoft YaHei",
+    sans-serif;
+  color: #203b32;
+  background: #f4f7f5;
+  font-size: 15px;
+  color-scheme: light;
+  --green: #216b50;
+  --muted: #687b71;
+  --line: #dce6df;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button,
+a,
+input,
+textarea {
+  outline-offset: 4px;
+}
+a {
+  color: var(--green);
+}
+.shell {
+  max-width: 1120px;
+  margin: auto;
+  padding: 30px 40px;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 40px;
+}
+.brand {
+  font-size: 25px;
+  font-weight: 750;
+  text-decoration: none;
+  letter-spacing: -1px;
+}
+.brand span {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-left: 18px;
+  color: var(--muted);
+  border-left: 1px solid var(--line);
+  padding-left: 18px;
+}
+.private {
+  color: var(--muted);
+  font-size: 12px;
+}
+main {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 60px;
+  align-items: start;
+}
+aside {
+  padding: 25px 0;
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--green);
+  font-weight: 650;
+}
+h1 {
+  font-size: 34px;
+  line-height: 1.3;
+  margin: 16px 0;
+}
+p {
+  line-height: 1.8;
+}
+.intro,
+#hint {
+  color: var(--muted);
+}
+ol {
+  list-style: none;
+  padding: 12px 0;
+  margin: 25px 0;
+}
+li {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 12px 0;
+  color: #839087;
+}
+li .number {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+li.current {
+  color: var(--green);
+  font-weight: 650;
+}
+li.current .number {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+}
+li.passed {
+  color: #426752;
+}
+li.passed .number {
+  background: #e4eee7;
+}
+.note {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+}
+.panel {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 36px 40px;
+  box-shadow: 0 12px 40px #1c483009;
+  min-height: 510px;
+}
+.topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+#badge {
+  background: #f0f5f1;
+  padding: 5px 10px;
+  border-radius: 20px;
+}
+.track {
+  height: 3px;
+  background: #edf2ee;
+  margin: 18px 0 30px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+#bar {
+  height: 100%;
+  background: var(--green);
+  transition: width 0.2s;
+}
+h2 {
+  font-size: 24px;
+  margin: 0 0 10px;
+}
+#hint {
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+label {
+  display: block;
+  font-size: 14px;
+  font-weight: 550;
+  margin: 18px 0 8px;
+}
+input:not([type="checkbox"]),
+textarea {
+  width: 100%;
+  border: 1px solid #cbd8ce;
+  border-radius: 8px;
+  padding: 11px 13px;
+  background: #fff;
+  color: #203b32;
+  min-width: 0;
+}
+input:focus,
+textarea:focus {
+  border-color: var(--green);
+  outline: 2px solid #216b5020;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #9aa69e;
+  font-size: 13px;
+}
+textarea {
+  resize: vertical;
+  min-height: 95px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1.6;
+}
+.check input {
+  accent-color: var(--green);
+}
+.help,
+.small {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.help {
+  margin: 7px 0 0;
+}
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+}
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 19px;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 550;
+}
+button:hover {
+  filter: brightness(0.94);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.secondary {
+  background: #f1f5f2;
+  color: #365343;
+  border: 1px solid var(--line);
+}
+#next {
+  margin-left: auto;
+}
+#feedback:empty {
+  display: none;
+}
+#feedback {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #eef5f0;
+  line-height: 1.8;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#feedback[data-state="failed"] {
+  background: #fff1ef;
+  color: #9c3329;
+}
+#feedback[data-state="blocked"],
+#confirmation {
+  background: #fff8e9;
+  color: #79501e;
+}
+#confirmation {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid #ecd7ac;
+  border-radius: 10px;
+}
+#confirmation h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.danger {
+  background: #a83b30;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+summary {
+  cursor: pointer;
+}
+.summary {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 12px;
+  font-size: 14px;
+}
+.summary dt {
+  color: var(--muted);
+}
+.summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  margin: 30px 0 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+footer a {
+  text-decoration: none;
+}
+#privacy {
+  margin-top: 20px;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 760px) {
+  .shell {
+    padding: 20px;
+  }
+  header {
+    padding-bottom: 22px;
+  }
+  main {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  aside {
+    padding: 0;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  .intro {
+    margin-bottom: 12px;
+  }
+  .intro br {
+    display: none;
+  }
+  ol {
+    display: flex;
+    justify-content: space-between;
+    margin: 12px 0 0;
+    padding: 0;
+    gap: 8px;
+  }
+  li {
+    padding: 8px 0;
+  }
+  li .step-name {
+    display: none;
+  }
+  li.current .step-name {
+    display: block;
+    font-size: 12px;
+  }
+  .note,
+  .eyebrow {
+    display: none;
+  }
+  .panel {
+    padding: 25px 22px;
+    min-height: 420px;
+    border-radius: 13px;
+  }
+  footer {
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 24px;
+  }
+  .brand span {
+    margin-left: 12px;
+    padding-left: 12px;
+  }
+  .confirm-actions button {
+    width: 100%;
+  }
+}
