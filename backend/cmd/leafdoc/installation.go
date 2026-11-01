@@ -67,6 +67,10 @@ func prepareInstallation(ctx context.Context, cfg *serverConfig) error {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		path := strings.TrimPrefix(r.URL.Path, base)
+		if path == "/api/setup/ca" && r.Method == http.MethodGet {
+			serveInstallationCA(w, r, os.Getenv("LEAFDOC_SETUP_CA_FILE"))
+			return
+		}
 		if path == "/api/health" || path == "/api/setup/status" {
 			w.Header().Set("Content-Type", "application/json")
 			writeInstallationResponse(w, `{"initialized":false,"phase":"setup"}`)

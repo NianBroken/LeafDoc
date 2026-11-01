@@ -56,10 +56,20 @@ try {
   fs.copyFileSync(path.join(root, 'other/docker-packaging.md'), path.join(bundle, 'README.md'));
   fs.writeFileSync(path.join(bundle, 'release.env'), `LEAFDOC_IMAGE=${image}\nLEAFDOC_CADDY_IMAGE=${gateway}\nLEAFDOC_FRONTEND_PORT=${ports.frontend}\nLEAFDOC_BACKEND_PORT=${ports.backend}\n`);
   fs.writeFileSync(path.join(bundle, 'compose.yaml'), fs.readFileSync(path.join(root, 'other/compose.bundle.yaml')));
+  const fnosDirectory = path.join(bundle, 'fnos');
+  fs.mkdirSync(fnosDirectory);
+  let fnosCompose = fs.readFileSync(path.join(root, 'other/compose.fnos.yaml'), 'utf8');
+  for (const [key, value] of Object.entries({ APP_IMAGE: image, GATEWAY_IMAGE: gateway, FRONTEND_PORT: ports.frontend, BACKEND_PORT: ports.backend, CA_PORT: ports.setupCA })) {
+    fnosCompose = fnosCompose.replaceAll(`__${key}__`, String(value));
+  }
+  fs.writeFileSync(path.join(fnosDirectory, 'docker-compose.yml'), fnosCompose);
+  fs.copyFileSync(path.join(root, 'other/fnos-deployment.md'), path.join(fnosDirectory, 'README.md'));
   fs.writeFileSync(path.join(bundle, 'manifest.json'), JSON.stringify({ ...metadata, platform, builtAt: d.toISOString(), sourceHash, files: before, images: [image, gateway] }, null, 2));
-  fs.writeFileSync(path.join(bundle, 'SHA256SUMS'), fs.readdirSync(bundle).map(file => `${digest(path.join(bundle, file))}  ${file}\n`).join(''));
+  const bundleFiles = fs.readdirSync(bundle, { recursive: true }).filter(file => fs.statSync(path.join(bundle, file)).isFile()).sort();
+  fs.writeFileSync(path.join(bundle, 'SHA256SUMS'), bundleFiles.map(file => `${digest(path.join(bundle, file))}  ${file.replaceAll('\\', '/')}\n`).join(''));
   if (JSON.stringify(before) !== JSON.stringify(inventory())) throw new Error('构建期间源码发生变化，请重新打包');
   run('docker', ['run', '--rm', '--user', '0', '--entrypoint', 'sh', '--mount', `type=bind,source=${temporary},target=/work`, image, '-ec', `set -o pipefail; cd /work/bundle && tar -cf - . | gzip -9 > /work/${name}.tar.gz`]);
+  if (JSON.stringify(before) !== JSON.stringify(inventory())) throw new Error('归档期间源码发生变化，请重新打包');
   fs.copyFileSync(path.join(temporary, `${name}.tar.gz`), path.join(output, `${name}.tar.gz`));
   // 本地启动入口使用稳定标签，只有完整发行成功后才将其指向本次构建。
   run('docker', ['tag', image, `${metadata.name.toLowerCase()}:local`]);

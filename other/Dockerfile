@@ -34,6 +34,7 @@ RUN apk add --no-cache bash ca-certificates openssl && addgroup -S leafdoc && ad
 WORKDIR /app
 COPY --from=backend-build /out/leafdoc /app/leafdoc
 COPY ./other/docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./other/scripts/prepare-instance.sh /prepare-instance.sh
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE 24692
 # 此目录是容器内默认数据位置；绑定宿主目录时以挂载目录的实际权限为准。

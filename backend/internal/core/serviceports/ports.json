@@ -1,5 +1,6 @@
 {
   "frontend": 24691,
+  "setupCA": 24690,
   "backend": 24692,
   "gatewayAdmin": 24693,
   "metrics": 24694,

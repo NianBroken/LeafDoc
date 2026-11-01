@@ -1,0 +1,71 @@
+# fnOS 可视化部署参数。填写真实访问地址，多个地址以空格分隔。
+# 左侧宿主端口可修改，右侧容器端口保持发行定义。首次安装后保留项目名称与持久卷。
+x-https-port: &https-port '__FRONTEND_PORT__:__FRONTEND_PORT__'
+x-ca-port: &ca-port '__CA_PORT__:__CA_PORT__'
+x-settings: &settings
+  LEAFDOC_HOSTS: ''
+  LEAFDOC_BASE_PATH: ''
+  LEAFDOC_DOMAIN: ''
+  LEAFDOC_FRONTEND_PORT: '__FRONTEND_PORT__'
+  LEAFDOC_BACKEND_PORT: '__BACKEND_PORT__'
+  LEAFDOC_CA_PORT: '__CA_PORT__'
+  LEAFDOC_PUBLIC_DIR: /public-ca
+  LEAFDOC_MANAGED_GATEWAY: 'true'
+services:
+  prepare:
+    image: __APP_IMAGE__
+    pull_policy: never
+    user: '0'
+    entrypoint: [sh, /prepare-instance.sh]
+    environment: *settings
+    volumes:
+      - instance_data:/instance-data
+      - instance_config:/config
+      - public_certificates:/public-ca
+    restart: 'no'
+  app:
+    image: __APP_IMAGE__
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    environment:
+      <<: *settings
+      LEAFDOC_HOST: 0.0.0.0
+      LEAFDOC_WEB_SETUP: 'true'
+      LEAFDOC_DATA_DIR: /app/data
+      LEAFDOC_SETUP_CA_FILE: /run/leafdoc-public/local-ca.crt
+    command: [--enable-revision, --snapshot]
+    volumes:
+      - instance_data:/app/data
+      - public_certificates:/run/leafdoc-public:ro
+    # 应用只读挂载公开证书卷，不挂载包含私钥的配置卷。
+  gateway:
+    image: __GATEWAY_IMAGE__
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    entrypoint: [sh, -ec]
+    command:
+      - 'caddy fmt --overwrite /etc/caddy/Caddyfile; exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile'
+    ports:
+      - *https-port
+      - *ca-port
+    volumes:
+      # 空卷由 prepare 生成配置，不接受网关镜像自带的默认站点。
+      - type: volume
+        source: instance_config
+        target: /etc/caddy
+        volume:
+          nocopy: true
+      - gateway_data:/data
+      - gateway_config:/config
+volumes:
+  instance_data:
+  instance_config:
+  public_certificates:
+  gateway_data:
+  gateway_config:
