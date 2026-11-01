@@ -240,6 +240,161 @@ volumes:
 
 端口冲突时优先修改映射左侧的宿主端口。右侧容器端口和环境变量保持归档中的值。地址、路径或域名发生变化时，先停止项目，再编辑 YAML，保存后使用 fnOS 的“更多 → 构建”。不要在运行中的项目中直接删除卷，也不要只更新 `app` 镜像而遗漏 `prepare` 和 `gateway` 的同一版本配置。
 
+## 配置项填写分类总表
+
+本节单独给出 `fnos/docker-compose.yml` 的填写分类。这里的“需要填写”是指当前部署模式下管理员必须提供有效内容，“不需要填写”是指用户不应改动，配置由打包脚本、Compose 或镜像内部提供，“可以填写也可以不填写”是指默认值已经能够完成对应功能，只有使用相应场景时才需要填写或修改。
+
+### 需要填写的配置项
+
+严格来说，fnOS 文件中没有要求用户填写数据库密码、管理员密码或固定令牌。那些信息在 HTTPS 首次引导页面填写，不写入 Compose 文件。Compose 文件中只有访问模式相关的配置需要在特定模式下填写。
+
+| 配置项 | 需要填写的条件 | 应填写的内容 | 可核查结果 |
+| --- | --- | --- | --- |
+| `x-settings.LEAFDOC_HOSTS` | 使用本机或局域网 HTTPS 时必须填写 | NAS 的实际 IP 或主机名，多个值用空格分隔，不带协议、端口和路径 | `prepare` 日志显示准备完成，服务器证书的 SAN 包含填写地址 |
+| `x-settings.LEAFDOC_DOMAIN` | 使用公网域名和 Caddy 自动证书时必须填写 | 已解析到部署入口的真实域名，不带协议、端口和路径 | 网关使用域名配置，公网证书流程能够按要求运行 |
+| `x-https-port` 的宿主端口左侧 | 默认端口被 fnOS 或其他服务占用时必须修改 | 可用的宿主端口，例如将 `24691:24691` 的左侧改为其他未占用端口 | 访问 URL 使用新宿主端口，右侧容器端口仍保持归档值 |
+| `x-ca-port` 的宿主端口左侧 | 默认 CA 端口被占用时必须修改 | 可用的宿主端口，例如将 `24690:24690` 的左侧改为其他未占用端口 | CA 下载地址使用新宿主端口，右侧容器端口仍保持归档值 |
+
+`LEAFDOC_HOSTS` 和 `LEAFDOC_DOMAIN` 不是同时填写。局域网模式填写前者并保持后者为空。公网模式填写后者并清空前者。两个值都为空时，准备服务会拒绝生成可用的本地网关配置。两个值同时填写时，部署模式不明确，也必须修正后再构建。
+
+### 不需要填写的配置项
+
+下表中的字段在生成的 `fnos/docker-compose.yml` 中必须存在，但管理员不应填写、替换或删除。它们要么由打包脚本生成，要么是 Compose 结构，要么是应用和网关之间必须保持一致的内部约束。
+
+| 配置项 | 不需要填写的原因 | 核查要求 |
+| --- | --- | --- |
+| `x-settings` | 公共环境变量锚点定义 | 必须保留，服务通过别名复用 |
+| `services` | Compose 服务集合入口 | 必须包含 `prepare`、`app`、`gateway` |
+| 顶层 `volumes` | Compose 命名卷集合入口 | 必须包含五个项目卷 |
+| `prepare`、`app`、`gateway` | 服务名称由依赖关系和管理界面使用 | 不得改名 |
+| `prepare.image` | 打包脚本写入当前应用镜像标签 | 必须与 `app.image` 相同 |
+| `app.image` | 打包脚本写入当前应用镜像标签 | 必须与 `prepare.image` 相同 |
+| `gateway.image` | 打包脚本写入 Caddy 镜像标签 | 必须与 `images.tar` 导入的 Caddy 镜像相同 |
+| `prepare.pull_policy`、`app.pull_policy`、`gateway.pull_policy` | 离线部署必须禁止拉取镜像 | 必须保持 `never` |
+| `prepare.user` | 准备阶段需要初始化卷权限 | 必须保持 `'0'`，只限一次性准备服务 |
+| `prepare.entrypoint` | 指向镜像内的共享准备脚本 | 必须保持 `[sh, /prepare-instance.sh]` |
+| `prepare.environment` | 引用公共设置 | 必须保持 `*settings` |
+| `prepare.volumes` | 连接三个准备阶段命名卷 | 三个挂载必须保留 |
+| `prepare.restart` | 准备服务只执行一次 | 必须保持 `'no'` |
+| `app.restart`、`gateway.restart` | 业务服务异常时由 Docker 恢复 | 必须保持 `unless-stopped` |
+| `app.depends_on.prepare`、`gateway.depends_on.prepare` | 声明准备服务依赖 | 两个服务都必须依赖 `prepare` |
+| 两个 `condition` | 阻止准备失败时提前启动业务 | 必须保持 `service_completed_successfully` |
+| `app.environment`、`gateway.environment` | 服务环境映射结构 | 必须保留相应服务的全部键 |
+| `app.environment.<<` | 合并公共配置 | 必须保持 `*settings` |
+| `app.LEAFDOC_HOST` | 容器内监听地址 | 必须保持 `0.0.0.0` |
+| `app.LEAFDOC_WEB_SETUP` | 保留初始化阶段接口，由应用状态控制门禁 | 必须保持 `'true'` |
+| `app.LEAFDOC_DATA_DIR` | 应用数据目录 | 必须保持 `/app/data`，与数据卷目标一致 |
+| `app.LEAFDOC_SETUP_CA_FILE` | 应用读取公开 CA 的位置 | 必须保持 `/run/leafdoc-public/local-ca.crt` |
+| `app.command`、`--enable-revision`、`--snapshot` | 保留修订和快照能力 | 参数数组必须完整保留 |
+| `app.volumes` | 应用数据和公开 CA 挂载 | 数据卷和只读 CA 卷必须保留 |
+| `gateway.entrypoint` | 以严格 shell 方式执行 Caddy 命令 | 必须保持 `[sh, -ec]` |
+| `gateway.command` | 格式化并启动 Caddy | 必须保留 `caddy fmt`、`exec caddy run`、配置路径和适配器参数 |
+| `gateway.ports` | 网关发布入口 | 必须保留两个锚点引用 |
+| `gateway.volumes.type` | 长语法挂载类型 | 必须保持 `volume` |
+| `gateway.volumes.source` | 指向准备服务创建的配置卷 | 必须保持 `instance_config` |
+| `gateway.volumes.target` | Caddy 容器配置目录 | 必须保持 `/etc/caddy` |
+| `gateway.volumes.volume` | 长语法挂载选项集合 | 必须保留 |
+| `gateway.volumes.volume.nocopy` | 阻止默认 Caddyfile 污染空卷 | 必须保持 `true` |
+| `gateway_data:/data`、`gateway_config:/config` | Caddy 运行数据和内部配置 | 必须保留，不能改为临时目录 |
+| 顶层 `volumes.instance_data` | 应用数据卷声明 | 必须保留原名 |
+| 顶层 `volumes.instance_config` | 网关配置和私密证书卷声明 | 必须保留原名 |
+| 顶层 `volumes.public_certificates` | 公开 CA 卷声明 | 必须保留原名 |
+| 顶层 `volumes.gateway_data` | Caddy 数据卷声明 | 必须保留原名 |
+| 顶层 `volumes.gateway_config` | Caddy 配置数据卷声明 | 必须保留原名 |
+
+源码模板中的 `__APP_IMAGE__`、`__GATEWAY_IMAGE__`、`__FRONTEND_PORT__`、`__BACKEND_PORT__` 和 `__CA_PORT__` 也属于不需要填写的内容。它们不是 fnOS 用户配置，而是唯一打包入口的生成输入。生成归档中不应再出现这些占位符。
+
+### 可以填写也可以不填写的配置项
+
+| 配置项 | 默认行为 | 需要填写或修改的情况 | 可以省略的情况 |
+| --- | --- | --- | --- |
+| `x-settings.LEAFDOC_BASE_PATH` | 空字符串，从根路径访问 | 通过反向代理以 `/docs` 等路径前缀发布时填写 | 直接使用域名、IP 和端口访问时省略 |
+| `x-https-port` 左侧宿主端口 | 使用打包文件提供的 HTTPS 宿主端口 | 宿主端口冲突或需要统一端口规划时修改 | 默认端口未被占用时保留 |
+| `x-ca-port` 左侧宿主端口 | 使用打包文件提供的 CA 宿主端口 | CA 端口冲突时修改 | 默认端口未被占用时保留 |
+| `LEAFDOC_HOSTS` 中的附加地址 | 只填写一个实际入口也能运行 | 需要通过多个局域网主机名或 IP 访问时增加 | 只有一个访问地址时不增加 |
+| `LEAFDOC_DOMAIN` | 空字符串，使用本地证书路径 | 已有真实公网域名并准备使用公开证书时填写 | 没有公网域名或只在局域网运行时省略 |
+
+`LEAFDOC_DOMAIN` 虽然在公网模式下属于必须填写项，但在整个项目的局域网部署范围内可以省略。因此它在表格中同时具有条件必填和场景可省略两个属性。判断标准不是是否存在该键，而是当前部署模式是否需要公网自动证书。
+
+### 全文件键路径核对清单
+
+下面的清单覆盖生成文件中的结构键、配置键、服务字段、嵌套键和挂载项。核对文件时应按路径检查，不能只检查服务名称。
+
+| 键路径 | 分类 | 处理方式 |
+| --- | --- | --- |
+| `x-https-port` | 可选填写左侧宿主端口，右侧固定 | 只在端口冲突时修改左侧 |
+| `x-https-port.&https-port` | 不需要填写 | 保留端口锚点名称 |
+| `x-ca-port` | 可选填写左侧宿主端口，右侧固定 | 只在端口冲突时修改左侧 |
+| `x-ca-port.&ca-port` | 不需要填写 | 保留端口锚点名称 |
+| `x-settings` | 不需要填写 | 保留锚点定义 |
+| `x-settings.&settings` | 不需要填写 | 保留公共环境变量锚点名称 |
+| `x-settings.LEAFDOC_HOSTS` | 局域网模式必填，公网模式留空 | 填主机名或 IP |
+| `x-settings.LEAFDOC_BASE_PATH` | 可填可不填 | 只在路径前缀模式填写 |
+| `x-settings.LEAFDOC_DOMAIN` | 公网模式必填，局域网模式留空 | 填真实域名 |
+| `x-settings.LEAFDOC_FRONTEND_PORT` | 不需要填写 | 保留打包脚本生成值 |
+| `x-settings.LEAFDOC_BACKEND_PORT` | 不需要填写 | 保留打包脚本生成值 |
+| `x-settings.LEAFDOC_CA_PORT` | 不需要填写 | 保留打包脚本生成值 |
+| `x-settings.LEAFDOC_PUBLIC_DIR` | 不需要填写 | 保留 `/public-ca` |
+| `x-settings.LEAFDOC_MANAGED_GATEWAY` | 不需要填写 | 保留 `'true'` |
+| `services` | 不需要填写 | 保留服务集合 |
+| `services.prepare` | 不需要填写 | 保留服务名 |
+| `services.prepare.image` | 不需要填写 | 使用打包生成的应用镜像 |
+| `services.prepare.pull_policy` | 不需要填写 | 保留 `never` |
+| `services.prepare.user` | 不需要填写 | 保留 `'0'` |
+| `services.prepare.entrypoint` | 不需要填写 | 保留准备脚本入口 |
+| `services.prepare.environment` | 不需要填写 | 保留 `*settings` |
+| `services.prepare.environment.*settings` | 不需要填写 | 保留公共设置引用 |
+| `services.prepare.volumes` | 不需要填写 | 保留三个准备卷挂载 |
+| `services.prepare.volumes.instance_data:/instance-data` | 不需要填写 | 保留应用数据准备挂载 |
+| `services.prepare.volumes.instance_config:/config` | 不需要填写 | 保留网关配置准备挂载 |
+| `services.prepare.volumes.public_certificates:/public-ca` | 不需要填写 | 保留公开 CA 准备挂载 |
+| `services.prepare.restart` | 不需要填写 | 保留 `'no'` |
+| `services.app` | 不需要填写 | 保留服务名 |
+| `services.app.image` | 不需要填写 | 使用与 `prepare` 相同的应用镜像 |
+| `services.app.pull_policy` | 不需要填写 | 保留 `never` |
+| `services.app.restart` | 不需要填写 | 保留 `unless-stopped` |
+| `services.app.depends_on.prepare` | 不需要填写 | 保留准备服务依赖 |
+| `services.app.depends_on.prepare.condition` | 不需要填写 | 保留 `service_completed_successfully` |
+| `services.app.environment` | 不需要填写 | 保留环境映射结构 |
+| `services.app.environment.<<` | 不需要填写 | 保留公共设置合并 |
+| `services.app.environment.LEAFDOC_HOST` | 不需要填写 | 保留 `0.0.0.0` |
+| `services.app.environment.LEAFDOC_WEB_SETUP` | 不需要填写 | 保留 `'true'` |
+| `services.app.environment.LEAFDOC_DATA_DIR` | 不需要填写 | 保留 `/app/data` |
+| `services.app.environment.LEAFDOC_SETUP_CA_FILE` | 不需要填写 | 保留公开 CA 文件路径 |
+| `services.app.command` | 不需要填写 | 保留两个应用开关 |
+| `services.app.command.--enable-revision` | 不需要填写 | 保留修订功能开关 |
+| `services.app.command.--snapshot` | 不需要填写 | 保留快照功能开关 |
+| `services.app.volumes` | 不需要填写 | 保留数据卷和只读 CA 卷 |
+| `services.app.volumes.instance_data:/app/data` | 不需要填写 | 保留应用数据挂载 |
+| `services.app.volumes.public_certificates:/run/leafdoc-public:ro` | 不需要填写 | 保留公开 CA 只读挂载 |
+| `services.gateway` | 不需要填写 | 保留服务名 |
+| `services.gateway.image` | 不需要填写 | 使用归档导入的 Caddy 镜像 |
+| `services.gateway.pull_policy` | 不需要填写 | 保留 `never` |
+| `services.gateway.restart` | 不需要填写 | 保留 `unless-stopped` |
+| `services.gateway.depends_on.prepare` | 不需要填写 | 保留准备服务依赖 |
+| `services.gateway.depends_on.prepare.condition` | 不需要填写 | 保留 `service_completed_successfully` |
+| `services.gateway.entrypoint` | 不需要填写 | 保留 `[sh, -ec]` |
+| `services.gateway.command` | 不需要填写 | 保留完整 Caddy 命令 |
+| `services.gateway.command.caddy fmt` | 不需要填写 | 保留配置格式化步骤 |
+| `services.gateway.command.exec caddy run` | 不需要填写 | 保留 Caddy 主进程启动步骤 |
+| `services.gateway.ports` | 不需要填写 | 保留两个端口锚点引用 |
+| `services.gateway.ports.*https-port` | 不需要填写 | 保留 HTTPS 端口引用 |
+| `services.gateway.ports.*ca-port` | 不需要填写 | 保留公开 CA 端口引用 |
+| `services.gateway.volumes.type` | 不需要填写 | 保留 `volume` |
+| `services.gateway.volumes.source` | 不需要填写 | 保留 `instance_config` |
+| `services.gateway.volumes.target` | 不需要填写 | 保留 `/etc/caddy` |
+| `services.gateway.volumes.volume.nocopy` | 不需要填写 | 保留 `true` |
+| `services.gateway.volumes.instance_config:/etc/caddy` | 不需要填写 | 保留 Caddy 配置挂载 |
+| `services.gateway.volumes.gateway_data:/data` | 不需要填写 | 保留 Caddy 数据挂载 |
+| `services.gateway.volumes.gateway_config:/config` | 不需要填写 | 保留 Caddy 内部配置挂载 |
+| `volumes.instance_data` | 不需要填写 | 保留命名卷 |
+| `volumes.instance_config` | 不需要填写 | 保留命名卷 |
+| `volumes.public_certificates` | 不需要填写 | 保留命名卷 |
+| `volumes.gateway_data` | 不需要填写 | 保留命名卷 |
+| `volumes.gateway_config` | 不需要填写 | 保留命名卷 |
+
+这份清单中的“必须填写”是条件化的实际用户输入，“可填可不填”是场景选择，“不需要填写”不是允许删除，而是要求保持打包生成的内容不变。用户看到空字符串时，也要先根据部署模式判断该项是有意留空还是缺少必填地址。
+
 ## 其他 Compose 文件及选择方式
 
 项目中存在多个服务场景文件，它们用途不同，不能互换。
@@ -258,6 +413,59 @@ volumes:
 `other/compose.yaml` 的 `database` 服务属于源码或 Ubuntu 完整服务栈，使用 MySQL 镜像和数据库卷。fnOS 方案明确连接外部 MySQL，因此不能把该文件上传到 fnOS，也不能把 `database` 服务复制到 fnOS 文件中。`other/compose.bundle.yaml` 是 Ubuntu 离线安装资料的模板，使用宿主机目录 `/etc/leafdoc` 和 `/var/lib/leafdoc`，与 fnOS 的命名卷结构不同。
 
 `other/compose.public.yaml` 是 Ubuntu 公网模式覆盖文件，增加宿主机 80、443 的 TCP 映射和 443 的 UDP 映射。它不改变 fnOS 默认局域网模式，也不能替代 fnOS 文件顶部的地址配置。源码目录和测试目录中可能存在临时 Compose 文件，它们只用于验证，不是正式部署入口。
+
+### `compose.yaml` 的结构和作用
+
+项目中出现的 `compose.yaml` 有两个层次，必须按所在位置理解。
+
+归档根目录中的 `compose.yaml` 是由 `other/compose.bundle.yaml` 生成的 Ubuntu 离线服务文件。它只包含 `app` 和 `gateway`，不包含数据库服务。Ubuntu 安装入口会生成 `/etc/leafdoc/environment`，再用 `--env-file` 把镜像标签、端口、数据目录和可选运行参数提供给 Compose。
+
+归档根目录 `compose.yaml` 的主要字段如下：
+
+| 键路径 | 作用 | 是否用于 fnOS |
+| --- | --- | --- |
+| `services.app.image` | 使用打包生成的 LeafDoc 应用镜像，使用必填变量表达式防止标签缺失 | 否 |
+| `services.app.pull_policy` | 设为 `never`，要求使用本地导入镜像 | 否 |
+| `services.app.restart` | 使用 `unless-stopped` 保持 Ubuntu 应用服务 | 否 |
+| `services.app.env_file` | 读取 `/etc/leafdoc/application.env` 中的可选运行配置 | 否 |
+| `services.app.environment.LEAFDOC_HOST` | 让应用监听容器接口 | 否 |
+| `services.app.environment.LEAFDOC_WEB_SETUP` | 保留网页初始化入口 | 否 |
+| `services.app.environment.LEAFDOC_DATA_DIR` | 指向 `/app/data` | 否 |
+| `services.app.environment.LEAFDOC_BASE_PATH` | 传入可选路径前缀 | 否 |
+| `services.app.command` | 启用修订和快照功能 | 否 |
+| `services.app.volumes` | 把宿主机 `/var/lib/leafdoc` 挂载为应用数据目录 | 否 |
+| `services.database.healthcheck` | Ubuntu 内置 MySQL 的健康检查，应用只在数据库健康后启动 | 否 |
+| `services.database.healthcheck.test` | 使用容器内账号执行 `SELECT 1` | 否 |
+| `services.database.healthcheck.interval`、`timeout`、`retries`、`start_period` | 控制 MySQL 健康检查频率、单次超时、失败次数和启动宽限期 | 否 |
+| `services.app.stop_grace_period` | 为应用提供优雅停止时间 | 否 |
+| `services.gateway.image` | 使用打包生成的 Caddy 镜像 | 否 |
+| `services.gateway.pull_policy` | 禁止离线部署时拉取镜像 | 否 |
+| `services.gateway.restart` | 保持 Ubuntu 网关服务运行 | 否 |
+| `services.gateway.ports` | 发布应用端口以及标准 HTTP 和 HTTPS 入口 | 否 |
+| `services.gateway.volumes` | 挂载 Ubuntu 的 Caddyfile、TLS 目录和 Caddy 命名卷 | 否 |
+| `services.gateway.stop_grace_period` | 为网关提供优雅停止时间 | 否 |
+| `services.database.logging`、`services.app.logging`、`services.gateway.logging` | 使用 Docker `json-file` 日志驱动并限制日志大小和文件数 | 否 |
+| `logging.driver`、`logging.options.max-size`、`logging.options.max-file` | Ubuntu 服务的日志轮转设置 | 否 |
+| 顶层 `volumes.gateway_data` | 保存 Caddy 运行数据 | 否 |
+| 顶层 `volumes.gateway_config` | 保存 Caddy 内部配置 | 否 |
+
+该文件的数据库连接来自应用首次初始化和 Ubuntu 安装环境，不等同于 fnOS 文件。fnOS 使用命名卷 `instance_data`、`instance_config` 和 `public_certificates`，并由 `prepare` 服务创建证书和网关配置。Ubuntu 文件使用宿主机 `/etc/leafdoc`、`/var/lib/leafdoc`，两套挂载方式不能交叉复制。
+
+源码中的 `other/compose.yaml` 是源码开发和 Ubuntu 完整服务栈文件。它额外定义 `database` 服务，包含 MySQL 镜像、数据库环境变量、数据库卷、健康检查和日志轮转。`app` 通过 `depends_on.database.condition: service_healthy` 等待 MySQL 健康，应用使用 `database` 作为数据库主机。该文件适合源码环境或需要 Compose 内置 MySQL 的 Ubuntu 场景，不适合 fnOS，因为 fnOS 方案明确要求连接外部 MySQL，不能把数据库镜像带入 fnOS 发行包。
+
+`other/compose.bundle.yaml` 是 Ubuntu 离线归档的模板。它与源码完整服务栈的区别是删除了 `database` 服务，改用外部数据库和安装目录，并通过 `env_file` 读取安装后的私有配置。维护 Ubuntu 离线部署时修改该模板，维护 fnOS 部署时修改 `other/compose.fnos.yaml`。
+
+`other/compose.public.yaml` 是 Ubuntu 公网模式覆盖文件。它只覆盖 `gateway.ports`，增加宿主机 80 和 443 的 TCP 映射以及 443 的 UDP 映射，让 Caddy 支持标准公网入口和 HTTP/3。它不是独立服务栈，必须与 Ubuntu 的基础 Compose 文件一起使用。fnOS 公网模式的端口修改直接在 fnOS 专用 YAML 中完成，不上传该覆盖文件。
+
+项目目前没有把 `compose.override.yaml`、Compose profile 或数据库初始化 Compose 文件作为正式部署入口。不要自行创建第二份同用途配置来绕开现有文件。需要增加部署场景时，应保持基础服务、卷名、初始化门禁和镜像来源的单一约束，并同步更新本说明。
+
+### 文件名、环境文件和打包归档的关系
+
+`compose.yaml` 是现代 Compose 默认文件名，`docker-compose.yml` 是旧版 Compose 和当前 fnOS 图形界面常用文件名。文件名只影响 Compose 或图形界面默认查找的文件，不会改变 YAML 语义。fnOS 页面当前要求选择 `docker-compose.yml`，因此归档内使用该名称。Ubuntu 安装入口明确传入归档根目录 `compose.yaml`，不依赖默认文件名查找。
+
+fnOS 文件不使用独立 `.env` 或 `env_file`。打包脚本把实际镜像标签和内部端口写入文件，管理员只修改顶部访问参数和必要的宿主端口左侧。Ubuntu 文件使用安装入口生成的 `release.env`、`environment` 和 `application.env`，其中数据库密码、JWT 密钥和其他私密运行参数不进入 Compose 模板。不要把 Ubuntu 的环境文件上传到 fnOS，也不要把数据库密码写进 fnOS YAML。
+
+安装归档同时包含 `images.tar`、Compose 文件、安装入口、`release.env`、`manifest.json`、`SHA256SUMS` 和部署说明。`images.tar` 负责离线镜像导入，Compose 文件负责服务拓扑和挂载，`manifest.json` 记录版本、平台、镜像和源码摘要，`SHA256SUMS` 校验归档内部文件。它们共同组成部署资料，单独上传一个 Compose 文件不能替代镜像导入和配置准备。
 
 ## 升级、停止和故障处理
 
