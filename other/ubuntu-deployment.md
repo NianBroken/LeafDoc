@@ -1,6 +1,6 @@
 # Ubuntu Docker 源码部署与维护
 
-本文说明仓库中 `other/scripts/deploy.sh` 管理的完整 Compose 服务栈。它包含 MySQL、LeafDoc 应用和 Caddy HTTPS 网关。离线安装包使用另一套配置路径，只包含应用和网关，操作见 [打包与离线安装](docker-packaging.md)。不要在同一台主机上同时运行两套默认实例，两者使用相同 Compose 项目名和服务端口。
+本文说明仓库中 `other/scripts/deploy.sh` 管理的完整 Compose 服务栈。它包含 MySQL、LeafDoc 应用和 Go 双协议网关。离线安装包使用另一套配置路径，只包含应用和网关，操作见 [打包与离线安装](docker-packaging.md)。不要在同一台主机上同时运行两套默认实例，两者使用相同 Compose 项目名和服务端口。
 
 ## 1. 环境与目录
 
@@ -30,7 +30,7 @@ sudo docker compose version
 | --- | --- |
 | 私有部署配置 | `/etc/leafdoc-compose/environment` |
 | 本地证书与私钥 | `/etc/leafdoc-compose/tls/` |
-| Caddy 配置 | `/etc/leafdoc-compose/Caddyfile` |
+| 网关配置 | `/etc/leafdoc-compose/environment` |
 | 应用容器数据 | `documents` Compose 命名卷，容器内 `/app/data` |
 | MySQL 数据 | `database` Compose 命名卷，容器内 `/var/lib/mysql` |
 | 网关持久数据 | `gateway_data` 与 `gateway_config` 命名卷 |
@@ -51,7 +51,7 @@ node other/scripts/package.mjs
 
 构建完成后从终端输出、包内 `release.env` 或 `manifest.json` 取得本次应用镜像标识。使用 `docker image ls` 核对该镜像实际存在，不选择其他旧版本替代。设置部署配置时将此标识写入 `LEAFDOC_IMAGE`。
 
-构建过程会清理 `installers/`，构建前把需要保留的旧包移到该目录之外。更新源码时先保护未提交修改，不执行强制重置。
+构建过程保留 `installers/` 中已有发行包，并使用独立名称输出新包。更新源码时先保护未提交修改，不执行强制重置。
 
 ## 3. 生成配置与选择镜像
 
@@ -148,7 +148,7 @@ sudo bash other/scripts/deploy.sh status
 sudo bash other/scripts/deploy.sh logs
 ```
 
-`start` 的 `up -d` 会按 Compose 差异更新容器，同时保留命名卷。环境变更使用该流程，单纯 `docker compose restart` 不重新创建环境。修改公网域名或证书前核对 Caddyfile、证书文件与 Compose 覆盖模式。
+`start` 的 `up -d` 会按 Compose 差异更新容器，同时保留命名卷。环境变更使用该流程，单纯 `docker compose restart` 不重新创建环境。修改公网域名或证书前核对环境配置、证书文件与 Compose 覆盖模式。
 
 回退必须使用升级前的匹配数据备份和镜像，不能只改镜像标签就认定数据库兼容。首次初始化脚本不是数据库密码轮换工具，已有数据库的密码变更需要数据库与应用同时更新。
 
@@ -165,4 +165,4 @@ sudo bash other/scripts/deploy.sh logs
 | 前缀访问失败 | 检查 `LEAFDOC_BASE_PATH` 与实际地址是否一致 |
 | 重启后服务未恢复 | 检查 Docker 自启，确认实例是否曾被手动停止 |
 
-配置、密钥和数据库资料只在受限权限目录维护。排障时保留真实错误信息，分享日志前去掉凭据。Ubuntu 原生 systemd 安装脚本 `server.sh` 是独立路径，需要另行提供匹配的应用二进制、Caddy 和 MySQL 归档，不应与本节 Docker 命令混用。
+配置、密钥和数据库资料只在受限权限目录维护。排障时保留真实错误信息，分享日志前去掉凭据。Ubuntu 原生 systemd 安装脚本 `server.sh` 是独立路径，需要另行提供匹配的应用二进制、Go 网关二进制和 MySQL 归档，不应与本节 Docker 命令混用。

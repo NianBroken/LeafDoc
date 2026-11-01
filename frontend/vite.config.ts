@@ -152,26 +152,7 @@ export default defineConfig(({ command }: ConfigEnv) => ({
   server: {
     port: ports.frontend,
     strictPort: true,
-    // 页面由 Vite 提供，业务接口及实例资源交给后端，转发时改写 Host。
-    proxy: {
-      '/defaults': { target: backendTarget, changeOrigin: true, secure: false },
-      '/avatars': { target: backendTarget, changeOrigin: true, secure: false },
-      '/assets': {
-        target: backendTarget,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/branding': {
-        target: backendTarget,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api': {
-        target: backendTarget,
-        changeOrigin: true,
-        secure: false,
-      },
-    },
+    // API 与附件代理由双协议启动入口统一处理，连接协议与上游保持一致。
   },
   optimizeDeps: {
     include: ['mermaid', 'dagre-d3-es'],

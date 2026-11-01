@@ -67,7 +67,7 @@ LeafDoc 是可以自行部署的在线文档系统。使用者通过浏览器建
 
 ### 选择部署路径
 
-源码部署的 Compose 栈包括 MySQL、应用和 Caddy。离线发行包的栈只有应用和 Caddy，数据库在首次引导中配置。这两种模式的数据位置、配置入口和管理命令不同，不能混用。
+源码部署的 Compose 栈包括 MySQL、应用和 Go 双协议网关。离线发行包的栈只有应用和 Go 双协议网关，数据库在首次引导中配置。这两种模式的数据位置、配置入口和管理命令不同，不能混用。
 
 准备 Ubuntu 主机时，需要 Git、Node.js、Python 3、OpenSSL、Docker Engine 和 Compose 插件。Node.js 用来调用仓库工具，Go 与前端依赖由 Linux 构建容器提供。版本以 `other/.nvmrc`、`backend/go.mod` 和各 Dockerfile 为准。
 
@@ -98,7 +98,7 @@ sudo bash other/scripts/deploy.sh status
 
 ### 当前 Windows 电脑的启动入口
 
-项目提供 `other/scripts/start.ps1`，使用 Docker Linux 容器运行应用，由宿主 Caddy 提供 HTTPS。脚本需要可用的 Docker、Node、Caddy、数据库及受信任的证书，私有配置从进程环境或 `other/.env` 读取。
+项目提供 `other/scripts/start.ps1`，使用 Docker Linux 容器运行应用和 Go 双协议网关。脚本需要可用的 Docker、Node、数据库及受信任的证书，私有配置从进程环境或 `other/.env` 读取。
 
 ```powershell
 pwsh -File other/scripts/start.ps1 -Build
@@ -108,7 +108,7 @@ pwsh -File other/scripts/start.ps1 -Build
 
 ## 架构与数据流
 
-浏览器通过 HTTPS 访问 Caddy。Caddy 将请求转发给 Go HTTP 服务，后端提供嵌入的前端静态资源和 `/api` 接口。前端加载实例配置与登录状态后建立页面路由，再通过接口读取页面树、正文和设置。
+浏览器通过 HTTP 或 HTTPS 访问固定端口上的 Go 网关。网关将请求转发给 Go 双协议服务，后端提供嵌入的前端静态资源和 `/api` 接口。前端加载实例配置与登录状态后建立页面路由，再通过接口读取页面树、正文和设置。
 
 后端按三层组织。HTTP 层处理请求、响应、认证上下文与静态资源；Wiki 层把具体功能组织成用例与路由；Core 层负责页面、账号、数据库、搜索、导入、历史及快照等底层业务。命令入口负责解析参数、初始化服务和管理生命周期。
 
@@ -131,7 +131,7 @@ pwsh -File other/scripts/start.ps1 -Build
 | 界面交互 | Radix UI、Tailwind CSS、dnd-kit | 控件、样式与拖放 |
 | 语言与图标 | i18next、Lucide | 界面翻译和图标 |
 | 监测 | Prometheus Go 客户端 | 可选指标输出 |
-| 部署 | Docker、Compose、Caddy | 构建、服务管理与 HTTPS 代理 |
+| 部署 | Docker、Compose、Go 网关 | 构建、服务管理与 HTTP 和 HTTPS 代理 |
 | 检查 | Go test、Vitest、ESLint、Prettier、golangci-lint | 行为测试与代码检查 |
 
 依赖的完整版本分别由 Go 模块文件、npm 锁文件和容器基础镜像声明控制。不要用本表替代锁文件，也不要只升级一个直接依赖而忽略覆盖规则及相关测试。

@@ -102,7 +102,7 @@ export function runtimeHtml(backendTarget: string): Plugin {
   return {
     name: 'runtime-site-information',
     configureServer(server) {
-      install(server, false)
+      install(server, process.argv.includes('--preview'))
     },
     configurePreviewServer(server) {
       install(server, true)

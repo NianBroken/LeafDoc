@@ -22,11 +22,12 @@ install|upgrade)
   install -d -m 700 "$config_dir" "$data_dir" "$config_dir/tls"
   install -m 644 compose.yaml "$install_dir/compose.yaml"
   install -m 755 install.sh "$install_dir/manage.sh"
+  install -m 755 release-host-ports.sh "$install_dir/release-host-ports.sh"
   install -m 644 manifest.json "$install_dir/manifest.json"
   # 版本资料可替换，用户部署参数和实例数据在升级时原样保留。
   if [ -f "$config_dir/environment" ]; then
-    grep -v '^LEAFDOC_IMAGE=\|^LEAFDOC_CADDY_IMAGE=' "$config_dir/environment" > "$config_dir/environment.next"
-    grep '^LEAFDOC_IMAGE=\|^LEAFDOC_CADDY_IMAGE=' release.env >> "$config_dir/environment.next"
+    grep -v '^LEAFDOC_IMAGE=' "$config_dir/environment" > "$config_dir/environment.next"
+    grep '^LEAFDOC_IMAGE=' release.env >> "$config_dir/environment.next"
     mv "$config_dir/environment.next" "$config_dir/environment"
   else
     install -m 600 release.env "$config_dir/environment"
@@ -43,8 +44,8 @@ install|upgrade)
     -e "LEAFDOC_DOMAIN=${LEAFDOC_DOMAIN:-}" \
     -e "LEAFDOC_HOSTS=${LEAFDOC_HOSTS:-$(hostname -I)}" \
     "$LEAFDOC_IMAGE" /prepare-instance.sh
-  docker run --rm --mount "type=bind,source=$config_dir,target=/etc/caddy" "$LEAFDOC_CADDY_IMAGE" caddy fmt --overwrite /etc/caddy/Caddyfile
   compose config --quiet
+  sh "$install_dir/release-host-ports.sh" "$LEAFDOC_FRONTEND_PORT" "$LEAFDOC_BACKEND_PORT"
   compose up -d
   ready=false
   for attempt in $(seq 1 60); do
@@ -56,9 +57,12 @@ install|upgrade)
   done
   [ "$ready" = true ] || { echo '应用未在限定时间内就绪，请检查 logs。' >&2; exit 1; }
   if [ ! -f "$data_dir/installation.json" ]; then printf '首次安装令牌: '; cat "$data_dir/setup-token"; printf '\n'; fi
-  printf '本机和局域网入口: https://主机地址:%s\n' "$LEAFDOC_FRONTEND_PORT"
+  printf '本机和局域网双协议入口: http://主机地址:%s 和对应 HTTPS 地址\n' "$LEAFDOC_FRONTEND_PORT"
   ;;
-start) compose up -d;;
+start)
+  . "$config_dir/environment"
+  sh "$install_dir/release-host-ports.sh" "$LEAFDOC_FRONTEND_PORT" "$LEAFDOC_BACKEND_PORT"
+  compose up -d;;
 stop) compose stop;;
 restart) compose restart;;
 status) compose ps;;

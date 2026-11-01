@@ -1,3 +1,4 @@
+import copy from 'copy-to-clipboard'
 // 此表单创建只读权限密钥，并在当前对话框内展示创建响应中的明文令牌。
 // 用户列表来自外部已加载的用户存储，组件不在内部请求用户列表。
 import BaseDialog from '@/shared/components/BaseDialog'
@@ -71,7 +72,11 @@ export function ApiKeyFormDialog() {
     // 只复制已创建结果中的令牌，剪贴板权限或接口失败会展示独立错误提示。
     if (!result) return
     try {
-      await navigator.clipboard.writeText(result.secret)
+      if (typeof navigator.clipboard?.writeText === 'function') {
+        await navigator.clipboard.writeText(result.secret)
+      } else if (!copy(result.secret)) {
+        throw new Error('Clipboard copy failed')
+      }
       toast.success(t('secret.copiedToast'))
     } catch (err) {
       console.warn(err)

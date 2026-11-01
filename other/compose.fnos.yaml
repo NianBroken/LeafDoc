@@ -1,5 +1,5 @@
 # fnOS 可视化部署参数。填写真实访问地址，多个地址以空格分隔。
-# 左侧宿主端口可修改，右侧容器端口保持发行定义。首次安装后保留项目名称与持久卷。
+# 前后端映射使用发行端口，首次安装后保留项目名称与持久卷。
 x-https-port: &https-port '__FRONTEND_PORT__:__FRONTEND_PORT__'
 x-ca-port: &ca-port '__CA_PORT__:__CA_PORT__'
 x-settings: &settings
@@ -33,39 +33,38 @@ services:
     environment:
       <<: *settings
       LEAFDOC_HOST: 0.0.0.0
+      LEAFDOC_TLS_CERT: /run/leafdoc-config/tls/server.crt
+      LEAFDOC_TLS_KEY: /run/leafdoc-config/tls/server.key
       LEAFDOC_WEB_SETUP: 'true'
       LEAFDOC_DATA_DIR: /app/data
       LEAFDOC_SETUP_CA_FILE: /run/leafdoc-public/local-ca.crt
+    ports:
+      - '__BACKEND_PORT__:__BACKEND_PORT__'
     command: [--enable-revision, --snapshot]
     volumes:
+      - instance_config:/run/leafdoc-config:ro
       - instance_data:/app/data
       - public_certificates:/run/leafdoc-public:ro
     # 应用只读挂载公开证书卷，不挂载包含私钥的配置卷。
   gateway:
-    image: __GATEWAY_IMAGE__
+    image: __APP_IMAGE__
     pull_policy: never
     restart: unless-stopped
+    command: [gateway]
+    environment:
+      LEAFDOC_HOST: 0.0.0.0
+      LEAFDOC_BACKEND_URL: http://app:__BACKEND_PORT__
+      LEAFDOC_TLS_CERT: /run/leafdoc-config/tls/server.crt
+      LEAFDOC_TLS_KEY: /run/leafdoc-config/tls/server.key
     depends_on:
       prepare:
         condition: service_completed_successfully
-    entrypoint: [sh, -ec]
-    command:
-      - 'caddy fmt --overwrite /etc/caddy/Caddyfile; exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile'
     ports:
       - *https-port
-      - *ca-port
     volumes:
-      # 空卷由 prepare 生成配置，不接受网关镜像自带的默认站点。
-      - type: volume
-        source: instance_config
-        target: /etc/caddy
-        volume:
-          nocopy: true
-      - gateway_data:/data
-      - gateway_config:/config
+      - instance_config:/run/leafdoc-config:ro
+
 volumes:
   instance_data:
   instance_config:
   public_certificates:
-  gateway_data:
-  gateway_config:

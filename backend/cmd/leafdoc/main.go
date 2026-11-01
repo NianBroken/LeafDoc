@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/dualhttp"
 	"io"
 	"log/slog"
 	"math"
@@ -199,7 +200,7 @@ func runServerCommand(ctx context.Context, cmd *cli.Command, cfg *serverConfig) 
 	}
 
 	if cfg.server.allowInsecure {
-		slog.Default().Warn("allow-insecure enabled. Auth cookies may be transmitted over plain HTTP (INSECURE).")
+		slog.Default().Info("HTTP and HTTPS authentication are enabled.")
 	}
 
 	// 只在目录不存在时递归创建，其他 Stat 错误由后续实际存取暴露。
@@ -442,6 +443,14 @@ func runServer(
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
 			return err
+		}
+		if cert, key := os.Getenv("LEAFDOC_TLS_CERT"), os.Getenv("LEAFDOC_TLS_KEY"); cert != "" || key != "" {
+			combined, err := dualhttp.Wrap(listener, cert, key)
+			if err != nil {
+				listener.Close()
+				return err
+			}
+			return serveWithLifecycle(server, combined, nil, reload, reloadSignals, shutdownSignals)
 		}
 		return serveWithLifecycle(server, listener, nil, reload, reloadSignals, shutdownSignals)
 	}

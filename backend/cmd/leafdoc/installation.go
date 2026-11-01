@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/NianBroken/LeafDoc/internal/core/dualhttp"
 	"log/slog"
 	"net"
 	"net/http"
@@ -58,6 +59,16 @@ func prepareInstallation(ctx context.Context, cfg *serverConfig) error {
 	if err != nil {
 		return err
 	}
+	// 安装引导与业务服务共用证书和同端口双协议识别。
+	if cert, key := os.Getenv("LEAFDOC_TLS_CERT"), os.Getenv("LEAFDOC_TLS_KEY"); cert != "" || key != "" {
+		combined, wrapErr := dualhttp.Wrap(listener, cert, key)
+		if wrapErr != nil {
+			listener.Close()
+			return wrapErr
+		}
+		listener = combined
+	}
+	defer listener.Close()
 	completed := make(chan *installation.Config, 1)
 	var mu sync.Mutex
 	done := false

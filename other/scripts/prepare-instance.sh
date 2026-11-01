@@ -24,7 +24,8 @@ for port in "$frontend_port" "$backend_port" ${bootstrap_port:+"$bootstrap_port"
 done
 case "$domain" in *[!A-Za-z0-9.-]*) fail '公网域名格式无效';; esac
 mkdir -p "$config_dir/tls" "$public_dir" "$data_dir"
-chmod 700 "$config_dir/tls" "$data_dir"
+chmod 700 "$data_dir"
+chmod 750 "$config_dir/tls"
 chmod 755 "$config_dir" "$public_dir"
 uid=$(id -u leafdoc)
 gid=$(id -g leafdoc)
@@ -41,9 +42,9 @@ if [ "$managed_gateway" = true ]; then
     openssl x509 -checkend 2592000 -noout -in "$config_dir/tls/server.crt" >/dev/null || refresh=true
   fi
 fi
-if [ ! -e "$config_dir/Caddyfile" ] || [ "$refresh" = true ]; then
-  if [ -z "$domain" ]; then
-    [ -n "$hosts" ] || fail '请在 Compose 顶部的 LEAFDOC_HOSTS 填写 NAS 实际 IP 或主机名'
+if [ ! -e "$config_dir/tls/server.crt" ] || [ "$refresh" = true ]; then
+  if [ -n "$domain" ]; then hosts="$hosts $domain"; fi
+  [ -n "$hosts" ] || hosts=localhost
     sans='DNS:localhost,IP:127.0.0.1,IP:::1'
     for address in $hosts; do
       case "$address" in *[!A-Za-z0-9.:-]*|'') fail '访问地址无效';; esac
@@ -66,24 +67,6 @@ if [ ! -e "$config_dir/Caddyfile" ] || [ "$refresh" = true ]; then
     mv "$config_dir/tls/server.key.next" "$config_dir/tls/server.key"
     mv "$config_dir/tls/server.crt.next" "$config_dir/tls/server.crt"
     rm "$config_dir/tls/server.csr" "$config_dir/tls/extensions.cnf"
-    printf '{\n auto_https off\n skip_install_trust\n' > "$config_dir/Caddyfile.next"
-    if [ -z "$bootstrap_port" ]; then
-      printf ' servers :80 {\n protocols h1\n }\n' >> "$config_dir/Caddyfile.next"
-    else
-      printf ' servers :%s {\n protocols h1\n }\n' "$bootstrap_port" >> "$config_dir/Caddyfile.next"
-    fi
-    printf '}\nhttps://:%s {\n tls /etc/caddy/tls/server.crt /etc/caddy/tls/server.key\n reverse_proxy app:%s {\n lb_try_duration %s\n }\n}\n' "$frontend_port" "$backend_port" "$retry_duration" >> "$config_dir/Caddyfile.next"
-    if [ -z "$bootstrap_port" ]; then
-      printf 'http:// {\n redir https://{host}:%s{uri} permanent\n}\n' "$frontend_port" >> "$config_dir/Caddyfile.next"
-    fi
-  else
-    printf '{\n skip_install_trust\n}\n%s {\n reverse_proxy app:%s {\n lb_try_duration %s\n }\n}\n' "$domain" "$backend_port" "$retry_duration" > "$config_dir/Caddyfile.next"
-  fi
-  if [ -n "$bootstrap_port" ] && [ -z "$domain" ]; then
-    # 明文入口只有公开 CA 路由，其他路径统一拒绝，不转发数据库或登录请求。
-    printf 'http://:%s {\n @ca {\n method GET\n path %s/api/setup/ca\n }\n handle @ca {\n reverse_proxy app:%s\n }\n handle {\n respond 404\n }\n}\n' "$bootstrap_port" "$base_path" "$backend_port" >> "$config_dir/Caddyfile.next"
-  fi
-  mv "$config_dir/Caddyfile.next" "$config_dir/Caddyfile"
   printf '%s\n' "$settings_hash" > "$config_dir/prepared-settings.next"
   mv "$config_dir/prepared-settings.next" "$config_dir/prepared-settings"
 fi
@@ -99,3 +82,8 @@ if [ ! -f "$data_dir/installation.json" ]; then
   printf '\n'
 fi
 printf '实例准备完成，已有配置与初始化记录已保留。\n'
+
+# 非特权应用和网关使用相同服务身份读取证书，私钥不向其他用户开放。
+chown -R "$uid:$gid" "$config_dir/tls"
+chmod 640 "$config_dir/tls/server.key"
+chmod 644 "$config_dir/tls/server.crt"

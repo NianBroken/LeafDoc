@@ -36,6 +36,10 @@ vi.mock('@/shared/lib/api/users', () => ({
 }))
 
 import * as apiKeyAPI from '@/shared/lib/api/apikeys'
+import copy from 'copy-to-clipboard'
+
+// HTTP 环境缺少 Clipboard API 时仍可通过兼容复制入口操作。
+vi.mock('copy-to-clipboard', () => ({ default: vi.fn(() => true) }))
 
 describe('ApiKeyFormDialog', () => {
   // 每个场景打开同一种对话框并提供一个所属用户，清除上个场景的状态和调用记录。
@@ -84,59 +88,72 @@ describe('ApiKeyFormDialog', () => {
     ).not.toBeDisabled()
   })
 
-  it('reveals the one-time secret after creation and copies it', async () => {
-    const user = userEvent.setup()
-    // userEvent.setup 会设置剪贴板替身，这里在其后安装可断言的写入函数。
-    const clipboardWriteText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: clipboardWriteText },
-      configurable: true,
-    })
-    ;(apiKeyAPI.createApiKey as ReturnType<typeof vi.fn>).mockResolvedValue({
-      key: {
-        id: 'k1',
-        name: 'agent key',
-        userId: 'u1',
-        prefix: 'ab12cd34',
-        role: 'viewer',
-        createdBy: 'admin1',
-        createdAt: '2026-01-01T00:00:00Z',
-      },
-      secret: 'lw_ab12cd34_supersecret',
-    })
-    ;(apiKeyAPI.getApiKeys as ReturnType<typeof vi.fn>).mockResolvedValue([])
+  it.each([true, false])(
+    'reveals and copies the secret with Clipboard API available: %s',
+    async (clipboardAvailable) => {
+      const user = userEvent.setup()
+      // userEvent.setup 会设置剪贴板替身，这里在其后安装可断言的写入函数。
+      const clipboardWriteText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        value: clipboardAvailable
+          ? { writeText: clipboardWriteText }
+          : undefined,
+        configurable: true,
+      })
+      ;(apiKeyAPI.createApiKey as ReturnType<typeof vi.fn>).mockResolvedValue({
+        key: {
+          id: 'k1',
+          name: 'agent key',
+          userId: 'u1',
+          prefix: 'ab12cd34',
+          role: 'viewer',
+          createdBy: 'admin1',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+        secret: 'lw_ab12cd34_supersecret',
+      })
+      ;(apiKeyAPI.getApiKeys as ReturnType<typeof vi.fn>).mockResolvedValue([])
 
-    render(<ApiKeyFormDialog />)
+      render(<ApiKeyFormDialog />)
 
-    await user.type(
-      screen.getByPlaceholderText('e.g. research-agent'),
-      'agent key',
-    )
-    await user.click(screen.getByTestId('api-key-owner-select'))
-    await user.click(await screen.findByRole('option', { name: 'agent-owner' }))
-    await user.click(screen.getByTestId('api-key-form-dialog-button-confirm'))
+      await user.type(
+        screen.getByPlaceholderText('e.g. research-agent'),
+        'agent key',
+      )
+      await user.click(screen.getByTestId('api-key-owner-select'))
+      await user.click(
+        await screen.findByRole('option', { name: 'agent-owner' }),
+      )
+      await user.click(screen.getByTestId('api-key-form-dialog-button-confirm'))
 
-    await waitFor(() =>
-      expect(screen.getByTestId('api-key-secret')).toHaveValue(
-        'lw_ab12cd34_supersecret',
-      ),
-    )
-    // 表单请求携带名称和用户但省略角色，后端按空角色采用查看者权限。
-    expect(apiKeyAPI.createApiKey).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'agent key', userId: 'u1' }),
-    )
-    expect(apiKeyAPI.createApiKey).not.toHaveBeenCalledWith(
-      expect.objectContaining({ role: expect.anything() }),
-    )
+      await waitFor(() =>
+        expect(screen.getByTestId('api-key-secret')).toHaveValue(
+          'lw_ab12cd34_supersecret',
+        ),
+      )
+      // 表单请求携带名称和用户但省略角色，后端按空角色采用查看者权限。
+      expect(apiKeyAPI.createApiKey).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'agent key', userId: 'u1' }),
+      )
+      expect(apiKeyAPI.createApiKey).not.toHaveBeenCalledWith(
+        expect.objectContaining({ role: expect.anything() }),
+      )
 
-    await user.click(screen.getByTestId('api-key-secret-copy'))
-    expect(clipboardWriteText).toHaveBeenCalledWith('lw_ab12cd34_supersecret')
+      await user.click(screen.getByTestId('api-key-secret-copy'))
+      if (clipboardAvailable) {
+        expect(clipboardWriteText).toHaveBeenCalledWith(
+          'lw_ab12cd34_supersecret',
+        )
+      } else {
+        expect(copy).toHaveBeenCalledWith('lw_ab12cd34_supersecret')
+      }
 
-    // 令牌展示状态不再提供创建确认按钮，避免同一表单继续提交。
-    expect(
-      screen.queryByTestId('api-key-form-dialog-button-confirm'),
-    ).not.toBeInTheDocument()
-  })
+      // 令牌展示状态不再提供创建确认按钮，避免同一表单继续提交。
+      expect(
+        screen.queryByTestId('api-key-form-dialog-button-confirm'),
+      ).not.toBeInTheDocument()
+    },
+  )
 
   it('normalizes a same-day expiry to the end of the local day', async () => {
     // 预期值按运行环境本地时区构造当日结束时刻，再转为 UTC。

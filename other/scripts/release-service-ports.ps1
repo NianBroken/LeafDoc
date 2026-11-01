@@ -1,7 +1,7 @@
 # 本脚本从共享端口表解析服务名，停止 Windows 上占用所选监听地址和端口的进程。
-# 默认选择前端、后端和网关管理端口，不编译 Go，也不启动业务服务。
+# 默认选择前端和后端端口，不编译 Go，也不启动业务服务。
 [CmdletBinding()]
-param([string]$Services='frontend,backend,gatewayAdmin')
+param([string]$Services='frontend,backend')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'project-root.ps1')
 $projectRoot = Get-LeafDocProjectRoot
@@ -17,10 +17,22 @@ $allocation = $selected -join ','
 
 $ErrorActionPreference='Stop'
 $ports=@($allocation.Split(',') | ForEach-Object { [int]$_ })
+# Docker Desktop 的宿主监听归共享进程所有，先按发布端口停止具体容器。
+if (Get-Command docker -ErrorAction SilentlyContinue) {
+ foreach ($container in @(docker ps -q)) {
+  $details = docker inspect $container | ConvertFrom-Json
+  $published = @($details.NetworkSettings.Ports.PSObject.Properties | ForEach-Object { $_.Value } | ForEach-Object { [int]$_.HostPort })
+  if (@($published | Where-Object { $_ -in $ports }).Count -gt 0) {
+   Write-Output "Stopping container on fixed listener: $($details.Name)"
+   & docker stop $container | Out-Null
+   if ($LASTEXITCODE -ne 0) { throw 'Cannot stop container occupying a fixed port.' }
+  }
+ }
+}
 # Owners 合并 TCP 监听与 UDP 端点的进程 ID 并去重。未限制主机或指定通配主机时
 # 匹配所有本地地址；指定环回 IPv4 时也检查 IPv6 环回及通配监听。
 function Owners {
- $all = $env:LEAFDOC_RELEASE_HOST -in @('', '0.0.0.0', '::')
+ $all = [string]::IsNullOrWhiteSpace($env:LEAFDOC_RELEASE_HOST) -or $env:LEAFDOC_RELEASE_HOST -in @('0.0.0.0', '::')
  $addresses = @($env:LEAFDOC_RELEASE_HOST, '0.0.0.0', '::')
  if ($env:LEAFDOC_RELEASE_HOST -eq '127.0.0.1') { $addresses += '::1' }
  @(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in $ports -and ($all -or $_.LocalAddress -in $addresses) } | Select-Object -ExpandProperty OwningProcess

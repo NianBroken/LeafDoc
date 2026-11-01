@@ -29,6 +29,8 @@ services:
         condition: service_healthy
     environment:
       LEAFDOC_HOST: 0.0.0.0
+      LEAFDOC_TLS_CERT: /run/leafdoc-tls/server.crt
+      LEAFDOC_TLS_KEY: /run/leafdoc-tls/server.key
       LEAFDOC_MYSQL_HOST: database
       LEAFDOC_MYSQL_DATABASE: ${LEAFDOC_MYSQL_DATABASE:?}
       LEAFDOC_MYSQL_USER: ${LEAFDOC_MYSQL_USER:?}
@@ -37,8 +39,11 @@ services:
       LEAFDOC_ADMIN_PASSWORD: ${LEAFDOC_ADMIN_PASSWORD:?}
       LEAFDOC_BASE_PATH: ${LEAFDOC_BASE_PATH:-}
       LEAFDOC_DATA_DIR: /app/data
+    ports:
+      - '${LEAFDOC_BIND_ADDRESS:-0.0.0.0}:${LEAFDOC_BACKEND_PORT}:${LEAFDOC_BACKEND_PORT}/tcp'
     command: [--enable-revision, --snapshot]
     volumes:
+      - ${LEAFDOC_CONFIG_DIR:-/etc/leafdoc}/tls:/run/leafdoc-tls:ro
       - documents:/app/data
     healthcheck:
       test: [CMD-SHELL, 'wget -qO- "http://127.0.0.1:${LEAFDOC_BACKEND_PORT}$${LEAFDOC_BASE_PATH}/api/health" > /dev/null']
@@ -49,22 +54,27 @@ services:
     stop_grace_period: 45s
     logging: *logging
   gateway:
-    image: ${LEAFDOC_CADDY_IMAGE:?Run deploy.sh init first}
+    image: ${LEAFDOC_IMAGE:-leafdoc:local}
     restart: unless-stopped
+    command: [gateway]
+    environment:
+      LEAFDOC_HOST: 0.0.0.0
+      LEAFDOC_BASE_PATH: ${LEAFDOC_BASE_PATH:-}
+      LEAFDOC_BACKEND_URL: http://app:${LEAFDOC_BACKEND_PORT}
+      LEAFDOC_TLS_CERT: /run/leafdoc-tls/server.crt
+      LEAFDOC_TLS_KEY: /run/leafdoc-tls/server.key
     depends_on:
-      app:
-        condition: service_healthy
+      - app
     ports:
       - '${LEAFDOC_BIND_ADDRESS:-0.0.0.0}:${LEAFDOC_FRONTEND_PORT}:${LEAFDOC_FRONTEND_PORT}/tcp'
     volumes:
-      - ${LEAFDOC_CONFIG_DIR:?}/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ${LEAFDOC_CONFIG_DIR:?}/tls:/etc/leafdoc/tls:ro
-      - gateway_data:/data
-      - gateway_config:/config
+      - ${LEAFDOC_CONFIG_DIR:-/etc/leafdoc}/tls:/run/leafdoc-tls:ro
+    healthcheck:
+      test: [CMD-SHELL, 'wget -qO- "http://127.0.0.1:${LEAFDOC_FRONTEND_PORT}$${LEAFDOC_BASE_PATH}/api/health" > /dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 12
     stop_grace_period: 30s
-    logging: *logging
 volumes:
   database:
   documents:
-  gateway_data:
-  gateway_config:

@@ -1,6 +1,6 @@
 # LeafDoc HTTP 接口参考
 
-本文用于直接调用当前服务。文中接口路径均为实例基础路径之后的完整路径，不需要再额外添加 `/api`。基础路径为空时入口为 `https://localhost:24691/api`；设置基础路径后，在 `/api` 前加入该路径。静态资源使用各自入口。
+本文用于直接调用当前服务。文中接口路径均为实例基础路径之后的完整路径，不需要再额外添加 `/api`。基础路径为空时入口为 `http://localhost:24691/api` 或 `https://localhost:24691/api`；设置基础路径后，在 `/api` 前加入该路径。静态资源使用各自入口。
 
 ## 登录与请求约定
 
@@ -8,7 +8,7 @@
 
 登录、刷新及无需预先登录的邮件入口不使用业务鉴权组的 CSRF 中间件。登录示例无需提交 CSRF 请求头。已经登录后的业务写请求需要 CSRF 校验。先读取 `/api/config` 获取 CSRF Cookie，再将相同值放入 `X-CSRF-Token`。表单也接受 `csrf_token`。已被服务器成功解析的 API 密钥身份免除这项校验，单独设置 Bearer 请求头不能绕过身份检查。GET、HEAD、OPTIONS 不执行 CSRF 校验。
 
-认证默认要求 HTTPS。使用受信任的 CA，通过 `curl --cacert` 指定证书来源。不要把忽略证书验证写成正常调用步骤。账号写入、API 密钥管理和部分快照恢复操作拒绝 API 密钥身份。
+认证默认同时支持 HTTP 和 HTTPS，无需设置 `--allow-insecure`。HTTPS 使用受信任的 CA，通过 `curl --cacert` 指定证书来源；HTTP 不需要证书参数。两个协议分别使用自己的登录及 CSRF Cookie，切换协议后按该协议登录并取得 CSRF 值。不要把忽略证书验证写成正常调用步骤。账号写入、API 密钥管理和部分快照恢复操作拒绝 API 密钥身份。
 
 ```bash
 read -rp '实例 HTTPS 地址: ' LEAFDOC_URL

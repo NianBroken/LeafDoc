@@ -34,5 +34,10 @@ if [ "$has_host_arg" = false ] && [ -z "${LEAFDOC_HOST:-}" ]; then
 fi
 
 # 保留参数边界交给应用，exec 使应用直接接收容器停止信号并决定容器退出状态。
+# 网关使用独立进程并直接接收容器信号，业务参数保持原样传递。
+if [ "${1:-}" = gateway ]; then
+  shift
+  exec /app/leafdoc-gateway "$@"
+fi
 log "Executing /app/leafdoc"
 exec /app/leafdoc "$@"

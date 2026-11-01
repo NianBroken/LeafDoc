@@ -73,10 +73,10 @@ func (o *serverOptions) Flags() []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name: "allow-insecure",
-			// 此值传给认证 Cookie 配置，允许不带 Secure 属性的 Cookie。
+			// 保留旧命令参数，HTTP 和 HTTPS 默认均可认证。
 			Destination: &o.allowInsecure,
 			Category:    catServer,
-			Usage:       "allow insecure HTTP; auth cookies may then travel in plain text",
+			Usage:       "compatibility option; HTTP and HTTPS authentication are enabled by default",
 			Sources:     envBoolVars("LEAFDOC_ALLOW_INSECURE"),
 		},
 		&cli.StringFlag{

@@ -80,7 +80,7 @@ node other/scripts/container.mjs schema
 node other/scripts/container.mjs build
 ```
 
-`build` 和 `release` 都进入 `package.mjs`，会创建源码清单、重新构建 Linux amd64 应用镜像、导出应用和 Caddy 镜像并生成压缩安装包。它不是单独编译后端的快捷方式。
+`build` 和 `release` 都进入 `package.mjs`，会创建源码清单、重新构建 Linux amd64 应用镜像、导出包含应用和 Go 网关的镜像并生成压缩安装包。它不是单独编译后端的快捷方式。
 
 打包入口会清空 `installers` 中已有内容。发行前把需要保留的包复制到仓库外。构建期间不要继续编辑源码，入口会比较构建前后的清单，发现变化即拒绝交付该包。发布元信息来自 `other/project.json`，不在多处独立填写版本号。
 

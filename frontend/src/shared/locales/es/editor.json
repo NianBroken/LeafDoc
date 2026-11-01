@@ -61,7 +61,8 @@
     "heading2": "Encabezado 2",
     "heading3": "Encabezado 3",
     "insertTable": "Insertar tabla (3×3)",
-    "lineWrap": "Ajuste de línea"
+    "lineWrap": "Ajuste de línea",
+    "pasteManualPrompt": "Paste text here, then confirm to insert it into the document."
   },
   "pageEditor": {
     "savedToast": "Página guardada correctamente",

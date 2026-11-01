@@ -26,6 +26,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOOS=linux go 
     -ldflags="-s -w -X github.com/NianBroken/LeafDoc/internal/http.EmbedFrontend=true -X github.com/NianBroken/LeafDoc/internal/http.Environment=production -X main.Version=${APP_VERSION} -X main.ProjectName=${APP_NAME}" \
     -o /out/leafdoc ./cmd/leafdoc
 
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOOS=linux go build -o /out/leafdoc-gateway ./cmd/gateway
+
 # 运行阶段只携带程序、入口脚本及所列系统工具，不复制编译器与前端依赖。
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS final
 ARG APP_NAME
@@ -33,10 +35,11 @@ ARG APP_VERSION
 RUN apk add --no-cache bash ca-certificates openssl && addgroup -S leafdoc && adduser -S -G leafdoc leafdoc
 WORKDIR /app
 COPY --from=backend-build /out/leafdoc /app/leafdoc
+COPY --from=backend-build /out/leafdoc-gateway /app/leafdoc-gateway
 COPY ./other/docker-entrypoint.sh /docker-entrypoint.sh
 COPY ./other/scripts/prepare-instance.sh /prepare-instance.sh
 RUN chmod +x /docker-entrypoint.sh
-EXPOSE 24692
+EXPOSE 24691 24692
 # 此目录是容器内默认数据位置；绑定宿主目录时以挂载目录的实际权限为准。
 RUN mkdir -p /app/data && chown leafdoc:leafdoc /app/data && chmod 750 /app/data
 USER leafdoc

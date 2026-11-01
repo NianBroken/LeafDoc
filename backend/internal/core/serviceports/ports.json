@@ -1,13 +1,13 @@
 {
   "frontend": 24691,
-  "setupCA": 24690,
   "backend": 24692,
-  "gatewayAdmin": 24693,
+  "setupCA": 24693,
   "metrics": 24694,
-  "httpTest": 24698,
-  "metricsTest": 24699,
-  "emailSMTPTest": 24701,
-  "ubuntu18SSH": 24703,
-  "ubuntu20SSH": 24704,
-  "ubuntu22SSH": 24705
+  "httpTest": 24695,
+  "metricsTest": 24696,
+  "emailSMTPTest": 24697,
+  "ubuntu18SSH": 24698,
+  "ubuntu20SSH": 24699,
+  "ubuntu22SSH": 24700,
+  "database": 24701
 }

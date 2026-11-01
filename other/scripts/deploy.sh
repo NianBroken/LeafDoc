@@ -23,6 +23,9 @@ start|stop|restart|status|logs|config)
     if [ "${LEAFDOC_TLS_MODE:-local}" = public ]; then args+=(-f "$root/other/compose.public.yaml"); fi
     case "$action" in
     start)
+        sh "$root/other/scripts/release-host-ports.sh" "$LEAFDOC_FRONTEND_PORT" "$LEAFDOC_BACKEND_PORT"
+        # 使用镜像中的服务身份设置证书组权限，不预设宿主 UID 或 GID。
+        docker run --rm --user 0 --entrypoint sh --mount "type=bind,source=$config_dir/tls,target=/tls" "$LEAFDOC_IMAGE" -ec 'chown -R "$(id -u leafdoc):$(id -g leafdoc)" /tls; chmod 750 /tls; chmod 640 /tls/server.key; chmod 644 /tls/server.crt'
         docker compose "${args[@]}" up -d
         exec python3 "$root/other/scripts/verify-deployment.py" --url "https://localhost:$LEAFDOC_FRONTEND_PORT" --ca "$config_dir/tls/local-ca.crt" --environment "$environment"
         ;;

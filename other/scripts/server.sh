@@ -13,11 +13,11 @@ units=(leafdoc-mysql.service leafdoc.service leafdoc-gateway.service)
 case "$action" in
 install)
     leafdoc_require_root
-    [ "$#" = 5 ] || { echo 'Usage: server.sh install BINARY CADDY MYSQL_ARCHIVE CONFIG_DIRECTORY' >&2; exit 1; }
-    binary="$(realpath "$2")"; caddy="$(realpath "$3")"; archive="$(realpath "$4")"; config_dir="$(realpath "$5")"
+    [ "$#" = 5 ] || { echo 'Usage: server.sh install BINARY GATEWAY MYSQL_ARCHIVE CONFIG_DIRECTORY' >&2; exit 1; }
+    binary="$(realpath "$2")"; gateway="$(realpath "$3")"; archive="$(realpath "$4")"; config_dir="$(realpath "$5")"
     . /etc/os-release
     case "$ID:$VERSION_ID" in ubuntu:18.04|ubuntu:20.04|ubuntu:22.04) ;; *) echo 'Supported Ubuntu releases: 18.04, 20.04, 22.04.' >&2; exit 1;; esac
-    test -f "$binary" && test -f "$caddy" && test -f "$archive"
+    test -f "$binary" && test -f "$gateway" && test -f "$archive"
     leafdoc_load_environment "$config_dir/environment"
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl libaio1 libnuma1 libncurses5 libtinfo5
@@ -27,7 +27,7 @@ install)
     install -d -m 750 -o leafdoc -g leafdoc "$data_dir"
     install -d -m 750 -o leafdoc-mysql -g leafdoc-mysql "$mysql_data"
     install -m 755 "$binary" "$install_dir/leafdoc"
-    install -m 755 "$caddy" "$install_dir/caddy"
+    install -m 755 "$gateway" "$install_dir/leafdoc-gateway"
     if [ ! -x "$mysql_dir/bin/mysqld" ]; then
         install -d -m 755 "$mysql_dir"
         tar -xf "$archive" -C "$mysql_dir" --strip-components=1
@@ -124,7 +124,7 @@ User=leafdoc
 Group=leafdoc
 WorkingDirectory=$data_dir
 EnvironmentFile=$config_dir/environment
-ExecStart=$install_dir/leafdoc --host=127.0.0.1 --data-dir=$data_dir --enable-revision --snapshot
+ExecStart=$install_dir/leafdoc --host=0.0.0.0 --data-dir=$data_dir --enable-revision --snapshot
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=45
@@ -133,12 +133,10 @@ NoNewPrivileges=true
 [Install]
 WantedBy=multi-user.target
 EOF
-    "$install_dir/caddy" fmt --overwrite "$config_dir/Caddyfile"
-    "$install_dir/caddy" validate --config "$config_dir/Caddyfile"
     cat > /etc/systemd/system/leafdoc-gateway.service <<EOF
-# HTTPS gateway keeps certificate storage in the dedicated data directory.
+# Gateway accepts HTTP and HTTPS on the fixed frontend port.
 [Unit]
-Description=LeafDoc HTTPS gateway
+Description=LeafDoc HTTP and HTTPS gateway
 Wants=network-online.target leafdoc.service
 After=network-online.target leafdoc.service
 [Service]
@@ -147,7 +145,8 @@ User=leafdoc
 Group=leafdoc
 Environment=HOME=$data_dir
 WorkingDirectory=$data_dir
-ExecStart=$install_dir/caddy run --config $config_dir/Caddyfile
+EnvironmentFile=$config_dir/environment
+ExecStart=$install_dir/leafdoc-gateway
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -159,11 +158,17 @@ WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable "${units[@]}"
+    sh "$script_dir/release-host-ports.sh" "$frontend" "$backend"
     systemctl restart leafdoc.service leafdoc-gateway.service
     python3 "$script_dir/verify-deployment.py" --url "https://localhost:$frontend" --ca "$config_dir/tls/local-ca.crt" --environment "$config_dir/environment"
     ;;
 start|stop|restart)
     leafdoc_require_root
+    if [ "$action" != stop ]; then
+        frontend="$("$install_dir/leafdoc" service-port frontend)"
+        backend="$("$install_dir/leafdoc" service-port backend)"
+        sh "$script_dir/release-host-ports.sh" "$frontend" "$backend"
+    fi
     systemctl "$action" "${units[@]}"
     ;;
 status) systemctl status "${units[@]}" --no-pager;;

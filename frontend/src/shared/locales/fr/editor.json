@@ -61,7 +61,8 @@
     "heading2": "Titre 2",
     "heading3": "Titre 3",
     "insertTable": "Insérer un tableau (3×3)",
-    "lineWrap": "Retour à la ligne"
+    "lineWrap": "Retour à la ligne",
+    "pasteManualPrompt": "Paste text here, then confirm to insert it into the document."
   },
   "pageEditor": {
     "savedToast": "Page enregistrée avec succès",

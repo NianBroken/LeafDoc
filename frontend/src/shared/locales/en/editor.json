@@ -61,7 +61,8 @@
     "heading2": "Heading 2",
     "heading3": "Heading 3",
     "insertTable": "Insert Table (3×3)",
-    "lineWrap": "Line wrap"
+    "lineWrap": "Line wrap",
+    "pasteManualPrompt": "Paste text here, then confirm to insert it into the document."
   },
   "pageEditor": {
     "savedToast": "Page saved successfully",

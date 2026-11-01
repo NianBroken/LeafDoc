@@ -10,8 +10,7 @@ const root = findProjectRoot();
 const output = path.join(root, 'installers');
 const metadata = JSON.parse(fs.readFileSync(path.join(root, 'other/project.json'), 'utf8'));
 const platform = 'linux/amd64';
-const gateway = 'caddy:2-alpine';
-const excluded = /(^|\/)(node_modules|dist|installers|data|test-results|releases|\.git)(\/|$)|(^|\/)\.env($|\.)|\.exe$|\.tsbuildinfo$/;
+const excluded = /(^|\/)(node_modules|dist|installers|data|test-results|releases|\.git)(\/|$)|(^|\/)\.env($|\.)|\.(exe|key|pem|pfx|p12)$|\.tsbuildinfo$/;
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'leafdoc-package-'));
 const snapshot = path.join(temporary, 'source');
 const bundle = path.join(temporary, 'bundle');
@@ -33,7 +32,6 @@ try {
   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(metadata.name) || !/^\d+\.\d+\.\d+$/.test(metadata.version)) throw new Error('项目名称或版本格式无效');
   if (fs.existsSync(output) && (fs.lstatSync(output).isSymbolicLink() || fs.realpathSync(output) !== path.resolve(output))) throw new Error('installers 不得指向其他目录');
   fs.mkdirSync(output, { recursive: true });
-  for (const entry of fs.readdirSync(output)) fs.rmSync(path.join(output, entry), { recursive: true, force: true });
   run('docker', ['info', '--format', '{{.OSType}}']);
   const before = inventory();
   const sourceHash = crypto.createHash('sha256').update(JSON.stringify(before)).digest('hex');
@@ -47,28 +45,30 @@ try {
   const timestamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}${pad(Math.floor(d.getMilliseconds() / 10))}`;
   const name = `${metadata.name}_${metadata.version}_${timestamp}`;
   const image = `${metadata.name.toLowerCase()}:${metadata.version}-${timestamp}`;
-  run('docker', ['build', '--platform', platform, '--no-cache', '-f', path.join(snapshot, 'other/Dockerfile'), '--build-arg', `APP_VERSION=${metadata.version}`, '--build-arg', `APP_NAME=${metadata.name}`, '--label', `org.opencontainers.image.revision=${sourceHash}`, '-t', image, snapshot]);
-  run('docker', ['pull', '--platform', platform, gateway]);
+  run('docker', ['build', '--platform', platform, '-f', path.join(snapshot, 'other/Dockerfile'), '--build-arg', `APP_VERSION=${metadata.version}`, '--build-arg', `APP_NAME=${metadata.name}`, '--label', `org.opencontainers.image.revision=${sourceHash}`, '-t', image, snapshot]);
   fs.mkdirSync(bundle);
-  run('docker', ['save', '-o', path.join(bundle, 'images.tar'), image, gateway]);
+  run('docker', ['save', '-o', path.join(bundle, 'images.tar'), image]);
   const ports = JSON.parse(fs.readFileSync(path.join(root, 'backend/internal/core/serviceports/ports.json'), 'utf8'));
   fs.copyFileSync(path.join(root, 'other/scripts/install-bundle.sh'), path.join(bundle, 'install.sh'));
+  fs.copyFileSync(path.join(root, 'other/scripts/release-host-ports.sh'), path.join(bundle, 'release-host-ports.sh'));
   fs.copyFileSync(path.join(root, 'other/docker-packaging.md'), path.join(bundle, 'README.md'));
-  fs.writeFileSync(path.join(bundle, 'release.env'), `LEAFDOC_IMAGE=${image}\nLEAFDOC_CADDY_IMAGE=${gateway}\nLEAFDOC_FRONTEND_PORT=${ports.frontend}\nLEAFDOC_BACKEND_PORT=${ports.backend}\n`);
+  fs.writeFileSync(path.join(bundle, 'release.env'), `LEAFDOC_IMAGE=${image}\nLEAFDOC_FRONTEND_PORT=${ports.frontend}\nLEAFDOC_BACKEND_PORT=${ports.backend}\n`);
   fs.writeFileSync(path.join(bundle, 'compose.yaml'), fs.readFileSync(path.join(root, 'other/compose.bundle.yaml')));
   const fnosDirectory = path.join(bundle, 'fnos');
   fs.mkdirSync(fnosDirectory);
   let fnosCompose = fs.readFileSync(path.join(root, 'other/compose.fnos.yaml'), 'utf8');
-  for (const [key, value] of Object.entries({ APP_IMAGE: image, GATEWAY_IMAGE: gateway, FRONTEND_PORT: ports.frontend, BACKEND_PORT: ports.backend, CA_PORT: ports.setupCA })) {
+  for (const [key, value] of Object.entries({ APP_IMAGE: image, GATEWAY_IMAGE: image, FRONTEND_PORT: ports.frontend, BACKEND_PORT: ports.backend, CA_PORT: ports.setupCA })) {
     fnosCompose = fnosCompose.replaceAll(`__${key}__`, String(value));
   }
   fs.writeFileSync(path.join(fnosDirectory, 'docker-compose.yml'), fnosCompose);
   fs.copyFileSync(path.join(root, 'other/fnos-deployment.md'), path.join(fnosDirectory, 'README.md'));
-  fs.writeFileSync(path.join(bundle, 'manifest.json'), JSON.stringify({ ...metadata, platform, builtAt: d.toISOString(), sourceHash, files: before, images: [image, gateway] }, null, 2));
+  fs.writeFileSync(path.join(bundle, 'manifest.json'), JSON.stringify({ ...metadata, platform, builtAt: d.toISOString(), sourceHash, files: before, images: [image] }, null, 2));
+  // 源码与镜像一并归档，独立设备能够使用相同 Dockerfile 重新构建。
+  fs.cpSync(snapshot, path.join(bundle, 'source'), { recursive: true });
   const bundleFiles = fs.readdirSync(bundle, { recursive: true }).filter(file => fs.statSync(path.join(bundle, file)).isFile()).sort();
   fs.writeFileSync(path.join(bundle, 'SHA256SUMS'), bundleFiles.map(file => `${digest(path.join(bundle, file))}  ${file.replaceAll('\\', '/')}\n`).join(''));
   if (JSON.stringify(before) !== JSON.stringify(inventory())) throw new Error('构建期间源码发生变化，请重新打包');
-  run('docker', ['run', '--rm', '--user', '0', '--entrypoint', 'sh', '--mount', `type=bind,source=${temporary},target=/work`, image, '-ec', `set -o pipefail; cd /work/bundle && tar -cf - . | gzip -9 > /work/${name}.tar.gz`]);
+  run('docker', ['run', '--rm', '--user', '0', '--entrypoint', 'sh', '--mount', `type=bind,source=${temporary},target=/work`, image, '-ec', `set -o pipefail; cd /work/bundle && tar -cf - . | gzip -6 > /work/${name}.tar.gz`]);
   if (JSON.stringify(before) !== JSON.stringify(inventory())) throw new Error('归档期间源码发生变化，请重新打包');
   fs.copyFileSync(path.join(temporary, `${name}.tar.gz`), path.join(output, `${name}.tar.gz`));
   // 本地启动入口使用稳定标签，只有完整发行成功后才将其指向本次构建。

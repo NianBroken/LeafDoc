@@ -139,8 +139,8 @@ func TestCSRFCookie_Issue_Insecure(t *testing.T) {
 	}
 }
 
-// TestCSRFCookie_Issue_ErrorWhenHTTPSRequired 将安全策略错误映射为 400，并确认普通请求被拒绝。
-func TestCSRFCookie_Issue_ErrorWhenHTTPSRequired(t *testing.T) {
+// TestCSRFCookie_Issue_HTTPDefault 确认默认配置接受普通 HTTP 请求。
+func TestCSRFCookie_Issue_HTTPDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	csrf := NewCSRFCookie(false, time.Hour)
 
@@ -158,14 +158,14 @@ func TestCSRFCookie_Issue_ErrorWhenHTTPSRequired(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	// 请求不设置 TLS 或 HTTPS 转发标记，且策略禁止普通连接。
+	// 请求不设置 TLS 或 HTTPS 转发标记，默认策略仍允许 Cookie。
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 400 when HTTPS required for CSRF cookie, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for HTTP CSRF cookie, got %d", w.Code)
 	}
 }
 

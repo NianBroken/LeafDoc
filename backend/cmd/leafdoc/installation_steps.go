@@ -113,7 +113,7 @@ func installationSteps(next http.Handler, base, token string) http.Handler {
 			session = &setupSession{Step: 1, Revision: 1, Expires: time.Now().Add(setupSessionLifetime)}
 			sessions[hex.EncodeToString(random)] = session
 			cookiePath := base + "/"
-			http.SetCookie(w, &http.Cookie{Name: setupCookieName, Value: hex.EncodeToString(random), Path: cookiePath, HttpOnly: true, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteStrictMode, MaxAge: int(setupSessionLifetime.Seconds())})
+			http.SetCookie(w, &http.Cookie{Name: setupCookieName, Value: hex.EncodeToString(random), Path: cookiePath, HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteStrictMode, MaxAge: int(setupSessionLifetime.Seconds())})
 			setupJSON(w, 200, setupSessionView(session))
 			return
 		}

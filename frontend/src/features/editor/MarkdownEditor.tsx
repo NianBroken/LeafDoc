@@ -138,7 +138,7 @@ const MarkdownEditor = (
     if (!startView) return
     let md: string | null = null
     try {
-      if (typeof navigator.clipboard.read === 'function') {
+      if (typeof navigator.clipboard?.read === 'function') {
         const items = await navigator.clipboard.read()
         for (const item of items) {
           if (item.types.includes('text/html')) {
@@ -165,7 +165,10 @@ const MarkdownEditor = (
     }
     if (!md) {
       try {
-        md = (await navigator.clipboard.readText()) || null
+        md =
+          typeof navigator.clipboard?.readText === 'function'
+            ? (await navigator.clipboard.readText()) || null
+            : window.prompt(t('toolbar.pasteManualPrompt'))
       } catch {
         toast.error(t('toolbar.pasteClipboardError'))
         return
@@ -193,7 +196,10 @@ const MarkdownEditor = (
     if (!startView) return
     let text: string
     try {
-      text = await navigator.clipboard.readText()
+      text =
+        typeof navigator.clipboard?.readText === 'function'
+          ? await navigator.clipboard.readText()
+          : window.prompt(t('toolbar.pasteManualPrompt')) || ''
     } catch {
       toast.error(t('toolbar.pasteClipboardError'))
       return
