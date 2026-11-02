@@ -55,13 +55,35 @@ func (w *Wiki) EnsureDefaultDocuments() error {
 	if err != nil {
 		return err
 	}
+	ids := map[string]string{}
 	kind := tree.NodeKindPage
 	orchestrator := w.newPageOrchestrator()
 	// 每篇教程依次定位或创建页面，再使用当前版本更新正文，任一步失败即结束。
 	for _, document := range documents {
 		var id string
-		// 查找仅覆盖根节点直接子项，按 slug 判断是否已有同路径教程。
-		for _, node := range w.tree.GetTree().Children {
+		kind = tree.NodeKindPage
+		for _, candidate := range documents {
+			if candidate.ParentSlug == document.Slug {
+				kind = tree.NodeKindSection
+				break
+			}
+		}
+		parent := w.tree.GetTree()
+		var parentID *string
+		if document.ParentSlug != "" {
+			value, exists := ids[document.ParentSlug]
+			if !exists {
+				return fmt.Errorf("default document parent unavailable: %s", document.ParentSlug)
+			}
+			parentID = &value
+			var err error
+			parent, err = w.tree.FindPageByID(value)
+			if err != nil {
+				return err
+			}
+		}
+		// 在对应父节点的直接子项中按 slug 定位教程。
+		for _, node := range parent.Children {
 			if node.Slug == document.Slug {
 				if node.Metadata.CreatorID != SYSTEM_USER_ID {
 					return fmt.Errorf("default document path is occupied: %s", document.Slug)
@@ -72,13 +94,14 @@ func (w *Wiki) EnsureDefaultDocuments() error {
 		}
 		if id == "" {
 			out, err := wikipages.NewCreatePageUseCase(w.tree, w.slug, orchestrator, w.log, w.metrics).Execute(context.Background(), wikipages.CreatePageInput{
-				UserID: SYSTEM_USER_ID, Title: document.Title, Slug: document.Slug, Kind: &kind,
+				UserID: SYSTEM_USER_ID, ParentID: parentID, Title: document.Title, Slug: document.Slug, Kind: &kind,
 			})
 			if err != nil {
 				return err
 			}
 			id = out.Page.ID
 		}
+		ids[document.Slug] = id
 		// 创建与复用都读取当前页面版本，更新通过既有业务用例执行保存及相关联动。
 		page, err := w.tree.GetPage(id)
 		if err != nil {

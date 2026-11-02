@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	"github.com/soheilhy/cmux"
 )
 
@@ -42,7 +43,7 @@ func Wrap(base net.Listener, certFile, keyFile string) (*Listener, error) {
 			select {
 			case l.connections <- conn:
 			case <-l.done:
-				conn.Close()
+				shared.LogNetworkClose(conn, "close pending dual protocol connection")
 				return
 			}
 		}
@@ -57,7 +58,7 @@ func Wrap(base net.Listener, certFile, keyFile string) (*Listener, error) {
 			l.terminal = err
 			l.mu.Unlock()
 		}
-		l.Close()
+		shared.LogNetworkClose(l, "close dual protocol listener")
 	}()
 	return l, nil
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-// TestCurriculumRenderedLinksAndResources 检查五篇教程中的非空链接目标。
+// TestCurriculumRenderedLinksAndResources 检查十篇教程中的非空链接目标。
 // Markdown 通过 goldmark 解析为语法树，测试不发起网络请求，也不执行浏览器渲染。
 // 图片须对应嵌入资源，站内链接须命中教程路径，外链须使用指定域名上的 HTTPS。
 func TestCurriculumRenderedLinksAndResources(t *testing.T) {
@@ -20,13 +20,31 @@ func TestCurriculumRenderedLinksAndResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(documents) != 5 {
-		t.Fatal("expected five tutorials")
+	if len(documents) != 10 {
+		t.Fatal("expected ten tutorials")
 	}
 	// 先收集全部教程路径，允许任一教程引用列表中尚未遍历到的其他页面。
 	routes := map[string]bool{}
 	for _, doc := range documents {
-		routes["/"+doc.Slug] = true
+		routes[doc.Path] = true
+	}
+	// 一级章节与二级页面数量是默认课程的公开组织约定。
+	roots, children := 0, 0
+	for _, doc := range documents {
+		if doc.ParentSlug == "" {
+			roots++
+		} else {
+			children++
+			if !routes["/"+doc.ParentSlug] {
+				t.Errorf("%s missing parent %s", doc.Slug, doc.ParentSlug)
+			}
+		}
+		if len(doc.Content) == 0 {
+			t.Errorf("%s has no content", doc.Slug)
+		}
+	}
+	if roots != 3 || children != 7 {
+		t.Fatalf("expected 3 roots and 7 children, got %d and %d", roots, children)
 	}
 	for _, doc := range documents {
 		source := []byte(doc.Content)

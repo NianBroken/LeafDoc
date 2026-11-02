@@ -2,7 +2,10 @@
 package shared
 
 import (
+	"errors"
+	"io"
 	"log/slog"
+	"net"
 )
 
 // LogClose 调用传入的关闭函数，失败时通过默认 slog 日志记录错误。
@@ -13,6 +16,13 @@ import (
 // closer 必须是可调用函数；此处不捕获 panic，也不检查资源是否已经关闭。
 func LogClose(closer func() error, msg string) {
 	if err := closer(); err != nil {
+		slog.Default().Error(msg, "error", err)
+	}
+}
+
+// LogNetworkClose 释放网络资源，已关闭是正常终态，其余关闭失败保留错误日志。
+func LogNetworkClose(resource io.Closer, msg string) {
+	if err := resource.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 		slog.Default().Error(msg, "error", err)
 	}
 }

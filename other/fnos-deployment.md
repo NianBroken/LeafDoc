@@ -1,58 +1,35 @@
-# fnOS Docker 部署
+# fnOS 可视化 Docker 部署
 
-## 使用发行包
+## 发行包与准备
 
-解压发行压缩包，在 fnOS 的 Docker 本地镜像页面导入 `images.tar`。该镜像同时包含 LeafDoc 业务程序和 Go 双协议网关。完整 `.tar.gz` 不是 Docker 镜像归档，不能直接作为镜像导入。
+使用 package.mjs 生成的完整发行包。解压并校验 SHA256SUMS，执行 docker load -i images.tar。fnos/docker-compose.yml 已由构建脚本替换镜像和固定端口占位符，直接使用生成文件，不把仓库中的 __APP_IMAGE__ 等占位符作为真实镜像启动。
 
-在 Compose 新增项目页面上传归档中的 `fnos/docker-compose.yml`。源码模板 `other/compose.fnos.yaml` 保留占位符，不能直接上传。
+本模板不带数据库，准备应用容器可达的 MySQL 与凭据。与其他 LeafDoc 部署共存时检查端口，避免相互抢占。
 
-服务使用外部 MySQL，部署前准备可从应用容器访问的数据库。容器内 `127.0.0.1` 指向容器自身，不代表 NAS 宿主。数据库账号需要建表、读取、写入和事务权限。
+## 可视化创建
 
-## 填写实例地址
+在 fnOS Docker 项目界面创建项目，使用包内 fnos/docker-compose.yml，保持项目名稳定。x-settings 的 LEAFDOC_HOSTS 填实际访问地址，多个地址空格分隔。BASE_PATH 是可选 URL 前缀，DOMAIN 参与证书地址准备，不等于自动获取公网受信任证书。
 
-在顶部 `x-settings` 设置 `LEAFDOC_HOSTS`，内容为 NAS 的真实主机名或 IP，多个地址用空格分隔。准备服务会将这些地址写入证书，自动包含 localhost 和本地环回地址。
+prepare 使用 root 完成卷权限、证书、安装令牌和设置准备，完成成功后 app 与 gateway 才启动。prepare 是一次性服务，Exited 0 是正常结果，不要求它常驻。
 
-`LEAFDOC_BASE_PATH` 默认为空。部署到子路径时填写以 `/` 开头的路径，访问时在端口后添加该路径。
+| 卷 | 用途 |
+| --- | --- |
+| instance_data | 安装状态、附件等实例文件 |
+| instance_config | TLS、私钥及准备配置 |
+| public_certificates | 可供安装流程读取的公开 CA |
 
-`LEAFDOC_DOMAIN` 为空表示本地地址。填写真实域名后该域名进入证书名称，仍使用实例 CA 签发的证书。需要公开受信任证书时，由管理员在持久配置卷的 `tls/server.crt` 和 `tls/server.key` 提供对应证书。当前网关不自动申请公网证书，不监听标准 80 和 443 端口。
+应用只读挂载配置与公开证书，持久数据读写。不要删除卷更新程序。
 
-前端固定使用 `24691`，后端固定使用 `24692`。两个端口各自同时接受 HTTP 和 HTTPS，不修改左右映射，不增加随机端口。
+## 安装与访问
 
-## 初始化与信任证书
+启动后检查 prepare 成功以及 app、gateway 运行。访问服务器 24691 端口，HTTP 与 HTTPS 同端口。首次按引导页令牌流程连接 MySQL、配置管理员并完成安装。令牌保存在 instance_data 卷的 setup-token，通过容器管理界面查看对应挂载目录，不把令牌写入模板。
 
-启动项目后通过 `http://NAS地址:24691` 打开安装页面，按界面获取公开 CA，核对准备服务日志中的 SHA256 指纹，并将该 CA 导入访问设备的信任存储。
+HTTPS 信任安装流程提供的 CA，并使用证书匹配地址。完成后实际登录，打开教程并保存练习页。
 
-使用 `https://NAS地址:24691` 验证证书后填写数据库和管理员资料。普通 HTTP 同样支持安装、登录及业务操作，不强制升级到 HTTPS。HTTPS 身份与 HTTP 身份分别使用对应协议的 Cookie，切换协议后重新登录。
+## 更新和长期运行
 
-首次安装令牌由准备服务生成并保存在数据卷中。数据库凭据、管理员密码、首次令牌和私钥不得写入公开 Compose 文件或截图。
+导入新包 images.tar，用新生成模板中的镜像标签更新原项目，保持项目名与卷名。确认原 x-settings 访问地址和前缀保留，再重建 app、gateway。prepare 按依赖执行设置准备，不能更换成不关联旧卷的新项目。
 
-初始化成功后公开 CA 下载接口关闭，属于预期行为。维护人员仍能从持久配置中导出公开 CA，不能将私钥作为公开文件分发。
+app 和 gateway 的 unless-stopped 保持后台恢复，prepare 的 restart 为 no。宿主 Docker 服务还需开机运行。检查日志、访问与原管理员登录后确认更新，主动停止的容器需要手动恢复。
 
-## 服务与持久卷
-
-- `prepare` 使用镜像内准备脚本，以零号用户创建数据、令牌、证书并设置服务用户权限。它成功退出后，应用和网关才能启动。
-- `app` 使用默认低权限服务身份，运行 LeafDoc 业务程序，挂载持久数据及只读证书，监听双协议后端端口。
-- `gateway` 使用同一应用镜像和 `command: [gateway]`，启动内置 Go 网关，监听双协议前端端口。
-- `instance_data` 保存文档、附件、安装状态及首次令牌。
-- `instance_config` 保存 CA、服务器证书、私钥和准备参数摘要。应用及网关只读挂载此卷，不能公开共享。
-- `public_certificates` 保存用于安装页面下载的公开 CA，不包含私钥。
-
-保留模板中的 `restart: unless-stopped`，业务进程会在异常退出后由 Docker 恢复，正常手动停止后保持停止。项目不依赖浏览器页面、终端或一次性验证进程持续运行。
-
-## 升级与核验
-
-导入新发行包的镜像，使用该包生成的 Compose 更新同一个项目。保留项目名称与三个持久卷，不能通过删除数据卷完成升级。
-
-访问 `http://NAS地址:24691/api/health` 和对应 HTTPS 地址，确认均返回成功。后端可通过 `http://NAS地址:24692/api/health` 及对应 HTTPS 地址单独检查。检查登录、保存文档、重新读取和附件操作，再重启项目验证持久数据。
-
-遇到端口占用，定位占用服务并停止旧实例后重启，不能修改端口或使用自动分配映射。HTTPS 失败时检查访问地址是否在证书名称中、客户端是否信任实例 CA、证书文件权限以及容器日志。
-
-## 源码重建
-
-发行包的 `source/` 包含源码、锁文件及 Docker 构建配置。在具备 Docker 的设备上执行：
-
-```sh
-docker build -f source/other/Dockerfile -t leafdoc:local source
-```
-
-构建需要访问锁文件指定的依赖和基础镜像。离线运行使用归档中的 `images.tar`，不要求在目标 NAS 安装 Go 或 Node.js。
+完整镜像打包、校验和字段解释分别见包内主 README 及源码配置说明。失效链接按实际页面路径排查，数据库不可达时检查容器网络地址，不使用容器 localhost 指代宿主。

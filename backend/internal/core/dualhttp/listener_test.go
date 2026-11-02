@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -43,12 +44,26 @@ func TestBothProtocols(t *testing.T) {
 	}
 	listener, err := Wrap(base, certFile, keyFile)
 	if err != nil {
-		base.Close()
+		if closeErr := base.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
 		t.Fatal(err)
 	}
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, r.TLS != nil) }), ReadHeaderTimeout: time.Second}
-	defer server.Close()
-	go server.Serve(listener)
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := fmt.Fprint(w, r.TLS != nil); err != nil {
+			t.Error(err)
+		}
+	}), ReadHeaderTimeout: time.Second}
+	defer func() {
+		if err := server.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	go func() {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Error(err)
+		}
+	}()
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(certPEM)
 	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
@@ -68,7 +83,11 @@ func TestBothProtocols(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			defer response.Body.Close()
+			defer func() {
+				if err := response.Body.Close(); err != nil {
+					t.Error(err)
+				}
+			}()
 			body, err := io.ReadAll(response.Body)
 			if err != nil || string(body) != want {
 				t.Errorf("protocol=%s body=%s error=%v", scheme, body, err)

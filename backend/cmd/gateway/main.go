@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/NianBroken/LeafDoc/internal/core/dualhttp"
 	"github.com/NianBroken/LeafDoc/internal/core/serviceports"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 )
 
 // main 执行网关并报告启动错误。
@@ -84,10 +86,9 @@ func run() error {
 	}
 	listener, err := dualhttp.Wrap(base, certFile, keyFile)
 	if err != nil {
-		base.Close()
-		return err
+		return errors.Join(err, base.Close())
 	}
-	defer listener.Close()
+	defer shared.LogNetworkClose(listener, "close gateway listener")
 	server := &http.Server{Handler: proxy, ReadHeaderTimeout: 5 * time.Second}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

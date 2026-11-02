@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/dualhttp"
 	"log/slog"
 	"net"
 	"net/http"
@@ -24,7 +23,9 @@ import (
 
 	coreauth "github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/core/dualhttp"
 	"github.com/NianBroken/LeafDoc/internal/core/installation"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	"github.com/NianBroken/LeafDoc/internal/wiki"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -63,12 +64,11 @@ func prepareInstallation(ctx context.Context, cfg *serverConfig) error {
 	if cert, key := os.Getenv("LEAFDOC_TLS_CERT"), os.Getenv("LEAFDOC_TLS_KEY"); cert != "" || key != "" {
 		combined, wrapErr := dualhttp.Wrap(listener, cert, key)
 		if wrapErr != nil {
-			listener.Close()
-			return wrapErr
+			return errors.Join(wrapErr, listener.Close())
 		}
 		listener = combined
 	}
-	defer listener.Close()
+	defer shared.LogNetworkClose(listener, "close installation listener")
 	completed := make(chan *installation.Config, 1)
 	var mu sync.Mutex
 	done := false

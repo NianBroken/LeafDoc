@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/NianBroken/LeafDoc/internal/core/dualhttp"
 	"io"
 	"log/slog"
 	"math"
@@ -26,6 +25,7 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/auth"
 	"github.com/NianBroken/LeafDoc/internal/core/auth/maintenance"
 	"github.com/NianBroken/LeafDoc/internal/core/database"
+	"github.com/NianBroken/LeafDoc/internal/core/dualhttp"
 	"github.com/NianBroken/LeafDoc/internal/core/email"
 	"github.com/NianBroken/LeafDoc/internal/core/ignore"
 	"github.com/NianBroken/LeafDoc/internal/core/localization"
@@ -33,6 +33,7 @@ import (
 	"github.com/NianBroken/LeafDoc/internal/core/publicaccess"
 	"github.com/NianBroken/LeafDoc/internal/core/restore"
 	"github.com/NianBroken/LeafDoc/internal/core/settings"
+	"github.com/NianBroken/LeafDoc/internal/core/shared"
 	"github.com/NianBroken/LeafDoc/internal/core/snapshot"
 	"github.com/NianBroken/LeafDoc/internal/core/tocdisplay"
 	httpinternal "github.com/NianBroken/LeafDoc/internal/http"
@@ -447,7 +448,7 @@ func runServer(
 		if cert, key := os.Getenv("LEAFDOC_TLS_CERT"), os.Getenv("LEAFDOC_TLS_KEY"); cert != "" || key != "" {
 			combined, err := dualhttp.Wrap(listener, cert, key)
 			if err != nil {
-				listener.Close()
+				shared.LogNetworkClose(listener, "close rejected business listener")
 				return err
 			}
 			return serveWithLifecycle(server, combined, nil, reload, reloadSignals, shutdownSignals)
@@ -461,7 +462,7 @@ func runServer(
 	}
 
 	cleanup := func() {
-		_ = listener.Close()
+		shared.LogNetworkClose(listener, "close unix socket listener")
 		_ = os.Remove(unixSocket)
 	}
 	defer cleanup()
@@ -531,7 +532,7 @@ func listenOnUnixSocket(socketPath string) (net.Listener, error) {
 		return nil, err
 	}
 	if err := os.Chmod(socketPath, 0660); err != nil {
-		_ = listener.Close()
+		shared.LogNetworkClose(listener, "close unix socket listener")
 		_ = os.Remove(socketPath)
 		return nil, err
 	}
